@@ -1,0 +1,23 @@
+# Realm: the game (static files) + the multiplayer relay (a Durable Object per room), all in one Worker.
+name = "realm-relay"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# The game itself: everything in ./public is served as static files. Requests for /ws and /health go to the Worker instead.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# One Durable Object per room code. It only copies messages between the host and up to 3 friends; it stores nothing.
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RealmRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RealmRoom"]      # (the free plan only supports SQLite-backed Durable Objects; the room never uses storage)
+
+[vars]
+# Comma-separated list of page origins allowed to open a relay socket, e.g. "https://realm.pages.dev".
+# Leave empty when the game is served by this same Worker. (Needed if the game is on Cloudflare Pages.)
+ALLOWED_ORIGINS = ""

@@ -1,0 +1,12 @@
+{
+  "name": "realm-relay",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "python3 tools/build.py",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
+    "deploy:pages": "npm run build && wrangler pages deploy public --project-name realm"
+  },
+  "devDependencies": { "wrangler": "^4.0.0" }
+}
