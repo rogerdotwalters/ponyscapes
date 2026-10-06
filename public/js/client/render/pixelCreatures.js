@@ -1,7 +1,8 @@
 'use strict';
 /* CLIENT - retro pixel-art creatures, in the style of the pixel characters and ponies. Each creature kind (a sprite.kind in the creature data)
- * has a painter here that draws its PROFILE, facing right, pixel by pixel into a small canvas; the result is outlined, cached and drawn scaled
- * up with hard edges (by the data's sprite.scale too, so a whelp and an elder dragon share one drawing). Left is the mirror; walking towards
+ * has a painter here that draws its PROFILE, facing right, into a small canvas; the result is outlined, cached and drawn scaled up with hard
+ * edges. One drawing serves every size (a whelp and an elder dragon): the painter draws it AT the data's sprite.scale, so every creature has
+ * the same pixel size on screen, a big one just has more pixels. Left is the mirror; walking towards
  * or away from the camera shows the last profile, as before.
  * Each frame knows: i (0-3 of the walk, or of the idle loop), moving, swing (-1 / 0 / 1: legs apart one way or the other), bob, hunting,
  * and t (a time-based frame, for wings and wriggles). A kind with no painter here keeps its smooth drawing (creatures/*.js). */
@@ -10,31 +11,50 @@ const PixelCreatures = (() => {
   const PX = 1.25, cache = new Map(), kinds = {};
   const OUTLINE = '#1c130e', RED = '#ff3a2a';
 
-  function painter(ctx) {
+  /** The painter works in ART coordinates, but paints at the creature's real size (m = its scale): outlines, bodies, lines and wings
+   *  are drawn at full resolution, so a boss has the same pixel size as a rabbit, just more of them. */
+  function painter(ctx, m = 1) {
     let ox = 0, oy = 0;
+    const X = x => Math.round((x + ox) * m), Y = y => Math.round((y + oy) * m);
+    const dot = (cx, cy, c) => { ctx.fillStyle = c; ctx.fillRect(cx, cy, 1, 1); };                 // one real pixel, in canvas space
     const P = {
       at(dx, dy, fn) { const sx = ox, sy = oy; ox += dx; oy += dy; fn(); ox = sx; oy = sy; },
-      px(x, y, c) { if (c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x) + ox, Math.round(y) + oy, 1, 1); } },
-      rect(x, y, w, h, c) { if (c && w > 0 && h > 0) { ctx.fillStyle = c; ctx.fillRect(Math.round(x) + ox, Math.round(y) + oy, Math.round(w), Math.round(h)); } },
+      /** A block of art space: x, y, w, h in art pixels. */
+      rect(x, y, w, h, c) {
+        if (!c || w <= 0 || h <= 0) return;
+        const x0 = X(x), y0 = Y(y), x1 = Math.max(x0 + 1, X(x + w)), y1 = Math.max(y0 + 1, Y(y + h));
+        ctx.fillStyle = c; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+      },
+      px(x, y, c) {                                                                                   // one art pixel; on a big creature, a block with its own 1-pixel shading
+        if (!c) return;
+        P.rect(Math.round(x), Math.round(y), 1, 1, c);
+        if (m >= 1.5) { const x0 = X(Math.round(x)), y0 = Y(Math.round(y)), x1 = X(Math.round(x) + 1), y1 = Y(Math.round(y) + 1); ctx.fillStyle = shade(c, 0.82); ctx.fillRect(x0, y1 - 1, x1 - x0, 1); ctx.fillRect(x1 - 1, y0, 1, y1 - y0); ctx.fillStyle = light(c, 0.18); ctx.fillRect(x0, y0, 1, 1); }
+      },
       row(y, x0, x1, c) { P.rect(Math.min(x0, x1), y, Math.abs(Math.round(x1) - Math.round(x0)) + 1, 1, c); },
-      /** A line w pixels thick (thickness runs sideways for steep lines, downwards for flat ones). */
+      /** A line w art pixels thick, drawn at full resolution. */
       line(x0, y0, x1, y1, c, w = 1) {
-        const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2)), steep = Math.abs(y1 - y0) >= Math.abs(x1 - x0);
-        for (let s = 0; s <= n; s++) { const x = x0 + (x1 - x0) * s / n, y = y0 + (y1 - y0) * s / n; if (steep) P.rect(Math.round(x) - (w >> 1), y, w, 1, c); else P.rect(x, Math.round(y) - (w >> 1), 1, w, c); }
+        const ax = (x0 + ox + 0.5) * m, ay = (y0 + oy + 0.5) * m, bx = (x1 + ox + 0.5) * m, by = (y1 + oy + 0.5) * m, t = Math.max(1, Math.round(w * m));
+        const n = Math.max(1, Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 1.5)), steep = Math.abs(by - ay) >= Math.abs(bx - ax);
+        ctx.fillStyle = c;
+        for (let s = 0; s <= n; s++) { const x = Math.floor(ax + (bx - ax) * s / n), y = Math.floor(ay + (by - ay) * s / n); if (steep) ctx.fillRect(x - (t >> 1), y, t, 1); else ctx.fillRect(x, y - (t >> 1), 1, t); }
       },
       /** Ellipses merged into one shape, shaded as one: lit along the top, shadowed underneath (belly: a lighter underside instead). */
       shape(parts, t, opts = {}) {
         const cols = {}, pts = [];
-        for (const [cx, cy, rx, ry] of parts) for (let y = Math.ceil(cy - ry); y <= Math.floor(cy + ry); y++) {
-          const ny = (y - cy) / ry, half = rx * Math.sqrt(Math.max(0, 1 - ny * ny));
-          for (let x = Math.round(cx - half); x <= Math.round(cx + half); x++) { const c = cols[x] || (cols[x] = new Set()); if (!c.has(y)) { c.add(y); pts.push([x, y]); } }
+        for (const [acx, acy, arx, ary] of parts) {
+          const cx = (acx + ox + 0.5) * m, cy = (acy + oy + 0.5) * m, rx = (arx + 0.5) * m, ry = (ary + 0.5) * m;
+          for (let y = Math.ceil(cy - ry); y < cy + ry; y++) {
+            const ny = (y + 0.5 - cy) / ry, half = rx * Math.sqrt(Math.max(0, 1 - ny * ny));
+            for (let x = Math.round(cx - half); x < Math.round(cx + half); x++) { const c = cols[x] || (cols[x] = new Set()); if (!c.has(y)) { c.add(y); pts.push([x, y]); } }
+          }
         }
-        const span = {}; for (const x in cols) { const ys = [...cols[x]]; span[x] = [Math.min(...ys), Math.max(...ys)]; }
+        const span = {}, lit = Math.max(1, Math.round((opts.lit || 1) * m)), dark = Math.max(1, Math.round(2 * m));
+        for (const x in cols) { const ys = [...cols[x]]; span[x] = [Math.min(...ys), Math.max(...ys)]; }
         for (const [x, y] of pts) {
           const [top, bot] = span[x];
-          let c = y - top < (opts.lit || 1) ? t.l : bot - y < 2 ? (opts.belly || t.d) : t.b;
+          let c = y - top < lit ? t.l : bot - y < dark ? (opts.belly || t.d) : t.b;
           if (opts.texture !== false && c === t.b && (x * 3 + y * 5) % (opts.grain || 11) === 0) c = t.d;
-          P.px(x, y, c);
+          dot(x, y, c);
         }
       },
       /** A leg from (x, top) to the ground, w wide, swung dx at the foot and lifted; a paw / hoof / claw at the bottom. */
@@ -43,16 +63,17 @@ const PixelCreatures = (() => {
         for (let y = top; y <= end; y++) { const k = (y - top) / Math.max(1, end - top), xx = x + Math.round(dx * k); P.rect(xx, y, w, 1, t.b); if (w > 1) P.px(xx + w - 1, y, t.d); }
         if (foot) P.rect(x + dx - (w > 2 ? 0 : 0), end, w + 1, 1, foot);
       },
-      /** A filled polygon ([[x, y], ...]). */
+      /** A filled polygon ([[x, y], ...]) in art space, at full resolution. */
       poly(pts, c) {
-        const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+        const q = pts.map(([x, y]) => [(x + ox + 0.5) * m, (y + oy + 0.5) * m]), xs = q.map(p => p[0]), ys = q.map(p => p[1]);
+        ctx.fillStyle = c;
         for (let y = Math.floor(Math.min(...ys)); y <= Math.ceil(Math.max(...ys)); y++) for (let x = Math.floor(Math.min(...xs)); x <= Math.ceil(Math.max(...xs)); x++) {
           let inside = false;
-          for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y + 0.5) !== (yj > y + 0.5) && x + 0.5 < (xj - xi) * (y + 0.5 - yi) / (yj - yi) + xi) inside = !inside; }
-          if (inside) P.px(x, y, c);
+          for (let i = 0, j = q.length - 1; i < q.length; j = i++) { const [xi, yi] = q[i], [xj, yj] = q[j]; if ((yi > y + 0.5) !== (yj > y + 0.5) && x + 0.5 < (xj - xi) * (y + 0.5 - yi) / (yj - yi) + xi) inside = !inside; }
+          if (inside) ctx.fillRect(x, y, 1, 1);
         }
       },
-      clear(x, y) { ctx.clearRect(Math.round(x) + ox, Math.round(y) + oy, 1, 1); },
+      clear(x, y) { const x0 = X(Math.round(x)), y0 = Y(Math.round(y)); ctx.clearRect(x0, y0, Math.max(1, X(Math.round(x) + 1) - x0), Math.max(1, Y(Math.round(y) + 1) - y0)); },
       eye(x, y, F, color = '#1a110c', big = false) {
         if (F.hunting) { P.px(x, y, RED); if (big) { P.px(x + 1, y, RED); P.px(x, y + 1, '#ffb0a0'); } return; }
         P.px(x, y, color); if (big) { P.px(x + 1, y, color); P.px(x, y + 1, color); P.px(x + 1, y + 1, color); P.px(x, y, '#ffffff'); }
@@ -81,23 +102,23 @@ const PixelCreatures = (() => {
   /** Draws a creature at its footprint. sprite: the data's sprite { kind, color, variant, scale, antlers }. flip: 1 faces right, -1 left. */
   function draw(ctx, sprite, sx, sy, flip, anim) {
     const k = kinds[sprite.kind], C = k.palette(sprite, anim), F = frameOf(k, Object.assign({}, anim, { variant: sprite.variant }));
-    const scale = (sprite.scale || 1) * (C.k || 1), px = PX * scale;
-    const key = `${sprite.kind}|${sprite.variant || ''}|${sprite.color || ''}|${sprite.antlers || ''}|${anim.extra || ''}|${F.i}${F.moving ? 'm' : 's'}${F.t}${F.hunting ? 'h' : ''}`;
+    const m = (sprite.scale || 1) * (C.k || 1), u = PX * m;                                          // u: screen size of one ART pixel; real pixels are always PX
+    const key = `${sprite.kind}|${sprite.variant || ''}|${sprite.color || ''}|${sprite.antlers || ''}|${m}|${anim.extra || ''}|${F.i}${F.moving ? 'm' : 's'}${F.t}${F.hunting ? 'h' : ''}`;
     let canvas = cache.get(key);
     if (!canvas) {
       if (cache.size > 1500) cache.clear();
-      canvas = document.createElement('canvas'); canvas.width = k.W; canvas.height = k.H;
-      const c2 = canvas.getContext('2d'); k.paint(painter(c2), C, F, c2); outline(c2, C.outline || OUTLINE, k.W, k.H);
+      canvas = document.createElement('canvas'); canvas.width = Math.ceil(k.W * m); canvas.height = Math.ceil(k.H * m);
+      const c2 = canvas.getContext('2d'); k.paint(painter(c2, m), C, F, c2); outline(c2, C.outline || OUTLINE, canvas.width, canvas.height);
       cache.set(key, canvas);
     }
     const [srx, sry] = k.shadow || [k.W * 0.3, 3], lifted = k.flying ? k.flying(F) : 0;
-    ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, srx * px, sry * px, 0, 0, Math.PI * 2); ctx.fill();
-    const top = sy - (k.ground + 1) * px - lifted * px, left = -k.anchor * px;
+    ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, srx * u, sry * u, 0, 0, Math.PI * 2); ctx.fill();
+    const top = sy - (k.ground + 1) * u - lifted * u, left = -k.anchor * u, d = Math.max(1, Math.round(m)) * PX;   // (live sparks and flames: art-pixel sized, on the same grid)
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(sx, 0); ctx.scale(flip < 0 ? -1 : 1, 1);
-    ctx.drawImage(canvas, left, top, k.W * px, k.H * px);
-    if (k.live) k.live(ctx, C, F, anim, (ax, ay, color, a = 1) => { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = color; ctx.fillRect(left + Math.round(ax) * px, top + Math.round(ay) * px, px, px); ctx.globalAlpha = 1; });
+    ctx.drawImage(canvas, left, top, canvas.width * PX, canvas.height * PX);
+    if (k.live) k.live(ctx, C, F, anim, (ax, ay, color, a = 1) => { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = color; ctx.fillRect(left + Math.round(ax * m) * PX, top + Math.round(ay * m) * PX, d, d); ctx.globalAlpha = 1; });
     ctx.restore();
-    return { h: (k.ground + 1 - (k.top || 0)) * px };
+    return { h: (k.ground + 1 - (k.top || 0)) * u };
   }
 
   /** A leathery wing: a solid membrane between the leading edge (root -> tip) and the body (rear), with finger bones fanning out to a
