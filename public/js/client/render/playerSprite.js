@@ -5,7 +5,10 @@
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
-const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8 };
+const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9 };
+/** Each lasso's rope and its shine (a lasso made in the editor uses its item colour). Shared with the item icons. */
+const LASSO_LOOKS = { leash: ['#8a6a3c', '#d8b66a'], lasso_silk: ['#cfc6e2', '#ffffff'], lasso_gold: ['#c9962a', '#ffe9a0'], lasso_star: ['#5f7fd0', '#e6f0ff'] };
+const lassoLook = id => LASSO_LOOKS[id] || [(ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', '#f0e0b0'];
 const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
@@ -286,7 +289,8 @@ class PlayerSprite {
 
     ctx.lineCap = 'round';
     if (tool.kind === 'bow') this._drawBow(handX, handY, dirX, dirY, perpX, perpY);
-    else if (tool.kind === 'leash') this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0);
+    else if (tool.kind === 'leash') this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0, lassoLook(p.held));
+    else if (tool.kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
     else {
       ctx.strokeStyle = tool.kind === 'rod' ? '#a07a45' : '#7a5230'; ctx.lineWidth = tool.kind === 'rod' ? 1.8 : 2.5;
       ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(tipX, tipY); ctx.stroke();
@@ -352,14 +356,23 @@ class PlayerSprite {
   }
 
   /** A coil of rope in the hand, with the loop swung out in front while throwing. */
-  _drawLassoInHand(x, y, dx, dy, px, py, throwing) {
+  _drawLassoInHand(x, y, dx, dy, px, py, throwing, look = LASSO_LOOKS.leash) {
     const ctx = this.g.ctx;
-    ctx.strokeStyle = '#8a6a3c'; ctx.lineWidth = 3;
+    ctx.strokeStyle = look[0]; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(x + dx * 4, y + dy * 4 + 2, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();                 // the coil
-    ctx.strokeStyle = '#d8b66a'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(x + dx * 4, y + dy * 4 + 2, 6.5, 5.2, 0, 0.5, Math.PI * 1.7); ctx.stroke();
-    ctx.strokeStyle = '#8a6a3c'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 6, y + 12, x - px * 3, y + 15); ctx.stroke();   // the loose end
-    if (throwing) { ctx.strokeStyle = '#d8b66a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.strokeStyle = look[1]; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(x + dx * 4, y + dy * 4 + 2, 6.5, 5.2, 0, 0.5, Math.PI * 1.7); ctx.stroke();
+    ctx.strokeStyle = look[0]; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 6, y + 12, x - px * 3, y + 15); ctx.stroke();   // the loose end
+    if (throwing) { ctx.strokeStyle = look[1]; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke(); }
+  }  /** A grooming brush: a short wooden handle and a block of bristles (a soft brush has pale ones). */
+  _drawBrush(x, y, dx, dy, px, py, itemId) {
+    const ctx = this.g.ctx, tipX = x + dx * 9, tipY = y + dy * 9;
+    ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tipX, tipY); ctx.stroke();
+    this.g.polygon([tipX + px * 4, tipY + py * 4, tipX + px * 4 + dx * 5, tipY + py * 4 + dy * 5, tipX - px * 4 + dx * 5, tipY - py * 4 + dy * 5, tipX - px * 4, tipY - py * 4], '#a8763f');
+    ctx.strokeStyle = itemId === 'soft_brush' ? '#f4ead8' : '#4a3424'; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let k = -3; k <= 3; k += 1.5) { ctx.moveTo(tipX + px * k + dx * 5, tipY + py * k + dy * 5); ctx.lineTo(tipX + px * k + dx * 8, tipY + py * k + dy * 8); }
+    ctx.stroke();
   }
+
 
   _drawShovelHead(x, y, dx, dy, px, py) {                                    // a rounded spade at the end of the handle
     this.g.polygon([x - dx * 2 + px * 4.5, y - dy * 2 + py * 4.5, x + dx * 9 + px * 3.5, y + dy * 9 + py * 3.5, x + dx * 12, y + dy * 12, x + dx * 9 - px * 3.5, y + dy * 9 - py * 3.5, x - dx * 2 - px * 4.5, y - dy * 2 - py * 4.5], '#aab1ba');

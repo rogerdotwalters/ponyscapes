@@ -45,6 +45,10 @@ class Effects {
     game.events.on('opened', e => this._float(e, 'The bottle holds a map'));
     game.events.on('mapAdded', e => this._float(e, e.kind === 'dungeon' ? `A cave in ${e.ringName} is marked on your map` : 'Map added to your journal'));
     game.events.on('mounted', e => this._float(e, 'Giddy up!'));
+    game.events.on('ponyLevel', e => this._burst(e.x, e.y, 22, GOLD_COLORS, 34));                      // (the notice says the new level and speed)
+    game.events.on('groomed', e => { this._burst(e.x, e.y, 10, ['#fff6d8', '#ffd1e8', '#e8dcc4'], 20); this._float(e, `${e.name} looks lovely`); });
+    game.events.on('dropped', e => { const def = ItemDB.get(e.item); this._float(e, `Dropped ${e.count} ${def ? def.name : e.item}`); });
+    game.events.on('destroyed', e => { const def = ItemDB.get(e.item); this._float(e, `Destroyed ${e.count} ${def ? def.name : e.item}`); });
     game.events.on('built', e => this._onBuilt(e));
     game.events.on('demolished', e => this._onBuilt(e, true));
     game.events.on('notice', e => this._float(e, e.text));

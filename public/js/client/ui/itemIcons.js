@@ -9,6 +9,24 @@ const ItemIcons = (() => {
     ctx.fillStyle = meat; ctx.beginPath(); ctx.ellipse(24, 20, 13, 13, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.6; ctx.stroke();
     ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(19, 15, 5, 3.4, -0.5, 0, Math.PI * 2); ctx.fill();
   };
+  /** A coiled lasso in its own colours (LASSO_LOOKS); better lassos sparkle. */
+  const lassoPainter = id => ctx => {
+    const [rope, shine] = lassoLook(id), tier = (ItemDB.getLasso(id) || { tier: 1 }).tier;
+    ctx.strokeStyle = rope; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(19, 18, 9, 0.4, Math.PI * 1.9); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(25, 26); ctx.bezierCurveTo(36, 30, 40, 38, 30, 42); ctx.stroke();
+    ctx.strokeStyle = shine; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(19, 18, 9, 0.4, Math.PI * 1.9); ctx.stroke();
+    ctx.fillStyle = '#b0b6bf'; ctx.beginPath(); ctx.arc(29, 42, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = shine; for (let k = 1; k < tier; k++) { const x = 34 + (k % 2) * 6, y = 6 + k * 6; ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x + 1, y - 1); ctx.lineTo(x + 3, y); ctx.lineTo(x + 1, y + 1); ctx.lineTo(x, y + 3); ctx.lineTo(x - 1, y + 1); ctx.lineTo(x - 3, y); ctx.lineTo(x - 1, y - 1); ctx.closePath(); ctx.fill(); }
+  };
+  /** A grooming brush: wooden back, a row of bristles. */
+  const brushPainter = bristles => ctx => {
+    ctx.lineCap = 'round'; ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(8, 40); ctx.lineTo(20, 28); ctx.stroke();
+    ctx.save(); ctx.translate(29, 20); ctx.rotate(-Math.PI / 4);
+    ctx.fillStyle = '#a8763f'; ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 1.5; ctx.fillRect(-12, -5, 24, 9); ctx.strokeRect(-12, -5, 24, 9);
+    ctx.strokeStyle = bristles; ctx.lineWidth = 1.6; ctx.beginPath(); for (let x = -10; x <= 10; x += 2.5) { ctx.moveTo(x, -5); ctx.lineTo(x, -12); } ctx.stroke();
+    ctx.restore();
+  };
   const painters = {
     axe(ctx) {
       ctx.lineCap = 'round';
@@ -230,13 +248,8 @@ const ItemIcons = (() => {
     cooked_rabbit(ctx) { meatChunk(ctx, '#8a4a2a', '#c98a5a', 0.8); },
     cooked_venison(ctx) { meatChunk(ctx, '#6e3320', '#b06a46', 1.1); },
     cooked_mutton(ctx) { meatChunk(ctx, '#7c4026', '#c07a52', 1); },
-    leash(ctx) {
-      ctx.strokeStyle = '#8a6a3c'; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(19, 18, 9, 0.4, Math.PI * 1.9); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(25, 26); ctx.bezierCurveTo(36, 30, 40, 38, 30, 42); ctx.stroke();
-      ctx.strokeStyle = '#c9a66a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(19, 18, 9, 0.4, Math.PI * 1.9); ctx.stroke();
-      ctx.fillStyle = '#b0b6bf'; ctx.beginPath(); ctx.arc(29, 42, 3.2, 0, Math.PI * 2); ctx.fill();
-    },
+    leash: lassoPainter('leash'), lasso_silk: lassoPainter('lasso_silk'), lasso_gold: lassoPainter('lasso_gold'), lasso_star: lassoPainter('lasso_star'),
+    brush: brushPainter('#4a3424'), soft_brush: brushPainter('#f4ead8'),
     captured_rabbit(ctx) {
       ctx.fillStyle = '#a98d6c'; ctx.beginPath(); ctx.ellipse(24, 30, 13, 10, 0, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.ellipse(19, 14, 3.2, 10, -0.15, 0, Math.PI * 2); ctx.ellipse(28, 14, 3.2, 10, 0.15, 0, Math.PI * 2); ctx.fill();
@@ -367,7 +380,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.lasso ? lassoPainter(itemId) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d'));
     return (cache[key] = canvas.toDataURL());
   }

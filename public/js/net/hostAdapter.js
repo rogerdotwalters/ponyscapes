@@ -27,7 +27,7 @@ class HostAdapter extends LocalAdapter {
     if (this.world.data) { saved = SaveData.sanitizeWorld(this.world.data); if (!saved) throw new Error('This saved world is damaged and cannot be opened.'); }
     this.server = new GameServer(this.world.seed, saved ? { world: saved } : {});
     const record = await this.store.getCharacter(this.world.id, key).catch(() => null);
-    this.id = this.server.joinHuman(null, name, this.o.appearance);
+    this.id = this.server.joinHuman(null, name, this.o.appearance, key);          // (the key brings back their ponies left in the world)
     if (record && !SaveData.importCharacter(this.server, this.id, record.data)) throw new Error('Your saved character in this world could not be read.');
     { const look = CharacterLook.sanitize(this.o.appearance); if (look) { this.server.players[this.id].appearance = look; this.server.fitWardrobe(this.id); } }
     this.keys[this.id] = key; this.known.add(key);
@@ -101,6 +101,7 @@ class HostAdapter extends LocalAdapter {
     const npcDelta = r.npcEnc.encode(D.quantize(snap.npcs)); if (Object.values(npcDelta).some(d => Object.keys(d).length)) out.npcs = npcDelta;      // the villagers: only the fields that changed, and only when something did
     const trees = r.gates.trees.changed(snap.trees); if (trees) out.trees = trees;
     const forage = r.gates.forage.changed(snap.forage); if (forage) out.forage = forage;
+    const drops = r.gates.drops.changed(snap.drops || {}); if (drops) out.drops = drops;                                // items on the ground: only when a pile changes
     for (const k of ['pets', 'book', 'varieties']) { const v = r.gates[k].changed(snap[k]); if (v) out[k] = v; }
     for (const k of ['inventory', 'built', 'floors', 'stockpiles', 'progress', 'treasure', 'trade', 'rings', 'settings', 'friends']) if (snap[k] !== undefined) out[k] = snap[k];
     return out;
@@ -193,7 +194,7 @@ class HostAdapter extends LocalAdapter {
     let record = null; try { record = await this.store.getCharacter(this.world.id, msg.key); } catch (e) { record = null; }
     if (!this.remotes[r.cid] || this.ended) return;                    // they left while we were reading the database
     if (Object.values(this.keys).includes(msg.key)) return deny('duplicate', 'You are already in this game (another tab or device).');
-    const id = this.server.joinHuman(null, name);
+    const id = this.server.joinHuman(null, name, null, msg.key);
     if (!id) return deny('full', 'The game is full.');
     if (record && !SaveData.importCharacter(this.server, id, record.data)) {   // never silently replace somebody's saved character with a blank one
       this.server.leaveHuman(id); return deny('damaged', 'Your saved character in this world could not be read. Ask the host to check the save.');
@@ -203,8 +204,8 @@ class HostAdapter extends LocalAdapter {
     Object.assign(r, { id, key: msg.key, name, ready: true, state: 'ready', animalEnc: new AnimalDeltaEncoder(), playerEnc: new PlayerDeltaEncoder(), npcEnc: new PlayerDeltaEncoder() });
     const welcome = JSON.parse(JSON.stringify(SnapshotBuilder.welcomeFor(this.server, id)));
     r.animalEnc.prime(welcome.animals); r.npcEnc.encode(DeltaCodec.quantize(welcome.npcs));      // (the villagers in the welcome count as already sent)
-    r.gates = { trees: new ChangeGate(), forage: new ChangeGate(), pets: new ChangeGate(), book: new ChangeGate(), varieties: new ChangeGate(), boats: new ChangeGate() };
-    r.gates.trees.prime(welcome.trees); r.gates.forage.prime(welcome.forage); r.gates.boats.prime(DeltaCodec.quantize(welcome.boats));
+    r.gates = { trees: new ChangeGate(), forage: new ChangeGate(), pets: new ChangeGate(), book: new ChangeGate(), varieties: new ChangeGate(), boats: new ChangeGate(), drops: new ChangeGate() };
+    r.gates.trees.prime(welcome.trees); r.gates.forage.prime(welcome.forage); r.gates.boats.prime(DeltaCodec.quantize(welcome.boats)); r.gates.drops.prime(welcome.drops);
     Object.assign(welcome, { t: 'welcome', you: { name, restored: !!record }, session: this._sessionPublic() });
     this._sendJson(r.cid, welcome);
     this._emit({ type: 'joined', name, restored: !!record });

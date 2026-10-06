@@ -8,7 +8,7 @@ const SnapshotBuilder = {
     return {
       id, slot: player.slot, mapSeed: server.map.seed, tickRate: CONFIG.sim.tickRate, tick: server.tick, player,
       inventory: server.inventoryUpdateFor(id), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
-      boats: server.boatStates(), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
+      boats: server.boatStates(), drops: server.dropStates(), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
       animals: server.animals.states(server._humans()), npcs: server.npcs.states(), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
       pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id)
     };

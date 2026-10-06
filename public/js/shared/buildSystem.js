@@ -184,10 +184,11 @@ const BuildSystem = {
 
   /** The nearest thing a stone hammer can take down: wall pieces and stations first, floors only if nothing else is near.
    *  Returns { tx, ty, slot, type, x, y } (x,y = centre) or null. */
-  findDemolishable(map, p, reach) {
+  findDemolishable(map, p, reach, stationsOnly = false) {
     const fx = Math.cos(p.facing), fy = Math.sin(p.facing);
     let best = null, bestScore = Infinity;
     const consider = (tx, ty, slot, type, floorPenalty) => {
+      if (stationsOnly && slot !== 'c') return;
       const [x0, y0, x1, y1] = slabBox(tx, ty, slot), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
       const gap = Math.hypot(p.x - clamp(p.x, x0, x1), p.y - clamp(p.y, y0, y1));
       if (gap > reach) return;

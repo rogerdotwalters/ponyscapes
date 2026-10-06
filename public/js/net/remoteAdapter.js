@@ -10,7 +10,7 @@ class RemoteAdapter extends NetAdapter {
     super();
     this.o = options; this.callback = null; this.backlog = []; this.conn = null; this.id = null;
     this.inputs = []; this.flushTimer = null; this.pingTimer = null;
-    this.decoder = new AnimalDeltaDecoder(); this.playerDecoder = new PlayerDeltaDecoder(); this.npcDecoder = new PlayerDeltaDecoder(); this.trees = {}; this.forage = {}; this.boats = {}; this.parts = new RelayProtocol.Reassembler();
+    this.decoder = new AnimalDeltaDecoder(); this.playerDecoder = new PlayerDeltaDecoder(); this.npcDecoder = new PlayerDeltaDecoder(); this.trees = {}; this.forage = {}; this.boats = {}; this.drops = {}; this.parts = new RelayProtocol.Reassembler();
     this.roster = []; this.rtt = null; this.code = RelayProtocol.normalizeCode(options.code); this.listeners = [];
     this.pending = null; this.welcomed = false; this.ended = false;
   }
@@ -69,7 +69,7 @@ class RemoteAdapter extends NetAdapter {
     if (!this.pending || this.welcomed) return;
     this.welcomed = true; this.id = msg.id; this.roster = (msg.session && msg.session.players) || []; this.hostName = (this.roster.find(p => p.host) || {}).name || 'Host';
     this.npcDecoder.players = JSON.parse(JSON.stringify(msg.npcs || {}));
-    this.decoder.reset(msg.animals); this.trees = msg.trees || {}; this.forage = msg.forage || {}; this.boats = msg.boats || {};
+    this.decoder.reset(msg.animals); this.trees = msg.trees || {}; this.forage = msg.forage || {}; this.boats = msg.boats || {}; this.drops = msg.drops || {};
     this.flushTimer = setInterval(() => this._flush(), 66);
     this.pingTimer = setInterval(() => this._sendJson({ t: 'ping', ts: Date.now() }), CONFIG.net.hostPingMs);
     const p = this.pending; this.pending = null; delete msg.t; p.resolve(msg);
@@ -82,6 +82,7 @@ class RemoteAdapter extends NetAdapter {
     msg.animals = this.decoder.decode(msg.animals);
     if (msg.npcs) msg.npcs = this.npcDecoder.decode(msg.npcs);                                   // (absent = nobody moved: the game keeps the last ones)
     if (msg.boats) this.boats = msg.boats;  msg.boats = this.boats;
+    if (msg.drops) this.drops = msg.drops;  msg.drops = this.drops;
     if (msg.trees) this.trees = msg.trees;    msg.trees = this.trees;       // (the game treats a missing list as "everything regrew": always hand it the latest full one)
     if (msg.forage) this.forage = msg.forage; msg.forage = this.forage;
     if (this.callback) this.callback(msg); else this.backlog.push(msg);

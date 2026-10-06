@@ -30,7 +30,7 @@ function setupFullscreenButton(button) {
 
 function collectLayoutDom(game) {
   const dom = { isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), clock: $('clock') };
-  ['btnMenu', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnRun', 'btnBoard', 'btnRelease', 'btnRot', 'btnSneak', 'btnAbility'].forEach(id => { dom[id] = $(id); });
+  ['btnMenu', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnRun', 'btnBoard', 'btnRelease', 'btnRot', 'btnSneak', 'btnAbility', 'btnLasso'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
 
@@ -60,7 +60,7 @@ function launch(choice, query) {
     const keyboard = new KeyboardInput(bus);
     const touch = new TouchControls(bus, {
       root: $('touchUI'), zone: $('joyZone'), base: $('joyBase'), knob: $('joyKnob'),
-      btnRun: $('btnRun'), btnSneak: $('btnSneak'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility')
+      btnRun: $('btnRun'), btnSneak: $('btnSneak'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility'), btnLasso: $('btnLasso')
     });
     const input = new InputController({ bus, keyboard, touch });
     const layout = new UiLayout({ dom: collectLayoutDom(game), touchControls: touch });
@@ -81,7 +81,7 @@ function launch(choice, query) {
     const hungerBar = new VitalBar({ root: $('hungerBar'), fill: $('hungerFill'), label: $('hungerLabel'), config: CONFIG.sim.hunger, words: { ok: 'Fed', low: 'Hungry', empty: 'Starving!' } });
     const thirstBar = new VitalBar({ root: $('thirstBar'), fill: $('thirstFill'), label: $('thirstLabel'), config: CONFIG.sim.thirst, words: { ok: 'Hydrated', low: 'Thirsty', empty: 'Dehydrated!' } });
     const clockUI = new ClockUI({ root: $('clock') });
-    const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), grid: $('invGrid'), closeButton: $('invClose'), game });
+    const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), grid: $('invGrid'), closeButton: $('invClose'), game, actions: { label: $('invPicked'), drop1: $('invDrop1'), dropAll: $('invDropAll'), destroy: $('invDestroy') } });
     const craftingUI = new CraftingUI({ panel: $('craftPanel'), list: $('craftList'), closeButton: $('craftClose'), game });
     const settingsUI = new SettingsUI({ panel: $('settingsPanel'), list: $('settingsList'), closeButton: $('settingsClose'), game });
     const panels = new PanelGroup();
@@ -121,6 +121,7 @@ function launch(choice, query) {
     bus.on('toggleJournal', () => panels.toggle('journal'));
     bus.on('toggleMap', () => panels.toggle('map'));
     bus.on('toggleTown', () => panels.toggle('town'));
+    bus.on('throwLasso', () => game.throwLasso());                  // L / the Lasso button: the lasso in the lasso slot
     bus.on('ponyPower', n => game.requestPonyPower(n));          // a pony's rarity abilities (H / K / the power button); flight stays on B
     bus.on('dismount', () => game.requestDismount());
     bus.on('ability', () => game.useAbility('fly'));

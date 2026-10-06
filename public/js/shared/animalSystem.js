@@ -124,7 +124,7 @@ class AnimalSystem {
   }
 
   _move(a, def, dt) {
-    let pace = AnimalLevels.speedFactor(a.level);                         // higher-level animals are a little quicker
+    let pace = def.pony ? 1 : AnimalLevels.speedFactor(a.level);          // higher-level animals are a little quicker (a pony's level is already in its speed curve)
     if (a.slowT > 0) { a.slowT -= dt; pace *= a.slowF || 1; }             // chilled by a Frost Nova
     accelerateToward(a, (a.tvx || 0) * pace, (a.tvy || 0) * pace, ANIMAL_ACCEL * dt);
     a.x += a.vx * dt; a.y += a.vy * dt;
@@ -241,7 +241,7 @@ class AnimalSystem {
       if (a.owner !== ownerId && a.captor !== ownerId) continue;
       if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.map, a.x, a.y); a.penTick = tick; }
       const gentling = a.captor ? { have: a.trust, need: a.applesNeed || AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level), sheltered: !!a.shelter, restless: Math.round(100 * a.captureT / CAPTURE_BREAK_SECONDS) } : null;
-      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider });
+      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
     }
     return out;
   }

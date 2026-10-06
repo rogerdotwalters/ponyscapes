@@ -54,7 +54,7 @@ const Interactions = {
   /** Extra finders other systems add: (map, player) => action | null. They are asked first, so a cave mouth works even on a pony. */
   extra: [],
   /** @returns {{kind:'pick'|'door'|'board'|'untie'|'pickup'|'drink'|'fill', label:string, dist:number, forage?, door?, boat?, water?}|null} */
-  find(map, boats, p, heldItemId, animals = {}, selfId = p.id, npcs = {}) {
+  find(map, boats, p, heldItemId, animals = {}, selfId = p.id, npcs = {}, drops = {}) {
     for (const finder of Interactions.extra) { const found = finder(map, p); if (found) return found; }
     const mounted = !!p.mount;                           // in the saddle you can still pick, open and loot: only when there is nothing to do does the key get you off
     const primary = [];
@@ -83,6 +83,10 @@ const Interactions = {
     if (forage) primary.push({ kind: 'pick', label: FORAGE_VERB[forageKind(forage.prop)] || 'Pick', dist: forage.dist, forage });
     const chest = findChest(map, p);
     if (chest && !p.looted) primary.push({ kind: 'loot', label: 'Open', dist: chest.dist, chest });
+    for (const d of Object.values(drops)) {               // items lying on the ground
+      const dist = Math.hypot(d.x - p.x, d.y - p.y);
+      if (dist <= CONFIG.sim.drops.pickupRange) primary.push({ kind: 'pickDrop', label: 'Pick up', dist: dist - 0.2, drop: d });
+    }
     const pile = Stockpiles.nearest(map, p);
     if (pile && map.stockpiles[pile.key]) primary.push({ kind: 'stockpile', label: 'Deliver', dist: pile.dist + 0.3, pile });     // deliver the resource you carry
     const door = BuildSystem.findDoor(map, p);
@@ -91,6 +95,7 @@ const Interactions = {
     if (boat && !mounted) primary.push({ kind: 'board', label: 'Board', dist: Math.hypot(boat.x - p.x, boat.y - p.y), boat });
     if (primary.length) return primary.sort((a, b) => a.dist - b.dist)[0];
     if (mounted) return { kind: 'dismount', label: 'Dismount', dist: 0 };
+    if (!CONFIG.sim.vitals) return null;                  // no drinking or jug filling while hunger and thirst are off
     const water = findWaterSource(map, p);
     if (!water) return null;
     const fill = heldItemId === 'jug';                    // an empty jug gets filled

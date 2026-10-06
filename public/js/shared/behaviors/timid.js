@@ -27,7 +27,8 @@ Behaviors.register({
     else if (a.state === 'flee' && (a.fleeT -= dt) <= 0) { a.state = 'idle'; a.timer = 1 + sys.rng() * 2; a.hurt = false; }
     else if (a.state === 'lured') { a.state = 'idle'; a.timer = 1.5; }
 
-    if (a.state === 'flee') { sys._steerAlong(a, a.fx, a.fy, def.fleeSpeed * (a.hurt ? HURT_SPEED_FACTOR : 1)); return; }
+    const flee = def.pony ? PonySpeed.flee(a.type, a.level) : def.fleeSpeed;            // a wild pony runs at its kind's speed for its level: outrun it to catch it
+    if (a.state === 'flee') { sys._steerAlong(a, a.fx, a.fy, flee * (a.hurt ? HURT_SPEED_FACTOR : 1)); return; }
     sys._wander(a, def, dt);
   }
 });

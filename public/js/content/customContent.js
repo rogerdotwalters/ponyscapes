@@ -19,11 +19,17 @@
  *
  *   characters: { prince: { sprites: { up, down, left, right, frames, fps, scale, anchorY } }, princess: { sprites: { ... } } }
  *
+ *   settings:   { ponySpeedCurve: [[1, 1], [10, 1.22], [99, 2.2]],      (level -> speed multiplier applied to every pony's baseSpeed)
+ *                 ponySpeed: { walkFraction, wildFleeFactor, defaultBase }, ponyLeveling: { xpBase, xpExponent, travelXpPerTile, taskXp, feedXp, feedLikedXp, groomXp } }
+ *               Pony creatures also take baseSpeed (tiles/s at level 1) and lassoTier (the lasso tier needed to catch one);
+ *               lasso items take lasso: { tier, chance } and brushes groom (x the grooming XP).
+ *
  * Any direction you leave empty falls back to the others (up -> right -> left, down -> left -> right), and a creature or
  * character with no images at all is drawn by the game's own procedural artwork. */
 window.PONYSCAPES_CONTENT = {
   version: 1,
   items: {},
   creatures: {},
-  characters: {}
+  characters: {},
+  settings: {}
 };

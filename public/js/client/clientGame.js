@@ -37,7 +37,7 @@ class ClientGame {
     this.map = new World(welcome.mapSeed);                   // same seed as the server -> identical terrain, never sent
     this._applyRings(welcome.rings);                          // which rings are open decides where the barriers are
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
-    this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {};
+    this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeDrops = welcome.drops || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {};
     if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory, this.local.carryStacks);
     this.isHost = !!welcome.host;
     this.settings = welcome.settings || { hostilesOff: false, testPony: false };            // the host's testing aids (Settings); only the host is ever told
@@ -76,6 +76,15 @@ class ClientGame {
     this.selectSlot((this.selectedSlot + direction + n) % n);
   }
   moveSlot(from, to) { this.net.sendCommand({ type: 'moveSlot', from, to }); }   // server decides; we wait for the update
+  /** Drop `count` from a pack slot onto the ground in front of you (anyone can pick it up), or destroy it for good. */
+  dropItem(slot, count) { this.net.sendCommand({ type: 'drop', slot, count }); }
+  destroyItem(slot, count) { this.net.sendCommand({ type: 'destroy', slot, count }); }
+  /** L: throw the lasso in the lasso slot (whatever is in your hand). */
+  throwLasso() {
+    const lasso = this.local && this.local.gear && this.local.gear.lasso;
+    if (!lasso) { this.events.emit('notice', { to: this.myId, text: 'Your lasso slot is empty: put a lasso in it (Gear)' }); return; }
+    this.lassoQueued = true;
+  }
   craft(recipeId) { this.net.sendCommand({ type: 'craft', recipe: recipeId }); }
 
   /* ---- wardrobe, emotes, trading (all decided by the server) ---- */
@@ -124,12 +133,13 @@ class ClientGame {
 
   /* ---- boats ---- */
   requestInteract() { this.interactQueued = true; }
+  latestDrops() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.drops) || this.welcomeDrops || {}; }
   latestBoats() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.boats) || this.welcomeBoats; }
   /** What the interact button would do right now: 'Exit' | 'Pick' | 'Board' | 'Drink' | 'Fill' | null (nearest wins). */
   interactHint() {
     if (!this.local) return null;
     if (this.local.boat) return 'Exit';
-    const action = Interactions.find(this.map, this.latestBoats(), this.local, this.heldItemId(), this.latestAnimals(), this.myId, this.npcs);
+    const action = Interactions.find(this.map, this.latestBoats(), this.local, this.heldItemId(), this.latestAnimals(), this.myId, this.npcs, this.latestDrops());
     return action ? action.label : null;
   }
 
@@ -202,7 +212,7 @@ class ClientGame {
 
   _refreshBuildTarget() {
     const placeable = this.local && this.holdingPlaceable() ? ItemDB.getPlaceable(this.heldItemId()) : null;
-    if (!placeable) { this.buildTarget = null; return; }
+    if (!placeable || (!CONFIG.sim.construction && StructureDefs[placeable.structure].layer !== 'station')) { this.buildTarget = null; return; }   // (walls and floors are switched off)
     let tx, ty, dx, dy;
     if (this.buildCursor) {                                     // aimed with a finger / mouse: face the builder
       ({ tx, ty } = this.buildCursor); dx = tx + 0.5 - this.local.x; dy = ty + 0.5 - this.local.y;
@@ -232,8 +242,8 @@ class ClientGame {
 
   /* ---- fixed tick: predict locally, then send the same input to the server ---- */
   predict(rawInput) {
-    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, power: this.powerQueued }));
-    this.interactQueued = false; this.powerQueued = 0;
+    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, power: this.powerQueued, lasso: this.lassoQueued }));
+    this.interactQueued = false; this.powerQueued = 0; this.lassoQueued = false;
     this.prevLocal = clonePlayer(this.local);
     this._stepLocal(this.local, this.localBoat, input);
     this._tickCosmeticSwing(input);
@@ -258,9 +268,15 @@ class ClientGame {
   }
 
   _tickCosmeticSwing(input) {                          // mirrors ToolSystem's timing; the server decides real hits
-    const tool = this.local && this.local.boat ? null : ItemDB.getTool(this.heldItemId());       // (a boat has no tools; a pony does)
+    const lasso = input.lasso && this.local && !this.local.boat && this.local.gear && this.local.gear.lasso;
+    if (this.lassoTicks > 0) this.lassoTicks--;
+    if (lasso && this.localSwingT <= 0) { this.lassoTicks = Math.ceil(ItemDB.getTool(lasso).swingTime / TICK_DT) + 1; this.lassoHeld = lasso; }
+    const tool = this.local && this.local.boat ? null : ItemDB.getTool(this._swingItem());       // (a boat has no tools; a pony does)
     this.localSwingT = tool ? Math.max(0, this.localSwingT - TICK_DT) : 0;
-    if (tool && input.action && this.localSwingT <= 0) this.localSwingT = tool.swingTime;
+    if (tool && (input.action || lasso) && this.localSwingT <= 0) this.localSwingT = tool.swingTime;
+  }
+  /** What our hand shows: the thrown lasso for the length of the throw, else the selected item. */
+  _swingItem() { return this.lassoTicks > 0 ? this.lassoHeld : this.heldItemId();
   }
 
   /* ---- snapshots ---- */
@@ -340,7 +356,7 @@ class ClientGame {
     players[this.myId] = Object.assign({}, L, {
       x: lerp(P.x, L.x, alpha) + this.correction.x, y: lerp(P.y, L.y, alpha) + this.correction.y,
       facing: lerpAngle(P.facing, L.facing, alpha),
-      held: this.heldItemId(), swingT: this.localSwingT
+      held: this._swingItem(), swingT: this.localSwingT
     });
     this._addInterpolated(players, boats, animals);
     if (L.boat && this.localBoat) {                    // the boat we row is drawn exactly under us
@@ -358,7 +374,7 @@ class ClientGame {
       const n = this.npcs[id], v = this.npcView[id] || (this.npcView[id] = { x: n.x, y: n.y }), k = Math.hypot(n.x - v.x, n.y - v.y) > 3 ? 1 : 0.35;
       v.x += (n.x - v.x) * k; v.y += (n.y - v.y) * k; npcs[id] = Object.assign({}, n, { x: v.x, y: v.y });
     }
-    return { tick: this.serverTick, players, boats, animals, npcs };
+    return { tick: this.serverTick, players, boats, animals, npcs, drops: this.latestDrops() };
   }
 
   _addInterpolated(players, boats, animals) {

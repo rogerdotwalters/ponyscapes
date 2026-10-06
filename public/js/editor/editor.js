@@ -1,5 +1,6 @@
 'use strict';
-/* EDITOR - items, creatures and characters: their stats, rarity, where they spawn, and a slot for every picture.
+/* EDITOR - items, creatures and characters: their stats, rarity, where they spawn, and a slot for every picture; and the game-wide Settings
+ * (the pony speed curve and how ponies level up).
  *
  * The editor keeps a DRAFT (only what differs from the built-in game, plus anything new) in this browser's localStorage, and turns it
  * into js/content/customContent.js when you press Download. Copy that file over public/js/content/customContent.js (and your pictures
@@ -26,12 +27,14 @@
   function normalize(data) {
     const out = { version: 1 };
     for (const s of ContentPack.SECTIONS) out[s] = isPlain(data && data[s]) ? clone(data[s]) : {};
+    out.settings = isPlain(data && data.settings) ? clone(data.settings) : {};
     return out;
   }
   function loadDraft() {
     try { const raw = localStorage.getItem(ContentPack.DRAFT_KEY); return raw ? normalize(JSON.parse(raw)) : null; } catch (e) { return null; }
   }
   function saveDraft() {
+    if (typeof applySettingsLive === 'function') applySettingsLive();
     try { localStorage.setItem(ContentPack.DRAFT_KEY, JSON.stringify(draft)); localStorage.setItem(DRAFT_AT_KEY, String(Date.now())); } catch (e) { setStatus('Could not save the draft in this browser: ' + e.message); return; }
     setStatus();
   }
@@ -287,8 +290,12 @@
   /* ------------------------------------------------------------ the list ------------------------------------------------------------ */
   function renderList() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-    $('btnNew').disabled = tab === 'characters';
+    $('btnNew').disabled = tab === 'characters' || tab === 'settings';
     const list = $('list'); list.innerHTML = '';
+    if (tab === 'settings') {
+      list.append(h('button', { class: 'entry on' }, h('span', { class: 'en' }, h('b', {}, 'Pony speed & levels'), h('small', {}, 'settings')), Object.keys(draft.settings).length ? h('span', { class: 'tag edited' }, 'edited') : null));
+      return;
+    }
     const q = search.trim().toLowerCase();
     const rows = idsOf(tab).map(id => ({ id, cur: working(tab, id) })).filter(r => !q || r.id.includes(q) || String(r.cur.name || '').toLowerCase().includes(q));
     rows.sort((a, b) => (!isBuiltIn(tab, b.id) - !isBuiltIn(tab, a.id)) || String(a.cur.name || a.id).localeCompare(String(b.cur.name || b.id)));
@@ -329,9 +336,13 @@
       toggle('Wardrobe (crown, outfit or cape)', 'equip', { slot: 'cape', body: 'any', power: 0, def: 0 })),
       isFood ? h('div', { class: 'grid' }, field('Hunger restored', cur, 'food.hunger', Object.assign({ type: 'number', min: 0, max: 100 }, o)), field('Thirst restored', cur, 'food.thirst', Object.assign({ type: 'number', min: 0, max: 100 }, o))) : null,
       isTool ? h('div', { class: 'grid' },
-        field('Works like', cur, 'tool.kind', Object.assign({ type: 'select', options: toolKinds, note: 'axe chops, hammer demolishes, knife / spear / sword hunt, bow shoots, rod fishes, shovel digs, leash lassos' }, o)),
+        field('Works like', cur, 'tool.kind', Object.assign({ type: 'select', options: toolKinds, note: 'axe chops, hammer demolishes, knife / spear / sword hunt, bow shoots, rod fishes, shovel digs, leash lassos, brush grooms' }, o, { rerender: true })),
         field('Damage', cur, 'tool.damage', Object.assign({ type: 'number', min: 0 }, o)), field('Reach (tiles)', cur, 'tool.reach', Object.assign({ type: 'number', min: 0.5, step: 0.1 }, o)),
         field('Swing time (s)', cur, 'tool.swingTime', Object.assign({ type: 'number', min: 0.15, step: 0.05 }, o)), field('Hits at (s into the swing)', cur, 'tool.impactTime', Object.assign({ type: 'number', min: 0.05, step: 0.05 }, o))) : null,
+      isTool && cur.tool.kind === 'leash' ? h('div', { class: 'grid' },
+        field('Lasso tier (holds ponies up to this tier)', cur, 'lasso.tier', Object.assign({ type: 'number', min: 1, max: 9, step: 1, note: 'Pony kinds: ' + Object.values(AnimalDefs).filter(d => d.pony).map(d => `${d.name} ${d.lassoTier || 1}`).join(', ') }, o)),
+        field('Extra catch chance (0.1 = +10%)', cur, 'lasso.chance', Object.assign({ type: 'number', min: 0, max: 1, step: 0.01 }, o))) : null,
+      isTool && cur.tool.kind === 'brush' ? h('div', { class: 'grid' }, field('Grooming (x the grooming XP)', cur, 'groom', Object.assign({ type: 'number', min: 0.1, step: 0.1 }, o))) : null,
       isGear ? h('div', { class: 'grid' },
         field('Wardrobe slot', cur, 'equip.slot', Object.assign({ type: 'select', options: ItemEquipSlots.map(s => [s, s]) }, o, { rerender: true })),
         field('Who can wear it', cur, 'equip.body', Object.assign({ type: 'select', options: [['any', 'anyone'], ['princess', 'princesses (a dress)'], ['prince', 'princes (garb)']] }, o)),
@@ -374,7 +385,9 @@
       field('Flee speed', cur, 'fleeSpeed', Object.assign({ type: 'number', min: 0, step: 0.1 }, o)),
       cur.followSpeed !== undefined || cur.tameable ? field('Follow speed (on a leash)', cur, 'followSpeed', Object.assign({ type: 'number', min: 0, step: 0.1 }, o)) : null,
       cur.hostile ? field('Chase speed', cur, 'chaseSpeed', Object.assign({ type: 'number', min: 0, step: 0.1 }, o)) : null,
-      pony ? field('Apples to tame', cur, 'tameApples', Object.assign({ type: 'number', min: 1, step: 1 }, o)) : null),
+      pony ? field('Apples to tame', cur, 'tameApples', Object.assign({ type: 'number', min: 1, step: 1 }, o)) : null,
+      pony ? field('Base speed (tiles/s at level 1; the Settings curve scales it)', cur, 'baseSpeed', Object.assign({ type: 'number', min: 0.5, step: 0.1, note: `Top speed: ${[1, 10, 20, 30].map(l => 'Lv ' + l + ' ' + ((cur.baseSpeed || CONFIG.sim.ponySpeed.defaultBase) * PonySpeed.factor(l)).toFixed(1)).join(' · ')}` }, o)) : null,
+      pony ? field('Lasso tier needed to catch', cur, 'lassoTier', Object.assign({ type: 'number', min: 1, max: 9, step: 1, note: 'Lassos: ' + lassoList() }, o)) : null),
       h('p', { class: 'note' }, `Behaves like: ${[pony && 'a pony (shy, tameable, rideable, never hunted)', cur.hostile && 'a hostile night hunter', cur.tameable && !pony && 'a tameable animal', cur.carry && 'something you can pick up'].filter(Boolean).join(', ') || 'a wild animal'}` + (custom ? ` (copied from ${(ContentPack.builtIn.creatures[cur.base] || {}).name || cur.base})` : ''))));
     if (pony) {
       const lines = RarityOrder.map(r => { const d = RarityDefs[r]; return `${d.name}: ${d.buffs ? d.buffs + ' buff' + (d.buffs > 1 ? 's' : '') : 'basic'}${d.abilities ? ', ' + d.abilities + ' abilit' + (d.abilities > 1 ? 'ies' : 'y') : ''}`; });
@@ -398,6 +411,82 @@
     return { cur, parts, custom };
   }
 
+  /** Every lasso and the tier it holds (for notes). */
+  const lassoList = () => idsOf('items').map(i => working('items', i)).filter(d => d.lasso).sort((a, b) => a.lasso.tier - b.lasso.tier).map(d => `${d.name} ${d.lasso.tier}`).join(', ');
+
+  /* ------------------------------------------------------------ settings ------------------------------------------------------------ */
+  const SPEED_NUMBERS = [['walkFraction', 'Walk = this x the gallop', 0.05], ['wildFleeFactor', 'A wild pony flees at this x its top speed', 0.01], ['defaultBase', 'Base speed of a pony kind without one', 0.1]];
+  const LEVEL_NUMBERS = [['xpBase', 'XP scale (XP for level L = scale x (L-1)^exponent)', 1], ['xpExponent', 'XP exponent', 0.05], ['travelXpPerTile', 'XP per tile ridden', 0.1], ['taskXp', 'XP per task done in the saddle (chop, hunt, lasso...)', 1],
+    ['feedXp', 'XP for a treat', 1], ['feedLikedXp', 'XP for a treat it loves', 1], ['groomXp', 'XP for grooming (x the brush\'s groom)', 1]];
+  /** The draft's settings over the built-in ones, applied to CONFIG so every preview here uses them. */
+  function applySettingsLive() { ContentPack.restoreSettings(); ContentPack.applySettings(draft.settings); }
+  function commitSettings() { prune(draft.settings); applySettingsLive(); saveDraft(); renderList(); }
+  const builtInCurve = () => clone(ContentPack.builtInSettings.ponySpeed.curve);
+  function settingNumber(group, key, label, step) {
+    const builtIn = ContentPack.builtInSettings[group][key], cur = draft.settings[group] && draft.settings[group][key];
+    const input = h('input', { type: 'number', step, min: 0, placeholder: String(builtIn), value: cur === undefined ? '' : cur });
+    input.addEventListener('change', () => {
+      if (!isPlain(draft.settings[group])) draft.settings[group] = {};
+      if (input.value === '' || Number(input.value) === builtIn) delete draft.settings[group][key]; else draft.settings[group][key] = Number(input.value);
+      commitSettings(); renderDetail();
+    });
+    return h('label', { class: 'field' }, label, input, h('small', {}, `built-in ${builtIn}`));
+  }
+  /** The curve as a chart: every pony kind's top speed by level, and dotted, how fast each wild kind flees at its home ring's level. */
+  function drawCurve(canvas) {
+    const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height, pad = 34, maxL = 60;
+    const kinds = Object.values(AnimalDefs).filter(d => d.pony), colors = ['#c9a06a', '#7cc06a', '#7ab8ff', '#e08ad8', '#ffd36a', '#ff8a6a', '#9ae0d8'];
+    const maxV = Math.max(...kinds.map(d => PonySpeed.top(d.id, maxL))) * 1.08;
+    const X = l => pad + (W - pad - 8) * (l - 1) / (maxL - 1), Y = v => H - pad + 6 - (H - pad - 4) * v / maxV;
+    ctx.fillStyle = '#16212e'; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.fillStyle = '#9fb0c2'; ctx.font = '10px sans-serif'; ctx.lineWidth = 1;
+    for (let l = 10; l <= maxL; l += 10) { ctx.beginPath(); ctx.moveTo(X(l), 4); ctx.lineTo(X(l), H - pad + 6); ctx.stroke(); ctx.fillText('Lv ' + l, Math.min(X(l) - 12, W - 34), H - pad + 18); }
+    for (let v = 2; v < maxV; v += 2) { ctx.beginPath(); ctx.moveTo(pad, Y(v)); ctx.lineTo(W - 8, Y(v)); ctx.stroke(); ctx.fillText(v.toFixed(0), 6, Y(v) + 3); }
+    ctx.fillText('tiles / second', 6, 12);
+    kinds.forEach((d, i) => {
+      const c = colors[i % colors.length];
+      ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath();
+      for (let l = 1; l <= maxL; l++) (l === 1 ? ctx.moveTo : ctx.lineTo).call(ctx, X(l), Y(PonySpeed.top(d.id, l)));
+      ctx.stroke();
+      const wild = d.levelBase || 1; ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad, Y(PonySpeed.flee(d.id, wild))); ctx.lineTo(W - 8, Y(PonySpeed.flee(d.id, wild))); ctx.stroke();
+      ctx.fillStyle = c; ctx.fillText(d.name, W - 120, 14 + i * 12);
+    });
+    ctx.setLineDash([]);
+  }
+  /** The level your pony must reach to outrun a wild one (the progression the curve sets). */
+  function catchTable() {
+    const kinds = Object.values(AnimalDefs).filter(d => d.pony);
+    const need = (rider, d) => { const flee = PonySpeed.flee(d.id, d.levelBase || 1); for (let l = 1; l <= CONFIG.sim.levels.max; l++) if (PonySpeed.top(rider.id, l) > flee) return l; return '-'; };
+    return h('table', { class: 'rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Your pony \\ to catch a wild'), kinds.map(d => h('th', {}, `${d.name} (Lv ${d.levelBase || 1}, flees ${PonySpeed.flee(d.id, d.levelBase || 1).toFixed(1)})`)))),
+      h('tbody', {}, kinds.map(r => h('tr', {}, h('td', {}, `${r.name} (base ${PonySpeed.base(r.id).toFixed(1)})`), kinds.map(d => h('td', {}, 'Lv ' + need(r, d)))))));
+  }
+  function settingsForm() {
+    applySettingsLive();
+    const S = draft.settings, custom = Array.isArray(S.ponySpeedCurve), points = custom ? S.ponySpeedCurve : builtInCurve();
+    const save = () => { S.ponySpeedCurve = points; commitSettings(); renderDetail(); };
+    const rows = points.map((pt, i) => h('tr', {},
+      [0, 1].map(k => { const input = h('input', { type: 'number', step: k ? 0.01 : 1, min: k ? 0.05 : 1, value: pt[k] }); input.addEventListener('change', () => { if (input.value !== '') { pt[k] = Number(input.value); save(); } }); return h('td', {}, input); }),
+      h('td', {}, h('button', { disabled: points.length <= 2, onclick: () => { points.splice(i, 1); save(); } }, 'Remove'))));
+    const canvas = h('canvas', { width: 640, height: 260, class: 'curve' });
+    requestAnimationFrame(() => drawCurve(canvas));
+    const last = points[points.length - 1] || [1, 1];
+    return [
+      h('div', { class: 'dhead' }, h('h2', {}, 'Pony speed & levels'), h('span', { class: 'spacer' }),
+        Object.keys(S).length ? h('button', { onclick: () => { if (confirm('Put every setting back to the built-in values?')) { draft.settings = {}; commitSettings(); renderDetail(); } } }, 'Reset all to built-in') : null),
+      h('p', { class: 'note' }, 'Every pony kind has a base speed (Creatures tab). Its level multiplies that by this curve, so a pony you raise gets faster; a wild pony flees at a share of its own top speed. To catch a pegasus you first raise your pony until it outruns one.'),
+      h('fieldset', {}, h('legend', {}, 'Speed curve ', h('small', {}, '(level → multiplier; straight lines between points, flat past the ends)')),
+        h('table', { class: 'rows' }, h('thead', {}, h('tr', {}, h('th', {}, 'Level'), h('th', {}, 'Speed x'), h('th'))), h('tbody', {}, rows)),
+        h('button', { onclick: () => { points.push([Math.min(CONFIG.sim.levels.max, last[0] + 10), +(last[1] + 0.1).toFixed(2)]); save(); } }, '+ Add point'),
+        custom ? h('button', { onclick: () => { delete S.ponySpeedCurve; commitSettings(); renderDetail(); } }, 'Built-in curve') : null,
+        h('div', {}, canvas), h('p', { class: 'note' }, 'Solid: each kind\'s top speed when you raise it. Dotted: how fast a wild one flees at the level it is usually found.')),
+      h('fieldset', {}, h('legend', {}, 'Who can catch whom'), catchTable()),
+      h('fieldset', {}, h('legend', {}, 'Speed'), h('div', { class: 'grid' }, SPEED_NUMBERS.map(([k, l, s]) => settingNumber('ponySpeed', k, l, s)))),
+      h('fieldset', {}, h('legend', {}, 'Levelling ', h('small', {}, '(ponies you own: riding, work in the saddle, treats and grooming)')),
+        h('div', { class: 'grid' }, LEVEL_NUMBERS.map(([k, l, s]) => settingNumber('ponyLeveling', k, l, s))),
+        h('p', { class: 'note' }, 'XP to reach: ' + [2, 5, 10, 15, 20, 30].map(l => `Lv ${l} ${PonyXp.xpFor(l)}`).join(' · ')))
+    ];
+  }
+
   /* ------------------------------------------------------------ character form ------------------------------------------------------------ */
   function characterForm(id) {
     const section = 'characters', cur = working(section, id), o = { section, id };
@@ -410,6 +499,7 @@
   /* ------------------------------------------------------------ detail ------------------------------------------------------------ */
   function renderDetail() {
     const box = $('detail'); box.innerHTML = '';
+    if (tab === 'settings') { box.append(...settingsForm()); return; }
     if (!selected || !idsOf(tab).includes(selected)) { box.append(h('div', { class: 'empty' }, 'Pick something on the left, or press ', h('b', {}, '+ New'), '.')); return; }
     const id = selected, form = tab === 'items' ? itemForm(id) : tab === 'creatures' ? creatureForm(id) : characterForm(id);
     const edited = !form.custom && !!draft[tab][id];
@@ -499,5 +589,5 @@
     let at = ''; try { at = new Date(Number(localStorage.getItem(DRAFT_AT_KEY))).toLocaleString(); } catch (e) { /* unknown */ }
     showBanner(`Continuing your draft${at ? ' from ' + at : ''}, which differs from js/content/customContent.js.`, [['Keep the draft', hideBanner], ['Use the file instead', () => { draft = normalize(fileData); saveDraft(); hideBanner(); renderList(); renderDetail(); }]]);
   }
-  setStatus(); renderList(); renderDetail();
+  applySettingsLive(); setStatus(); renderList(); renderDetail();
 })();

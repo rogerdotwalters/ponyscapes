@@ -1,6 +1,7 @@
 'use strict';
-/* CLIENT - the Wardrobe panel: the three things you wear (crown, outfit, cape), and everything in your bag you could put on. Purely about how you look. */
-const WARDROBE_LABELS = { crown: 'Crown', outfit: 'Outfit', cape: 'Cape' };
+/* CLIENT - the Wardrobe panel: the three things you wear (crown, outfit, cape), the lasso slot (L throws it), and everything in your bag you could
+ * put on or slot in. Better lassos (crafted from the one before) catch rarer ponies. */
+const WARDROBE_LABELS = { crown: 'Crown', outfit: 'Outfit', cape: 'Cape', lasso: 'Lasso' };
 
 class WardrobeUI {
   constructor({ panel, body, closeButton, game }) {
@@ -31,9 +32,10 @@ class WardrobeUI {
     g.inventory.slots.forEach((s, i) => { if (s && Wardrobe.slotFor(s.id)) wearable.push({ i, id: s.id, fits: Wardrobe.fits(s.id, appearance) }); });
     this.body.innerHTML =
       `<div class="gpreview"><canvas id="wardrobePreview" width="120" height="152"></canvas><div><div class="gsum">${WardrobeUI.worn(gear)}</div><small class="gwho">${CharacterLook.describe(appearance).body}${gear.cape ? ` &middot; Power ${Math.round(Wardrobe.power(gear) * 100)}% &middot; Def ${Wardrobe.def(gear)} (${Math.round(Wardrobe.damageReduction(gear) * 100)}% less damage)` : ''}</small></div></div>` +
-      `<div class="ggrid">${WardrobeSlots.map(slotHtml).join('')}</div>` +
+      `<div class="ggrid">${WardrobeSlots.concat('lasso').map(slotHtml).join('')}</div>` +
+      `<small class="gwho">${WardrobeUI.lassoLine(gear.lasso)}</small>` +
       `<div class="gtitle">In your pack</div>` +
-      (wearable.length ? wearable.map(w => `<div class="grow"><img alt="" src="${ItemIcons.url(w.id)}"><span>${ItemDefs[w.id].name}<small>${WARDROBE_LABELS[ItemDefs[w.id].equip.slot]} &middot; ${Wardrobe.forWhom(w.id)}${WardrobeUI.stats(w.id)}</small></span>${w.fits ? `<button data-equip="${w.i}">Wear</button>` : '<em>not for you</em>'}</div>`).join('') : '<div class="gnone">Nothing to wear yet. Make crowns, dresses, garb and capes at a crafting table.</div>');
+      (wearable.length ? wearable.map(w => `<div class="grow"><img alt="" src="${ItemIcons.url(w.id)}"><span>${ItemDefs[w.id].name}<small>${WardrobeUI.describe(w.id)}</small></span>${w.fits ? `<button data-equip="${w.i}">${ItemDB.getLasso(w.id) ? 'Equip' : 'Wear'}</button>` : '<em>not for you</em>'}</div>`).join('') : '<div class="gnone">Nothing to wear yet. Make crowns, dresses, garb and capes at a crafting table.</div>');
   }
   /** Draw the character as they look right now, slowly turning so every side of the outfit and cape shows. Driven by the main frame loop (like the other panels). */
   tick(frameMs) {
@@ -41,6 +43,21 @@ class WardrobeUI {
     const canvas = this.body.querySelector('#wardrobePreview'); if (!canvas || typeof canvas.getContext !== 'function') return;
     const now = performance.now();
     renderCharacterPortrait(canvas, this.game.local.appearance, Math.PI / 4 + Math.sin(now / 1100) * 1.9, now, this.game.gear);
+  }
+  /** One line under an item in the pack: which slot, and who may wear it (or what a lasso can catch). */
+  static describe(id) {
+    const lasso = ItemDB.getLasso(id);
+    if (lasso) return `Lasso &middot; ${WardrobeUI.catches(lasso.tier)}${lasso.chance ? ` &middot; +${Math.round(lasso.chance * 100)}% catch` : ''}`;
+    return `${WARDROBE_LABELS[ItemDefs[id].equip.slot]} &middot; ${Wardrobe.forWhom(id)}${WardrobeUI.stats(id)}`;
+  }
+  /** The ponies a lasso of this tier holds: every kind whose lassoTier is no higher. */
+  static catches(tier) {
+    const kinds = Object.values(AnimalDefs).filter(d => d.pony && (d.lassoTier || 1) <= tier).map(d => d.name);
+    return kinds.length ? 'holds ' + kinds.join(', ') : 'tier ' + tier;
+  }
+  static lassoLine(item) {
+    const lasso = item && ItemDB.getLasso(item);
+    return lasso ? `L throws your ${ItemDefs[item].name}: it ${WardrobeUI.catches(lasso.tier)}. Craft a better one at a crafting table to catch rarer ponies.` : 'No lasso in the lasso slot: Equip one from your pack (L throws it).';
   }
   /** A cape's two stats, in words: Power (multiplies a pony's ability) and Def (soaks damage). */
   static stats(id) { const e = ItemDefs[id].equip; return e.slot === 'cape' ? ` &middot; Power +${Math.round(e.power * 100)}% &middot; Def ${e.def}` : ''; }

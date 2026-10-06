@@ -7,7 +7,7 @@
 class SettingsUI {
   constructor({ panel, list, closeButton, game }) {
     this.panel = panel; this.list = list; this.game = game; this.selects = [];
-    for (let slot = 0; slot < CONFIG.sim.maxPlayers; slot++) this._createRow(slot);
+    if (CONFIG.sim.vitals) for (let slot = 0; slot < CONFIG.sim.maxPlayers; slot++) this._createRow(slot);      // (hunger and thirst may be switched off)
     this._createTesting();
     game.events.on('settingsChanged', () => this.isOpen && this.refresh());
     closeButton.addEventListener('click', () => this.close());

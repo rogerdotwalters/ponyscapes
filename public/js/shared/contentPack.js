@@ -27,10 +27,30 @@ const ContentPack = (() => {
       data[s] = {};
       for (const [id, entry] of Object.entries(plain(raw[s]) ? raw[s] : {})) if (ID_PATTERN.test(id) && plain(entry)) data[s][id] = entry;
     }
+    data.settings = plain(raw.settings) ? raw.settings : {};
     return { data, source };
   }
 
   const { data, source } = read();
+
+  /** Game-wide numbers from the editor's Settings tab, applied over CONFIG (only what is valid; anything else keeps the built-in value). */
+  function applySettings(settings) {
+    if (typeof CONFIG === 'undefined') return;
+    const curve = Array.isArray(settings.ponySpeedCurve) ? settings.ponySpeedCurve.filter(pt => Array.isArray(pt) && Number.isFinite(+pt[0]) && Number.isFinite(+pt[1]) && +pt[1] > 0).map(pt => [Math.max(1, Math.round(+pt[0])), +pt[1]]) : [];
+    if (curve.length >= 2) CONFIG.sim.ponySpeed.curve = curve.sort((a, b) => a[0] - b[0]);
+    for (const [group, values] of [['ponySpeed', settings.ponySpeed], ['ponyLeveling', settings.ponyLeveling]]) {
+      if (!plain(values)) continue;
+      for (const [k, v] of Object.entries(values)) if (k !== 'curve' && typeof CONFIG.sim[group][k] === 'number' && Number.isFinite(+v) && +v >= 0) CONFIG.sim[group][k] = +v;
+    }
+  }
+  /** The game's own values for everything Settings can change (before your content is applied), so the editor can show and restore them. */
+  const builtInSettings = typeof CONFIG === 'undefined' ? null : JSON.parse(JSON.stringify({ ponySpeed: CONFIG.sim.ponySpeed, ponyLeveling: CONFIG.sim.ponyLeveling }));
+  /** Put CONFIG back to the built-in values (the editor re-applies its draft after each change). */
+  function restoreSettings() {
+    if (!builtInSettings) return;
+    CONFIG.sim.ponySpeed = JSON.parse(JSON.stringify(builtInSettings.ponySpeed)); CONFIG.sim.ponyLeveling = JSON.parse(JSON.stringify(builtInSettings.ponyLeveling));
+  }
+  applySettings(data.settings);
   const builtIn = { items: {}, creatures: {} };
 
   /** Objects merge key by key; arrays and plain values replace. `undefined` never overwrites. */
@@ -71,5 +91,5 @@ const ContentPack = (() => {
   /** The sprite set for a player's body ('prince' | 'princess'), or null. */
   const character = body => (data.characters[body] && plain(data.characters[body].sprites) ? data.characters[body].sprites : null);
 
-  return { DRAFT_KEY, SECTIONS, ID_PATTERN, data, source, builtIn, deepMerge, deepFreeze, mergeDefs, character, isPlain: plain };
+  return { DRAFT_KEY, SECTIONS, ID_PATTERN, data, source, builtIn, builtInSettings, applySettings, restoreSettings, deepMerge, deepFreeze, mergeDefs, character, isPlain: plain };
 })();

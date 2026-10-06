@@ -37,7 +37,9 @@ class CraftingUI {
   }
 
   refresh() {
-    const inventory = this.game.inventory, stations = this.game.nearbyStations(), supply = this.game.nearbySupply();     // a crafting table pulls from the stockpiles linked to it
+    const stations = this.game.nearbyStations(), supply = this.game.nearbySupply();     // a crafting table pulls from the stockpiles linked to it
+    const lasso = this.game.gear.lasso, inventory = lasso ? this.game.inventory.clone() : this.game.inventory;
+    if (lasso) inventory.add(lasso, 1);                                                 // the lasso in its slot counts too (the next lasso is made from it)
     for (const row of this.rows) {
       const { recipe } = row;
       recipe.ingredients.forEach((ing, i) => {

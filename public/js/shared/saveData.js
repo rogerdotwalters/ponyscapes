@@ -37,6 +37,8 @@ const SaveData = {
       built: JSON.parse(JSON.stringify(m.built)), floors: Object.assign({}, m.floors), treasureDug: Object.assign({}, m.treasureDug),
       treeStates: JSON.parse(JSON.stringify(m.treeStates)), forageStates: JSON.parse(JSON.stringify(m.forageStates)),
       stockpiles: Stockpiles.exportState(m),
+      pets: server._exportOwnedPets(),                                         // every player's ponies and pets, by owner key (they wait in the world for them)
+      drops: Object.values(server.drops).map(d => ({ item: d.item, count: d.count, x: d.x, y: d.y })),
       bossesDefeated: [...server.worldProgress.defeated], hostilesOff: !!server.settings.hostilesOff,
       treeRespawns: server.trees.respawns.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick })),
       forageRegrows: server.forage.regrows.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick }))
@@ -46,7 +48,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} } };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [] };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -83,7 +85,29 @@ const SaveData = {
       if (keyOk(k) && Buildings.upgradeable(type)) out.stockpiles.levels[k] = SaveData._int(level, 1, BuildingUpgrades[type].length, 1);
     }
     for (const [k, tile] of Object.entries(out.built)) if (Stockpiles.isStockpile(tile.c) && !out.stockpiles.piles[k]) out.stockpiles.piles[k] = { items: {} };
+    for (const q of Array.isArray(data.pets) ? data.pets.slice(0, SaveData.MAX_PETS * 64) : []) {             // (older saves have none)
+      const pet = SaveData._pet(q);
+      if (pet && typeof q.key === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(q.key)) out.pets.push(Object.assign(pet, { key: q.key, hx: SaveData._num(q.hx, -1e7, 1e7, pet.x), hy: SaveData._num(q.hy, -1e7, 1e7, pet.y) }));
+    }
+    for (const d of Array.isArray(data.drops) ? data.drops.slice(0, CONFIG.sim.drops.max) : []) {
+      if (SaveData._plain(d) && ItemDefs[d.item] && Number.isFinite(d.x) && Number.isFinite(d.y)) out.drops.push({ item: d.item, count: SaveData._int(d.count, 1, 9999, 1), x: d.x, y: d.y });
+    }
     return out;
+  },
+  /** One saved pet, cleaned (shared by the world save and the character save), or null. */
+  _pet(q) {
+    if (!SaveData._plain(q) || !AnimalDefs[q.type]) return null;
+    const N = SaveData._num, I = SaveData._int;
+    const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
+    const x = N(q.x, -1e7, 1e7, NaN), y = N(q.y, -1e7, 1e7, NaN);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return { type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
+      friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null };
+  },
+  /** Step 3 (the server is built): everybody's ponies, waiting for their owners, and the items lying on the ground. */
+  applyOwned(server, world) {
+    server._restoreOwnedPets(world.pets || []);
+    for (const d of world.drops || []) server._dropOnGround(d.item, d.count, d.x, d.y);
   },
 
   /** Step 1 (before any chunk exists): what players changed on the map itself. `world` must already be sanitized. */
@@ -111,7 +135,7 @@ const SaveData = {
     if (!p || !inventory) return null;
     const spot = SaveData.safeSpot(server, p.x, p.y, p.slot);                   // (rowing a boat? they are put back on the shore)
     const pets = Object.values(server.animals.animals).filter(a => a.owner === id && !a.trial).slice(0, SaveData.MAX_PETS)
-      .map(a => ({ type: a.type, level: a.level, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, x: a.x, y: a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }));
+      .map(a => ({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, x: a.x, y: a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }));
     const xp = server.progress.ensure(id);
     return {
       v: SaveData.VERSION, savedAt: Date.now(),
@@ -130,7 +154,7 @@ const SaveData = {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION) return null;
     const N = SaveData._num, I = SaveData._int, S = CONFIG.sim;
     const out = { v: data.v, x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.totalSlots - 1, 0),
-      appearance: CharacterLook.sanitize(data.appearance), inventory: [], gear: { crown: 'crown_simple' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [] }, pets: [] };
+      appearance: CharacterLook.sanitize(data.appearance), inventory: [], gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [] }, pets: [] };
     const total = S.inventory.totalSlots, source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
     const refund = (id, count) => { const old = LEGACY_ITEMS[id]; if (old) refunds.push({ id: old[0], count: old[1] * count }); else if (ItemDefs[id]) refunds.push({ id, count }); };
     for (let i = 0; i < Math.max(total, source.length); i++) {
@@ -140,7 +164,7 @@ const SaveData = {
     }
     for (const [slotName, item] of Object.entries(SaveData._plain(data.gear) ? data.gear : {})) {
       if (typeof item !== 'string' || !item) continue;
-      if (WardrobeSlots.includes(slotName) && ItemDefs[item] && Wardrobe.slotFor(item) === slotName) out.gear[slotName] = item;
+      if ((WardrobeSlots.includes(slotName) || slotName === 'lasso') && ItemDefs[item] && Wardrobe.slotFor(item) === slotName) out.gear[slotName] = item;
       else refund(item, 1);                                                                           // old armour, shield, belt, scabbard or a sword that was in the sword slot
     }
     for (const r of refunds) {                                                                         // put refunds into stacks / free slots; anything that cannot fit is dropped
@@ -160,7 +184,7 @@ const SaveData = {
     if (Array.isArray(data.pets)) for (const q of data.pets.slice(0, SaveData.MAX_PETS)) {
       if (!SaveData._plain(q) || !AnimalDefs[q.type] || !(AnimalDefs[q.type].pony || AnimalDefs[q.type].tameable)) continue;      // only things you can actually keep: a saved "pet" can never be a dragon
       const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
-      out.pets.push({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) });
+      out.pets.push({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) });
     }
     out.friends = {};                                                                       // hearts with the villagers: { 'n_baker': [level, points] }
     if (SaveData._plain(data.friends)) for (const key of Object.keys(data.friends).slice(0, 40)) { const bond = Friendship.decode(data.friends[key]); if (/^n_[a-z_]+$/.test(key) && Npcs.has(key.slice(2)) && bond) out.friends[key] = bond; }
@@ -182,13 +206,15 @@ const SaveData = {
     server.everTamed[id] = Object.fromEntries(c.book.types.map(t => [t, true])); server.everVariants[id] = Object.fromEntries(c.book.variants.map(v => [v, true]));
     const spot = SaveData.safeSpot(server, c.x, c.y, p.slot);
     p.x = spot.x; p.y = spot.y; p.vx = p.vy = 0; p.ack = 0; server.map.ensureAround(p.x, p.y, SERVER_STREAM_RADIUS);
-    for (const a of Object.values(server.animals.animals)) if (a.owner === id) delete server.animals.animals[a.id];      // the starter pony makes way for the real ones
-    for (const q of c.pets) {
+    const waiting = server.petsClaimed && server.petsClaimed[id];           // their ponies were already in the world, waiting for them (world save): the character's copies are older
+    if (!waiting) for (const a of Object.values(server.animals.animals)) if (a.owner === id) delete server.animals.animals[a.id];      // the starter pony makes way for the real ones
+    if (!waiting) for (const q of c.pets) {
       const at = SaveData.safeSpot(server, Number.isFinite(q.x) ? q.x : p.x + 1, Number.isFinite(q.y) ? q.y : p.y, p.slot);
       const pet = server.animals.release(q.type, at.x, at.y, id, undefined, { level: q.level, variant: q.look ? q.look[4] | 0 : 0 });
       if (q.look && AnimalDefs[q.type].pony) pet.look = q.look;
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction));
       if (q.friend) pet.friends[id] = q.friend;                                  // a pet remembers how fond of you it is
+      if (Number.isFinite(q.xp)) pet.xp = q.xp;
     }
     server.friendship.restore(id, c.friends);
     server._updateCompanions();                                              // carry limit and pony buffs, straight away

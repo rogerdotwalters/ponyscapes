@@ -23,10 +23,10 @@ const ResourceTypes = Object.freeze({
   stone: Object.freeze({ id: 'stone', name: 'Stone', stockpile: 'stockpile_stone' }),
   clay:  Object.freeze({ id: 'clay',  name: 'Clay',  stockpile: 'stockpile_clay' })
 });
-const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash']);
+const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash', 'brush']);
 const ItemEquipSlots = Object.freeze(['crown', 'outfit', 'cape']);                     // the wardrobe slots (equipment.js)
 /** Fields any table entry may carry through to its item: rarity, resource type, where it lies about, a crafting recipe, your pictures. */
-const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites'];
+const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites', 'lasso', 'groom'];
 
 const ItemRegistry = new Registry('items', { required: ['name', 'maxStack'] });
 for (const [table, make] of ITEM_MAKERS) for (const entry of table.all()) {
@@ -84,5 +84,7 @@ const ItemDB = {
   getUse: id => (ItemDefs[id] && ItemDefs[id].use) || null,
   getFood: id => (ItemDefs[id] && ItemDefs[id].food) || null,
   getEquip: id => (ItemDefs[id] && ItemDefs[id].equip) || null,
-  getPlaceable: id => (ItemDefs[id] && ItemDefs[id].placeable) || null
+  getPlaceable: id => (ItemDefs[id] && ItemDefs[id].placeable) || null,
+  /** A lasso's { tier, chance }, or null. */
+  getLasso: id => (ItemDefs[id] && ItemDefs[id].lasso) || null
 };

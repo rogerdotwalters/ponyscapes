@@ -32,7 +32,8 @@ function sanitizeInput(i) {
     moveX: clamp(num(i.moveX), -1, 1), moveY: clamp(num(i.moveY), -1, 1),
     run: !!i.run, sneak: !!i.sneak, action: !!i.action, interact: !!i.interact,
     slot: sanitizeSlot(i.slot), seq: i.seq | 0,
-    power: clamp(i.power | 0, 0, 2)                                          // 1 / 2: fire the ridden pony's first / second rarity ability this tick
+    power: clamp(i.power | 0, 0, 2),                                         // 1 / 2: fire the ridden pony's first / second rarity ability this tick
+    lasso: !!i.lasso                                                         // L: throw the lasso from the lasso slot
   };
 }
 
@@ -68,9 +69,9 @@ function stepPlayer(p, input, dt, map) {
   const wading = !flying && map.tile(Math.floor(p.x), Math.floor(p.y)) === TILE.SHALLOW ? C.wadeSpeedFactor : 1;                                    // on a pony: faster, a little wider, scaled by Horsemanship
   const boost = (1 + ((p.buffs && p.buffs.movement) || 0) / 100) * (p.dashT > 0 ? 1 + (p.dashBoost || 0) / 100 : 1);   // pony buffs, and a Dash
   if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
-  const mountPace = (riding ? Skills.rideFactor(p.lv) * AnimalLevels.rideSpeedFactor(p.mountLevel) : 1) * boost;
-  const walk = riding ? R.walkSpeed * mountPace : C.walkSpeed * Skills.speedFactor(p.lv) * boost;
-  const topSpeed = (weak ? walk * slowdown : input.run ? (riding ? R.runSpeed * mountPace : C.runSpeed * Skills.speedFactor(p.lv) * boost) : input.sneak && !riding ? C.sneakSpeed : walk) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1);
+  const pony = riding ? PonySpeed.ride(p.mountType || 'pony_earth', p.mountLevel) : null;   // a pony's speed is its kind's base speed x the level curve (ponyProgress.js)
+  const walk = riding ? pony.walk * boost : C.walkSpeed * Skills.speedFactor(p.lv) * boost;
+  const topSpeed = (weak ? walk * slowdown : input.run ? (riding ? pony.run * boost : C.runSpeed * Skills.speedFactor(p.lv) * boost) : input.sneak && !riding ? C.sneakSpeed : walk) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1);
 
   accelerateToward(p, mx * topSpeed, my * topSpeed, movementRate(p, mx * topSpeed, my * topSpeed, moving) * dt);
   p.x += p.vx * dt; p.y += p.vy * dt;

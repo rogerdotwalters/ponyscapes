@@ -12,6 +12,7 @@
 const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
+const INV_ACTIONS_H = 38;
 const makeRect = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 const rectsOverlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const unionRect = rects => {
@@ -30,13 +31,14 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const sneak = makeRect(rot.x - g - small, rowY, small, small);
   const release = makeRect(sneak.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
   const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
-  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability]);
+  const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
+  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability, lasso]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, run: runRect, board, rot, sneak, release, ability, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, run: runRect, board, rot, sneak, release, ability, lasso, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -91,8 +93,9 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const vitalsH = Math.round(16 * k), clockW = Math.round(62 * k), barW4 = Math.floor((toolbar.w - clockW - 3 * gap) / 3);
   const vitalsY = touch ? toolbar.y + toolbar.h + gap : toolbar.y - gap - vitalsH;
   const health = makeRect(toolbar.x, vitalsY, barW4, vitalsH);
-  const hunger = makeRect(toolbar.x + (barW4 + gap), vitalsY, barW4, vitalsH);
-  const thirst = makeRect(toolbar.x + 2 * (barW4 + gap), vitalsY, barW4, vitalsH);
+  let hunger = makeRect(toolbar.x + (barW4 + gap), vitalsY, barW4, vitalsH);
+  let thirst = makeRect(toolbar.x + 2 * (barW4 + gap), vitalsY, barW4, vitalsH);
+  if (!CONFIG.sim.vitals) { health.w = toolbar.w - clockW - gap; hunger = thirst = null; }       // hunger and thirst are off: health takes their room
   const clock = makeRect(toolbar.x + 3 * (barW4 + gap), vitalsY, toolbar.w - 3 * (barW4 + gap), vitalsH);
   let topUsed = (touch ? Math.max(vitalsY + vitalsH, systemBar.y + systemBar.h) : systemBar.y + systemBar.h) + m;   // y where free space starts
 
@@ -148,7 +151,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const needH = header + 4 * MIN_PANEL_SLOT + 3 * pg + 2 * pp, regionBottomY = region.y + region.h;
   const coversHud = region.h < needH;
   if (coversHud) region = makeRect(region.x, top, region.w, regionBottomY - top);
-  const invSlot = Math.max(MIN_PANEL_SLOT, invSlotFor(region)), invW = 6 * invSlot + 5 * pg + 2 * pp, invH = header + 4 * invSlot + 3 * pg + 2 * pp;
+  const invSlot = Math.max(MIN_PANEL_SLOT, invSlotFor(region)), invW = 6 * invSlot + 5 * pg + 2 * pp, invH = header + 4 * invSlot + 3 * pg + 2 * pp + INV_ACTIONS_H;   // (+ the Drop / Destroy row)
   const craftW = Math.min(Math.round(350 * k), region.w);
   const sidePanel = makeRect(region.x + (region.w - craftW) / 2, region.y, craftW, region.h);   // crafting, gear, trade and host settings share one rect
   const mapW = Math.min(right - left, 720), mapH = Math.min(bottom - top, 470);                 // the map is view-only, so it may cover the thumb controls: a big window in the middle
@@ -220,7 +223,8 @@ class UiLayout {
     dom.confirmPanel.style.width = P.confirm.w + 'px';
     dom.mapPanel.style.width = P.map.w + 'px'; dom.mapBody.style.maxHeight = Math.max(80, P.map.h - P.header - 2 * P.pad - 6) + 'px';        // the tab row takes some of the room
 
-    place(dom.health, L.health); place(dom.hunger, L.hunger); place(dom.thirst, L.thirst); place(dom.clock, L.clock);
+    place(dom.health, L.health); place(dom.clock, L.clock);
+    for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
     dom.clock.style.fontSize = Math.round(11 * L.k) + 'px';
@@ -234,7 +238,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);

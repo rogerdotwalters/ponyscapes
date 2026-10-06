@@ -37,6 +37,13 @@ canvas{display:block}
 #inventoryPanel header,#craftPanel header,#settingsPanel header{display:flex;justify-content:space-between;align-items:center;height:calc(34px - 8px);margin-bottom:8px;font:600 15px Georgia,serif}
 #invClose,#craftClose,#settingsClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
 #invGrid{display:grid;grid-template-columns:repeat(6,var(--slot,46px));gap:var(--gap,5px)}
+.pgrow{font-size:11px;opacity:.85;margin:2px 0}.pgrow i{display:block;height:4px;border-radius:2px;margin-top:2px;background:linear-gradient(90deg,#ffd36a var(--p),rgba(255,255,255,.15) var(--p))}
+#invActions{display:flex;align-items:center;gap:6px;margin-top:8px;height:30px}
+#invPicked{flex:1;min-width:0;font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#invActions button{height:28px;padding:0 8px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:12px;white-space:nowrap}
+#invActions button:disabled{opacity:.35}
+#invActions button.danger{border-color:#e07a6a;color:#ffd6cf}
+#invActions button.armed{background:rgba(160,40,30,.8)}
 #craftList,#settingsList{overflow-y:auto;touch-action:pan-y}
 .recipe{display:flex;align-items:center;gap:10px;padding:6px 8px;margin-bottom:6px;border-radius:8px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.25)}
 .recipe .out{position:relative;width:42px;height:42px;flex:none}

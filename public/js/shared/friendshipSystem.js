@@ -17,6 +17,7 @@ class FriendshipSystem {
     let points, spend = false, line = '';
     if (act === 'talk') { line = being.lineFor(pid, p.name || 'friend'); S.npcs.speak(being, line); points = C.gains.talk; }
     else if (act === 'pet') points = C.gains.pet;
+    else if (act === 'groom') points = C.gains.groom;                  // a brush (serverOwned.js)
     else if (act === 'feed' || act === 'gift') {
       if (!itemId || !inv.has(itemId, 1)) return null;
       const op = being.opinionOf(itemId), item = ItemDefs[itemId].name;

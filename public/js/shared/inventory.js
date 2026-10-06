@@ -97,7 +97,7 @@ class Inventory {
 /** The starting pack. The testing version hands out every basic tool and a stock of materials; otherwise just an axe. */
 const TestKit = Object.freeze([
   ['axe', 1], ['stone_hammer', 1], ['knife', 1], ['shovel', 1], ['fishing_rod', 1], ['spear', 1],      // the first six fill the hotbar
-  ['bow', 1], ['arrow', 20], ['leash', 2], ['jug', 1], ['torch', 3],
+  ['bow', 1], ['arrow', 20], ['brush', 1], ['jug', 1], ['torch', 3],                    // (the Rope Lasso waits in the lasso slot)
   ['plank', 30], ['rope', 8], ['string', 6], ['stone', 10], ['clay', 4], ['apple', 6], ['raspberry', 6]     // (one stack each of wood, stone and clay: more waits in the starter stockpiles)
 ]);
 

@@ -112,6 +112,7 @@ class Renderer {
     if (target) items.push({ kind: 'ghost', depth: target.tx + target.ty + 1, target, gx: (target.tx - target.ty) * TILE_HALF_W, gy: (target.tx + target.ty + 1) * TILE_HALF_H });
     for (const id in state.animals) { const a = state.animals[id]; items.push({ kind: 'animal', depth: a.x + a.y - (a.rider ? 0.05 : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider
     for (const id in (state.npcs || {})) { const n = state.npcs[id]; items.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
+    for (const id in (state.drops || {})) { const d = state.drops[id]; items.push({ kind: 'drop', depth: d.x + d.y - 0.3, gx: isoX(d.x, d.y), gy: isoY(d.x, d.y), drop: d }); }   // items dropped on the ground
     for (const id in state.boats) { const boat = state.boats[id]; items.push({ kind: 'boat', depth: boat.x + boat.y - 0.25, id, boat }); }   // under its rider
     for (const id in state.players) { const p = state.players[id]; items.push({ kind: 'player', depth: p.x + p.y + (p.lift || 0) * 4, id, p }); }
     return items.sort((a, b2) => a.depth - b2.depth);        // painter's algorithm on x + y
@@ -144,6 +145,7 @@ class Renderer {
       if (n.say) this._drawBubble(g, sx, top - 44, n.say);                          // (above the floating +hearts / +xp text that rises from the head)
       return;
     }
+    if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);
     if (item.kind === 'player') {
       const p = item.p, rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;
@@ -183,6 +185,12 @@ class Renderer {
     this.g.ellipse(gx, gy, 11, 5, rarity.order ? rarity.color + '66' : 'rgba(0,0,0,.25)');
     if (img) { const size = 26, h = size * img.naturalHeight / img.naturalWidth; ctx.drawImage(img, gx - size / 2, gy - h - 2 + bob, size, h); }
     if (rarity.order) { ctx.fillStyle = rarity.color; ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(now / 300)); ctx.beginPath(); ctx.arc(gx + 9, gy - 22 + bob, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+  }
+
+  /** A pile someone dropped: the item bobbing on the ground like loot, with its count. */
+  _drawDrop(gx, gy, d, now) {
+    this._drawLoot(gx, gy, { drop: d.item, x: d.x }, now);
+    if (d.count > 1) { const ctx = this.ctx; ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 11, gy - 2); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 11, gy - 2); }
   }
 
   _drawLeash(sx, sy, animal, owner) {

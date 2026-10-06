@@ -17,7 +17,7 @@ class PonyBookUI {
   /** What the panel actually shows: positions are NOT part of it, so ponies wandering about never rebuild the buttons under a finger. */
   _signature() {
     const g = this.game;
-    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding]), g.book, g.varieties]);
+    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.xp && p.xp.into]), g.book, g.varieties]);
   }
   _refreshSoon() {                                      // pets arrive every snapshot: redraw only when what is shown changed (a rebuild in the middle of a tap loses the tap)
     const sig = this._signature();
@@ -48,7 +48,7 @@ class PonyBookUI {
     const g = this.game, owned = g.pets.filter(p => !p.gentling).length;
     const kinds = g.book.map(k => {
       const def = AnimalDefs[k.type], color = PONY_KIND_COLORS[k.type] || rarityOf(def.rarity).color;
-      return `<div class="pkind${k.seen ? ' got' : ''}" style="--c:${color}"><b>${k.seen ? '\u2713' : '?'}</b><span>${def.name}</span><i>${k.owned ? '\u00d7' + k.owned : ''}</i></div>`;
+      return `<div class="pkind${k.seen ? ' got' : ''}" style="--c:${color}" title="${PonyBookUI.lassoNeed(k.type)}"><b>${k.seen ? '\u2713' : '?'}</b><span>${def.name}</span><i>${k.owned ? '\u00d7' + k.owned : ''}</i></div>`;
     }).join('');
     const order = g.pets.map((pet, i) => i).sort((a, b) => (!!g.pets[b].gentling - !!g.pets[a].gentling) || (!!g.pets[b].leashed - !!g.pets[a].leashed));   // ponies you are gentling first (they need you), then ones on a rope
     const cards = order.map(i => {
@@ -57,7 +57,7 @@ class PonyBookUI {
       const flies = PonyAbilityRules.has(pet.type, 'fly') ? '<em class="pfly">can fly (' + PonyAbilities.get('fly').key + ')</em>' : '';
       const traits = pet.look ? PonyBookUI.traits(pet.look, pet.type) : '';
       return `<div class="pcard"><canvas class="portrait" width="92" height="80" data-i="${i}"></canvas>` +
-        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}</div>${traits}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
+        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}</div>${traits}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
     }).join('');
     const summary = `<div class="gsum">Collected ${g.book.filter(k => k.seen).length} of ${g.book.length} pony kinds &middot; ${owned} animal${owned === 1 ? '' : 's'} kept</div>`;
     const varieties = (g.varieties || []).map(v => {
@@ -74,4 +74,16 @@ class PonyBookUI {
       if (pet) renderAnimalPortrait(canvas, pet.type, pet.look);
     });
   }
+  /** Top speed and how far to the next level (ponies you own): riding, work in the saddle, food and grooming all count. */
+  static growth(pet) {
+    if (!pet.xp || !AnimalDefs[pet.type].pony) return '';
+    const speed = PonySpeed.top(pet.type, pet.level), pct = Math.round(pet.xp.fraction * 100);
+    return `<div class="pgrow" title="XP from riding, working in the saddle, treats and grooming"><span>Speed ${speed.toFixed(1)} &middot; next level ${pet.xp.into}/${pet.xp.need}</span><i style="--p:${pct}%"></i></div>`;
+  }
+  /** Which lasso holds a kind of pony. */
+  static lassoNeed(type) {
+    const tier = AnimalDefs[type].lassoTier || 1, lasso = Object.values(ItemDefs).filter(d => d.lasso && d.lasso.tier >= tier).sort((a, b) => a.lasso.tier - b.lasso.tier)[0];
+    return `Needs a ${lasso ? lasso.name : 'tier ' + tier + ' lasso'} (or better) to catch; base speed ${PonySpeed.base(type).toFixed(1)}`;
+  }
+
 }

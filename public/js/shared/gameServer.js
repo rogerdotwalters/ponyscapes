@@ -16,7 +16,9 @@ class GameServer {
     this.players = {}; this.inputQueues = {}; this.bots = {};
     this.inventories = {}; this.inventoryRev = {}; this.inventorySentRev = {};
     this.builtRev = 1; this.builtSentRev = {}; this.floorsRev = 1; this.floorsSentRev = {};
-    this.stockRev = 1; this.stockSentRev = {}; this.carryNoticeAt = {};      // the town's stockpiles + building levels (stockpiles.js), and when each player was last told they carry too much
+    this.stockRev = 1; this.stockSentRev = {}; this.carryNoticeAt = {};
+    this.playerKeys = {}; this.keyTokens = {}; this.tokenKeys = {}; this.tokenSeq = 0; this.petsClaimed = {};   // who owns what across seats (serverOwned.js): seat id -> player key, key <-> away token
+    this.drops = {}; this.nextDropId = 1; this.dropsRev = 1;                            // items lying on the ground      // the town's stockpiles + building levels (stockpiles.js), and when each player was last told they carry too much
     this.progress = new Progression({ emit: e => this.pendingEvents.push(e), onLevels: (id, lv) => this._applyLevels(id, lv) });
     this.progressSent = {};                                // id -> { value }: which XP revision the client has
     this.treasureMaps = {}; this.treasureRev = {}; this.treasureSent = {}; this.rideAcc = {};
@@ -35,7 +37,7 @@ class GameServer {
       talk: (srv, id, p, act) => srv.friendship.act(id, srv.npcs.npcs[act.npc.id], 'talk'),
       gift: (srv, id, p, act) => srv.friendship.act(id, srv.npcs.npcs[act.npc.id], 'gift', p.held),
       pet:  (srv, id, p, act) => srv.friendship.act(id, srv.animals.animals[act.animal.id], 'pet'),
-      treat: (srv, id, p, act) => srv.friendship.act(id, srv.animals.animals[act.animal.id], 'feed', p.held)
+      treat: (srv, id, p, act) => srv._treat(id, p, act)
     });
     this.trade = new TradeSystem({ players: this.players, inventories: this.inventories, bots: this.bots, rng: this.rng,
       emit: e => this.pendingEvents.push(e), markInventoryChanged: id => { this.inventoryRev[id]++; }, notice: (id, text) => this._notice(id, text) });
@@ -45,8 +47,10 @@ class GameServer {
     this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
-    this.tools = new ToolSystem({ handlers: this._createToolHandlers(), heldFor: (id, p, inventory, input) => this._heldFor(id, p, inventory, input) });
+    this.tools = new ToolSystem({ handlers: this._createToolHandlers(), heldFor: (id, p, inventory, input) => this._heldFor(id, p, inventory, input),
+      onImpact: (id, p) => { if (p.mount) this._ponyXp(this.animals.animals[p.mount], CONFIG.sim.ponyLeveling.taskXp); } });   // work done from the saddle trains the pony
     if (options.world) SaveData.applyTimers(this, options.world);                // the clock and regrow timers: the home and paddock are already in the saved map
+    if (options.world) SaveData.applyOwned(this, options.world);                 // everybody's ponies (waiting for their owners) and the items on the ground
     else if (CONFIG.sim.testKit) { this._buildStarterHome(); this._buildStarterPaddock(); this._buildStarterStockpiles(); this._spawnTutorialPony(); }
     this.npcs.populate();                                  // the villagers move in
   }
@@ -100,6 +104,7 @@ class GameServer {
   _giveStarterPony(id) {
     const p = this.players[id], spawn = Village.spawns[p.slot];
     const pony = this.animals.release('pony_earth', spawn.x - 2.2, spawn.y + 0.6, id, 7000 + p.slot * 13, { level: 1, variant: 0, rarity: 'rare' });   // rare: its ability can be tried at once (ride it, press H)
+    pony.starter = true;                                                     // (it makes way if this player's own ponies are waiting in the world)
     this._remember(id, pony);
     return pony;
   }
@@ -128,12 +133,13 @@ class GameServer {
       getPlayer: id => this.players[id], rng: this.rng, animals: this.animals,
       award: (id, skill, xp) => this.progress.award(id, skill, xp),
       pickUp: (id, found) => this._pickUp(id, found), digTreasure: (id, site) => this._digTreasure(id, site),
-      mapSitesOf: id => this.treasureMaps[id]
+      mapSitesOf: id => this.treasureMaps[id],
+      dropOnGround: (item, count, x, y) => this._dropOnGround(item, count, x, y), groom: (id, a, item) => this._groom(id, a, item)
     };
     const hunt = new HuntHandler(deps);
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
     deps.onTamed = (ownerId, animal) => this._remember(ownerId, animal);
-    return { leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps) };
+    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps) };
   }
 
   /* ---- membership ---- */
@@ -155,10 +161,11 @@ class GameServer {
     return id;
   }
   removePlayer(id) {
+    this._dismount(id, this.players[id]);
+    this._parkPets(id);                                                  // their ponies stay in the world, waiting for them (serverOwned.js)
     this.friendship.forget(id);                                          // the next person to sit here must not inherit these friendships
     this.trade.cancel(id, 'Trade cancelled: player left');
-    this._dismount(id, this.players[id]);
-    this.animals.releaseOwner(id);                                       // pets on a leash are let go where they stand
+    delete this.playerKeys[id]; delete this.petsClaimed[id];
     const boat = this.boats[this.players[id] && this.players[id].boat];
     if (boat) boat.occupant = '';
     [this.players, this.inputQueues, this.bots, this.inventories, this.inventoryRev, this.inventorySentRev, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
@@ -171,7 +178,8 @@ class GameServer {
 
   /** A person joins. A bot gives up its seat if the table is full. Returns the new player id, or null if four people already sit here.
    *  `character` is a saved character (SaveData) to restore; without one they get a fresh starter pack. */
-  joinHuman(character, name = '', appearance = null) {
+  /** `key` is the person's player key (their identity across sessions): their ponies left in the world come back to them. */
+  joinHuman(character, name = '', appearance = null, key = '') {
     if (this._freeSlot() >= CONFIG.sim.maxPlayers) {
       const bot = Object.keys(this.bots).sort()[0];
       if (!bot) return null;
@@ -180,6 +188,7 @@ class GameServer {
     const id = this.addPlayer(false);
     if (!id) return null;
     this.players[id].name = name;
+    if (key) { this.playerKeys[id] = key; this.petsClaimed[id] = this._claimPets(id, key); }
     if (character) SaveData.importCharacter(this, id, character);
     const look = CharacterLook.sanitize(appearance);                    // what they chose on the character screen wins over what was saved
     if (look) { this.players[id].appearance = look; this.fitWardrobe(id); }
@@ -222,11 +231,13 @@ class GameServer {
       case 'tradeCancel': this.trade.cancel(id); break;
       case 'tradeOffer': this.trade.offer(id, cmd.item, cmd.count); break;
       case 'tradeConfirm': this.trade.confirm(id, cmd.value); break;
-      case 'craft': this._handleCraft(id, inventory, cmd); break;
+      case 'craft': this._craftWithLasso(id, inventory, cmd); break;
       case 'place': this._handlePlace(id, inventory, cmd); break;
       case 'setVitals': this._handleSetVitals(id, cmd); break;
       case 'stockTake': this._handleStockTake(id, inventory, cmd); break;
       case 'upgrade': this._handleUpgrade(id, inventory, cmd); break;
+      case 'drop': this._handleDrop(id, inventory, cmd); break;
+      case 'destroy': this._handleDestroy(id, inventory, cmd); break;
     }
   }
 
@@ -247,6 +258,7 @@ class GameServer {
     const slotIndex = Number.isInteger(cmd.slot) ? sanitizeSlot(cmd.slot) : player.sel;
     const itemId = inventory.itemIdAt(slotIndex), placeable = ItemDB.getPlaceable(itemId);
     if (!placeable || !Number.isInteger(cmd.tx) || !Number.isInteger(cmd.ty)) return;
+    if (!CONFIG.sim.construction && StructureDefs[placeable.structure].layer !== 'station') { this._notice(id, 'Building walls, floors and fences is switched off'); return; }
     if (StructureDefs[placeable.structure].layer === 'wall' && !SIDES.includes(cmd.side)) return;
     const slot = slotFor(placeable.structure, cmd.side);
 
@@ -398,7 +410,7 @@ class GameServer {
   _handleEquip(id, inventory, from) {
     const p = this.players[id], gear = p.gear;
     if (!Number.isInteger(from) || from < 0 || from >= inventory.size) return;
-    const item = inventory.itemIdAt(from), slot = item && Wardrobe.slotFor(item);
+    const item = inventory.itemIdAt(from), slot = item && Wardrobe.slotFor(item);          // (a lasso goes into the lasso slot)
     if (!slot) { if (item) this._notice(id, 'You cannot wear that'); return; }
     if (!Wardrobe.fits(item, p.appearance)) { this._notice(id, `That is ${Wardrobe.forWhom(item)}`); return; }
     const previous = gear[slot];
@@ -412,7 +424,7 @@ class GameServer {
 
   _handleUnequip(id, inventory, slot) {
     const gear = this.players[id].gear, item = gear[slot];
-    if (!item || !WardrobeSlots.includes(slot)) return;
+    if (!item || !(WardrobeSlots.includes(slot) || slot === 'lasso')) return;
     if (inventory.add(item, 1) > 0) { this._notice(id, 'Inventory full'); return; }
     gear[slot] = '';
     this.inventoryRev[id]++;
@@ -427,6 +439,7 @@ class GameServer {
 
   _heldFor(id, p, inventory, input) {
     p.sel = input.slot;
+    if (p.lassoSwing && p.gear.lasso) return p.gear.lasso;             // throwing the lasso from its own slot (L)
     return inventory.itemIdAt(p.sel);
   }
 
@@ -542,7 +555,7 @@ class GameServer {
     else if (p.mount) this._ride(id, p, inventory, input);
     else {
       stepPlayer(p, input, TICK_DT, this.map);
-      this.tools.update(id, p, inventory, input, TICK_DT);
+      this.tools.update(id, p, inventory, this._lassoInput(id, p, input), TICK_DT); this._lassoDone(p);
       this.vitals.consumeHeld(id, p, inventory, input, TICK_DT);
       this._useCarriedAnimal(id, p, inventory, input, TICK_DT);
       this._useItem(id, p, inventory, input);
@@ -568,7 +581,7 @@ class GameServer {
       if (spot) BoatSystem.leave(p, boat, spot); else this._notice(id, 'No shore nearby');
       return;
     }
-    const action = Interactions.find(this.map, this.boats, p, p.held, this.animals.animals, id, this.npcs.npcs);
+    const action = Interactions.find(this.map, this.boats, p, p.held, this.animals.animals, id, this.npcs.npcs, this.drops);
     if (!action) return;
     if (action.kind === 'dismount') this._dismount(id, p);
     else if (action.kind === 'pick') this._pickUp(id, action.forage);
@@ -580,6 +593,7 @@ class GameServer {
     else if (action.kind === 'pickup') this._carryAnimal(id, action.animal);
     else if (action.kind === 'fill') this.vitals.fillJug(id, this.inventories[id]);
     else if (action.kind === 'stockpile') this._deposit(id, action.pile);
+    else if (action.kind === 'pickDrop') this._pickUpDrop(id, action.drop);
     else if (InteractionHandlers[action.kind]) InteractionHandlers[action.kind](this, id, p, action);          // caves, and anything added later
     else this.vitals.drinkFromSource(id, p, action.water);
   }
@@ -601,11 +615,9 @@ class GameServer {
 
   /** Take the lasso off a pet: it stays where it is (near its new home) and you get the lasso back. A caught wild pony bolts instead. */
   _untie(id, animal) {
-    const inventory = this.inventories[id];
-    if (!inventory.canAdd('leash', 1)) { this._notice(id, 'Inventory full'); return; }
     const wasCaught = animal.captor === id;
     if (wasCaught) this.animals.releaseWild(animal.id); else this.animals.unleash(animal.id);
-    inventory.add('leash', 1); this.inventoryRev[id]++;
+    this._returnLasso(id, animal);                                        // back into the lasso slot (or the pack)
     this.pendingEvents.push({ type: wasCaught ? 'letGo' : 'untied', to: id, x: animal.x, y: animal.y });
   }
 
@@ -620,7 +632,8 @@ class GameServer {
     this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need });
     if (!result.done) return;                                                  // (the client shows "Apple 1/2")
     this._remember(id, animal);
-    if (inventory.canAdd('leash', 1)) { inventory.add('leash', 1); this.inventoryRev[id]++; }              // the lasso comes back
+    this._returnLasso(id, animal);                                                                        // the lasso comes back
+    animal.xp = PonyXp.xpFor(animal.level);                                                               // from now on it grows with you
     this.progress.award(id, 'horsemanship', 80);
     this.pendingEvents.push({ type: 'tamed', to: id, x: animal.x, y: animal.y, animal: animal.type, id: animal.id });
   }
@@ -682,9 +695,9 @@ class GameServer {
 
   /* ---- riding ---- */
   _mount(id, p, animal) {
-    const need = AnimalLevels.rideLevel(animal.type, animal.level), have = Skills._s(p.lv, 'horsemanship');
+    const need = AnimalLevels.rideLevel(animal.type, animal.owner === id ? 1 : animal.level), have = Skills._s(p.lv, 'horsemanship');   // (your own pony never outgrows you as it levels up)
     if (have < need && !animal.trial) { this._notice(id, `A level ${animal.level} ${AnimalDefs[animal.type].name} needs Horsemanship ${need} to ride (you have ${have})`); return; }
-    p.mountLevel = animal.level;
+    p.mountLevel = animal.level; p.mountType = animal.type;              // its speed: PonySpeed (kind's base speed x the level curve)
     animal.rider = id; animal.leashed = false; animal.state = 'idle'; animal.vx = animal.vy = 0;
     p.mount = animal.id; p.x = animal.x; p.y = animal.y; p.vx = p.vy = 0; p.swingT = 0; p.swingHit = false;
     this.progress.award(id, 'horsemanship', 15);
@@ -709,7 +722,8 @@ class GameServer {
     if (!a) { p.mount = ''; p.flying = false; return; }
     if (p.flying) { p.flyT = Math.max(0, +(p.flyT - TICK_DT).toFixed(4)); if (p.flyT <= 0) this._land(id, p, false); }
     stepPlayer(p, input, TICK_DT, this.map);
-    this.tools.update(id, p, inventory, input, TICK_DT);                // everything works from the saddle: lasso, spear, sword, bow, rod, knife, axe...
+    this.tools.update(id, p, inventory, this._lassoInput(id, p, input), TICK_DT); this._lassoDone(p);   // everything works from the saddle: lasso, spear, sword, bow, rod, knife, axe...
+    if (a.owner === id) this._rideXp(p, a);                             // your own pony grows with the miles
     a.x = p.x; a.y = p.y; a.vx = p.vx; a.vy = p.vy; a.facing = p.facing; a.state = Math.hypot(p.vx, p.vy) > 0.2 ? 'ride' : 'idle';
     this.vitals.consumeHeld(id, p, inventory, input, TICK_DT);
     if (a.state === 'ride') {                                      // a little Horsemanship XP for every few seconds in the saddle
@@ -845,7 +859,7 @@ class GameServer {
   takeSnapshot() {
     const players = {};
     for (const id in this.players) players[id] = clonePlayer(this.players[id]);
-    const snapshot = { tick: this.tick, players, boats: this.boatStates(), trees: collectTreeStates(this.map), forage: collectForageStates(this.map), animals: this.animals.states(this._humans()), npcs: this.npcs.states(), events: this.pendingEvents };
+    const snapshot = { tick: this.tick, players, boats: this.boatStates(), trees: collectTreeStates(this.map), forage: collectForageStates(this.map), animals: this.animals.states(this._humans()), npcs: this.npcs.states(), drops: this.dropStates(), events: this.pendingEvents };
     this.pendingEvents = [];
     return snapshot;
   }

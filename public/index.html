@@ -70,7 +70,7 @@
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place wall (or hold the screen to aim, release to place) &middot; R: rotate &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board / drink &middot; hold E on food or water: consume &middot; G: gear &middot; V: emotes &middot; crafting needs a table (build one first) &middot; 1-6 / wheel: toolbar &middot; I: bag &middot; Q: craft &middot; P: Pony Book (berries calm ponies, a leash ties them) &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding</div>
+<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; a brush grooms your pony &middot; G: gear (lasso slot) &middot; V: emotes &middot; 1-6 / wheel: toolbar &middot; I: bag (drop / destroy) &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding</div>
 <div id="portraitHint">Rotate your phone to landscape for the best view</div>
 
 <div id="toolbar"></div>
@@ -84,6 +84,7 @@
 <div id="inventoryPanel" hidden>
   <header><span>Inventory</span><button id="invClose" tabindex="-1">&#x2715;</button></header>
   <div id="invGrid"></div>
+  <div id="invActions"><span id="invPicked">Tap an item to move, drop or destroy it</span><button id="invDrop1" tabindex="-1" disabled>Drop 1</button><button id="invDropAll" tabindex="-1" disabled>Drop all</button><button id="invDestroy" class="danger" tabindex="-1" disabled>Destroy</button></div>
 </div>
 
 <div id="craftPanel" hidden>
@@ -144,6 +145,7 @@
   <button class="pbtn" id="btnBoard" tabindex="-1" style="display:none">Board</button>
   <button class="pbtn danger" id="btnRelease" tabindex="-1" style="display:none">Let go</button>
   <button class="pbtn ability" id="btnAbility" tabindex="-1" style="display:none"></button>
+  <button class="pbtn" id="btnLasso" tabindex="-1" title="Throw your lasso (L)">Lasso</button>
   <button class="pbtn" id="btnRun" tabindex="-1">Run</button>
   <button class="pbtn" id="btnAct" tabindex="-1">Use</button>
 </div>
@@ -231,6 +233,7 @@
 <script src="js/shared/ponyDefs.js"></script>
 <script src="js/shared/animalDefs.js"></script>
 <script src="js/shared/animalLevels.js"></script>
+<script src="js/shared/ponyProgress.js"></script>
 <script src="js/shared/friendship.js"></script>
 <script src="js/shared/being.js"></script>
 <script src="js/shared/animal.js"></script>
@@ -278,6 +281,7 @@
 <script src="js/shared/worldProgress.js"></script>
 <script src="js/shared/dungeonSystem.js"></script>
 <script src="js/shared/gameServer.js"></script>
+<script src="js/shared/serverOwned.js"></script>
 <!-- network -->
 <script src="js/shared/snapshotBuilder.js"></script>
 <script src="js/shared/deltaCodec.js"></script>

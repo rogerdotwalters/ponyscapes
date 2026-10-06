@@ -92,3 +92,4 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
   #detail { padding: 10px 12px 40px; }
   .actions { margin-left: 0; }
 }
+canvas.curve { max-width: 100%; height: auto; border-radius: 6px; margin-top: 8px; display: block; }

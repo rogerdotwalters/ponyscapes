@@ -3,7 +3,8 @@
  * What a swing actually does is delegated to a handler chosen by tool.kind (see toolHandlers.js). */
 class ToolSystem {
   /** @param {{ handlers: Object<string, {find, isValid, apply}> }} deps */
-  constructor({ handlers, heldFor }) { this.handlers = handlers; this.heldFor = heldFor; this.targets = {}; }
+  /** onImpact (optional): called after every swing that hits something (a ridden pony learns from the work done from its back). */
+  constructor({ handlers, heldFor, onImpact }) { this.handlers = handlers; this.heldFor = heldFor; this.onImpact = onImpact || null; this.targets = {}; }
 
   update(id, p, inventory, input, dt) {
     p.held = this.heldFor(id, p, inventory, input);          // the drawn sword, or the selected bar slot
@@ -35,6 +36,6 @@ class ToolSystem {
     const target = this.targets[id];
     delete this.targets[id];
     const handler = this.handlers[tool.kind];
-    if (target && handler && handler.isValid(p, target, tool)) handler.apply(id, target, tool);
+    if (target && handler && handler.isValid(p, target, tool)) { handler.apply(id, target, tool); if (this.onImpact) this.onImpact(id, p, tool); }
   }
 }
