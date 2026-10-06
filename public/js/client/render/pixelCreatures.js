@@ -423,38 +423,97 @@ const PixelCreatures = (() => {
     },
   });
 
-  /* ---- DRAGON (whelp, young, dragon, elder, the bosses): one drawing, the data's colour and scale ---- */
+  /* ---- DRAGON (whelp, young, dragon, elder, the bosses): one drawing, the data's colour and scale ----
+   * A deep, scaled body with pale belly plates; an S-curved neck; a horned head with a brow ridge, a slit-pupilled eye and a jaw that opens
+   * on its teeth; spikes from the neck to the tail; a curling tail with a spade; crouched legs with pale claws; great bat wings on arm and
+   * finger bones. The wings beat when it moves or hunts and stir now and then at rest; smoke curls from its nose, fire when it hunts. */
+  const bez = (p0, p1, p2, p3, n) => Array.from({ length: n + 1 }, (_, i) => { const t = i / n, u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]; });
+  const DG = 62;                                                                                     // the ground row
+  // the wing for each beat: elbow, wrist, and three finger tips, relative to the shoulder
+  const DRAGON_WING = [
+    { E: [3, -11], W: [-3, -22], T: [[5, -34], [-11, -31], [-23, -21]] },
+    { E: [4, -8], W: [-1, -16], T: [[8, -27], [-8, -28], [-23, -16]] },
+    { E: [5, -4], W: [1, -8], T: [[13, -14], [-4, -18], [-22, -8]] },
+    { E: [5, 0], W: [3, 3], T: [[14, 9], [0, 11], [-17, 6]] },
+  ];
+  function dragonWing(P, C, root, f, far) {
+    const S = DRAGON_WING[f], at = d => [root[0] + d[0], root[1] + d[1]], E = at(S.E), Wr = at(S.W), T = S.T.map(at), back = [root[0] - 13, root[1] + 3];
+    const mem = far ? C.memFar : C.mem, bone = far ? shade(C.bone, 0.8) : C.bone, mid = (a, b) => { const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; return [m[0] + (Wr[0] - m[0]) * 0.22, m[1] + (Wr[1] - m[1]) * 0.22]; };
+    P.poly([root, E, Wr, T[0], mid(T[0], T[1]), T[1], mid(T[1], T[2]), T[2], mid(T[2], back), back], mem.b);   // the membrane, scalloped between the fingers
+    P.poly([Wr, T[1], mid(T[1], T[2]), T[2], back, root], mem.d);                                     // the far half a shade darker
+    for (const t of T) P.line(Wr[0], Wr[1], t[0], t[1], bone);                                         // finger bones
+    P.line(root[0], root[1], E[0], E[1], far ? C.body.d : C.body.b, 3); P.line(E[0], E[1], Wr[0], Wr[1], far ? C.body.d : C.body.b, 2);   // the arm
+    P.px(Wr[0] + 1, Wr[1] - 1, C.claw); P.px(Wr[0] + 2, Wr[1] - 2, C.claw);                          // the wing's thumb claw
+  }
+  /** A tapering tube along points (neck, tail): lit along its top, a pale underside. */
+  function tube(P, pts, w0, w1, C, belly) {
+    P.shape(pts.map(([x, y], i) => { const r = (w0 + (w1 - w0) * i / (pts.length - 1)) / 2; return [x, y, r, r]; }), C.body, { texture: false, belly: belly ? C.belly.b : undefined });
+  }
+  function spikes(P, C, pts, every, h) {
+    pts.forEach(([x, y], i) => { if (i % every || i === 0) return; const k = Math.max(1, Math.round(h * (1 - i / pts.length * 0.5))); for (let j = 0; j < k; j++) P.px(x - j * 0.4, y - j, j === k - 1 ? C.spikeTip : C.spike); P.px(x + 1, y, C.spike); });
+  }
+  function claws(P, C, x, y) { P.px(x + 1, y, C.claw); P.px(x + 3, y, C.claw); P.px(x + 4, y - 1, C.claw); }
+  /** A leg: thigh (or shoulder) -> knee -> hock -> foot with claws, moved by the stride. */
+  function dragonLeg(P, C, hip, hind, sw, lift, far) {
+    const col = far ? C.far : C.body, s = sw * 3, knee = hind ? [hip[0] + 3 + s * 0.3, hip[1] + 6] : [hip[0] + 1 + s * 0.3, hip[1] + 6], hock = hind ? [hip[0] - 2 + s * 0.6, DG - 4 - lift] : [hip[0] + 1 + s * 0.7, DG - 2 - lift], foot = [hock[0] + (hind ? 2 : 1) + s * 0.3, DG - lift];
+    P.line(hip[0], hip[1], knee[0], knee[1], col.b, hind ? 6 : 5); P.line(knee[0], knee[1], hock[0], hock[1], col.b, 4); P.line(hock[0], hock[1], foot[0], foot[1], col.d, 3);
+    P.rect(foot[0] - 1, foot[1], 5, 1, col.d); claws(P, C, foot[0] - 1, foot[1]);
+  }
   PixelCreatures.register({
-    id: 'dragon', W: 72, H: 60, ground: 58, anchor: 30, shadow: [22, 5], tick: F => (F.hunting ? 140 : 260), ticks: 4,
-    palette: s => { const col = s.color || '#4f9a5a'; return { body: tones(col), belly: tones(light(col, 0.35)), wing: tones(shade(col, 0.85)), bone: '#e8dcc0' }; },
+    id: 'dragon', W: 84, H: 66, ground: DG, anchor: 36, shadow: [24, 5], tick: F => (F.hunting ? 120 : F.moving ? 170 : 330), ticks: 4,
+    palette: s => {
+      const col = s.color || '#4f9a5a';
+      return { body: tones(col), far: tones(shade(col, 0.72)), belly: tones(mix(col, '#f3e2b0', 0.55)), mem: tones(mix(light(col, 0.12), '#d9a070', 0.18)), memFar: tones(shade(mix(col, '#d9a070', 0.15), 0.62)),
+        bone: shade(col, 0.5), spike: shade(col, 0.55), spikeTip: mix(col, '#f0e0c0', 0.6), horn: tones('#e8dcc0'), claw: '#f0e6d0', eye: '#ffd24a' };
+    },
     paint(P, C, F) {
-      const G = 58, sw = F.swing, flap = [0, 4, 8, 4][F.t], far = tones(shade(C.body.b, 0.7));
-      membrane(P, [31, 30], [14, 6 + flap], [21, 32], tones(shade(C.wing.b, 0.7)));                   // far wing
-      for (const [x, d] of [[21, -sw], [37, sw]]) P.leg(x, G - 13, G, d * 2, 0, 5, far, C.bone);
-      P.at(0, F.bob, () => {
-        for (let s = 0; s <= 20; s++) { const k = s / 20, x = 18 - k * 15, y = G - 20 + Math.sin(k * 3 + F.t * 0.4) * 3 + k * 8, w = Math.round(6 - k * 4.5); P.rect(x, y - (w >> 1), 1, w, s % 4 ? C.body.b : C.body.d); }   // the tail
-        P.line(2, G - 13, 0, G - 16, C.body.d, 2); P.line(2, G - 13, -1, G - 10, C.body.d, 2);       // its spade
-        P.shape([[30, G - 18, 14, 7.5]], C.body, { belly: C.belly.b });
-        for (let x = 20; x <= 40; x += 5) { P.px(x, G - 26, C.body.d); P.px(x + 1, G - 27, C.body.d); P.px(x + 1, G - 26, C.body.d); P.px(x + 2, G - 26, C.body.d); }   // spikes
-        P.line(40, G - 21, 48, G - 35, C.body.b, 5);                                                   // the neck
+      const sw = F.swing, wf = F.hunting || F.moving ? F.t : [1, 1, 1, 2][F.t], b = F.bob, root = [38, DG - 28];
+      P.at(0, b, () => dragonWing(P, C, [root[0] - 4, root[1] - 2], wf, true));                       // far wing
+      dragonLeg(P, C, [25, DG - 17], true, -sw, F.moving && F.i === 3 ? 2 : 0, true);                  // far legs
+      dragonLeg(P, C, [45, DG - 16], false, sw, F.moving && F.i === 1 ? 2 : 0, true);
+      const tail = bez([20, DG - 20], [7, DG - 17], [10, DG - 3], [1 + (F.moving ? 0 : [0, 1, 0, -1][F.i]), DG - 9], 22);
+      const neck = bez([49, DG - 23], [58, DG - 27], [53, DG - 39], [61, DG - 44], 14);
+      P.at(0, b, () => {
+        tube(P, tail, 9, 2, C, true);                                                                     // the tail
+        const [tx, ty] = tail[tail.length - 1]; P.poly([[tx, ty - 3], [tx - 3, ty], [tx, ty + 3], [tx + 2, ty]], C.spike);   // its spade
+        P.shape([[35, DG - 21, 14, 8.5], [24, DG - 20, 8, 7.5], [46, DG - 22, 7, 8.5]], C.body, { texture: false, belly: C.belly.b });
+        for (let y = DG - 26, r = 0; y < DG - 16; y += 3, r++) for (let x = 19 + (r % 2) * 3; x < 52; x += 6) { P.px(x, y, C.body.d); P.px(x + 1, y + 1, C.body.d); P.px(x + 2, y, C.body.d); P.px(x + 1, y - 1, C.body.l); }   // overlapping scales
+        for (let x = 22; x < 50; x++) { P.px(x, DG - 14, C.belly.b); P.px(x, DG - 13, x % 3 ? C.belly.b : C.belly.d); P.px(x, DG - 12, C.belly.d); }   // belly plates
+        tube(P, neck, 9, 6, C, true);
+        neck.forEach(([x, y], i) => { if (i > 1 && i % 2 === 0) { P.px(x + 3, y + 1, C.belly.b); P.px(x + 3, y + 2, C.belly.d); } });   // throat plates
+        spikes(P, C, [...tail].reverse().slice(0, 18), 3, 2);
+        spikes(P, C, bez([22, DG - 28], [30, DG - 31], [42, DG - 31], [48, DG - 29], 10), 2, 3);
+        spikes(P, C, neck.map(([x, y]) => [x - 3, y - 3]), 2, 3);
       });
-      for (const [x, d] of [[25, sw], [40, -sw]]) P.leg(x, G - 13, G, d * 2, 0, 5, C.body, C.bone);
-      P.at(0, F.bob, () => {
-        P.shape([[26, G - 16, 6, 5.5], [42, G - 17, 4.5, 5]], C.body, { texture: false });           // haunch and shoulder over the near legs
-        P.shape([[51, G - 38, 5.5, 3.6], [57, G - 37, 3.2, 2.4]], C.body, { texture: false });         // head and snout
-        P.line(48, G - 41, 44, G - 46, C.bone); P.line(50, G - 41, 47, G - 48, C.bone);               // horns
-        P.px(59, G - 38, '#1a1010'); P.px(52, G - 39, F.hunting ? '#ff3a1a' : '#ffd24a'); P.px(53, G - 39, F.hunting ? '#ff3a1a' : '#ffd24a');
-        if (F.hunting) P.row(G - 35, 55, 59, '#4a1010');
-        membrane(P, [34, 30 + F.bob], [20, 2 + flap], [46, 32], C.wing);                                // near wing
+      P.at(0, b, () => P.shape([[26, DG - 16, 6.5, 6]], C.body, { texture: false }));                // the haunch over the near hind leg
+      dragonLeg(P, C, [27, DG - 14], true, sw, F.moving && F.i === 1 ? 2 : 0, false);                   // near legs
+      dragonLeg(P, C, [47, DG - 14], false, -sw, F.moving && F.i === 3 ? 2 : 0, false);
+      P.at(0, b, () => {
+        const open = F.hunting ? 2 : 0, hx = 63, hy = DG - 46;
+        P.shape([[hx + 5, hy + 4 + open, 5, 1.6]], C.belly, { texture: false });                       // the lower jaw
+        if (open) { P.row(hy + 4, hx + 3, hx + 10, '#5a1010'); P.row(hy + 5, hx + 4, hx + 9, '#ff7a20'); for (let x = hx + 4; x <= hx + 10; x += 2) { P.px(x, hy + 3, '#ffffff'); P.px(x + 1, hy + 6, '#ffffff'); } }   // jaws open on the fire
+        P.shape([[hx, hy, 5.5, 4.5], [hx + 6, hy + 1.5, 5, 2.6]], C.body, { texture: false });         // skull and snout
+        P.row(hy - 3, hx - 2, hx + 3, C.body.d); P.row(hy - 4, hx - 1, hx + 2, C.body.d);                // brow ridge
+        P.px(hx + 1, hy - 1, C.eye); P.px(hx + 2, hy - 1, F.hunting ? '#ff3a1a' : C.eye); P.px(hx + 2, hy - 2, '#1a1010');   // slit-pupilled eye
+        P.px(hx + 10, hy, '#1a1010'); P.row(hy + 3, hx + 3, hx + 9, C.body.d);                           // nostril, mouth line
+        if (!open) for (const x of [hx + 5, hx + 8]) P.px(x, hy + 3, '#ffffff');                       // fangs peeking out
+        P.line(hx - 2, hy - 4, hx - 7, hy - 8, C.horn.b, 2); P.line(hx - 7, hy - 8, hx - 10, hy - 7, C.horn.d);   // horns sweeping back
+        P.line(hx, hy - 4, hx - 4, hy - 9, C.horn.l); P.px(hx - 5, hy - 10, C.horn.l);
+        P.line(hx - 4, hy + 3, hx - 7, hy + 5, C.spike);                                                // a spike at the jaw
+        dragonWing(P, C, root, wf, false);                                                               // near wing
       });
     },
-    live(ctx, C, F, anim, dot) {                                                                     // a lick of fire when it hunts
-      if (!F.hunting || (anim.now % 900) >= 380) return;
-      const G = 58, f = Math.floor(anim.now / 70);
-      for (let k = 0; k < 16; k++) for (let j = -Math.floor(k / 4); j <= Math.floor(k / 4); j++) {
-        if ((k * 7 + j * 3 + f) % 5 === 0) continue;
-        const heat = 1 - k / 16 - Math.abs(j) * 0.12;
-        dot(61 + k, G - 36 + j + F.bob, heat > 0.7 ? '#fff3a0' : heat > 0.45 ? '#ffb300' : heat > 0.2 ? '#ff6a00' : '#c62828', 0.95);
+    live(ctx, C, F, anim, dot) {
+      const f = Math.floor(anim.now / 70), mouth = [74, DG - 41 + F.bob];
+      if (F.hunting && (anim.now % 1100) < 520) {                                                      // a long gout of fire
+        for (let k = 0; k < 22; k++) { const half = Math.floor(k / 4.5) + (k > 4 && (k + f) % 3 === 0 ? 1 : 0); for (let j = -half; j <= half; j++) {
+          if (Math.abs(j) === half && half > 0 && (k * 5 + j + f) % 3 === 0) continue;               // ragged edges, a solid core
+          const heat = 1 - k / 26 - Math.abs(j) / (half + 1) * 0.45;
+          dot(mouth[0] + k, mouth[1] + j + Math.round(Math.sin(k / 3 + f) * 0.6), heat > 0.72 ? '#fff6c0' : heat > 0.52 ? '#ffc400' : heat > 0.32 ? '#ff7a00' : '#e53935', k > 18 ? 0.7 : 0.95);
+        } }
+      } else if (!F.hunting) for (let i = 0; i < 3; i++) {                                             // smoke curling from the nose
+        const t = ((anim.now / 1600) + i / 3) % 1;
+        dot(mouth[0] - 1 + Math.sin(t * 6 + i) * 1.5 + t * 2, mouth[1] - 4 - t * 12, t < 0.5 ? '#9a9a9a' : '#c8c8c8', 0.55 * (1 - t));
       }
     },
   });
