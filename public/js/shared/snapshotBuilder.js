@@ -7,7 +7,7 @@ const SnapshotBuilder = {
     const player = server.players[id];
     return {
       id, slot: player.slot, mapSeed: server.map.seed, tickRate: CONFIG.sim.tickRate, tick: server.tick, player,
-      inventory: server.inventoryUpdateFor(id), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), host: id === server.hostId,
+      inventory: server.inventoryUpdateFor(id), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
       boats: server.boatStates(), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
       animals: server.animals.states(server._humans()), npcs: server.npcs.states(), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
       pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id)
@@ -29,6 +29,7 @@ const SnapshotBuilder = {
     const inventory = server.inventoryUpdateFor(id);   if (inventory) snapshot.inventory = inventory;
     const built = server.builtUpdateFor(id);           if (built) snapshot.built = built;
     const floors = server.floorsUpdateFor(id);         if (floors) snapshot.floors = floors;
+    const stock = server.stockpilesUpdateFor(id);      if (stock) snapshot.stockpiles = stock;            // { piles, levels }: the town's storage
     const progress = server.progressUpdateFor(id);     if (progress) snapshot.progress = progress;        // { s: {skill: xp}, a: {attribute: xp} }
     const treasure = server.treasureUpdateFor(id);     if (treasure) snapshot.treasure = treasure;        // [{ key, tx, ty }] where your maps lead
     const rings = server.ringsUpdateFor(id);           if (rings) snapshot.rings = rings;                  // a guardian fell: a ring opened

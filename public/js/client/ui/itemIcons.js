@@ -343,12 +343,37 @@ const ItemIcons = (() => {
 
   const fallback = ctx => { ctx.fillStyle = '#9aa'; ctx.font = 'bold 28px Georgia'; ctx.textAlign = 'center'; ctx.fillText('?', 24, 34); };
 
-  function url(itemId) {
-    if (cache[itemId]) return cache[itemId];
-    const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : fallback);
-    paint(canvas.getContext('2d'));
-    return (cache[itemId] = canvas.toDataURL());
+  /** A stockpile: a pallet with its resource heaped on it. */
+  function stockpileIcon(ctx, resource) {
+    ctx.fillStyle = '#7a5230'; ctx.fillRect(6, 34, 36, 6); ctx.fillStyle = '#5a3a20'; ctx.fillRect(9, 40, 5, 4); ctx.fillRect(34, 40, 5, 4); ctx.fillRect(21, 40, 6, 4);
+    if (resource === 'wood') for (const [x, y] of [[13, 29], [24, 29], [35, 29], [18, 21], [30, 21], [24, 13]]) { ctx.fillStyle = '#9a6b3d'; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d9b27a'; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill(); }
+    else if (resource === 'stone') for (const [x, y, r] of [[14, 29, 6], [26, 30, 7], [36, 29, 5.5], [20, 21, 6], [31, 21, 6], [25, 13, 5]]) { ctx.fillStyle = '#8d8d93'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#b4b4ba'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 2, r * 0.45, r * 0.3, 0, 0, Math.PI * 2); ctx.fill(); }
+    else for (const [x, y] of [[14, 29], [26, 29], [36, 29], [20, 21], [31, 21], [25, 13]]) { ctx.fillStyle = '#b8643c'; ctx.beginPath(); ctx.ellipse(x, y, 6, 4.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d98a5c'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 1.5, 2.6, 1.6, 0, 0, Math.PI * 2); ctx.fill(); }
   }
-  return { url };
+  painters.stockpile_wood = ctx => stockpileIcon(ctx, 'wood');
+  painters.stockpile_stone = ctx => stockpileIcon(ctx, 'stone');
+  painters.stockpile_clay = ctx => stockpileIcon(ctx, 'clay');
+
+  /** An item you created without an icon yet: a badge in its colour (or its rarity's) with its first letter. */
+  const badgePainter = def => ctx => {
+    const color = def.color || rarityOf(def.rarity).color;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(24, 24, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = 'bold 22px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((def.name || '?')[0].toUpperCase(), 24, 25);
+  };
+
+  /** The procedural icon (ignores any image you gave the item). */
+  function proceduralUrl(itemId) {
+    const key = '\u0000' + itemId;
+    if (cache[key]) return cache[key];
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
+    paint(canvas.getContext('2d'));
+    return (cache[key] = canvas.toDataURL());
+  }
+  /** The icon to show: your image if the item has one (editor.html), else the procedural one. */
+  function url(itemId) { return SpriteRegistry.itemIconSrc(itemId) || proceduralUrl(itemId); }
+  /** The icon as a loaded image, for drawing on the canvas (null until it has loaded). */
+  function image(itemId) { return SpriteRegistry.image(url(itemId)); }
+  return { url, proceduralUrl, image };
 })();

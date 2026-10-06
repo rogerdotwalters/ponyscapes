@@ -120,6 +120,18 @@ class TerrainGenerator {
   moundAt(tx, ty, tileType) { return tileType === TILE.SAND && hash3(this.seed, tx, ty, 61) < BURIED_BOTTLE_CHANCE && !Village.blocksTrees(tx, ty); }
   floatingBottleAt(tx, ty, tileType) { return tileType === TILE.SHALLOW && hash3(this.seed, tx, ty, 62) < FLOATING_BOTTLE_CHANCE; }
 
+  /** An item lying on this tile (from ItemSpawnTable: each item's rate per 1000 open tiles of its biome), or null. */
+  lootAt(tx, ty, tileType) {
+    if (isWaterTile(tileType) || Village.blocksTrees(tx, ty)) return null;
+    const h = hash3(this.seed, tx, ty, 70);
+    if (h >= MAX_LOOT_CHANCE) return null;
+    const table = ItemSpawnTable[this.biomeAt(tx, ty, tileType)];
+    if (!table) return null;
+    let roll = h * 1000;
+    for (const [item, rate] of table) if ((roll -= rate) < 0) return item;
+    return null;
+  }
+
   /** A diggable clay deposit on this tile? */
   clayAt(tx, ty, tileType) { return tileType === TILE.CLAY && hash3(this.seed, tx, ty, 24) < CLAY_DEPOSIT_CHANCE; }
 
@@ -132,7 +144,7 @@ class TerrainGenerator {
       const ty = cy * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 50 + attempt) * CHUNK_SIZE);
       const tile = tileOf(tx, ty);
       if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1) continue;   // not in the village, not on rock / water
-      const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolFor(this.layers.rings.at(tx + 0.5, ty + 0.5).index);
+      const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolAt(this.layers.rings.at(tx + 0.5, ty + 0.5).index, biome);
       if (!fauna.length) continue;
       const total = fauna.reduce((n, f) => n + f.weight, 0);
       let roll = hash3(this.seed, cx, cy, 22) * total, chosen = fauna[0];

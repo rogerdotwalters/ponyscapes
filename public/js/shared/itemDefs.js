@@ -16,16 +16,68 @@ const ITEM_MAKERS = [
   [SpecialItems, d => Object.assign({}, d)]
 ];
 
+/** Bulk resources. You carry only a few STACKS of each (Constitution + your ponies decide how many) and deliver the rest to a
+ *  stockpile in town, which crafting tables pull from. An item joins a resource with `resource: 'wood'` in its table. */
+const ResourceTypes = Object.freeze({
+  wood:  Object.freeze({ id: 'wood',  name: 'Wood',  stockpile: 'stockpile_wood' }),
+  stone: Object.freeze({ id: 'stone', name: 'Stone', stockpile: 'stockpile_stone' }),
+  clay:  Object.freeze({ id: 'clay',  name: 'Clay',  stockpile: 'stockpile_clay' })
+});
+const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash']);
+const ItemEquipSlots = Object.freeze(['crown', 'outfit', 'cape']);                     // the wardrobe slots (equipment.js)
+/** Fields any table entry may carry through to its item: rarity, resource type, where it lies about, a crafting recipe, your pictures. */
+const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites'];
+
 const ItemRegistry = new Registry('items', { required: ['name', 'maxStack'] });
 for (const [table, make] of ITEM_MAKERS) for (const entry of table.all()) {
   const item = make(entry);
+  for (const key of ITEM_EXTRAS) if (entry[key] !== undefined && item[key] === undefined) item[key] = entry[key];
   for (const key of ['tool', 'food', 'drink', 'equip', 'look', 'placeable']) if (item[key]) item[key] = Object.freeze(Object.assign({}, item[key]));
   ItemRegistry.register(item);
 }
-const ItemDefs = ItemRegistry.toObject();
+
+/** Clean up one (possibly hand-edited) item from js/content/customContent.js. Built-ins keep what they build; new items cannot build structures. */
+function buildItemDef(d, id, isNew) {
+  const out = Object.assign({}, d), num = (v, lo, hi, fallback) => (Number.isFinite(+v) ? clamp(+v, lo, hi) : fallback);
+  delete out.base;
+  out.name = typeof d.name === 'string' && d.name.trim() ? d.name.trim().slice(0, 40) : id;
+  out.maxStack = Math.round(num(d.maxStack, 1, 999, 1));
+  out.rarity = RarityDefs[d.rarity] ? d.rarity : 'common';
+  if (d.resource !== undefined && !ResourceTypes[d.resource]) delete out.resource;
+  if (d.food) out.food = { hunger: num(d.food.hunger, 0, 100, 0), thirst: num(d.food.thirst, 0, 100, 0) };
+  if (d.tool) {
+    if (!ToolKinds.includes(d.tool.kind)) delete out.tool;
+    else {
+      const swingTime = num(d.tool.swingTime, 0.15, 3, 0.5);
+      out.tool = { kind: d.tool.kind, damage: num(d.tool.damage, 0, 999, 1), reach: num(d.tool.reach, 0.5, 8, 1), swingTime, impactTime: num(d.tool.impactTime, 0.05, swingTime, swingTime / 2) };
+    }
+  }
+  if (d.equip) {
+    if (!ItemEquipSlots.includes(d.equip.slot)) delete out.equip;
+    else {
+      out.equip = { slot: d.equip.slot, body: ['any', 'prince', 'princess'].includes(d.equip.body) ? d.equip.body : 'any', power: num(d.equip.power, 0, 2, 0), def: num(d.equip.def, 0, 25, 0) };
+      out.kind = 'wardrobe';
+      if (!ContentPack.isPlain(out.look)) out.look = { style: { crown: 'royal', outfit: 'tunic', cape: 'plain' }[d.equip.slot], color: d.color || null };
+    }
+  }
+  if (isNew) delete out.placeable;
+  out.spawns = Array.isArray(d.spawns) ? d.spawns.filter(s => s && typeof s.biome === 'string' && +s.rate > 0).map(s => ({ biome: s.biome, rate: Math.min(50, +s.rate) })) : [];
+  if (d.craft !== undefined) out.craft = Array.isArray(d.craft) ? d.craft.filter(c => Array.isArray(c) && typeof c[0] === 'string' && +c[1] > 0).map(c => [c[0], Math.round(+c[1])]) : undefined;
+  return out;
+}
+const ItemDefs = ContentPack.mergeDefs('items', ItemRegistry.toObject(), buildItemDef);
+
+/** Items lying about in the world, per biome: [[itemId, rate per 1000 open tiles], ...] (from each item's `spawns`). */
+const ItemSpawnTable = (() => {
+  const table = {};
+  for (const def of Object.values(ItemDefs)) for (const s of def.spawns || []) (table[s.biome] = table[s.biome] || []).push([def.id, s.rate]);
+  return Object.freeze(table);
+})();
 
 const ItemDB = {
   get: id => ItemDefs[id] || null,
+  rarity: id => rarityOf(ItemDefs[id] && ItemDefs[id].rarity),
+  resource: id => (ItemDefs[id] && ItemDefs[id].resource) || null,
   maxStack: id => (ItemDefs[id] ? ItemDefs[id].maxStack : 1),
   getTool: id => (ItemDefs[id] && ItemDefs[id].tool) || null,
   getDrink: id => (ItemDefs[id] && ItemDefs[id].drink) || null,

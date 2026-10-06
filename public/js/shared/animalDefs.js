@@ -12,15 +12,35 @@ const CREATURE_DEFAULTS = Object.freeze({
   detect: Object.freeze({ idle: 2, sneak: 2.5, walk: 4.5, run: 6.5 })
 });
 const freezeDef = d => { for (const k of ['detect', 'attack', 'group', 'sprite']) if (d[k]) d[k] = Object.freeze(Object.assign(Array.isArray(d[k]) ? [] : {}, d[k])); return Object.freeze(d); };
-const AnimalDefs = Object.freeze(Object.fromEntries([
+/** Clean up one (possibly hand-edited) creature from js/content/customContent.js. A new one copies everything (behaviour, look) from its `base`.
+ *  Where it lives: `ring` (0 = the village's ring), `weight` (how common there; 0 = never by itself), `group` [min, max] and, optionally,
+ *  `biomes`: only in these biomes of its ring. `rarity` is the lowest rarity a pony of this kind can be born with. */
+function buildCreatureDef(d, id) {
+  const out = Object.assign({}, d), num = (v, lo, hi, fallback) => (Number.isFinite(+v) ? clamp(+v, lo, hi) : fallback);
+  out.name = typeof d.name === 'string' && d.name.trim() ? d.name.trim().slice(0, 40) : id;
+  out.rarity = RarityDefs[d.rarity] ? d.rarity : 'common';
+  for (const [k, lo, hi] of [['hp', 1, 9999], ['radius', 0.08, 1], ['wanderSpeed', 0, 10], ['fleeSpeed', 0, 12], ['fleeSeconds', 0, 30], ['followSpeed', 0, 12], ['chaseSpeed', 0, 12], ['hunt', 0, 40], ['levelBase', 1, 99], ['tameApples', 1, 20], ['weight', 0, 100]]) {
+    if (d[k] !== undefined) out[k] = num(d[k], lo, hi, d[k]);
+  }
+  out.ring = Math.round(num(d.ring, 0, Math.max(0, Rings.size - 1), 0));
+  const min = Math.max(1, Math.round(num(d.group && d.group[0], 1, 20, 1))); out.group = [min, Math.max(min, Math.round(num(d.group && d.group[1], 1, 20, min)))];
+  if (Array.isArray(d.biomes)) out.biomes = d.biomes.filter(b => Biomes.has(b)); else delete out.biomes;
+  if (!Array.isArray(d.drops)) out.drops = [];
+  delete out.base;
+  return out;
+}
+
+const AnimalDefs = ContentPack.mergeDefs('creatures', Object.fromEntries([
   ...PonyKinds.all().map(k => [k.id, freezeDef(Object.assign({}, PONY_DEFAULTS, k))]),
   ...Creatures.all().map(c => [c.id, freezeDef(Object.assign({}, CREATURE_DEFAULTS, c))])
-]));
+]), buildCreatureDef);
 
-/** What lives where: the creatures' own `ring` / `weight` / `group` fields, grouped by ring (cached). */
+/** What lives where: the creatures' own `ring` / `weight` / `group` (and optional `biomes`) fields, grouped by ring (cached). */
 const Fauna = {
   pools: {},
-  poolFor(ring) { return Fauna.pools[ring] || (Fauna.pools[ring] = Object.values(AnimalDefs).filter(d => d.ring === ring && d.weight > 0).map(d => ({ id: d.id, weight: d.weight, group: d.group }))); },
+  poolFor(ring) { return Fauna.pools[ring] || (Fauna.pools[ring] = Object.values(AnimalDefs).filter(d => d.ring === ring && d.weight > 0).map(d => ({ id: d.id, weight: d.weight, group: d.group, biomes: d.biomes || null }))); },
+  /** The ring's pool, without the creatures that keep to other biomes. */
+  poolAt(ring, biome) { return Fauna.poolFor(ring).filter(f => !f.biomes || !f.biomes.length || f.biomes.includes(biome)); },
   bossOf(ring) { return Object.values(AnimalDefs).find(d => d.boss && d.bossRing === ring) || null; }
 };
 const FAUNA_CHANCE = 0.5;                       // chance that a chunk holds an animal group

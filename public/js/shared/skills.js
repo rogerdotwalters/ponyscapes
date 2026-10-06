@@ -10,7 +10,7 @@
 const AttributeDefs = Object.freeze({
   strength:     Object.freeze({ name: 'Strength',     short: 'STR', effect: 'Hits harder with every 10 levels' }),
   dexterity:    Object.freeze({ name: 'Dexterity',    short: 'DEX', effect: 'Move up to 20% faster' }),
-  constitution: Object.freeze({ name: 'Constitution', short: 'CON', effect: '+5 maximum health per level' }),
+  constitution: Object.freeze({ name: 'Constitution', short: 'CON', effect: '+5 maximum health and +1 stack of wood, stone and clay you can carry per level' }),
   endurance:    Object.freeze({ name: 'Endurance',    short: 'END', effect: 'Hunger and thirst drain up to 30% slower' }),
   intelligence: Object.freeze({ name: 'Intelligence', short: 'INT', effect: 'All skills gain up to 25% more XP' }),
   charisma:     Object.freeze({ name: 'Charisma',     short: 'CHA', effect: 'Animals trust you from farther away' })
@@ -18,13 +18,13 @@ const AttributeDefs = Object.freeze({
 
 /** attrs: how much of the skill's XP also goes to each attribute. */
 const SkillDefs = Object.freeze({
-  woodcutting:  Object.freeze({ name: 'Woodcutting',  attrs: Object.freeze({ strength: 0.5, endurance: 0.25 }) }),
+  woodcutting:  Object.freeze({ name: 'Woodcutting',  attrs: Object.freeze({ strength: 0.5, endurance: 0.25, constitution: 0.2 }) }),   // hauling timber builds the back you carry it with
   foraging:     Object.freeze({ name: 'Foraging',     attrs: Object.freeze({ dexterity: 0.35, intelligence: 0.25 }) }),
   fishing:      Object.freeze({ name: 'Fishing',      attrs: Object.freeze({ dexterity: 0.3, intelligence: 0.3 }) }),
   hunting:      Object.freeze({ name: 'Hunting',      attrs: Object.freeze({ dexterity: 0.4, strength: 0.3 }) }),
   building:     Object.freeze({ name: 'Building',     attrs: Object.freeze({ strength: 0.3, intelligence: 0.3 }) }),
   crafting:     Object.freeze({ name: 'Crafting',     attrs: Object.freeze({ intelligence: 0.5, dexterity: 0.2 }) }),
-  digging:      Object.freeze({ name: 'Digging',      attrs: Object.freeze({ strength: 0.4, endurance: 0.4 }) }),
+  digging:      Object.freeze({ name: 'Digging',      attrs: Object.freeze({ strength: 0.4, endurance: 0.4, constitution: 0.2 }) }),
   horsemanship: Object.freeze({ name: 'Horsemanship', attrs: Object.freeze({ charisma: 0.5, dexterity: 0.3, constitution: 0.2 }) }),
   friendship:        Object.freeze({ name: 'Friendship',        attrs: Object.freeze({ charisma: 0.6, intelligence: 0.2 }) }),          // talking to and giving gifts to PEOPLE
   animal_friendship: Object.freeze({ name: 'Animal Friendship', attrs: Object.freeze({ charisma: 0.5, endurance: 0.1 }) })             // petting and feeding ANIMALS: separate from the one above
@@ -71,6 +71,9 @@ const Skills = {
 };
 
 /** Server-side XP ledger. Awards XP to a skill and, "under the surface", to the attributes it is packaged with. */
+/** Extra chance of a bonus harvest from Lucky Star ponies (a player's `buffs.luck` is in percent). */
+const luckChance = p => ((p && p.buffs && p.buffs.luck) || 0) / 100;
+
 class Progression {
   /** @param {{emit:(event)=>void, onLevels:(id, levels)=>void}} deps */
   constructor(deps) { Object.assign(this, deps); this.data = {}; this.rev = {}; }

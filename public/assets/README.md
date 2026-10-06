@@ -31,6 +31,6 @@ The game itself has no up / down artwork yet either: `AnimalSprite._drawUp` / `_
 | On the ground | bottom centre on the spot | 26 px wide |
 | In the hand | the grip at the **bottom centre**, pointing **up** | about as long as the tool (17-30 px), turned to where you face and swung |
 | Built (stations) | bottom at the tile's front corner | one tile wide (96 px) |
-| Worn (clothes) | a full-body overlay, same size and anchor as the character picture, one per direction | same as the character |
+| Worn (wardrobe: crown, outfit, cape) | a full-body overlay, same size and anchor as the character picture, one per direction; drawn cape, then outfit, then crown | same as the character |
 
 `Feet offset` (anchorY) moves a picture down by that many pixels if your feet are not on the last row.

@@ -1,5 +1,9 @@
 'use strict';
-/* CLIENT - draws a player: shadow, facing arrow, body, held axe with swing animation, name tag. */
+/* CLIENT - draws a player: shadow, facing arrow, body, held axe with swing animation, name tag.
+ * The body faces one of four screen directions (SpriteRegistry.dirOf). With images for the body type (editor.html > Characters) those are
+ * drawn; otherwise the procedural body below, which already turns (no face when walking away). Worn items with images of their own are
+ * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
+const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
 const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8 };
 const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
@@ -7,13 +11,13 @@ const SADDLE_HEIGHT = 15;                        // how far above the pony's foo
 class PlayerSprite {
   constructor(g) { this.g = g; this.walkPhase = {}; }
 
-  draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false) {
+  draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false, opts = {}) {
     const mounted = !!p.mount, riding = !!p.boat || mounted;
     if (mounted) { sy -= SADDLE_HEIGHT; rowPhase = now / 140; }                       // up in the saddle, arms swinging with the gait
     if (wading) this._drawRipples(sx, sy, now);
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
-    if (!riding) { this._drawGroundMarkers(p, sx, sy, pose); this._drawLegs(p, sx, sy, pose); }
-    this._drawTorsoAndHead(p, sx, pose);
+    if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
+    this._drawBody(p, sx, sy, pose, riding, now, opts);
     if (!p.boat) this._drawHeldItem(p, sx, pose);                                  // the rider swings the lasso / spear from the saddle too
     if (wading) { this.g.ellipse(sx, sy - 2, 12, 5.5, 'rgba(110,185,215,.55)'); }     // the water line over the lower legs
     this._drawNameTag(p, isMe, sx, pose);
@@ -31,6 +35,31 @@ class PlayerSprite {
     }
   }
 
+  /** The body for the pose's direction: your images if the body type has them, else the procedural body. Then worn-item overlays. */
+  _drawBody(p, sx, sy, pose, riding, now, opts) {
+    const L = CharacterLook.describe(p.appearance), body = L.princess ? 'princess' : 'prince', moving = p.state !== 'idle';
+    const drawn = !opts.procedural && SpriteRegistry.drawCharacter(this.g.ctx, body, pose.dir, sx, sy - pose.crouch * 0.5, moving, now);
+    if (drawn) pose.headY = sy - drawn.h + 6;                                           // (the name tag and emote sit above the picture)
+    else if (pose.dir === 'up') this._drawUp(p, sx, sy, pose, riding);
+    else if (pose.dir === 'down') this._drawDown(p, sx, sy, pose, riding);
+    else this._drawSide(p, sx, sy, pose, riding);
+    if (!opts.procedural) this._drawWorn(p, sx, sy, pose, moving, now);
+  }
+  /** The procedural body. It turns with the facing by itself, so all four directions share it; _drawUp / _drawDown are the place
+   *  for dedicated back / front views (BOILERPLATE: they use the same body for now). */
+  _drawSide(p, sx, sy, pose, riding) { if (!riding) this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose); }
+  _drawUp(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
+  _drawDown(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
+
+  /** Worn items that have images: full-body overlays for the facing direction. */
+  _drawWorn(p, sx, sy, pose, moving, now) {
+    const gear = p.gear || {};
+    for (const slot of WORN_ORDER) {
+      const item = gear[slot], picked = item && SpriteRegistry.wornImage(item, pose.dir);
+      if (picked) SpriteRegistry.drawSheet(this.g.ctx, picked, ItemDefs[item].sprites.worn, sx, sy - pose.crouch * 0.5, moving, now);
+    }
+  }
+
   _computePose(p, id, sx, sy, now, riding, rowPhase) {
     const walk = this.walkPhase[id] || (this.walkPhase[id] = { phase: 0, lastX: p.x, lastY: p.y });
     const dxw = p.x - walk.lastX, dyw = p.y - walk.lastY, moved = Math.hypot(dxw, dyw);
@@ -43,8 +72,10 @@ class PlayerSprite {
     const legSwing = riding ? Math.sin(rowPhase) * 5 : moving ? Math.sin(walk.phase) * (run ? 5 : 3.5) : 0;   // arms follow the oars
     const fx = Math.cos(p.facing), fy = Math.sin(p.facing);
     const [px, py] = IsoProjection.worldDeltaToScreen(fx, fy), len = Math.hypot(px, py) || 1;
-    const torsoTop = sy - 33 + crouch - bob;
-    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy };
+    const torsoTop = sy - 33 + crouch - bob, dir = SpriteRegistry.dirOf(p.facing);
+    const gear = Object.assign({}, p.gear || {});                                   // gear with its own worn images is not drawn procedurally
+    for (const slot of WORN_ORDER) if (gear[slot] && SpriteRegistry.wornImage(gear[slot], dir)) gear[slot] = '';
+    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, gear };
   }
 
   _drawGroundMarkers(p, sx, sy, pose) {
@@ -59,8 +90,8 @@ class PlayerSprite {
   }
 
   /** What this character is wearing: the drawn "look" of the item in each wardrobe slot (or null). Nothing else is ever worn. */
-  _wardrobe(p) {
-    const gear = p.gear || {}, look = id => (id && ItemDefs[id] ? ItemDefs[id].look : null);
+  _wardrobe(p, gear = p.gear || {}) {
+    const look = id => (id && ItemDefs[id] ? ItemDefs[id].look : null);
     return { crown: look(gear.crown), outfit: look(gear.outfit), cape: look(gear.cape) };
   }
   /** The outfit's style and colours: its own, or the ones chosen on the character screen (a null colour means "yours"). */
@@ -76,7 +107,7 @@ class PlayerSprite {
 
   _drawTorsoAndHead(p, sx, pose) {
     const g = this.g, ctx = g.ctx, { crouch, legSwing, torsoTop, headY, ux, uy } = pose, L = CharacterLook.describe(p.appearance), away = uy < -0.3;
-    const W = this._wardrobe(p), O = this._palette(L, W.outfit);
+    const W = this._wardrobe(p, pose.gear), O = this._palette(L, W.outfit);         // (a piece with its own worn pictures is drawn by _drawWorn instead)
     if (W.cape && !away) this._cape(sx, pose, W.cape, false);                           // a cape hangs behind you when you face the camera...
     if (!away) this._hairBack(p, sx, pose, L);                                          // long hair, a ponytail or a braid hangs BEHIND you when you face the camera...
     g.roundRect(sx - 8.5, torsoTop, 17, 22 - crouch * 0.5, 4); ctx.fillStyle = O.col; ctx.fill();
@@ -235,13 +266,14 @@ class PlayerSprite {
   }
 
   /** Just the body, for the character screen's preview. */
-  drawPortrait(p, sx, sy, now) {
+  drawPortrait(p, sx, sy, now, opts = {}) {
     const pose = this._computePose(p, 'portrait', sx, sy, now, false, 0);
-    this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose);
+    this._drawBody(p, sx, sy, pose, false, now, opts);
   }
 
   /* ---- held item (axe) ---- */
   _drawHeldItem(p, sx, pose) {
+    if (this._drawHeldImage(p, sx, pose)) return;
     if (p.held === 'torch') { this._drawTorch(sx, pose); return; }
     const tool = ItemDB.getTool(p.held);
     if (!tool) return;
@@ -267,6 +299,18 @@ class PlayerSprite {
       else this._drawAxeHead(tipX, tipY, dirX, dirY, perpX, perpY);
     }
     ctx.lineCap = 'butt';
+  }
+
+  /** An item with a `held` image: grip at the image's bottom centre, turned to point where the tool points (and swinging with it). */
+  _drawHeldImage(p, sx, pose) {
+    const img = p.held && SpriteRegistry.itemImage(p.held, 'held');
+    if (!img) return false;
+    const ctx = this.g.ctx, { ux, uy, torsoTop } = pose, tool = ItemDB.getTool(p.held), side = ux >= 0 ? 1 : -1;
+    const angle = Math.atan2(uy, ux) + (tool ? this._axeOffset(p, tool) : SWING_CARRY_ANGLE) * side;
+    const h = (tool ? TOOL_LENGTH[tool.kind] || 17 : 14) + 10, w = h * img.naturalWidth / img.naturalHeight;
+    ctx.save(); ctx.translate(sx + ux * 7, torsoTop + 12 + uy * 3); ctx.rotate(angle + Math.PI / 2);
+    ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore();
+    return true;
   }
 
   _drawSwordBlade(hx, hy, tx, ty, dx, dy, px, py, item) {
@@ -349,12 +393,12 @@ class PlayerSprite {
 }
 
 /** Draws a character into a canvas (the lobby's preview). `facing` turns them: pi/4 faces the camera. */
-function renderCharacterPortrait(canvas, appearance, facing = Math.PI / 4, now = 0, gear = { crown: 'crown_simple' }) {
+function renderCharacterPortrait(canvas, appearance, facing = Math.PI / 4, now = 0, gear = { crown: 'crown_simple' }, opts = {}) {
   const ctx = canvas.getContext('2d'), sprite = new PlayerSprite(new Gfx(ctx));
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
   const scale = canvas.height / 66;
   ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height - 9 * scale);
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2); ctx.fill();
-  sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear, held: '', swingT: 0, hurtT: 0 }, 0, 0, now);
+  sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear, held: '', swingT: 0, hurtT: 0 }, 0, 0, now, opts);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

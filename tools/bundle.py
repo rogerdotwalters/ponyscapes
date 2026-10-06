@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Bundles index.html + css + all scripts (in index.html order) into ONE self-contained html file.
-Usage: python3 tools/bundle.py [output.html]"""
+Usage: python3 tools/bundle.py [output.html]   (run from the repo root; reads ./public)"""
 import re, sys, pathlib
-root = pathlib.Path(__file__).resolve().parent.parent
+root = pathlib.Path(__file__).resolve().parent.parent / 'public'          # the game lives in ./public in this repo
 html = (root / 'index.html').read_text()
 css = (root / 'css/style.css').read_text()
 html = html.replace('<link rel="stylesheet" href="css/style.css">', '<style>\n' + css + '</style>')

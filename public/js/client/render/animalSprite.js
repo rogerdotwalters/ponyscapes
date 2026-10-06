@@ -1,43 +1,66 @@
 'use strict';
-/* CLIENT - rabbit, deer and sheep, drawn in profile and mirrored to face left / right on screen.
+/* CLIENT - creatures. Each is drawn facing one of four screen directions (SpriteRegistry.dirOf): up, down, left, right.
+ *   - If you gave the creature images (editor.html), those are drawn.
+ *   - Otherwise the procedural artwork (CreatureSprites, from the creature's data): a profile mirrored for left / right. The UP and DOWN views
+ *     are boilerplate for now (_drawUp / _drawDown reuse the profile) until they are drawn, either as images or here.
  * (sx, sy) is the animal's footprint. Legs swing and rabbits hop with the animal's speed. */
 class AnimalSprite {
   constructor(g) { this.g = g; this.state = {}; }
 
-  /** @param {{near:boolean, ref:number}} [view] how close the local player is, and their own level for colouring a threat */
-  draw(animal, id, sx, sy, now, view) {
+  /** @param {{near:boolean, ref:number}} [view] how close the local player is, and their own level for colouring a threat
+   *  @param {{procedural?:boolean}} [opts] procedural: ignore images (the editor's previews of the built-in art) */
+  draw(animal, id, sx, sy, now, view, opts = {}) {
     const ctx = this.g.ctx;
     const st = this.state[id] || (this.state[id] = { phase: 0, last: now, flip: 1 });
     const speed = isoLength(animal.vx || 0, animal.vy || 0);                  // legs follow how fast it looks like it is moving
     st.phase += speed * Math.min(0.1, (now - st.last) / 1000) * 7; st.last = now;
     const [ux] = IsoProjection.worldDeltaToScreen(Math.cos(animal.facing), Math.sin(animal.facing));
     if (Math.abs(ux) > 8) st.flip = ux > 0 ? 1 : -1;                         // keep the last side when facing straight up / down the screen
-    const seed = id.charCodeAt(id.length - 1);
+    const dir = SpriteRegistry.dirOf(animal.facing), seed = id.charCodeAt(id.length - 1);
+    const def = AnimalDefs[animal.type], scale = (def.sprite && def.sprite.scale) || 1;
 
-    const def = AnimalDefs[animal.type], spec = def.sprite || {}, scale = spec.scale || 1;
-    const impl = CreatureSprites.get(spec.kind || (def.pony ? 'pony' : 'sheep')) || CreatureSprites.get('sheep');          // what to draw comes from the creature's DATA
-    ctx.save(); ctx.translate(sx, sy); ctx.scale(st.flip * scale, scale);
-    impl.draw(this, { animal, def, sprite: spec, phase: st.phase, speed, now, seed, hunting: animal.state === 'chase' });
-    ctx.restore();
-    if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view);
-    if (!animal.rider && view && (view.friend || view.invite)) HeartMeter.draw(ctx, sx, sy - (def.pony ? 64 : 40 * Math.max(1, scale)) - 16, view.friend || null, now);        // your hearts with it (or three faint empty ones, inviting you to make friends)   // your pets carry their name; every animal shows its level up close
+    const drawn = !opts.procedural && SpriteRegistry.drawCreature(ctx, animal.type, animal.look, dir, sx, sy, speed > 0.2, now);
+    if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
+    const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
+    if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
+    if (!animal.rider && view && (view.friend || view.invite)) HeartMeter.draw(ctx, sx, sy - tagY - 16, view.friend || null, now);        // your hearts with it (or three faint empty ones, inviting you to make friends)
   }
 
-  /** Name (for your own animals) and a coloured LEVEL badge: green = easy for you, yellow = even, orange = hard, red = deadly. */
-  _nameTag(animal, sx, sy, view) {
+  /** The procedural artwork for one screen direction. */
+  _drawFacing(dir, animal, st, speed, now, seed) {
+    if (dir === 'up') return this._drawUp(animal, st, speed, now, seed);
+    if (dir === 'down') return this._drawDown(animal, st, speed, now, seed);
+    return this._drawSide(animal, st, speed, now, seed);
+  }
+  /** BOILERPLATE - the back view (walking away, up the screen). Until it is drawn, the profile stands in for it. */
+  _drawUp(animal, st, speed, now, seed) { this._drawSide(animal, st, speed, now, seed); }
+  /** BOILERPLATE - the front view (walking towards the camera, down the screen). Until it is drawn, the profile stands in for it. */
+  _drawDown(animal, st, speed, now, seed) { this._drawSide(animal, st, speed, now, seed); }
+
+  /** The profile, drawn facing right and mirrored when the animal faces left. What to draw comes from the creature's DATA (its `sprite`). */
+  _drawSide(animal, st, speed, now, seed) {
+    const ctx = this.g.ctx, def = AnimalDefs[animal.type], spec = def.sprite || {}, scale = spec.scale || 1;
+    const impl = CreatureSprites.get(spec.kind || (def.pony ? 'pony' : 'sheep')) || CreatureSprites.get('sheep');
+    ctx.save(); ctx.scale(st.flip * scale, scale);
+    impl.draw(this, { animal, def, sprite: spec, phase: st.phase, speed, now, seed, hunting: animal.state === 'chase' });
+    ctx.restore();
+  }
+
+  /** Name (for your own animals) and a coloured LEVEL badge: green = easy for you, yellow = even, orange = hard, red = deadly. A wild pony shows its rarity. */
+  _nameTag(animal, sx, sy, view, height) {
     const g = this.g, ctx = g.ctx, def = AnimalDefs[animal.type], lv = animal.level || 1, mine = !!(animal.owner || animal.captor);
-    const look = def.pony ? PonyLook.describe(animal.look) : null;
+    const look = def.pony ? PonyLook.describe(animal.look) : null, rarity = look ? look.rarity : rarityOf(def.rarity);
     let label = '';
     const boss = def.boss ? '\u2605 ' : '';
     if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
-    else label = boss + (look ? `${look.variantName} ${def.name}` : def.name);
+    else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name}` : def.name);
     const threat = AnimalLevels.threat(lv, view ? view.ref : 1), color = { easy: '#8be28b', even: '#ffe08a', hard: '#ffab6b', deadly: '#ff6b6b' }[threat];
     ctx.font = 'bold 11px Georgia, serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const badge = 'Lv ' + lv, bw = ctx.measureText(badge).width + 8, tw = ctx.measureText(label).width + 8, width = tw + bw + 4, y = sy - (def.pony ? 64 : 40 * Math.max(1, (def.sprite && def.sprite.scale) || 1));
+    const badge = 'Lv ' + lv, bw = ctx.measureText(badge).width + 8, tw = ctx.measureText(label).width + 8, width = tw + bw + 4, y = sy - height;
     const x0 = sx - width / 2;
     g.roundRect(x0, y - 7, width, 14, 6); ctx.fillStyle = 'rgba(10,18,28,.62)'; ctx.fill();
     g.roundRect(x0 + tw + 2, y - 6, bw, 12, 5); ctx.fillStyle = color; ctx.fill();
-    ctx.fillStyle = '#ffd6e8'; ctx.fillText(label, x0 + 4, y);
+    ctx.fillStyle = rarity.order ? rarity.color : '#ffd6e8'; ctx.fillText(label, x0 + 4, y);
     ctx.fillStyle = '#10202f'; ctx.fillText(badge, x0 + tw + 6, y);
     ctx.textAlign = 'center';
   }
@@ -218,12 +241,17 @@ class AnimalSprite {
 
 }
 
-/** Draws one animal into a small canvas (the Pony Book portraits). */
-function renderAnimalPortrait(canvas, type, look) {
+/** A world facing angle that shows each screen direction (for portraits and the editor's previews). */
+const FACING_FOR_DIR = Object.freeze({ right: Math.PI / 4 - Math.PI / 2, left: Math.PI * 3 / 4, up: -Math.PI * 3 / 4, down: Math.PI / 4 });
+
+/** Draws one animal into a small canvas (the Pony Book portraits, the editor). `dir` picks the screen direction. */
+function renderAnimalPortrait(canvas, type, look, dir = 'right', opts = {}) {
   const ctx = canvas.getContext('2d'), sprite = new AnimalSprite(new Gfx(ctx));
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
   const scale = canvas.height / 70;
   ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - 2 * scale, canvas.height - 6 * scale);
-  sprite.draw({ type, look, facing: 0, vx: 0, vy: 0, owner: '', state: 'idle' }, 'portrait', 0, 0, 1234);
+  const facing = dir === 'right' ? 0 : FACING_FOR_DIR[dir];
+  if (dir === 'up' || dir === 'down') sprite.state.portrait = { phase: 0, last: 1234, flip: 1 };          // (front / back views stand in as the profile facing right)
+  sprite.draw({ type, look, facing, vx: 0, vy: 0, owner: '', state: 'idle' }, 'portrait', 0, 0, 1234, null, opts);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

@@ -36,6 +36,7 @@ const SaveData = {
       v: SaveData.VERSION, seed: m.seed, tick: server.tick,
       built: JSON.parse(JSON.stringify(m.built)), floors: Object.assign({}, m.floors), treasureDug: Object.assign({}, m.treasureDug),
       treeStates: JSON.parse(JSON.stringify(m.treeStates)), forageStates: JSON.parse(JSON.stringify(m.forageStates)),
+      stockpiles: Stockpiles.exportState(m),
       bossesDefeated: [...server.worldProgress.defeated], hostilesOff: !!server.settings.hostilesOff,
       treeRespawns: server.trees.respawns.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick })),
       forageRegrows: server.forage.regrows.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick }))
@@ -45,7 +46,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [] };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} } };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -69,6 +70,19 @@ const SaveData = {
     out.hostilesOff = data.hostilesOff === true;
     if (Array.isArray(data.bossesDefeated)) out.bossesDefeated = [...new Set(data.bossesDefeated.filter(r => Number.isInteger(r) && r >= 0 && r < Rings.size))];
     queue(data.treeRespawns, out.treeRespawns); queue(data.forageRegrows, out.forageRegrows);
+    const stock = SaveData._plain(data.stockpiles) ? data.stockpiles : {};                         // (older saves have none)
+    for (const [k, pile] of Object.entries(SaveData._plain(stock.piles) ? stock.piles : {})) {
+      const type = out.built[k] && out.built[k].c;
+      if (!keyOk(k) || !Stockpiles.isStockpile(type) || !SaveData._plain(pile) || !SaveData._plain(pile.items)) continue;
+      const items = {};
+      for (const [item, n] of Object.entries(pile.items)) if (ItemDefs[item] && ItemDB.resource(item) === StructureDefs[type].stockpile) items[item] = SaveData._int(n, 0, 1e6, 0);
+      out.stockpiles.piles[k] = { items };
+    }
+    for (const [k, level] of Object.entries(SaveData._plain(stock.levels) ? stock.levels : {})) {
+      const type = out.built[k] && out.built[k].c;
+      if (keyOk(k) && Buildings.upgradeable(type)) out.stockpiles.levels[k] = SaveData._int(level, 1, BuildingUpgrades[type].length, 1);
+    }
+    for (const [k, tile] of Object.entries(out.built)) if (Stockpiles.isStockpile(tile.c) && !out.stockpiles.piles[k]) out.stockpiles.piles[k] = { items: {} };
     return out;
   },
 
@@ -79,6 +93,7 @@ const SaveData = {
     map.treasureDug = Object.assign({}, world.treasureDug);
     map.treeStates = JSON.parse(JSON.stringify(world.treeStates));
     map.forageStates = JSON.parse(JSON.stringify(world.forageStates));
+    Stockpiles.replaceAll(map, world.stockpiles);
   },
   /** Step 2 (after the systems exist): the clock and the regrow timers, so a felled tree comes back when it was due to. */
   applyTimers(server, world) {
@@ -87,7 +102,7 @@ const SaveData = {
     server.forage.regrows = world.forageRegrows.map(r => Object.assign({}, r));
     server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;
     server.worldProgress.restore(world.bossesDefeated || []);                                  // the guardians that are down, and the rings that opened
-    server.builtRev++; server.floorsRev++;
+    server.builtRev++; server.floorsRev++; server.stockRev++;
   },
 
   /* ---------------------------------- CHARACTER ---------------------------------- */
@@ -144,7 +159,7 @@ const SaveData = {
     }
     if (Array.isArray(data.pets)) for (const q of data.pets.slice(0, SaveData.MAX_PETS)) {
       if (!SaveData._plain(q) || !AnimalDefs[q.type] || !(AnimalDefs[q.type].pony || AnimalDefs[q.type].tameable)) continue;      // only things you can actually keep: a saved "pet" can never be a dragon
-      const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 5).map(v => Math.max(0, v)) : null;
+      const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
       out.pets.push({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) });
     }
     out.friends = {};                                                                       // hearts with the villagers: { 'n_baker': [level, points] }
@@ -176,6 +191,7 @@ const SaveData = {
       if (q.friend) pet.friends[id] = q.friend;                                  // a pet remembers how fond of you it is
     }
     server.friendship.restore(id, c.friends);
+    server._updateCompanions();                                              // carry limit and pony buffs, straight away
     return true;
   }
 };

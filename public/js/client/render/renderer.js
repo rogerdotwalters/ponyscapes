@@ -80,8 +80,9 @@ class Renderer {
   _drawLighting(me, state) {
     const cam = this.camera, s = cam.scale, toScreen = (wx, wy, lift = 0) => [(isoX(wx, wy) - cam.x + cam.w / 2) * s, (isoY(wx, wy) - lift - cam.y + cam.h / 2) * s];
     const [px, py] = toScreen(me.x, me.y, 18);
-    const lights = LightSources.collect(this.game.map, Object.values(state.players)).map(l => {
-      const [x, y] = toScreen(l.x, l.y, l.kind === 'torch' ? 24 : 6);
+    const dark = DayCycle.daylight(this.game.hour()) < CONFIG.sim.light.darkBelow;
+    const lights = LightSources.collect(this.game.map, Object.values(state.players), state.animals, dark).map(l => {
+      const [x, y] = toScreen(l.x, l.y, l.kind === 'torch' ? 24 : l.kind === 'pony' ? 22 : 6);
       const flicker = 1 + Math.sin(performance.now() / 140 + l.x * 3) * 0.03;
       return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * flicker, kind: l.kind };
     });
@@ -120,7 +121,7 @@ class Renderer {
     const g = this.g;
     if (item.kind === 'structure') return StructureSprites.draw(g, item, item.gx, item.gy);
     if (item.kind === 'built') return StructureSprites.drawBuiltChunk(g, item);
-    if (item.kind === 'station') return StructureSprites.drawStation(g, item.type, item.tx, item.ty);
+    if (item.kind === 'station') return StructureSprites.drawStation(g, item.type, item.tx, item.ty, this._stationInfo(item));
     if (item.kind === 'doorLeaf') return StructureSprites.drawDoorLeaf(g, item);
     if (item.kind === 'ghost') return StructureSprites.drawGhost(g, item.target, item.gx, item.gy);
     if (item.kind === 'animal') {
@@ -161,12 +162,29 @@ class Renderer {
     else if (prop.t === 'mound') { if (prop.ripe) PropSprites.drawMound(g, item.gx, item.gy, prop.v, now); }
     else if (prop.t === 'bottle') { if (prop.ripe) PropSprites.drawBottle(g, item.gx, item.gy, prop.v, now); }
     else if (prop.t === 'barrel') PropSprites.drawBarrel(g, item.gx, item.gy);
+    else if (prop.t === 'loot') { if (prop.ripe) this._drawLoot(item.gx, item.gy, prop, now); }
     else if (prop.t === 'cave') PropSprites.drawCave(g, item.gx, item.gy, prop.ring, now);
     else if (prop.t === 'portal') PropSprites.drawPortal(g, item.gx, item.gy, now);
     else PropSprites.drawWell(g, item.gx, item.gy);
   }
 
   /** The rope between a leashed animal's neck and its owner's hand. */
+  /** How full a stockpile is and which level it (or any upgraded building) is at. */
+  _stationInfo(item) {
+    const map = this.game.map, key = tileKey(item.tx, item.ty), pile = map.stockpiles[key];
+    const fill = pile ? Stockpiles.total(pile) / Math.max(1, Stockpiles.capacity(map, key)) : 0;
+    return { fill, level: Buildings.level(map, key) };
+  }
+
+  /** An item lying in the world: its `ground` image, or its icon, bobbing gently over a glow in its rarity's colour. */
+  _drawLoot(gx, gy, prop, now) {
+    const ctx = this.ctx, rarity = ItemDB.rarity(prop.drop), bob = Math.sin(now / 420 + prop.x * 3) * 2;
+    const img = SpriteRegistry.itemImage(prop.drop, 'ground') || ItemIcons.image(prop.drop);
+    this.g.ellipse(gx, gy, 11, 5, rarity.order ? rarity.color + '66' : 'rgba(0,0,0,.25)');
+    if (img) { const size = 26, h = size * img.naturalHeight / img.naturalWidth; ctx.drawImage(img, gx - size / 2, gy - h - 2 + bob, size, h); }
+    if (rarity.order) { ctx.fillStyle = rarity.color; ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(now / 300)); ctx.beginPath(); ctx.arc(gx + 9, gy - 22 + bob, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+  }
+
   _drawLeash(sx, sy, animal, owner) {
     const ctx = this.ctx, def = AnimalDefs[animal.type], ox = isoX(owner.x, owner.y), oy = isoY(owner.x, owner.y);
     const ax = sx, ay = sy - (def.pony ? 30 : 18), bx = ox, by = oy - 20, sag = 6 + Math.hypot(bx - ax, by - ay) * 0.12;

@@ -7,9 +7,9 @@ const STEALTH_KEY = { idle: 'idle', sneak: 'sneak', walk: 'walk', run: 'run', ro
 
 /** How an animal reacts to food in a player's hand: { radius, trust, approach } or null. Earth ponies ADORE apples:
  *  they notice them from much farther away, trust you for longer and trot up faster. Charisma widens everyone's trust. */
-function lureFor(def, itemId, levels) {
+function lureFor(def, itemId, levels, buffs) {
   if (!def.lure || !ItemDB.getFood(itemId)) return null;
-  const charm = Skills.trustFactor(levels);
+  const charm = Skills.trustFactor(levels) * (1 + ((buffs && buffs.friendship) || 0) / 100);     // Warm Heart ponies: animals trust you from farther
   if (def.id === 'pony_earth' && itemId === 'apple') return { radius: LURE_RADIUS * 1.8 * charm, trust: TRUST_SECONDS * 2, approach: 2.2 };
   return { radius: LURE_RADIUS * charm, trust: TRUST_SECONDS, approach: 1.5 };
 }
@@ -24,11 +24,10 @@ class AnimalSystem {
     const def = AnimalDefs[type], id = 'a' + this.nextId++;
     const level = opts.level !== undefined ? opts.level : AnimalLevels.roll(type, x, y, this.rng(), this.map.layers);
     const variant = def.pony ? (opts.variant !== undefined ? opts.variant : PonyLook.variantOf(this.map.biome(Math.floor(x), Math.floor(y)))) : 0;
+    let look = def.pony ? PonyLook.fromGene(gene !== undefined ? gene : Math.floor(this.rng() * 2147483647), variant, def.rarity) : null;   // its rarity is rolled at birth (rarity.js)
+    if (look && opts.rarity) look = PonyLook.withRarity(look, opts.rarity);
     const maxHp = Math.max(1, Math.round(def.hp * AnimalLevels.hpFactor(level)));
-    this.animals[id] = new Animal(id, type, x, y, {
-      level, maxHp, facing: this.rng() * Math.PI * 2, timer: 1 + this.rng() * 4,
-      look: def.pony ? PonyLook.fromGene(gene !== undefined ? gene : Math.floor(this.rng() * 2147483647), variant) : null
-    });
+    this.animals[id] = new Animal(id, type, x, y, { level, maxHp, facing: this.rng() * Math.PI * 2, timer: 1 + this.rng() * 4, look });
     return id;
   }
 
@@ -125,7 +124,8 @@ class AnimalSystem {
   }
 
   _move(a, def, dt) {
-    const pace = AnimalLevels.speedFactor(a.level);                       // higher-level animals are a little quicker
+    let pace = AnimalLevels.speedFactor(a.level);                         // higher-level animals are a little quicker
+    if (a.slowT > 0) { a.slowT -= dt; pace *= a.slowF || 1; }             // chilled by a Frost Nova
     accelerateToward(a, (a.tvx || 0) * pace, (a.tvy || 0) * pace, ANIMAL_ACCEL * dt);
     a.x += a.vx * dt; a.y += a.vy * dt;
     resolveCollisions(this.map, a, def.radius);                         // water, trees, walls: animals stay out of them too
@@ -172,10 +172,11 @@ class AnimalSystem {
   }
 
   /** Chance a thrown lasso lands: calm animals are easy, running ones hard; far throws and clumsy hands cost, Horsemanship helps. */
-  lassoChance(a, dist, levels) {
+  lassoChance(a, dist, levels, buffs) {
     const base = LASSO_BASE_CHANCE[a.state] !== undefined ? LASSO_BASE_CHANCE[a.state] : 0.5;
     const outlevelled = Math.max(0, (a.level || 1) - Skills._s(levels, 'horsemanship'));      // a pony stronger than you is harder to rope
-    return clamp(base - Math.max(0, dist - LASSO_CLOSE) * 0.06 + Skills.lassoBonus(levels) - 0.035 * outlevelled, 0.12, 0.95);
+    const charm = buffs ? ((buffs.luck || 0) + (buffs.friendship || 0)) / 200 : 0;             // lucky and well-liked riders throw better
+    return clamp(base - Math.max(0, dist - LASSO_CLOSE) * 0.06 + Skills.lassoBonus(levels) + charm - 0.035 * outlevelled, 0.12, 0.95);
   }
 
   /** A missed throw spooks it. */
@@ -198,10 +199,10 @@ class AnimalSystem {
     return a;
   }
   /** One apple eaten. Returns { done, have, need }; at `need` apples the pony settles in as the captor's free pet. */
-  feed(id, captorId) {
+  feed(id, captorId, discount = 0) {
     const a = this.animals[id];
     if (!a || a.captor !== captorId) return null;
-    const need = AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level);
+    const need = a.applesNeed = Math.max(1, AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level) - discount);   // an upgraded stable settles it with fewer
     a.trust = Math.min(need, a.trust + 1);
     if (a.trust < need) return { done: false, have: a.trust, need };
     a.owner = captorId; a.captor = ''; a.leashed = false; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp;
@@ -239,7 +240,7 @@ class AnimalSystem {
       const a = this.animals[id];
       if (a.owner !== ownerId && a.captor !== ownerId) continue;
       if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.map, a.x, a.y); a.penTick = tick; }
-      const gentling = a.captor ? { have: a.trust, need: AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level), sheltered: !!a.shelter, restless: Math.round(100 * a.captureT / CAPTURE_BREAK_SECONDS) } : null;
+      const gentling = a.captor ? { have: a.trust, need: a.applesNeed || AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level), sheltered: !!a.shelter, restless: Math.round(100 * a.captureT / CAPTURE_BREAK_SECONDS) } : null;
       out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider });
     }
     return out;

@@ -7,7 +7,7 @@ Behaviors.register({
     const trusting = (a.trustT = Math.max(0, (a.trustT || 0) - dt)) > 0;                   // it saw food a moment ago: only a charging player spooks it
     for (const h of humans) {
       const d = Math.hypot(h.x - a.x, h.y - a.y);
-      const lure = lureFor(def, h.held, h.lv);
+      const lure = lureFor(def, h.held, h.lv, h.buffs);
       if (lure && h.state !== 'run' && d < lure.radius) {                                      // food in a calm hand: come closer
         if (d < luredDist) { lured = h; luredDist = d; luredBy = lure; }
         continue;

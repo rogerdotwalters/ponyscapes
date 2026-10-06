@@ -2,7 +2,7 @@
 /* SHARED - what a pony's abilities do, as pure functions of the pony's level and the rider's cape POWER (so server and client agree). */
 const PonyAbilityRules = {
   /** Does this kind of pony have this ability? */
-  has: (type, id) => { const kind = PonyKinds.get(type); return !!kind && Array.isArray(kind.abilities) && kind.abilities.includes(id); },
+  has: (type, id) => { const kind = (typeof AnimalDefs !== 'undefined' && AnimalDefs[type]) || PonyKinds.get(type); return !!kind && Array.isArray(kind.abilities) && kind.abilities.includes(id); },
   /** The cape's power turns 0.15 into x1.15. */
   multiplier: power => 1 + Math.max(0, power || 0),
   /** How long a flight lasts, in seconds. */

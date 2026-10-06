@@ -13,10 +13,13 @@ function createPlayer(slot, spawn) {
     looted: false, emote: '', emoteT: 0, torchT: 0,
     lv: defaultLevels(), maxHp: CONFIG.sim.health.max,                       // skill / attribute LEVELS (public); the XP behind them stays on the server
     mount: '', mountLevel: 1,                                                // id of the pony we are riding (or ''), and its level (higher-level ponies run faster)
-    flying: false, flyT: 0, flyDur: 0, flyCd: 0                             // a pegasus's flight: in the air, seconds left, how long it lasts, seconds until the next one
+    flying: false, flyT: 0, flyDur: 0, flyCd: 0,                            // a pegasus's flight: in the air, seconds left, how long it lasts, seconds until the next one
+    buffs: noBuffs(), companions: 0, carryStacks: 1,                         // what the ponies with you add (rarity.js), and stacks of each resource you may carry (stockpiles.js)
+    abilities: [], abilityCd: [0, 0], dashT: 0, dashBoost: 0                 // the ridden pony's rarity abilities (H / K), their cooldowns, and a running Dash
   };
 }
-const clonePlayer = p => Object.assign({}, p, { gear: Object.assign({}, p.gear) });
+const noBuffs = () => ({ movement: 0, health: 0, luck: 0, friendship: 0, carry: 0 });
+const clonePlayer = p => Object.assign({}, p, { gear: Object.assign({}, p.gear), buffs: Object.assign(noBuffs(), p.buffs), abilities: (p.abilities || []).slice(), abilityCd: (p.abilityCd || [0, 0]).slice() });
 
 /** Never trust the wire: clamp everything. Input = { moveX, moveY, run, sneak, action, interact, slot, seq } (world axes).
  *  `interact` is true for exactly one tick per key press (board / leave a boat). */
@@ -28,7 +31,8 @@ function sanitizeInput(i) {
   return {
     moveX: clamp(num(i.moveX), -1, 1), moveY: clamp(num(i.moveY), -1, 1),
     run: !!i.run, sneak: !!i.sneak, action: !!i.action, interact: !!i.interact,
-    slot: sanitizeSlot(i.slot), seq: i.seq | 0
+    slot: sanitizeSlot(i.slot), seq: i.seq | 0,
+    power: clamp(i.power | 0, 0, 2)                                          // 1 / 2: fire the ridden pony's first / second rarity ability this tick
   };
 }
 
@@ -62,9 +66,11 @@ function stepPlayer(p, input, dt, map) {
   const slowdown = (starving ? C.hunger.starvingSpeedFactor : 1) * (parched ? C.thirst.slowFactor : 1);
   const riding = !!p.mount, R = C.ride, flying = riding && !!p.flying;                    // in the air: no wading, a little faster, and only barriers and cave walls stop you
   const wading = !flying && map.tile(Math.floor(p.x), Math.floor(p.y)) === TILE.SHALLOW ? C.wadeSpeedFactor : 1;                                    // on a pony: faster, a little wider, scaled by Horsemanship
-  const mountPace = riding ? Skills.rideFactor(p.lv) * AnimalLevels.rideSpeedFactor(p.mountLevel) : 1;
-  const walk = riding ? R.walkSpeed * mountPace : C.walkSpeed * Skills.speedFactor(p.lv);
-  const topSpeed = (weak ? walk * slowdown : input.run ? (riding ? R.runSpeed * mountPace : C.runSpeed * Skills.speedFactor(p.lv)) : input.sneak && !riding ? C.sneakSpeed : walk) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1);
+  const boost = (1 + ((p.buffs && p.buffs.movement) || 0) / 100) * (p.dashT > 0 ? 1 + (p.dashBoost || 0) / 100 : 1);   // pony buffs, and a Dash
+  if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
+  const mountPace = (riding ? Skills.rideFactor(p.lv) * AnimalLevels.rideSpeedFactor(p.mountLevel) : 1) * boost;
+  const walk = riding ? R.walkSpeed * mountPace : C.walkSpeed * Skills.speedFactor(p.lv) * boost;
+  const topSpeed = (weak ? walk * slowdown : input.run ? (riding ? R.runSpeed * mountPace : C.runSpeed * Skills.speedFactor(p.lv) * boost) : input.sneak && !riding ? C.sneakSpeed : walk) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1);
 
   accelerateToward(p, mx * topSpeed, my * topSpeed, movementRate(p, mx * topSpeed, my * topSpeed, moving) * dt);
   p.x += p.vx * dt; p.y += p.vy * dt;

@@ -29,13 +29,14 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const rot = makeRect(board.x - g - small, rowY, small, small);
   const sneak = makeRect(rot.x - g - small, rowY, small, small);
   const release = makeRect(sneak.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
-  const cluster = unionRect([useRect, runRect, board, rot, sneak, release]);
+  const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
+  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, run: runRect, board, rot, sneak, release, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, run: runRect, board, rot, sneak, release, ability, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -127,6 +128,10 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     }
   }
 
+  /* ---- desktop: the ridden pony's abilities, in a strip above the vitals (touch screens have the ability button instead) ---- */
+  const abilityH = Math.round(22 * k);
+  const abilityBar = touch ? null : makeRect(toolbar.x, (stackedAbove ? emote.y - gap - ub : vitalsY) - gap - abilityH, toolbar.w, abilityH);   // (above the Fly button when it all stacks up)
+
   /* ---- overlay panels: they are modal (a click-off backdrop sits over the thumb controls), so they may cover those, but never the HUD that stays usable above the backdrop ---- */
   const pp = Math.round(12 * k), pg = Math.round(5 * k), header = Math.round(34 * k);
   const invSlotFor = r => Math.min(maxSlot, Math.floor((r.w - 2 * pp - 5 * pg) / 6), Math.floor((r.h - header - 2 * pp - 3 * pg) / 4));
@@ -137,7 +142,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     const above = makeRect(left, topUsed, right - left, touchLayout.cluster.y - m - topUsed);
     region = invSlotFor(between) >= MIN_PANEL_SLOT || invSlotFor(between) >= invSlotFor(above) ? between : above;
   } else {
-    region = makeRect(left, topUsed, right - left, (stackedAbove ? emote.y : vitalsY) - m - topUsed);
+    region = makeRect(left, topUsed, right - left, abilityBar.y - m - topUsed);
   }
   /* tiny screens: if the HUD stack leaves no room for the panels, they may sit OVER the top HUD (never over the thumb controls) */
   const needH = header + 4 * MIN_PANEL_SLOT + 3 * pg + 2 * pp, regionBottomY = region.y + region.h;
@@ -162,7 +167,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
-  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -204,12 +209,12 @@ class UiLayout {
     bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
 
     const P = L.panels;
-    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
+    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
       el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
       el.style.setProperty('--slot', P.slot + 'px'); el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--pad', P.pad + 'px');
     }
-    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
-    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
+    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
+    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.menuBody.style.maxHeight = dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.confirmPanel.style.width = P.confirm.w + 'px';
@@ -219,6 +224,8 @@ class UiLayout {
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
     dom.clock.style.fontSize = Math.round(11 * L.k) + 'px';
+    dom.abilityBar.classList.toggle('touch', !L.abilityBar);
+    if (L.abilityBar) { place(dom.abilityBar, L.abilityBar); dom.abilityBar.style.fontSize = Math.round(11 * L.k) + 'px'; }
     dom.debug.style.left = L.debug.x + 'px'; dom.debug.style.top = L.debug.y + 'px';
     if (dom.hint) {
       dom.hint.style.display = L.hint ? '' : 'none';
@@ -227,7 +234,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);

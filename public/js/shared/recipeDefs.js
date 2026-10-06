@@ -38,6 +38,9 @@ const BASE_RECIPES = ({
   make_brick_form:    makeRecipe('make_brick_form', 'Brick Form', [ing('plank', 4), ing('rope', 1)], [ing('brick_form', 1)], { station: 'crafting_table', tools: ['knife'] }),
   make_stable:        makeRecipe('make_stable', 'Stable', [ing('plank', 12), ing('rope', 3), ing('string', 4)], [ing('stable', 1)], { station: 'crafting_table', tools: ['stone_hammer', 'knife'] }),
   make_clay_furnace:  makeRecipe('make_clay_furnace', 'Clay Furnace', [ing('brick', 8)], [ing('clay_furnace', 1)], { station: 'crafting_table' }),
+  make_stockpile_wood:  makeRecipe('make_stockpile_wood', 'Wood Stockpile', [ing('plank', 10), ing('rope', 2)], [ing('stockpile_wood', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
+  make_stockpile_stone: makeRecipe('make_stockpile_stone', 'Stone Stockpile', [ing('plank', 8), ing('stone', 6), ing('rope', 1)], [ing('stockpile_stone', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
+  make_stockpile_clay:  makeRecipe('make_stockpile_clay', 'Clay Stockpile', [ing('plank', 8), ing('clay', 4), ing('rope', 1)], [ing('stockpile_clay', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
 
   /* ---- weapons: at the crafting table ---- */
   make_wooden_sword:  makeRecipe('make_wooden_sword', 'Wooden Sword', [ing('plank', 3), ing('string', 1)], [ing('wooden_sword', 1)], { station: 'crafting_table', tools: ['knife'] }),
@@ -48,8 +51,9 @@ const BASE_RECIPES = ({
 
 /** Cooking recipes are GENERATED from the food table: a raw food that names what it cooks into (and a recipe id) gets one. */
 /** Wardrobe recipes are GENERATED from the wardrobe table: an item with a `craft` list gets "make_<id>" at the crafting table. */
-const WARDROBE_RECIPES = Object.fromEntries(WardrobeItems.where(w => w.craft).map(w =>
-  ['make_' + w.id, makeRecipe('make_' + w.id, w.name, w.craft.map(([item, n]) => ing(item, n)), [ing(w.id, 1)], { station: 'crafting_table', tools: ['knife'] })]));
+/** ...and so is every other item with a `craft` list (your own items from the content editor included): "make_<id>" at the crafting table. */
+const WARDROBE_RECIPES = Object.fromEntries(Object.values(ItemDefs).filter(w => Array.isArray(w.craft) && w.craft.length && !BASE_RECIPES['make_' + w.id]).map(w =>
+  ['make_' + w.id, makeRecipe('make_' + w.id, w.name, w.craft.filter(([item]) => ItemDefs[item]).map(([item, n]) => ing(item, n)), [ing(w.id, 1)], { station: 'crafting_table', tools: w.equip ? ['knife'] : [] })]));
 const COOK_STATIONS = ['clay_furnace', 'campfire'];
 const COOK_RECIPES = Object.fromEntries(Foods.where(f => f.cooksInto && f.recipe).map(f =>
   [f.recipe.id, makeRecipe(f.recipe.id, f.recipe.name, [ing(f.id, 1), ing('plank', 1)], [ing(f.cooksInto, 1)], { station: COOK_STATIONS })]));

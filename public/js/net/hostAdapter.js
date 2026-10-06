@@ -102,7 +102,7 @@ class HostAdapter extends LocalAdapter {
     const trees = r.gates.trees.changed(snap.trees); if (trees) out.trees = trees;
     const forage = r.gates.forage.changed(snap.forage); if (forage) out.forage = forage;
     for (const k of ['pets', 'book', 'varieties']) { const v = r.gates[k].changed(snap[k]); if (v) out[k] = v; }
-    for (const k of ['inventory', 'built', 'floors', 'progress', 'treasure', 'trade', 'rings', 'settings', 'friends']) if (snap[k] !== undefined) out[k] = snap[k];
+    for (const k of ['inventory', 'built', 'floors', 'stockpiles', 'progress', 'treasure', 'trade', 'rings', 'settings', 'friends']) if (snap[k] !== undefined) out[k] = snap[k];
     return out;
   }
 

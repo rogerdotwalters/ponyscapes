@@ -48,6 +48,20 @@ class Effects {
     game.events.on('built', e => this._onBuilt(e));
     game.events.on('demolished', e => this._onBuilt(e, true));
     game.events.on('notice', e => this._float(e, e.text));
+    game.events.on('ability', e => this._onAbility(e));
+    game.events.on('deposit', e => { this._burst(e.x, e.y, 10, DUST_COLORS, 16); this._float(e, 'Delivered ' + Object.entries(e.moved).map(([item, n]) => `${n} ${ItemDefs[item] ? ItemDefs[item].name : item}`).join(', ') + (e.full ? ' (now full)' : '')); });
+    game.events.on('upgraded', e => { this._burst(e.tx + 0.5, e.ty + 0.5, 22, GOLD_COLORS, 30); if (e.by === this.game.myId) this._float({ to: e.by }, `${e.name} is now level ${e.level}!`, 'levelup'); });
+  }
+
+  /** A pony ability: a jet of fire, a ring of frost, a puff of dust behind a dash. */
+  _onAbility(e) {
+    const ability = AbilityDefs[e.ability];
+    if (!ability) return;
+    const fx = Math.cos(e.facing), fy = Math.sin(e.facing), colors = { flame_breath: ['#ff7a1a', '#ffb34a', '#ffe08a', '#d6331a'], frost_nova: ['#9fe3ff', '#d6f4ff', '#ffffff', '#6fc3ff'], dash: DUST_COLORS }[e.ability] || GOLD_COLORS;
+    if (e.ability === 'flame_breath') for (let d = 0.8; d <= 3.2; d += 0.6) this._burst(e.x + fx * d, e.y + fy * d, 6, colors, 26 - d * 2);
+    else if (e.ability === 'frost_nova') for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; this._burst(e.x + Math.cos(a) * 2.4, e.y + Math.sin(a) * 2.4, 3, colors, 10); }
+    else this._burst(e.x - fx * 0.6, e.y - fy * 0.6, 12, colors, 6);
+    if (e.by === this.game.myId) this._float({ to: e.by }, ability.glyph + ' ' + ability.name);
   }
 
   treeShakeX(treeIndex, now) {

@@ -8,6 +8,7 @@ const MENU_SECTIONS = [
   { id: 'treasure',  glyph: '\uD83D\uDDFA', label: 'Treasure',  sub: 'Maps you have read', key: '' },
   { id: 'map',       glyph: '\uD83E\uDDED', label: 'Map',       sub: 'The land around you', key: 'M' },
   { id: 'ponies',    glyph: '\uD83D\uDC0E', label: 'Ponies',    sub: 'Pony Book and your herd', key: 'P' },
+  { id: 'town',      glyph: '\uD83C\uDFD8', label: 'Town',      sub: 'Stockpiles and upgrades', key: 'T' },
   { id: 'session',   glyph: '\uD83C\uDF10', label: 'Session',   sub: 'Room code, players, saving', key: '', needsSession: true },
   { id: 'settings',  glyph: '\u2699',       label: 'Settings',   sub: 'Host: hunger, thirst, testing', key: '', hostOnly: true }
 ];
