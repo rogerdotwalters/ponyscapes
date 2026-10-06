@@ -37,7 +37,7 @@ class PonyBookUI {
       const g = pet.gentling, apples = `${g.have}/${g.need} apples`;
       return g.sheltered ? `Calm in shelter: ${apples}. Hold an apple and press Feed.` : `Wild, on your lasso (${apples}). Lead it to a stable or closed pen${g.restless >= 50 ? ' - it is getting restless!' : ''}`;
     }
-    if (pet.riding) return pet.main ? '\u2605 Your main pony: carrying you' : 'Carrying you (N makes it your main pony)';
+    if (pet.riding) return pet.main ? '\u2605 Your main pony: carrying you' : 'Carrying you (make it your main pony in the bag: I)';
     if (pet.main) return '\u2605 Your main pony: follows you everywhere';
     if (pet.leashed) return 'Following you on a leash';
     if (pet.inPen) return `Safe in a pen (${pet.penArea} tiles)`;

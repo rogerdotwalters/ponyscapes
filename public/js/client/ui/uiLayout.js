@@ -12,7 +12,7 @@
 const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
-const INV_ACTIONS_H = 38;
+const INV_ACTIONS_H = 38 + 36;                      // the Drop / Destroy row and the main pony row
 const makeRect = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 const rectsOverlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const unionRect = rects => {
@@ -170,8 +170,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
-  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub),
-    mainPony: touchLayout ? makeRect(touchLayout.lasso.x, touchLayout.lasso.y - (touchLayout.lasso.y - touchLayout.ability.y) - touchLayout.lasso.h - 8, touchLayout.lasso.w * 2 + 8, touchLayout.lasso.h) : makeRect(emote.x - ub * 0.6, emote.y - 2 * (gap + ub), ub * 1.6, ub), touch: touchLayout, panels, debug, hint };
+  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -227,7 +226,6 @@ class UiLayout {
     place(dom.health, L.health); place(dom.clock, L.clock);
     for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
-    if (dom.btnMainPony) { place(dom.btnMainPony, L.mainPony); dom.btnMainPony.style.fontSize = Math.max(10, Math.round(L.mainPony.h * 0.26)) + 'px'; }
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
     dom.clock.style.fontSize = Math.round(11 * L.k) + 'px';
     dom.abilityBar.classList.toggle('touch', !L.abilityBar);

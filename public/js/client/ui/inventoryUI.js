@@ -1,9 +1,12 @@
 'use strict';
 /* CLIENT - backpack panel. Tap a stack, then tap a destination slot to move / merge / swap, or use the row below to drop it on the
- * ground (anyone can pick it up again with the interact key) or destroy it (tap Destroy twice: it is gone for good). */
+ * ground (anyone can pick it up again with the interact key) or destroy it (tap Destroy twice: it is gone for good).
+ * The last row: riding one of your ponies, make it your MAIN pony (the one that follows you everywhere). It lives here rather than on the
+ * screen so it is never hit by accident. */
 class InventoryUI {
-  constructor({ panel, grid, closeButton, game, actions }) {
-    this.panel = panel; this.game = game; this.pickedIndex = null; this.slotElements = []; this.actions = actions || null; this.destroyArmed = false;
+  constructor({ panel, grid, closeButton, game, actions, pony }) {
+    this.panel = panel; this.game = game; this.pickedIndex = null; this.slotElements = []; this.actions = actions || null; this.destroyArmed = false; this.pony = pony || null;
+    if (this.pony) this.pony.button.addEventListener('pointerdown', e => { e.preventDefault(); game.makeMainPony(); });
     const hotbar = CONFIG.sim.inventory.hotbarSlots;
     for (let i = 0; i < game.inventory.size; i++) {
       const el = SlotView.create(i, i < hotbar ? i + 1 : '');
@@ -24,7 +27,7 @@ class InventoryUI {
 
   get isOpen() { return !this.panel.hidden; }
   toggle() { this.isOpen ? this.close() : this.open(); }
-  open() { this.panel.hidden = false; this.refresh(); }
+  open() { this.panel.hidden = false; this.refresh(); this.refreshPony(); }
   close() { this.panel.hidden = true; this.pickedIndex = null; this.refresh(); }
 
   _onSlotPressed(index) {
@@ -52,6 +55,15 @@ class InventoryUI {
     if (!this.destroyArmed) { this.destroyArmed = true; this.refresh(); return; }   // first tap asks, the second does it
     this.game.destroyItem(this.pickedIndex, s.count);
     this.pickedIndex = null; this.destroyArmed = false; this.refresh();
+  }
+
+  /** The main pony row: a button while you ride one of your ponies that is not already your main pony, else what it is about. */
+  refreshPony() {
+    if (!this.pony) return;
+    const g = this.game, pony = g.mountedPony && g.mountedPony(), can = !!(g.mainPonyHint && g.mainPonyHint());
+    const name = pony && pony.look ? PonyLook.describe(pony.look).name : pony ? (AnimalDefs[pony.type] || {}).name : '';
+    this.pony.button.hidden = !can;
+    this.pony.text.textContent = can ? `Riding ${name}: make it the pony that follows you everywhere` : pony && pony.main ? `\u2605 ${name} is your main pony` : 'Ride one of your ponies to make it your main pony';
   }
 
   refresh() {

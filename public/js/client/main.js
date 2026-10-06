@@ -29,7 +29,7 @@ function setupFullscreenButton(button) {
 }
 
 function collectLayoutDom(game) {
-  const dom = { isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnMainPony: $('btnMainPony'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), clock: $('clock') };
+  const dom = { isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), clock: $('clock') };
   ['btnMenu', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnRun', 'btnBoard', 'btnRelease', 'btnRot', 'btnSneak', 'btnAbility', 'btnLasso'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
@@ -81,7 +81,7 @@ function launch(choice, query) {
     const hungerBar = new VitalBar({ root: $('hungerBar'), fill: $('hungerFill'), label: $('hungerLabel'), config: CONFIG.sim.hunger, words: { ok: 'Fed', low: 'Hungry', empty: 'Starving!' } });
     const thirstBar = new VitalBar({ root: $('thirstBar'), fill: $('thirstFill'), label: $('thirstLabel'), config: CONFIG.sim.thirst, words: { ok: 'Hydrated', low: 'Thirsty', empty: 'Dehydrated!' } });
     const clockUI = new ClockUI({ root: $('clock') });
-    const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), grid: $('invGrid'), closeButton: $('invClose'), game, actions: { label: $('invPicked'), drop1: $('invDrop1'), dropAll: $('invDropAll'), destroy: $('invDestroy') } });
+    const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), grid: $('invGrid'), closeButton: $('invClose'), game, actions: { label: $('invPicked'), drop1: $('invDrop1'), dropAll: $('invDropAll'), destroy: $('invDestroy') }, pony: { text: $('invPonyText'), button: $('invMainPony') } });
     const craftingUI = new CraftingUI({ panel: $('craftPanel'), list: $('craftList'), closeButton: $('craftClose'), game });
     const settingsUI = new SettingsUI({ panel: $('settingsPanel'), list: $('settingsList'), closeButton: $('settingsClose'), game });
     const panels = new PanelGroup();
@@ -127,7 +127,6 @@ function launch(choice, query) {
     bus.on('ability', () => game.useAbility('fly'));
     $('btnFly').addEventListener('pointerdown', e => { e.preventDefault(); bus.emit('ability'); });
     bus.on('mainPony', () => game.makeMainPony());                                    // N / the Main button: this pony follows you from now on
-    $('btnMainPony').addEventListener('pointerdown', e => { e.preventDefault(); bus.emit('mainPony'); });                   // the Fly button (touch and mouse)
     bus.on('release', () => game.requestRelease());               // its own button and key: never shared with Ride / Feed / Pick
     game.events.on('confirmRelease', e => confirmUI.ask(e));
     bus.on('toggleEmotes', () => emoteUI.toggle());
@@ -187,7 +186,7 @@ function launch(choice, query) {
         if (showRotate !== rotateShown) { rotateShown = showRotate; $('btnRot').style.display = showRotate ? '' : 'none'; }
         const ability = game.abilityHint(), abilityKey = ability ? ability.label + (ability.ready ? '+' : '-') : '';                 // the Fly button: only on a pegasus or alicorn
         if (abilityKey !== abilityShown) { abilityShown = abilityKey; const b = $('btnFly'); b.style.display = ability ? '' : 'none'; if (ability) { b.textContent = ability.label; b.classList.toggle('on', !!ability.flying); b.classList.toggle('cooling', !ability.ready); } }
-        const mainHint = game.mainPonyHint(); if (mainHint !== mainShown) { mainShown = mainHint; $('btnMainPony').style.display = mainHint ? '' : 'none'; }
+        const mainHint = game.mainPonyHint() + '|' + (game.local.mount || ''); if (mainHint !== mainShown) { mainShown = mainHint; inventoryUI.refreshPony(); }     // (the Make main pony button lives in the bag)
         const releaseHint = game.releaseHint();
         if (releaseHint !== releaseShown) { releaseShown = releaseHint; $('btnRelease').style.display = releaseHint ? '' : 'none'; $('btnRelease').textContent = releaseHint || ''; }
         if (confirmUI.isOpen && confirmUI.kind === 'release' && !game.isMyCatch(confirmUI.animalId)) confirmUI.close();      // it is gone (or already yours): nothing left to confirm
