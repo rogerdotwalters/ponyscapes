@@ -15,7 +15,7 @@ class Camera {
   }
 
   follow(targetX, targetY, frameMs) {
-    if (!this.initialised) { this.x = targetX; this.y = targetY; this.initialised = true; return; }
+    if (!this.initialised || Math.hypot(targetX - this.x, targetY - this.y) > 1500) { this.x = targetX; this.y = targetY; this.initialised = true; return; }   // (a jump: into a building or a cave)
     const k = 1 - Math.exp(-frameMs / 1000 * CONFIG.view.camSmooth);
     this.x += (targetX - this.x) * k; this.y += (targetY - this.y) * k;
   }

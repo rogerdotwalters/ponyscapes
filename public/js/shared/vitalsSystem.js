@@ -8,6 +8,7 @@ class VitalsSystem {
 
   /** Hunger and thirst fall at a rate set by the player's mode (off / superficial / relaxed / normal / hard). */
   drain(p, dt) {
+    if (!CONFIG.sim.vitals) { p.hunger = CONFIG.sim.hunger.max; p.thirst = CONFIG.sim.thirst.max; return; }     // switched off: always full
     const S = CONFIG.sim, modeOf = mode => S.vitalModes[mode] || S.vitalModes.normal;
     const stamina = Skills.drainFactor(p.lv);                           // Endurance: slower hunger and thirst
     p.hunger = p.hungerMode === 'off' ? S.hunger.max : Math.max(0, p.hunger - S.hunger.decayPerSecond * modeOf(p.hungerMode).drain * stamina * dt);
@@ -16,6 +17,7 @@ class VitalsSystem {
 
   /** Use button with food / a full jug in hand. Does nothing if the benefit would mostly be wasted. */
   consumeHeld(id, p, inventory, input, dt) {
+    if (!CONFIG.sim.vitals) return;                                   // (food is for ponies now)
     const S = CONFIG.sim;
     if (p.eatT > 0) p.eatT = Math.max(0, p.eatT - dt);
     if (!input.action || p.eatT > 0) return;

@@ -5,7 +5,7 @@
  *   - the (potentially long) lists of felled trees and picked bushes are only sent when they change.
  * The receiving side rebuilds exactly the full snapshot the game already understands. Solo play never uses any of this. */
 const DeltaCodec = {
-  VIEW_RADIUS: 48,                                   // tiles: a remote player is only told about animals this close (the screen shows about 25)
+  VIEW_RADIUS: 40,                                   // tiles: a remote player is only told about animals this close (the screen shows about 25)
   round: (v, decimals) => { const k = 10 ** decimals; return Math.round(v * k) / k; },
 
   /** Deep copy with every number rounded (default 3 decimals). */

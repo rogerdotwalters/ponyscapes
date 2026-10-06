@@ -7,17 +7,21 @@ class ClientGame {
   constructor(net) {
     this.net = net;
     this.events = new EventBus();                      // 'inventoryChanged', 'selectedSlotChanged', 'builtChanged', 'chop', 'fell', 'gain', 'built', 'notice', ...
-    this.map = null; this.myId = null;
+    this.map = null; this.myId = null;                   // map: the grid we stand on (the overworld, or a room / cave instance)
+    this.worldMap = null; this.grids = null; this.grid = '';   // worldMap: the overworld, always kept (its buildings, trees and stockpiles keep updating)
     this.local = null; this.prevLocal = null;          // predicted local player (current / previous tick)
     this.localBoat = null;                             // predicted copy of the boat we are rowing
     this.correction = { x: 0, y: 0 };                  // visual error offset that decays after a correction
     this.pending = [];                                 // inputs sent but not yet acknowledged
     this.seq = 0; this.snapshots = []; this.remoteTick = 0; this.serverTick = 0;
     this.lastAck = 0; this.lastError = 0; this.hasSnapshot = false; this.welcomeBoats = {}; this.welcomeAnimals = {};
+    this.npcs = {}; this.npcView = {}; this.friends = {}; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
+    this.pack = null;                                  // the pack of the pony you ride or stand next to: { id, name, bags, riding, inventory } (packSystem.js)
     this.localSwingT = 0;                              // cosmetic swing so our own tool feels instant
-    this.pets = []; this.book = []; this.varieties = [];                    // the Pony Book: your tamed animals and which pony kinds you have kept
+    this.pets = []; this.book = []; this.varieties = []; this.questMarks = [];   // questMarks: lost young you have tracked (map)
+                       // the Pony Book: your tamed animals and which pony kinds you have kept
     this.buildTarget = null;                           // { tx, ty, side, structure, valid, reason } while holding a placeable item
     this.buildCursor = null;                           // { tx, ty } while a finger / mouse aims; null = tile in front of the player
     this.buildRotation = 0;                            // R: next candidate side (connecting sides come first)
@@ -25,26 +29,32 @@ class ClientGame {
     this.isHost = false;
     this.progress = { s: {}, a: {} };                  // skill / attribute XP (private; the levels are on the player)
     this.treasureMaps = []; this.mapIndex = 0;         // [{ key, tx, ty }]: where your treasure maps lead
-    this.drawn = false;                                // is the sheathed sword out? (toggled with X / the sword slot)
     this.trade = null;                                 // the server's view of our trade window (null = no trade)
     this.gearKey = '';
-    this.actionWasDown = false; this.interactQueued = false;
+    this.actionWasDown = false; this.interactQueued = false; this.powerQueued = 0;
     this.streamFrames = 0;
   }
 
   onWelcome(welcome) {
     this.myId = welcome.id;
-    this.map = new World(welcome.mapSeed);                   // same seed as the server -> identical terrain, never sent
+    if (welcome.admin) GameSettings.applyWire(welcome.admin, true);     // the host's speed, clock and trees: before the land is built, so it matches the server's
+    this.worldMap = new World(welcome.mapSeed);              // same seed as the server -> identical terrain, never sent
+    this.grids = new GridSet(welcome.mapSeed, this.worldMap);
+    this.grid = gridOf(welcome.player); this.map = this.grids.get(this.grid);     // (we may join standing inside a room)
+    this._applyRings(welcome.rings);                          // which rings are open decides where the barriers are
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
-    this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeAnimals = welcome.animals || {};
-    if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory);
+    this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeDrops = welcome.drops || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {};
+    if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory, this.local.carryStacks);
+    if (welcome.pack !== undefined && welcome.pack !== null) this._applyPack(welcome.pack);
     this.isHost = !!welcome.host;
+    this.settings = welcome.settings || { hostilesOff: false, testPony: false };            // the host's testing aids (Settings); only the host is ever told
     if (welcome.progress) this.progress = welcome.progress;
     if (welcome.treasure) this.treasureMaps = welcome.treasure;
-    if (welcome.built) BuildSystem.replaceAll(this.map, welcome.built);
-    if (welcome.floors) BuildSystem.replaceFloors(this.map, welcome.floors);
-    applyTreeStates(this.map, welcome.trees || {});
-    applyForageStates(this.map, welcome.forage || {});
+    if (welcome.built) BuildSystem.replaceAll(this.worldMap, welcome.built);
+    if (welcome.floors) BuildSystem.replaceFloors(this.worldMap, welcome.floors);
+    if (welcome.stockpiles) Stockpiles.replaceAll(this.worldMap, welcome.stockpiles);
+    applyTreeStates(this.worldMap, welcome.trees || {});
+    applyForageStates(this.worldMap, welcome.forage || {});
     this.map.ensureAround(this.local.x, this.local.y, CLIENT_STREAM_RADIUS);
     this._refreshBuildTarget();
   }
@@ -59,15 +69,11 @@ class ClientGame {
   get riding() { return !!(this.local && (this.local.boat || this.local.mount)); }      // in a boat or on a pony: no tools, no building
 
   /* ---- toolbar / inventory / crafting (called by the UI) ---- */
-  /** What the character is holding: the drawn sword if it is out, otherwise the selected hotbar / belt slot. */
-  heldItemId() {
-    const gear = this.local && this.local.gear;
-    return Gear.heldItem(gear || {}, this.drawn, this.inventory.itemIdAt(this.selectedSlot));
-  }
-  get gear() { return (this.local && this.local.gear) || createGear(); }
+  /** What the character is holding: whatever is in the selected hotbar slot (swords are ordinary hotbar items now). */
+  heldItemId() { return this.inventory.itemIdAt(this.selectedSlot); }
+  get gear() { return (this.local && this.local.gear) || createWardrobe(); }
   selectSlot(index) {
-    const inv = CONFIG.sim.inventory, onBelt = index >= inv.beltStart && index < inv.beltStart + inv.beltSlots;
-    if (index === this.selectedSlot || !(onBelt ? Gear.hasBelt(this.gear) : index >= 0 && index < inv.hotbarSlots)) return;
+    if (index === this.selectedSlot || !(index >= 0 && index < CONFIG.sim.inventory.hotbarSlots)) return;
     this.selectedSlot = index;
     this.events.emit('selectedSlotChanged', index);
     this._refreshBuildTarget();
@@ -77,17 +83,31 @@ class ClientGame {
     this.selectSlot((this.selectedSlot + direction + n) % n);
   }
   moveSlot(from, to) { this.net.sendCommand({ type: 'moveSlot', from, to }); }   // server decides; we wait for the update
+  /** Drop `count` from a pack slot onto the ground in front of you (anyone can pick it up), or destroy it for good. */
+  dropItem(slot, count, pack = false) { this.net.sendCommand({ type: 'drop', slot, count, pack: !!pack }); }
+  destroyItem(slot, count, pack = false) { this.net.sendCommand({ type: 'destroy', slot, count, pack: !!pack }); }
+  /** Move a stack between your bag and your pony's pack: { pack: bool, i } each end (to.i -1: wherever it fits). */
+  packMove(from, to) { this.net.sendCommand({ type: 'packMove', from: { pack: !!from.pack, i: from.i }, to: { pack: !!to.pack, i: to.i } }); }
+  /** Take the bag in this bag slot off the pony (into your bag). */
+  ponyBagOff(index) { this.net.sendCommand({ type: 'ponyBagOff', index }); }
+  /** At a shop counter: buy one of this item. */
+  buy(item) { this.net.sendCommand({ type: 'buy', item }); }
+  _applyPack(wire) {
+    this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
+    this.events.emit('packChanged');
+  }
+  /** L: throw the lasso in the lasso slot (whatever is in your hand). */
+  throwLasso() {
+    const lasso = this.local && this.local.gear && this.local.gear.lasso;
+    if (!lasso) { this.events.emit('notice', { to: this.myId, text: 'Your lasso slot is empty: put a lasso in it (Gear)' }); return; }
+    this.lassoQueued = true;
+  }
   craft(recipeId) { this.net.sendCommand({ type: 'craft', recipe: recipeId }); }
 
-  /* ---- gear, emotes, trading (all decided by the server) ---- */
+  /* ---- wardrobe, emotes, trading (all decided by the server) ---- */
   equip(inventoryIndex) { this.net.sendCommand({ type: 'equip', from: inventoryIndex }); }
   unequip(slot) { this.net.sendCommand({ type: 'unequip', slot }); }
   emote(id) { this.net.sendCommand({ type: 'emote', id }); }
-  /** Draw / sheathe the sword that sits in the scabbard slot. */
-  toggleDrawn() {
-    if (!this.gear.weapon) { this.events.emit('notice', { to: this.myId, text: Gear.hasSheath(this.gear) ? 'Put a sword in your scabbard first' : 'Wear a scabbard or sling to carry a sword' }); return; }
-    this.drawn = !this.drawn; this.events.emit('selectedSlotChanged', this.selectedSlot);
-  }
   /** Id of the nearest other player within trading range, or null. */
   nearestTrader() {
     const latest = this.snapshots[this.snapshots.length - 1], me = this.local;
@@ -105,6 +125,23 @@ class ClientGame {
   offerTrade(item, count) { this.net.sendCommand({ type: 'tradeOffer', item, count }); }
   confirmTrade(value) { this.net.sendCommand({ type: 'tradeConfirm', value }); }
   nearbyStations() { return this.local ? BuildSystem.stationsNear(this.map, this.local) : new Set(); }
+  /** The stockpiles the stations you stand at can pull from (a StockSupply). */
+  nearbySupply() { return this.local ? Stockpiles.supplyFor(this.map, this.local) : new StockSupply(this.map, []); }
+
+  /* ---- the town: stockpiles and upgrades (decided by the server) ---- */
+  takeFromStockpile(tx, ty, item, count) { this.net.sendCommand({ type: 'stockTake', tx, ty, item, count }); }
+  upgradeBuilding(tx, ty) { this.net.sendCommand({ type: 'upgrade', tx, ty }); }
+
+  /* ---- a pony's rarity abilities: H / K, or the power button (fires the first one that is ready). Flight is useAbility (B). ---- */
+  requestPonyPower(index) {
+    const L = this.local;
+    if (!L || !L.mount) { this.events.emit('notice', { to: this.myId, text: 'Ride a pony to use its abilities' }); return; }
+    if (index === 0) { const ready = (L.abilities || []).findIndex((a, i) => !(L.abilityCd[i] > 0)); index = ready >= 0 ? ready : 0; }
+    else index -= 1;
+    this.powerQueued = index + 1;
+  }
+  /** What the ridden pony can do: [{ ability, cooldown }] (empty when not riding). */
+  abilityState() { const L = this.local; return L && L.mount ? (L.abilities || []).map((id, i) => ({ ability: AbilityDefs[id], cooldown: L.abilityCd[i] || 0 })).filter(a => a.ability) : []; }
 
   /** Host only: change how hunger / thirst work for one player slot ('p2'...). Either mode may be omitted. */
   setVitalModes(target, hungerMode, thirstMode) { this.net.sendCommand({ type: 'setVitals', target, hunger: hungerMode, thirst: thirstMode }); }
@@ -113,24 +150,55 @@ class ClientGame {
 
   /* ---- boats ---- */
   requestInteract() { this.interactQueued = true; }
+  latestDrops() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.drops) || this.welcomeDrops || {}; }
   latestBoats() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.boats) || this.welcomeBoats; }
   /** What the interact button would do right now: 'Exit' | 'Pick' | 'Board' | 'Drink' | 'Fill' | null (nearest wins). */
   interactHint() {
     if (!this.local) return null;
     if (this.local.boat) return 'Exit';
-    const action = Interactions.find(this.map, this.latestBoats(), this.local, this.heldItemId(), this.latestAnimals(), this.myId);
+    const action = Interactions.find(this.map, this.latestBoats(), this.local, this.heldItemId(), this.latestAnimals(), this.myId, this.npcs, this.latestDrops());
     return action ? action.label : null;
   }
 
   /* ---- letting go: its OWN button, never the action button. A caught wild pony asks first. ---- */
   /** The animal the Let go / Untie button would act on right now (or null). */
   releaseTarget() { return this.local ? findRelease(this.local, this.latestAnimals(), this.myId) : null; }
-  releaseHint() { const t = this.releaseTarget(); return t ? t.label : null; }
+  /** The second thumb button: Let go / Untie, or - on a pony with something else to do nearby - Dismount (Z). */
+  releaseHint() { const t = this.releaseTarget(); if (t) return t.label; return this.local && this.local.mount && this.interactHint() !== 'Dismount' ? 'Dismount' : null; }
+  /** Your bond with an animal or villager: { level, into } or null if you have not made friends. */
+  friendOf(id) { const e = this.friends[id]; return e ? { level: e[0], into: e[1] } : null; }
+
+  /** The pony we are riding, as last seen (its kind decides what it can do). */
+  mountedPony() {
+    const id = this.local && this.local.mount; if (!id) return null;
+    const last = this.snapshots[this.snapshots.length - 1];
+    return (last && last.animals && last.animals[id]) || this.welcomeAnimals[id] || null;
+  }
+  /** The ability button: null when there is nothing to press, else { label, ready, flying }. */
+  abilityHint() {
+    const L = this.local, pony = this.mountedPony();
+    if (!L || L.boat || !pony || !PonyAbilityRules.has(pony.type, 'fly')) return null;
+    if (L.flying) return { label: `Land ${Math.ceil(L.flyT)}s`, ready: true, flying: true };
+    if (L.flyCd > 0) return { label: `Fly ${Math.ceil(L.flyCd)}s`, ready: false, flying: false };
+    return { label: 'Fly', ready: true, flying: false };
+  }
+  /** Riding one of your own ponies that is not your main pony: offer to make it the one that follows you everywhere. */
+  mainPonyHint() {
+    const L = this.local, pony = this.mountedPony();
+    return !!(L && !L.boat && pony && pony.owner === this.myId && !pony.main && AnimalDefs[pony.type] && AnimalDefs[pony.type].pony);
+  }
+  makeMainPony() { if (this.mainPonyHint()) this.net.sendCommand({ type: 'mainPony' }); }
+  useAbility(id = 'fly') { if (this.abilityHint()) this.net.sendCommand({ type: 'ability', id }); }
+  /** Host only: a testing aid (a flying test pony, hostile mobs off). */
+  /** Host: the Admin page's live values (globalSpeed, dayShare, gameHoursPerRealHour). */
+  setAdmin(values) { this.net.sendCommand({ type: 'admin', values }); }
+  setSetting(key, value) { this.net.sendCommand({ type: 'setting', key, value: !!value }); }
+  requestDismount() { this.net.sendCommand({ type: 'dismount' }); }
   _animalName(animal) { return animal.look ? PonyLook.describe(animal.look).name : AnimalDefs[animal.type].name; }
   /** Pressed the Let go button / U. Untying an animal you already own is safe; letting go of a catch opens the confirmation. */
   requestRelease() {
     const target = this.releaseTarget();
-    if (!target) return;
+    if (!target) { if (this.local && this.local.mount) this.requestDismount(); return; }
     if (target.losesCatch) this.events.emit('confirmRelease', { id: target.animal.id, name: this._animalName(target.animal), need: AnimalDefs[target.animal.type].tameApples });
     else this.net.sendCommand({ type: 'release', animal: target.animal.id });
   }
@@ -168,8 +236,8 @@ class ClientGame {
   cancelBuild() { this.buildCursor = null; this._refreshBuildTarget(); }
 
   _refreshBuildTarget() {
-    const placeable = this.local && this.holdingPlaceable() ? ItemDB.getPlaceable(this.heldItemId()) : null;
-    if (!placeable) { this.buildTarget = null; return; }
+    const placeable = this.local && !this.grid && this.holdingPlaceable() ? ItemDB.getPlaceable(this.heldItemId()) : null;     // (only the overworld is built on)
+    if (!placeable || (!CONFIG.sim.construction && StructureDefs[placeable.structure].layer !== 'station')) { this.buildTarget = null; return; }   // (walls and floors are switched off)
     let tx, ty, dx, dy;
     if (this.buildCursor) {                                     // aimed with a finger / mouse: face the builder
       ({ tx, ty } = this.buildCursor); dx = tx + 0.5 - this.local.x; dy = ty + 0.5 - this.local.y;
@@ -199,9 +267,8 @@ class ClientGame {
 
   /* ---- fixed tick: predict locally, then send the same input to the server ---- */
   predict(rawInput) {
-    if (this.drawn && (!this.gear.weapon || this.riding)) this.drawn = false;               // nothing to hold out
-    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, drawn: this.drawn }));
-    this.interactQueued = false;
+    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, power: this.powerQueued, lasso: this.lassoQueued }));
+    this.interactQueued = false; this.powerQueued = 0; this.lassoQueued = false;
     this.prevLocal = clonePlayer(this.local);
     this._stepLocal(this.local, this.localBoat, input);
     this._tickCosmeticSwing(input);
@@ -226,32 +293,78 @@ class ClientGame {
   }
 
   _tickCosmeticSwing(input) {                          // mirrors ToolSystem's timing; the server decides real hits
-    const tool = this.riding ? null : ItemDB.getTool(this.heldItemId());
+    const lasso = input.lasso && this.local && !this.local.boat && this.local.gear && this.local.gear.lasso;
+    if (this.lassoTicks > 0) this.lassoTicks--;
+    if (lasso && this.localSwingT <= 0) { this.lassoTicks = Math.ceil(ItemDB.getTool(lasso).swingTime / TICK_DT) + 1; this.lassoHeld = lasso; }
+    const tool = this.local && this.local.boat ? null : ItemDB.getTool(this._swingItem());       // (a boat has no tools; a pony does)
     this.localSwingT = tool ? Math.max(0, this.localSwingT - TICK_DT) : 0;
-    if (tool && input.action && this.localSwingT <= 0) this.localSwingT = tool.swingTime;
+    if (tool && (input.action || lasso) && this.localSwingT <= 0) this.localSwingT = tool.swingTime;
+  }
+  /** What our hand shows: the thrown lasso for the length of the throw, else the selected item. */
+  _swingItem() { return this.lassoTicks > 0 ? this.lassoHeld : this.heldItemId();
   }
 
   /* ---- snapshots ---- */
+  /** A guardian fell (or we just arrived): open the rings the server says are open. */
+  _applyRings(rings) {
+    if (!rings) return;
+    this.worldMap.layers.rings.setUnlocked(rings.unlocked);
+    this.defeated = rings.defeated || [];
+    this.events.emit('ringsChanged', rings);
+  }
+
   onSnapshot(snapshot) {
     this.serverTick = snapshot.tick;
+    if (snapshot.npcs) this.npcs = snapshot.npcs;                                  // (a remote player is only sent them when one moves or speaks)
+    if (snapshot.friends) { this.friends = snapshot.friends; this.events.emit('friendsChanged', this.friends); }
+    for (const id in snapshot.animals || {}) this.beingTypes[id] = snapshot.animals[id].type;          // remember what each animal is, so the Journal can list your friends when they are far away
+    if (snapshot.rings) this._applyRings(snapshot.rings);
+    if (snapshot.settings) { this.settings = snapshot.settings; this.events.emit('settingsChanged', this.settings); }
+    if (snapshot.admin) { GameSettings.applyWire(snapshot.admin, false); this.events.emit('adminChanged'); }
     if (snapshot.pets) { this.pets = snapshot.pets; this.events.emit('petsChanged'); }
+    if (snapshot.quests) this.questMarks = snapshot.quests;                       // lost young you have tracked: shown on the map
     if (snapshot.book) this.book = snapshot.book;
     if (snapshot.varieties) this.varieties = snapshot.varieties;
+    this._followGrid(snapshot);                                                  // through a door / into a cave: switch to that grid first
     this._bufferForInterpolation(snapshot);
     this._reconcile(snapshot);
-    applyTreeStates(this.map, snapshot.trees || {});
-    applyForageStates(this.map, snapshot.forage || {});
-    if (snapshot.built) { BuildSystem.replaceAll(this.map, snapshot.built); this.events.emit('builtChanged'); }
-    if (snapshot.floors) BuildSystem.replaceFloors(this.map, snapshot.floors);
-    if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory); this.events.emit('inventoryChanged'); }
+    applyTreeStates(this.worldMap, snapshot.trees || {});                         // (the overworld's: kept up to date even while we are indoors)
+    applyForageStates(this.worldMap, snapshot.forage || {});
+    if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
+    if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
+    if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
+    if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
+    else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }
+    if (snapshot.pack !== undefined) this._applyPack(snapshot.pack);
     if (snapshot.progress) { this.progress = snapshot.progress; this.events.emit('progressChanged'); }
     if (snapshot.treasure) { this.treasureMaps = snapshot.treasure; this.mapIndex = Math.min(this.mapIndex, Math.max(0, this.treasureMaps.length - 1)); this.events.emit('treasureChanged'); }
     if (snapshot.trade) { this.trade = snapshot.trade.state; this.events.emit('tradeChanged'); }
     const gearKey = JSON.stringify(this.local.gear) + this.local.hp.toFixed(0);
     if (gearKey !== this.gearKey) { this.gearKey = gearKey; this.events.emit('gearChanged'); }
-    if (this.selectedSlot >= CONFIG.sim.inventory.beltStart && !Gear.hasBelt(this.gear)) this.selectSlot(0);    // belt taken off
     this._refreshBuildTarget();
     for (const e of snapshot.events || []) this.events.emit(e.type, e);
+  }
+
+  /** The server moved us to another grid: stand on that grid's World from now on. Everything around us (people, animals, items) arrives with
+   *  the snapshot, which only ever holds our own grid, so the interpolation buffer starts afresh. */
+  _followGrid(snapshot) {
+    const mine = snapshot.players && snapshot.players[this.myId];
+    if (!mine || gridOf(mine) === this.grid) return;
+    const from = this.grid;
+    this.grid = gridOf(mine); this.map = this.grids.get(this.grid);
+    if (from) this.grids.drop(from);                                            // (an instance we left is rebuilt from its plan if we come back)
+    this.snapshots = []; this.hasSnapshot = false; this.pending = []; this.lastBuildTile = null;
+    this.local = clonePlayer(mine); this.prevLocal = clonePlayer(mine); this.correction.x = this.correction.y = 0;
+    this.map.ensureAround(this.local.x, this.local.y, CLIENT_STREAM_RADIUS);
+    this.events.emit('gridChanged', { from, to: this.grid, kind: this.map.kind });
+  }
+  /** Where we are on the overworld map: our position, or (indoors) the door of the building / the mouth of the cave we are in. */
+  outsidePosition() {
+    if (!this.grid) return { x: this.local.x, y: this.local.y };
+    const site = Grids.siteOf(this.grid), g = Grids.parse(this.grid);
+    if (site) return BuildingSites.doorFront(site);
+    const cave = g && g.kind === 'cave' ? this.worldMap.layers.dungeons.site(g.ring) : null;
+    return cave ? { x: cave.x, y: cave.y } : { x: this.local.x, y: this.local.y };
   }
 
   _bufferForInterpolation(snapshot) {
@@ -294,7 +407,7 @@ class ClientGame {
     players[this.myId] = Object.assign({}, L, {
       x: lerp(P.x, L.x, alpha) + this.correction.x, y: lerp(P.y, L.y, alpha) + this.correction.y,
       facing: lerpAngle(P.facing, L.facing, alpha),
-      held: this.heldItemId(), swingT: this.localSwingT
+      held: this._swingItem(), swingT: this.localSwingT
     });
     this._addInterpolated(players, boats, animals);
     if (L.boat && this.localBoat) {                    // the boat we row is drawn exactly under us
@@ -305,7 +418,14 @@ class ClientGame {
       const me = players[this.myId];
       animals[L.mount] = Object.assign({}, animals[L.mount], { x: me.x, y: me.y, facing: me.facing, vx: me.vx, vy: me.vy, rider: this.myId });
     }
-    return { tick: this.serverTick, players, boats, animals };
+    for (const id in players) players[id].lift = PonyAbilityRules.lift(players[id]);          // how high a flying pair is drawn (0 on the ground .. 1)
+    for (const id in animals) { const a = animals[id], rider = a.rider && players[a.rider]; if (rider && rider.lift > 0) animals[id] = Object.assign({}, a, { lift: rider.lift, flying: true }); }
+    const npcs = {};                                                                  // villagers glide to where the server says they are
+    for (const id in this.npcs) {
+      const n = this.npcs[id], v = this.npcView[id] || (this.npcView[id] = { x: n.x, y: n.y }), k = Math.hypot(n.x - v.x, n.y - v.y) > 3 ? 1 : 0.35;
+      v.x += (n.x - v.x) * k; v.y += (n.y - v.y) * k; npcs[id] = Object.assign({}, n, { x: v.x, y: v.y });
+    }
+    return { tick: this.serverTick, players, boats, animals, npcs, drops: this.latestDrops() };
   }
 
   _addInterpolated(players, boats, animals) {

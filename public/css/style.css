@@ -36,7 +36,25 @@ canvas{display:block}
   background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
 #inventoryPanel header,#craftPanel header,#settingsPanel header{display:flex;justify-content:space-between;align-items:center;height:calc(34px - 8px);margin-bottom:8px;font:600 15px Georgia,serif}
 #invClose,#craftClose,#settingsClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
-#invGrid{display:grid;grid-template-columns:repeat(6,var(--slot,46px));gap:var(--gap,5px)}
+#invBody{overflow-y:auto;touch-action:pan-y}
+.invgrid{display:grid;grid-template-columns:repeat(5,var(--slot,46px));gap:var(--gap,5px);justify-content:center;margin-bottom:4px}
+.invsec{display:flex;align-items:center;gap:6px;margin:6px 0 4px;font:600 12px Georgia,serif;color:#e9ddb8}
+.invsec small{font:400 11px sans-serif;opacity:.7;margin-left:auto}
+.invbags{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 5px}
+.invbag{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 6px 0 3px;border-radius:6px;border:1.5px dashed rgba(227,194,122,.45);background:transparent;color:#f4e6c1;font-size:11px}
+.invbag.filled{border-style:solid}
+.invbag img{width:20px;height:20px}
+.invbag.target{border-color:#7fd1ff;box-shadow:0 0 0 1px #7fd1ff}
+.invnote{font-size:11px;opacity:.7;margin:2px 0 4px}
+.pgrow{font-size:11px;opacity:.85;margin:2px 0}.pgrow i{display:block;height:4px;border-radius:2px;margin-top:2px;background:linear-gradient(90deg,#ffd36a var(--p),rgba(255,255,255,.15) var(--p))}
+#invActions{display:flex;align-items:center;justify-content:flex-end;gap:6px;height:30px;margin-top:4px}
+#invPicked{margin-top:6px;height:16px;font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#invUse{border-color:#7fd1ff !important;color:#dff3ff !important}
+#invActions button{height:28px;padding:0 8px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:12px;white-space:nowrap}
+#invActions button:disabled{opacity:.35}
+#invActions button.danger{border-color:#e07a6a;color:#ffd6cf}
+#invActions button.armed{background:rgba(160,40,30,.8)}
+#invMainPony{height:22px;padding:0 8px;margin-left:6px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif;white-space:nowrap}
 #craftList,#settingsList{overflow-y:auto;touch-action:pan-y}
 .recipe{display:flex;align-items:center;gap:10px;padding:6px 8px;margin-bottom:6px;border-radius:8px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.25)}
 .recipe .out{position:relative;width:42px;height:42px;flex:none}
@@ -78,19 +96,18 @@ canvas{display:block}
 /* ---------- health bar, belt bar, emote + sword buttons ---------- */
 .vital.health .fill{background:#d65a5a}
 .vital.health.low .fill{background:#e0a23a}
-#beltBar{position:fixed;display:flex;gap:var(--gap,4px);z-index:4;padding:var(--pad,5px);background:rgba(15,28,43,.6);border:1.5px solid rgba(160,200,255,.5);border-radius:10px}
 .ubtn{position:fixed;z-index:4;padding:0;border-radius:50%;border:2px solid rgba(227,194,122,.75);background:rgba(15,28,43,.6);color:#f4e6c1;touch-action:none;display:flex;align-items:center;justify-content:center}
 .ubtn img{width:78%;height:78%;pointer-events:none}
 .ubtn .empty{opacity:.45;font-size:.5em}
-#swordSlot{border-radius:10px;border-color:rgba(160,200,255,.7)}
-#swordSlot.drawn{background:rgba(227,194,122,.7);box-shadow:0 0 0 2px rgba(255,224,138,.6)}
 #emoteWheel{position:fixed;inset:0;z-index:9;background:rgba(5,10,20,.35)}
 .ebubble{position:absolute;border-radius:50%;border:2px solid rgba(227,194,122,.85);background:rgba(250,246,232,.96);padding:0;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .ebubble.etrade{background:rgba(227,194,122,.95);color:#10202f;font-family:Georgia,serif;font-weight:700}
-#gearPanel,#ponyPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
-#gearPanel header,#ponyPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
+#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
+#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
 #gearClose,#tradeClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
-#gearBody,#ponyBody,#tradeBody{overflow-y:auto;touch-action:pan-y}
+#gearBody,#ponyBody,#townBody,#tradeBody,#shopBody{overflow-y:auto;touch-action:pan-y}
+.shophead{display:flex;align-items:center;gap:4px;margin:0 0 8px;font-size:13px}.shophead img{width:20px;height:20px}
+.shopbuy{height:30px;padding:0 12px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif}.shopbuy:disabled{opacity:.35}
 .gsum{font-size:12px;margin-bottom:8px;color:#e9ddb8}
 .ggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
 .gslot{position:relative;height:52px;border-radius:8px;border:1.5px solid rgba(227,194,122,.35);background:rgba(10,18,28,.55);color:#bfb48e;font:11px Georgia,serif;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
@@ -189,7 +206,7 @@ canvas{display:block}
 .mapside{width:100%}
 @media (min-aspect-ratio:5/4){.mapcontent{flex-direction:row;align-items:flex-start}.mapside{flex:1;min-width:110px;max-width:260px}}
 .maplegend{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:center;margin-top:6px;font-size:11px;color:#dfe6ee}
-.maplegend .you{color:#fff}.maplegend .pet{color:#f48fb1}.maplegend .home{color:#ffd9b0}.maplegend .stb{color:#c9965a}.maplegend .x{color:#ff7a6a}
+.maplegend .you{color:#fff}.maplegend .pet{color:#f48fb1}.maplegend .home{color:#ffd9b0}.maplegend .stb{color:#c9965a}.maplegend .x{color:#ff7a6a}.maplegend .town{color:#e3a92b}.maplegend .cub{color:#d9a46a}
 
 /* ---------- separate Let go button + its confirmation ---------- */
 .pbtn.danger{border-color:#e07a6a;color:#ffd6cf;background:rgba(70,20,20,.62)}
@@ -331,3 +348,95 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 
 /* Done: pinned, but with room above it and only a soft shadow, so the last colour row is never dimmed or covered */
 #lobbyCreator #charDone{margin-top:16px;box-shadow:0 -8px 10px -3px rgba(10,18,28,.92)}
+
+/* the Wardrobe panel: a live preview, the three worn slots, and what you could put on */
+.gpreview{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+#wardrobePreview{width:96px;height:122px;flex:none;border-radius:10px;background:radial-gradient(circle at 50% 40%,#4b7a58,#27483a);border:1.5px solid rgba(227,194,122,.45)}
+.gwho{color:#a9b6c4;font-size:11px}
+.grow small{display:block;color:#a9b6c4;font-size:10px}
+.grow em{color:#a9b6c4;font-size:11px;font-style:normal;opacity:.8}
+.ggrid{grid-template-columns:repeat(3,1fr)}
+
+/* the pony ability button (Fly / Land / cooling down) */
+#btnFly{position:fixed;z-index:3;border-color:#9fd8ff;color:#e6f6ff;background:rgba(30,70,110,.7);font-weight:700}
+#btnFly.on{background:rgba(120,200,255,.75);color:#0b2236}
+#btnFly.cooling{opacity:.6;border-style:dashed}
+
+/* Settings > Testing */
+.testBox{margin-top:12px;padding-top:8px;border-top:1px solid rgba(227,194,122,.3)}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:8px 2px;cursor:pointer}
+.chk input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:#e3c27a}
+.chk b{display:block;font-weight:600}
+.chk small{display:block;color:#a9b6c4;font-size:11px;line-height:1.35}
+
+.pfly{color:#9fd8ff;font-size:11px;font-style:normal;margin-left:4px}
+
+/* Journal > Friends */
+.flimit{padding:5px 0;font-size:12px;line-height:1.4}.flimit .sglyph{margin-right:6px}.flimit small{color:#a9b6c4}
+.frow{display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(227,194,122,.12)}
+.frow canvas{width:120px;height:28px;flex:none}.frow .finfo{display:flex;flex-direction:column;min-width:0}.frow .finfo small{color:#a9b6c4;font-size:11px}
+
+/* ---- rarity, pony traits ---- */
+.slot.rare{border-color:var(--rarity);box-shadow:inset 0 0 8px var(--rarity)}
+.need.stocked b::after{content:' \2302';opacity:.7}
+.ptraits{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0}
+.prarity,.pbuff,.pability{font-size:10.5px;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.07)}
+.prarity{background:var(--c);color:#10202f;font-weight:700}
+.pability{border:1px solid var(--c)}
+.pability kbd{font:600 9px Georgia,serif;padding:0 3px;border-radius:3px;background:rgba(255,255,255,.18)}
+
+/* ---- the ridden pony's abilities ---- */
+#abilityBar{position:fixed;z-index:4;display:flex;gap:6px;align-items:center;pointer-events:none;color:#f4e6c1;font-family:Georgia,serif}
+#abilityBar.touch{display:none}
+#abilityBar span{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9px;background:rgba(15,28,43,.82);border:1.5px solid var(--c)}
+#abilityBar span.cd{opacity:.55}
+#abilityBar kbd{font:700 10px Georgia,serif;padding:0 4px;border-radius:3px;background:rgba(255,255,255,.2)}
+.pbtn.ability{border-color:#ffb34a;background:rgba(80,45,10,.62);font-size:20px !important}
+.pbtn.ability.cd{opacity:.55}
+
+/* ---- the Town window ---- */
+#townBody .ttitle{font:600 13px Georgia,serif;margin:8px 0 4px;color:#ffe08a}
+#townBody .ttitle small{font-weight:400;color:#c9bb98;font-size:11px}
+.tcarry small{display:block;color:#c9bb98;font-size:11px;margin-top:3px}
+.tstacks{display:flex;gap:8px;flex-wrap:wrap}
+.tstacks span{padding:2px 8px;border-radius:8px;background:rgba(10,18,28,.55);font-size:12px}
+.tstacks span.full{color:#ffb38a;border:1px solid #ffb38a}
+.tcard{padding:6px 8px;margin-bottom:6px;border-radius:9px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.25)}
+.thead{display:flex;align-items:center;gap:8px;font-size:13px}
+.thead img{width:32px;height:32px}
+.tlv{font-size:11px;color:#ffe08a}
+.tsub{font-size:11px;color:#c9bb98}
+.tnext{font-size:12px;margin:4px 0}
+.tbar{position:relative;height:14px;border-radius:7px;background:rgba(255,255,255,.08);margin:5px 0;overflow:hidden}
+.tbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#8a5f32,#d9b27a)}
+.tbar span{position:relative;display:block;text-align:center;font-size:10px;line-height:14px}
+.titems{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.tchip,.ttake{display:inline-flex;align-items:center;gap:3px;font-size:12px;padding:1px 4px;border-radius:6px;background:rgba(255,255,255,.05)}
+.tchip.missing{color:#ff9a92}
+.tchip img,.ttake img{width:20px;height:20px}
+.ttake button,.tup{font:600 11px Georgia,serif;padding:2px 6px;border-radius:6px;border:1px solid rgba(227,194,122,.6);background:rgba(227,194,122,.15);color:#f4e6c1;cursor:pointer}
+.tup{margin-top:5px}
+.ttake button:disabled,.tup:disabled{opacity:.4;cursor:default}
+.tempty{font-size:12px;color:#c9bb98;padding:4px 0}
+
+/* the Admin page */
+.adminLock p{font-size:13px;opacity:.85;margin:4px 0 10px}
+.admRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.admRow input,.admSlide input[type=number]{background:#16283a;color:#f4e6c1;border:1px solid rgba(227,194,122,.6);border-radius:6px;padding:6px 8px;font:14px Georgia,serif;width:110px}
+.adminBody button,.adminLock button{background:transparent;color:#f4e6c1;border:1.5px solid rgba(227,194,122,.6);border-radius:6px;padding:5px 10px;font:13px Georgia,serif;touch-action:manipulation}
+.adminBody button.primary{background:rgba(227,194,122,.85);color:#1b2433}
+.admErr{color:#ffb4a6;font-size:13px;min-height:16px}
+.admHead{display:flex;justify-content:space-between;align-items:center}
+.admBox{margin-top:12px;padding-top:8px;border-top:1px solid rgba(227,194,122,.3)}
+.admSlide{display:grid;grid-template-columns:minmax(120px,1fr) minmax(110px,1.3fr) auto;gap:4px 10px;align-items:center;padding:6px 2px}
+.admSlide b{display:block;font-weight:600;font-size:14px}.admSlide small{display:block;font-size:11px;opacity:.75}
+.admSlide input[type=range]{width:100%;accent-color:#e3c27a}
+.admSlide output{font-size:12px;min-width:70px;text-align:right;white-space:nowrap}
+.admTrees>summary,.admBiome>summary{cursor:pointer;padding:6px 2px;font-size:14px}
+.admBiome{margin:2px 0 2px 10px;border-left:2px solid rgba(227,194,122,.25);padding-left:8px}
+.admBiome>summary small{opacity:.7;font-size:11px}.admBiome.changed>summary{color:#ffd36a}
+.admNote{font-size:12px;opacity:.8;margin:4px 0}.admNote code{font-size:11px}
+.admPending{font-size:12px;color:#ffd36a;margin:6px 0}
+.admJson{width:100%;box-sizing:border-box;background:#0f1c2b;color:#e8dcc0;border:1px solid rgba(227,194,122,.4);border-radius:6px;font:11px ui-monospace,monospace;padding:6px}
+.admMsg{font-size:12px;opacity:.85}
+@media (max-width:560px){.admSlide{grid-template-columns:1fr auto}.admSlide input[type=range],.admSlide input[type=number]{grid-column:1/-1;order:3}}

@@ -2,9 +2,26 @@
 /* CLIENT - trees, stumps, barrels, the well. (sx, sy) is the prop's footprint on screen. */
 const TREE_SCALE_BASE = 1.35, TREE_SCALE_STEP = 0.07, STUMP_SCALE = 1.3;
 
-const TREE_TINT = { blossom: 'rgba(255,140,185,.62)', crystal: 'rgba(150,225,255,.55)', starlit: 'rgba(110,80,200,.6)', ember: 'rgba(150,50,25,.6)', dry: 'rgba(200,190,70,.35)', wetland: 'rgba(40,150,150,.25)' };
+const TREE_TINT = Object.fromEntries(Biomes.all().filter(b => b.treeTint).map(b => [b.id, b.treeTint]));      // (from the biome table)
 
 const PropSprites = {
+  /** A cave mouth: a rock arch with a black opening. Bigger and brooding for the deeper rings. */
+  drawCave(g, sx, sy, ring, now) {
+    const ctx = g.ctx, k = 1 + ring * 0.08;
+    g.ellipse(sx, sy + 3, 34 * k, 12 * k, 'rgba(0,0,0,.3)');
+    ctx.save(); ctx.translate(sx, sy); ctx.scale(k, k);
+    g.polygon([-34, 0, -30, -26, -16, -44, 0, -50, 16, -44, 30, -26, 34, 0], '#6d6a66'); g.polygon([-34, 0, -30, -26, -22, -30, -26, 0], '#85827c'); g.polygon([34, 0, 30, -26, 22, -30, 26, 0], '#55524f');
+    ctx.fillStyle = '#07070c'; ctx.beginPath(); ctx.moveTo(-20, 0); ctx.quadraticCurveTo(-21, -34, 0, -36); ctx.quadraticCurveTo(21, -34, 20, 0); ctx.closePath(); ctx.fill();
+    const glow = 0.5 + 0.5 * Math.sin(now / 500 + ring); g.ellipse(0, -10, 6 + glow * 2, 9, `rgba(${[120, 255, 120, 255, 255][ring] || 160},${[255, 200, 160, 120, 60][ring] || 140},255,${(0.12 + 0.12 * glow).toFixed(2)})`);
+    ctx.restore();
+  },
+  /** The way out of a cave: a swirling blue-white portal. */
+  drawPortal(g, sx, sy, now) {
+    const ctx = g.ctx, t = now / 400;
+    g.ellipse(sx, sy + 2, 16, 6, 'rgba(0,0,0,.3)');
+    for (let i = 0; i < 3; i++) { ctx.strokeStyle = `rgba(${150 + i * 40},${200 + i * 20},255,${(0.7 - i * 0.18).toFixed(2)})`; ctx.lineWidth = 2.4 - i * 0.5; ctx.beginPath(); ctx.ellipse(sx, sy - 14, 9 - i * 2.2, 17 - i * 3.5, 0, t + i, t + i + Math.PI * 1.5); ctx.stroke(); }
+    g.ellipse(sx, sy - 14, 5, 12, 'rgba(210,235,255,.5)');
+  },
   drawTree(g, sx, sy, variant, shakeX, fruit, biome) {
     const ctx = g.ctx, scale = TREE_SCALE_BASE + (variant % 5) * TREE_SCALE_STEP;    // trees tower over the player
     g.ellipse(sx + 5, sy + 3, 24 * scale, 11 * scale, 'rgba(0,0,0,.25)');        // shadow stays put while the tree shakes

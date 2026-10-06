@@ -14,7 +14,7 @@ const TREASURE_EXTRAS = Object.freeze([
   { item: 'torch', min: 2, max: 4 }, { item: 'rope', min: 2, max: 3 }, { item: 'string', min: 3, max: 6 },
   { item: 'arrow', min: 6, max: 12 }, { item: 'apple', min: 4, max: 8 }, { item: 'brick', min: 3, max: 6 }, { item: 'leash', min: 1, max: 1 }
 ]);
-const TREASURE_RARE = Object.freeze(['hide_cap', 'hide_vest', 'hide_leggings', 'hide_boots', 'hide_gloves', 'wooden_shield']);
+const TREASURE_RARE = Object.freeze(['crown_frost', 'crown_star', 'dress_star', 'garb_midnight', 'cape_star', 'crown_gold', 'cape_royal']);
 
 const TreasureSites = {
   /** The hidden spot of this chunk's treasure, or null. { tx, ty, key } */
@@ -53,7 +53,7 @@ const TreasureSites = {
     return null;
   },
 
-  /** What a chest holds: coins, a couple of useful things, and now and then a piece of armour. */
+  /** What a chest holds: coins, a couple of useful things, and now and then a rare crown, outfit or cape. */
   rollLoot(rng) {
     const loot = [{ item: 'gold_coin', count: 25 + Math.floor(rng() * 60) }];
     const pool = TREASURE_EXTRAS.slice();
@@ -69,6 +69,7 @@ class ShovelHandler {
   constructor(deps) { Object.assign(this, deps); this.warmAt = {}; }
 
   find(p, tool, id) {
+    if (gridOf(p)) return null;                                          // (nothing to dig indoors or in a cave)
     const mound = findForageable(this.map, p, tool.reach, 'shovel');
     if (mound && forageKind(mound.prop) === 'mound') return { ref: 'm' + tileKey(mound.tx, mound.ty), kind: 'mound', x: mound.prop.x, y: mound.prop.y, found: mound };
     const site = TreasureSites.near(this.map, p.x, p.y, TREASURE.digRange);

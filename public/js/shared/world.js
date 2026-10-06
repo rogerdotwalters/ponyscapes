@@ -6,15 +6,18 @@
  * (Many functions still call their World parameter `map`; it is a World.) */
 const CHUNK_SHIFT = 4, CHUNK_SIZE = 1 << CHUNK_SHIFT, CHUNK_MASK = CHUNK_SIZE - 1, CHUNK_AREA = CHUNK_SIZE * CHUNK_SIZE;
 /** Does this prop stop movement? Felled trees, berry bushes and loose stones (you walk over them) do not. */
-const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle']);
+const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'portal', 'loot', 'furniture', 'tracks']);      // (solid furniture blocks its tiles instead)
 const propBlocks = prop => prop.alive !== false && !NON_BLOCKING_PROPS.has(prop.t);
 
 const chunkKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
 
 class World {
-  constructor(seed) {
+  /** @param {number} seed  @param {object} [terrain] what the land is made of (default: the overworld's TerrainGenerator; an instance grid passes its own) */
+  constructor(seed, terrain) {
     this.seed = seed | 0;
-    this.terrain = new TerrainGenerator(this.seed);
+    this.grid = '';                     // which grid this is: '' = the overworld (instances: js/shared/grids.js)
+    this.kind = 'world';                // 'world' | 'room' | 'cave'
+    this.terrain = terrain || new TerrainGenerator(this.seed);
     this.chunks = new Map();            // chunkKey -> chunk
     this.built = {};                    // tileKey -> { n|e|s|w: structureType }   (authoritative on the server)
     this.slabs = {};                    // tileKey -> [[x0,y0,x1,y1], ...]          derived collision boxes
@@ -22,6 +25,8 @@ class World {
     this.treeStates = {};               // tileKey -> { hp, alive } for damaged / felled trees only
     this.forageStates = {};             // tileKey -> { ripe: false } for picked bushes / stones only
     this.treasureDug = {};              // site tileKey -> true once somebody has unearthed it
+    this.stockpiles = {};               // tileKey -> { items: { itemId: count } }   what the town's stockpiles hold (stockpiles.js)
+    this.buildingLevels = {};           // tileKey -> level, for upgraded buildings (absent = level 1)
     this.onChunkGenerated = null;       // hook: the server spawns boats here
     this.lastChunk = null;
   }
@@ -31,12 +36,14 @@ class World {
     const key = chunkKey(cx, cy);
     let chunk = this.chunks.get(key);
     if (!chunk) {
-      chunk = generateChunk(this, cx, cy);
+      chunk = this.generate(cx, cy);
       this.chunks.set(key, chunk);
       if (this.onChunkGenerated) this.onChunkGenerated(chunk);
     }
     return chunk;
   }
+  /** Build one chunk (an instance grid overrides this). */
+  generate(cx, cy) { return generateChunk(this, cx, cy); }
   peekChunkOfTile(tx, ty) { return this.chunks.get(chunkKey(tx >> CHUNK_SHIFT, ty >> CHUNK_SHIFT)) || null; }
   chunkOfTile(tx, ty) {
     const cx = tx >> CHUNK_SHIFT, cy = ty >> CHUNK_SHIFT, last = this.lastChunk;
@@ -75,7 +82,10 @@ class World {
     return BiomeIds[b];
   }
   objAt(tx, ty) { return this.chunkOfTile(tx, ty).obj[((ty & CHUNK_MASK) << CHUNK_SHIFT) | (tx & CHUNK_MASK)]; }
-  isSolid(tx, ty) { return this.chunkOfTile(tx, ty).solid[((ty & CHUNK_MASK) << CHUNK_SHIFT) | (tx & CHUNK_MASK)] === 1; }
+  /** The layers this world is made of (rings, biomes, zones, dungeons). */
+  get layers() { return this.terrain.layers; }
+  /** Solid ground, a wall, or a sealed ring's magical barrier. */
+  isSolid(tx, ty) { return this.chunkOfTile(tx, ty).solid[((ty & CHUNK_MASK) << CHUNK_SHIFT) | (tx & CHUNK_MASK)] === 1 || this.terrain.layers.rings.barrierAt(tx, ty); }
   /** The prop (tree / barrel / well, alive or not) standing on a tile, or null. */
   propAt(tx, ty) {
     const chunk = this.chunkOfTile(tx, ty), i = chunk.propIndex[((ty & CHUNK_MASK) << CHUNK_SHIFT) | (tx & CHUNK_MASK)];
@@ -91,12 +101,23 @@ class World {
   /** Can a character path through this tile? Solid ground or a living prop blocks it (walls block edges, not tiles). */
   navBlocked(tx, ty) {
     const chunk = this.chunkOfTile(tx, ty), li = ((ty & CHUNK_MASK) << CHUNK_SHIFT) | (tx & CHUNK_MASK);
-    if (chunk.solid[li]) return true;
+    if (chunk.solid[li] || this.terrain.layers.rings.barrierAt(tx, ty)) return true;
     const built = this.built[tileKey(tx, ty)];
     if (built && built.c) return true;                                   // a table / furnace fills its tile
     const i = chunk.propIndex[li];
     return i >= 0 && propBlocks(chunk.props[i]);
   }
+}
+
+/** { local index -> prop } for any cave mouth inside overworld chunk (cx, cy). Dungeon sites are pure functions of the seed. (The way OUT of a cave is
+ *  the cave grid's own portal: js/shared/grids.js.) */
+function caveProps(world, cx, cy) {
+  const found = new Map(), x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
+  const put = (x, y, prop) => { const tx = Math.floor(x), ty = Math.floor(y); if (tx >= x0 && tx < x0 + CHUNK_SIZE && ty >= y0 && ty < y0 + CHUNK_SIZE) found.set(((ty - y0) << CHUNK_SHIFT) | (tx - x0), prop); };
+  const o = CONFIG.sim.levels.origin;
+  if (Math.hypot(x0 + 8 - o.x, y0 + 8 - o.y) > world.layers.rings.width * world.layers.rings.count + 400) return found;
+  for (const site of world.layers.dungeons.sites()) put(site.x, site.y, { t: 'cave', x: site.x, y: site.y, r: 0.55 / TILE_SCALE, v: site.ring, ring: site.ring });
+  return found;
 }
 
 /** Build one chunk from the pure terrain functions + the village stamp. */
@@ -109,17 +130,19 @@ function generateChunk(world, cx, cy) {
     renderItems: null, boatSpot: null, animals: []
   };
   const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
+  const special = caveProps(world, cx, cy);                                                // the cave mouths and cave exits that stand in this chunk
   for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;
     const tile = T.tile(tx, ty), obj = Village.obj(tx, ty);
     chunk.tiles[li] = tile; chunk.obj[li] = obj;
-    chunk.solid[li] = tile === TILE.WATER || obj !== OBJ.NONE ? 1 : 0;
+    chunk.solid[li] = tile === TILE.WATER || tile === TILE.CAVE_WALL || obj !== OBJ.NONE ? 1 : 0;
   }
   for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;
     const fixed = Village.propAtTile(tx, ty);
     if (fixed) { addChunkProp(chunk, li, withSavedState(world, tx, ty, Object.assign({ hp: 0, alive: true }, fixed))); continue; }
     if (chunk.obj[li] !== OBJ.NONE) continue;
+    if (special.has(li)) { addChunkProp(chunk, li, special.get(li)); continue; }
     if (!T.hasTree(tx, ty, chunk.tiles[li])) { addForageable(world, chunk, li, tx, ty); continue; }
     const tree = {
       t: 'tree', x: tx + 0.5 + (hash3(T.seed, tx, ty, 2) - 0.5) * 0.3, y: ty + 0.5 + (hash3(T.seed, tx, ty, 3) - 0.5) * 0.3,
@@ -164,7 +187,11 @@ function addForageable(world, chunk, li, tx, ty) {
       t: 'stone', x: tx + 0.5 + (hash3(T.seed, tx, ty, 17) - 0.5) * 0.5, y: ty + 0.5 + (hash3(T.seed, tx, ty, 18) - 0.5) * 0.5,
       r: 0.12 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 19) * 4), drop: 'stone'
     };
-  } else return;
+  } else {
+    const item = T.lootAt(tx, ty, tile);                       // an item lying about (from the items' biome spawn rates)
+    if (!item) return;
+    prop = { t: 'loot', x: tx + 0.5 + (hash3(T.seed, tx, ty, 72) - 0.5) * 0.4, y: ty + 0.5 + (hash3(T.seed, tx, ty, 73) - 0.5) * 0.4, r: 0.12 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 74) * 4), drop: item };
+  }
   Object.assign(prop, { hp: 0, alive: true, ripe: true });
   addChunkProp(chunk, li, withSavedState(world, tx, ty, prop));
 }

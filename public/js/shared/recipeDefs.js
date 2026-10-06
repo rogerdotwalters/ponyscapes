@@ -7,7 +7,7 @@ const makeRecipe = (id, name, ingredients, outputs, extra = {}) =>
   Object.freeze(Object.assign({ id, name, station: null, tools: [], ingredients, outputs }, extra));
 const ing = (item, count) => ({ item, count });
 
-const RecipeDefs = Object.freeze({
+const BASE_RECIPES = ({
   /* ---- by hand ---- */
   make_planks:        makeRecipe('make_planks', 'Planks', [ing('log', 1)], [ing('plank', 2)]),
   make_knife_wood:    makeRecipe('make_knife_wood', 'Knife (wood handle)', [ing('stone', 1), ing('plank', 1)], [ing('knife', 1)]),
@@ -18,7 +18,8 @@ const RecipeDefs = Object.freeze({
   make_rope_string:   makeRecipe('make_rope_string', 'Rope (from string)', [ing('string', 3)], [ing('rope', 1)]),
   make_torch:         makeRecipe('make_torch', 'Torches (x2)', [ing('plank', 1), ing('string', 1)], [ing('torch', 2)]),
   make_campfire:      makeRecipe('make_campfire', 'Campfire', [ing('log', 3), ing('stone', 4)], [ing('campfire', 1)]),
-  make_leash:         makeRecipe('make_leash', 'Lasso', [ing('rope', 2)], [ing('leash', 1)]),
+  make_leash:         makeRecipe('make_leash', 'Rope Lasso', [ing('rope', 2)], [ing('leash', 1)]),
+  make_brush:         makeRecipe('make_brush', 'Wooden Brush', [ing('plank', 1), ing('string', 2)], [ing('brush', 1)]),
   make_jug:           makeRecipe('make_jug', 'Wooden Jug', [ing('plank', 3)], [ing('jug', 1)]),
   make_crafting_table: makeRecipe('make_crafting_table', 'Crafting Table', [ing('plank', 6), ing('rope', 2)], [ing('crafting_table', 1)], { tools: ['stone_hammer', 'knife'] }),
   make_brick:         makeRecipe('make_brick', 'Bricks', [ing('clay', 2)], [ing('brick', 2)], { tools: ['brick_form'] }),
@@ -38,26 +39,30 @@ const RecipeDefs = Object.freeze({
   make_brick_form:    makeRecipe('make_brick_form', 'Brick Form', [ing('plank', 4), ing('rope', 1)], [ing('brick_form', 1)], { station: 'crafting_table', tools: ['knife'] }),
   make_stable:        makeRecipe('make_stable', 'Stable', [ing('plank', 12), ing('rope', 3), ing('string', 4)], [ing('stable', 1)], { station: 'crafting_table', tools: ['stone_hammer', 'knife'] }),
   make_clay_furnace:  makeRecipe('make_clay_furnace', 'Clay Furnace', [ing('brick', 8)], [ing('clay_furnace', 1)], { station: 'crafting_table' }),
+  make_stockpile_wood:  makeRecipe('make_stockpile_wood', 'Wood Stockpile', [ing('plank', 10), ing('rope', 2)], [ing('stockpile_wood', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
+  make_stockpile_stone: makeRecipe('make_stockpile_stone', 'Stone Stockpile', [ing('plank', 8), ing('stone', 6), ing('rope', 1)], [ing('stockpile_stone', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
+  make_stockpile_clay:  makeRecipe('make_stockpile_clay', 'Clay Stockpile', [ing('plank', 8), ing('clay', 4), ing('rope', 1)], [ing('stockpile_clay', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
 
-  /* ---- armour, weapons and gear: at the crafting table ---- */
-  make_hide_cap:      makeRecipe('make_hide_cap', 'Hide Cap', [ing('hide', 2), ing('string', 2)], [ing('hide_cap', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_hide_vest:     makeRecipe('make_hide_vest', 'Hide Vest', [ing('hide', 4), ing('rope', 2)], [ing('hide_vest', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_hide_leggings: makeRecipe('make_hide_leggings', 'Hide Leggings', [ing('hide', 3), ing('rope', 1)], [ing('hide_leggings', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_hide_boots:    makeRecipe('make_hide_boots', 'Hide Boots', [ing('hide', 2), ing('string', 2)], [ing('hide_boots', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_hide_gloves:   makeRecipe('make_hide_gloves', 'Hide Gloves', [ing('hide', 1), ing('string', 2)], [ing('hide_gloves', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_wooden_shield: makeRecipe('make_wooden_shield', 'Wooden Shield', [ing('plank', 4), ing('rope', 1)], [ing('wooden_shield', 1)], { station: 'crafting_table', tools: ['knife'] }),
+  /* ---- weapons: at the crafting table ---- */
   make_wooden_sword:  makeRecipe('make_wooden_sword', 'Wooden Sword', [ing('plank', 3), ing('string', 1)], [ing('wooden_sword', 1)], { station: 'crafting_table', tools: ['knife'] }),
   make_stone_sword:   makeRecipe('make_stone_sword', 'Stone Sword', [ing('stone', 2), ing('plank', 2), ing('rope', 1)], [ing('stone_sword', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_tool_belt:     makeRecipe('make_tool_belt', 'Tool Belt', [ing('hide', 3), ing('rope', 2)], [ing('tool_belt', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_scabbard:      makeRecipe('make_scabbard', 'Scabbard', [ing('hide', 2), ing('rope', 1)], [ing('scabbard', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_sling:         makeRecipe('make_sling', 'Sword Sling', [ing('hide', 2), ing('string', 3)], [ing('sling', 1)], { station: 'crafting_table', tools: ['knife'] }),
 
   /* ---- at the clay furnace or a campfire (a plank is the fuel) ---- */
-  cook_rabbit:        makeRecipe('cook_rabbit', 'Roast Rabbit', [ing('rabbit_meat', 1), ing('plank', 1)], [ing('cooked_rabbit', 1)], { station: ['clay_furnace', 'campfire'] }),
-  cook_venison:       makeRecipe('cook_venison', 'Roast Venison', [ing('venison', 1), ing('plank', 1)], [ing('cooked_venison', 1)], { station: ['clay_furnace', 'campfire'] }),
-  cook_mutton:        makeRecipe('cook_mutton', 'Roast Mutton', [ing('mutton', 1), ing('plank', 1)], [ing('cooked_mutton', 1)], { station: ['clay_furnace', 'campfire'] }),
-  cook_fish:          makeRecipe('cook_fish', 'Grilled Fish', [ing('raw_fish', 1), ing('plank', 1)], [ing('cooked_fish', 1)], { station: ['clay_furnace', 'campfire'] })
 });
+
+/** Construction is switched off (CONFIG.sim.construction): no walls, floors, doors, windows or fences to craft. Stations still are. */
+const CONSTRUCTION_RECIPES = ['make_wood_fence', 'make_wood_gate', 'make_wood_wall', 'make_wood_floor', 'make_wood_window', 'make_wood_door'];
+if (!CONFIG.sim.construction) for (const id of CONSTRUCTION_RECIPES) delete BASE_RECIPES[id];
+
+/** Cooking recipes are GENERATED from the food table: a raw food that names what it cooks into (and a recipe id) gets one. */
+/** Wardrobe recipes are GENERATED from the wardrobe table: an item with a `craft` list gets "make_<id>" at the crafting table. */
+/** ...and so is every other item with a `craft` list (your own items from the content editor included): "make_<id>" at the crafting table. */
+const WARDROBE_RECIPES = Object.fromEntries(Object.values(ItemDefs).filter(w => Array.isArray(w.craft) && w.craft.length && !BASE_RECIPES['make_' + w.id]).map(w =>
+  ['make_' + w.id, makeRecipe('make_' + w.id, w.name, w.craft.filter(([item]) => ItemDefs[item]).map(([item, n]) => ing(item, n)), [ing(w.id, 1)], { station: 'crafting_table', tools: w.equip || w.bag ? ['knife'] : [] })]));
+const COOK_STATIONS = ['clay_furnace', 'campfire'];
+const COOK_RECIPES = Object.fromEntries(Foods.where(f => f.cooksInto && f.recipe).map(f =>
+  [f.recipe.id, makeRecipe(f.recipe.id, f.recipe.name, [ing(f.id, 1), ing('plank', 1)], [ing(f.cooksInto, 1)], { station: COOK_STATIONS })]));
+const RecipeDefs = Object.freeze(Object.assign({}, BASE_RECIPES, COOK_RECIPES, WARDROBE_RECIPES));
 
 /** Display names of the stations. */
 const StationNames = Object.freeze({ crafting_table: 'Crafting Table', clay_furnace: 'Clay Furnace', campfire: 'Campfire', stable: 'Stable' });

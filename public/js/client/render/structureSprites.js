@@ -2,9 +2,11 @@
 /* CLIENT - walls, towers and houses (tile-sized boxes so they depth-sort per tile). */
 const StructureSprites = (() => {
   const V = CONFIG.view;
+  const shadeHex = (hex, f) => { const n = parseInt(hex.slice(1), 16), k = t => Math.round(f < 1 ? t * f : t + (255 - t) * (f - 1)); return `rgb(${k((n >> 16) & 255)},${k((n >> 8) & 255)},${k(n & 255)})`; };
 
   function draw(g, item, cx, cy) {
-    if (item.o === OBJ.WALL) drawWall(g, cx, cy);
+    if (item.o >= INTERIOR_OBJ_BASE) InteriorSprites.wall(g, item.o, cx, cy, item);          // a room's wall (low ones at the front)
+    else if (item.o === OBJ.WALL) drawWall(g, cx, cy);
     else if (item.o === OBJ.TOWER) drawTower(g, cx, cy);
     else drawHouse(g, item, cx, cy);
   }
@@ -34,11 +36,21 @@ const StructureSprites = (() => {
     g.polygon([cx, apexY - 14, cx + 10, apexY - 11, cx, apexY - 8], '#d9b45a');
   }
 
+  /** One tile of a building (BuildingSites): drawn in its own colours, the door tile with a sign. A building with its own picture
+   *  (sprites.exterior) draws that once, at its front corner, and nothing on its other tiles. */
   function drawHouse(g, item, cx, cy) {
-    const ctx = g.ctx, height = V.houseH, hasDoor = item.o === OBJ.DOOR;
-    drawBox(g, cx, cy, height, '#9c4a3b', '#dccca6', '#b9a77f', 0);
+    const ctx = g.ctx, height = V.houseH, hasDoor = item.o === OBJ.DOOR, site = BuildingSites.at(item.tx, item.ty);
+    const ext = site ? site.def.exterior : { wall: '#dccca6', side: '#b9a77f', roof: '#9c4a3b', trim: '#5a3f2a', sign: '#e8d6a8' };
+    const img = site && site.def.sprites && site.def.sprites.exterior ? SpriteRegistry.image(site.def.sprites.exterior) : null;
+    if (img) {
+      if (item.tx !== site.x1 || item.ty !== site.y1) return;
+      const left = isoX(site.x0, site.y1 + 1), right = isoX(site.x1 + 1, site.y0), w = right - left, h = w * img.naturalHeight / img.naturalWidth;
+      ctx.drawImage(img, left, isoY(site.x1 + 1, site.y1 + 1) - h, w, h);
+      return;
+    }
+    drawBox(g, cx, cy, height, ext.roof, ext.wall, ext.side, 0);
     drawRoofLines(ctx, cx, cy, height);
-    drawTimberFrame(ctx, cx, cy, height);
+    drawTimberFrame(ctx, cx, cy, height, ext.trim);
 
     const onLeftFace = u => [cx - TILE_HALF_W + TILE_HALF_W * u, cy + TILE_HALF_H * u];
     const onRightFace = u => [cx + TILE_HALF_W * u, cy + TILE_HALF_H - TILE_HALF_H * u];
@@ -47,8 +59,14 @@ const StructureSprites = (() => {
       g.polygon([a[0], a[1] - h0, b[0], b[1] - h0, b[0], b[1] - h1, a[0], a[1] - h1], color);
     };
     if (hasDoor) {
-      facePanel(onLeftFace, 0.3, 0.7, 0, 50, '#5a3a22');
-      const knob = onLeftFace(0.62); g.ellipse(knob[0], knob[1] - 25, 1.8, 1.8, '#d9b45a');
+      facePanel(onLeftFace, 0.3, 0.7, 0, 46, ext.trim);
+      facePanel(onLeftFace, 0.34, 0.66, 2, 42, shadeHex(ext.trim, 1.35));
+      const knob = onLeftFace(0.6); g.ellipse(knob[0], knob[1] - 22, 1.8, 1.8, '#d9b45a');
+      if (site) {                                                                   // the sign over the door: the building's picture
+        facePanel(onLeftFace, 0.2, 0.8, 49, 63, ext.trim); facePanel(onLeftFace, 0.23, 0.77, 50.5, 61.5, ext.sign);
+        const mid = onLeftFace(0.5); ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#222';
+        ctx.fillText(site.def.glyph || site.def.name[0], mid[0], mid[1] - 56);
+      }
     } else if (hash2(item.tx, item.ty) > 0.3) facePanel(onLeftFace, 0.3, 0.7, 28, 46, '#34495e');
     if (hash2(item.ty, item.tx) > 0.4) facePanel(onRightFace, 0.3, 0.7, 28, 46, '#2c3e50');
   }
@@ -62,8 +80,8 @@ const StructureSprites = (() => {
     ctx.stroke();
   }
 
-  function drawTimberFrame(ctx, cx, cy, height) {
-    ctx.strokeStyle = '#5a3f2a'; ctx.lineWidth = 2; ctx.beginPath();
+  function drawTimberFrame(ctx, cx, cy, height, color = '#5a3f2a') {
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
     ctx.moveTo(cx - TILE_HALF_W, cy); ctx.lineTo(cx - TILE_HALF_W, cy - height);
     ctx.moveTo(cx - TILE_HALF_W, cy - height); ctx.lineTo(cx, cy + TILE_HALF_H - height); ctx.lineTo(cx + TILE_HALF_W, cy - height);
     ctx.moveTo(cx + TILE_HALF_W, cy); ctx.lineTo(cx + TILE_HALF_W, cy - height); ctx.stroke();
@@ -237,8 +255,30 @@ const StructureSprites = (() => {
     g.ellipse(cx + 1, cy - 4, 3, 2, '#fff2b0');
   }
 
-  function drawStation(g, type, tx, ty) {
-    if (type === 'crafting_table') drawCraftingTable(g, tx, ty);
+  /** A stockpile: a wooden pallet heaped with its resource, fuller the more it holds, with a level sign once upgraded. */
+  function drawStockpile(g, type, tx, ty, fill, level) {
+    const ctx = g.ctx, [cx, cy] = tileCentre(tx, ty), resource = StructureDefs[type].stockpile;
+    drawWorldBox(g, [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.9], 5, '#9a6b3d', '#7a5230', '#5a3a20');           // pallet
+    const n = Math.round(clamp(fill, 0, 1) * 10), spots = [[-14, -9], [0, -10], [14, -9], [-7, -15], [7, -15], [-14, -18], [0, -19], [14, -18], [-7, -24], [7, -24]];
+    for (let i = 0; i < n; i++) {
+      const [dx, dy] = spots[i], x = cx + dx, y = cy + dy;
+      if (resource === 'wood') { g.ellipse(x, y, 8, 4.4, '#8a5f32'); g.ellipse(x + 6, y, 3, 4.2, '#d9b27a'); g.ellipse(x + 6, y, 1.4, 2, '#b98a52'); }
+      else if (resource === 'stone') { g.ellipse(x, y, 7, 5, '#8d8d93'); g.ellipse(x - 2, y - 2, 3.2, 2, '#b4b4ba'); }
+      else { g.ellipse(x, y, 7, 4.8, '#b8643c'); g.ellipse(x - 2, y - 1.6, 3, 1.8, '#d98a5c'); }
+    }
+    if (level > 1) {                                                                                           // a little sign with its level
+      ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + 22, cy - 2); ctx.lineTo(cx + 22, cy - 26); ctx.stroke();
+      g.roundRect(cx + 13, cy - 38, 18, 13, 3); ctx.fillStyle = '#e8d3a3'; ctx.fill();
+      ctx.fillStyle = '#4a3624'; ctx.font = 'bold 10px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(level), cx + 22, cy - 31);
+    }
+  }
+
+  /** `info` (optional): { fill 0..1, level } for stockpiles and upgraded buildings. A station item with a `placed` image is drawn from it. */
+  function drawStation(g, type, tx, ty, info = null) {
+    const img = SpriteRegistry.itemImage(StructureDefs[type] && StructureDefs[type].refundItemId, 'placed');
+    if (img) { const [cx, cy] = tileCentre(tx, ty), w = TILE_HALF_W * 2, h = w * img.naturalHeight / img.naturalWidth; g.ctx.drawImage(img, cx - w / 2, cy + TILE_HALF_H - h, w, h); return; }
+    if (StructureDefs[type] && StructureDefs[type].stockpile) drawStockpile(g, type, tx, ty, info ? info.fill : 0, info ? info.level : 1);
+    else if (type === 'crafting_table') drawCraftingTable(g, tx, ty);
     else if (type === 'campfire') drawCampfire(g, tx, ty);
     else if (type === 'stable') drawStable(g, tx, ty);
     else drawClayFurnace(g, tx, ty);

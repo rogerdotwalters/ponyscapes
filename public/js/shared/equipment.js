@@ -1,32 +1,28 @@
 'use strict';
-/* SHARED - what a character wears and carries on its body.
- *   head chest legs feet hands  armour (each piece has a `defense` value)
- *   shield                      extra damage reduction
- *   belt                        a tool belt adds a SECOND utility bar (inventory slots beltStart..)
- *   back                        a scabbard or sling gives the sword its own slot, separate from every bar
- *   weapon                      the sword in that slot (drawn / sheathed with one button)
- * `gear` is part of the player state, so everybody can see what you wear. */
-const EquipSlots = Object.freeze(['head', 'chest', 'legs', 'feet', 'hands', 'shield', 'belt', 'back']);
-const createGear = () => ({ head: '', chest: '', legs: '', feet: '', hands: '', shield: '', belt: '', back: '', weapon: '' });
+/* SHARED - what a character wears: a crown, an outfit (a dress or prince garb: the main slot) and a cape. Nothing else: no armour, no shield, no belt,
+ * no scabbard. It is purely how you look. `gear` is part of the player state, so everybody sees what you wear. A new character wears the simple crown. */
+const WardrobeSlots = Object.freeze(['crown', 'outfit', 'cape']);
+const createWardrobe = () => ({ crown: 'crown_simple', outfit: '', cape: '', lasso: 'leash', bag: CONFIG.sim.inventory.starterBag });     // + the LASSO SLOT (thrown with L; better lassos catch rarer ponies) and the BAG SLOT (inventory.js)
+/** Slots that are not clothes: what is in them still shows in Gear. */
+const GearExtraSlots = Object.freeze(['lasso', 'bag']);
 
-const Gear = {
-  /** Which gear slot an item goes into: its own equip slot, or 'weapon' for swords. */
-  slotFor(itemId) {
+const Wardrobe = {
+  /** Which slot an item goes into, or null if it is not wardrobe. */
+  slotFor(itemId) { if (ItemDB.getLasso(itemId)) return 'lasso'; if (Bags.isPlayerBag(itemId)) return 'bag'; const equip = ItemDB.getEquip(itemId); return equip ? equip.slot : null; },
+  /** Can THIS character wear it? Dresses are for princesses, garb for princes; crowns and capes are for everybody. */
+  fits(itemId, appearance) {
+    if (ItemDB.getLasso(itemId) || Bags.isPlayerBag(itemId)) return true;
     const equip = ItemDB.getEquip(itemId);
-    if (equip) return equip.slot;
-    const tool = ItemDB.getTool(itemId);
-    return tool && tool.kind === 'sword' ? 'weapon' : null;
+    if (!equip) return false;
+    if (!equip.body || equip.body === 'any') return true;
+    const look = CharacterLook.sanitize(appearance) || CharacterLook.defaultFor(0);
+    return equip.body === (look[0] === CharacterLook.PRINCESS ? 'princess' : 'prince');
   },
-  hasBelt: gear => !!gear.belt,
-  hasSheath: gear => !!gear.back && !!(ItemDefs[gear.back] && ItemDefs[gear.back].sheath),
-  armourPoints(gear) { return ['head', 'chest', 'legs', 'feet', 'hands', 'shield'].reduce((n, s) => n + (gear[s] ? ItemDB.getEquip(gear[s]).defense : 0), 0); },
-  /** 0..maxReduction of incoming damage that is absorbed. */
-  damageReduction(gear) {
-    const C = CONFIG.sim.combat;
-    return Math.min(C.maxReduction, Gear.armourPoints(gear) * C.armorPerPoint + (gear.shield ? C.shieldReduction : 0));
-  },
-  /** The item the character holds: the drawn sword if it is out, else the selected bar slot. */
-  heldItem(gear, drawn, barItem) { return drawn && gear.weapon ? gear.weapon : barItem; },
-  isBeltSlot: index => index >= CONFIG.sim.inventory.beltStart,
-  beltEmpty: inventory => inventory.slots.slice(CONFIG.sim.inventory.beltStart).every(s => !s)
+  /** The cape's two numbers. Nothing else you wear has stats. */
+  power: gear => { const e = gear && gear.cape && ItemDB.getEquip(gear.cape); return e ? e.power : 0; },
+  def: gear => { const e = gear && gear.cape && ItemDB.getEquip(gear.cape); return e ? e.def : 0; },
+  /** 0..maxReduction of incoming damage that the cape's DEF soaks. */
+  damageReduction: gear => Math.min(CONFIG.sim.combat.maxReduction, Wardrobe.def(gear) * CONFIG.sim.combat.defPerPoint),
+  /** What an item says about who it is for, in words. */
+  forWhom: itemId => { const e = ItemDB.getEquip(itemId); return e && e.body === 'princess' ? 'a dress for a princess' : e && e.body === 'prince' ? 'garb for a prince' : 'for anyone'; }
 };

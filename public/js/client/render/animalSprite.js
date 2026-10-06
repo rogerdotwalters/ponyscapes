@@ -1,43 +1,68 @@
 'use strict';
-/* CLIENT - rabbit, deer and sheep, drawn in profile and mirrored to face left / right on screen.
+/* CLIENT - creatures. Each is drawn facing one of four screen directions (SpriteRegistry.dirOf): up, down, left, right.
+ *   - If you gave the creature images (editor.html), those are drawn.
+ *   - Otherwise the procedural artwork (CreatureSprites, from the creature's data): a profile mirrored for left / right. The UP and DOWN views
+ *     are boilerplate for now (_drawUp / _drawDown reuse the profile) until they are drawn, either as images or here.
  * (sx, sy) is the animal's footprint. Legs swing and rabbits hop with the animal's speed. */
 class AnimalSprite {
   constructor(g) { this.g = g; this.state = {}; }
 
-  /** @param {{near:boolean, ref:number}} [view] how close the local player is, and their own level for colouring a threat */
-  draw(animal, id, sx, sy, now, view) {
+  /** @param {{near:boolean, ref:number}} [view] how close the local player is, and their own level for colouring a threat
+   *  @param {{procedural?:boolean}} [opts] procedural: ignore images (the editor's previews of the built-in art) */
+  draw(animal, id, sx, sy, now, view, opts = {}) {
     const ctx = this.g.ctx;
     const st = this.state[id] || (this.state[id] = { phase: 0, last: now, flip: 1 });
-    const speed = Math.hypot(animal.vx || 0, animal.vy || 0);
+    const speed = isoLength(animal.vx || 0, animal.vy || 0);                  // legs follow how fast it looks like it is moving
     st.phase += speed * Math.min(0.1, (now - st.last) / 1000) * 7; st.last = now;
     const [ux] = IsoProjection.worldDeltaToScreen(Math.cos(animal.facing), Math.sin(animal.facing));
     if (Math.abs(ux) > 8) st.flip = ux > 0 ? 1 : -1;                         // keep the last side when facing straight up / down the screen
-    const seed = id.charCodeAt(id.length - 1);
+    const dir = SpriteRegistry.dirOf(animal.facing), seed = id.charCodeAt(id.length - 1);
+    const def = AnimalDefs[animal.type], scale = (def.sprite && def.sprite.scale) || 1;
 
-    ctx.save(); ctx.translate(sx, sy); ctx.scale(st.flip, 1);
-    if (animal.type === 'spider') this._spider(st.phase, speed, animal.state === 'chase');
-    else if (animal.type === 'rabbit') this._rabbit(st.phase, speed);
-    else if (animal.type === 'deer') this._deer(st.phase, speed, seed);
-    else if (AnimalDefs[animal.type] && AnimalDefs[animal.type].pony) this._pony(animal, st.phase, speed, now);
-    else this._sheep(st.phase, speed, now);
-    ctx.restore();
-    if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view);   // your pets carry their name; every animal shows its level up close
+    const drawn = !opts.procedural && SpriteRegistry.drawCreature(ctx, animal.type, animal.look, dir, sx, sy, speed > 0.2, now);
+    if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
+    const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
+    if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
+    const hearts = !animal.rider && view && (view.friend || view.invite);
+    if (hearts) HeartMeter.draw(ctx, sx, sy - tagY - 16, view.friend || null, now);        // your hearts with it (or three faint empty ones, inviting you to make friends)
+    if (animal.want && view && view.wantNear) WantBubble.draw(ctx, sx, sy - tagY - (hearts ? 30 : 10), animal.want, animal.wantN, now, view.holding === animal.want || (Wants.of(animal.type) || { items: [] }).items.includes(view.holding));   // what it is asking for
   }
 
-  /** Name (for your own animals) and a coloured LEVEL badge: green = easy for you, yellow = even, orange = hard, red = deadly. */
-  _nameTag(animal, sx, sy, view) {
+  /** The procedural artwork for one screen direction. */
+  _drawFacing(dir, animal, st, speed, now, seed) {
+    if (dir === 'up') return this._drawUp(animal, st, speed, now, seed);
+    if (dir === 'down') return this._drawDown(animal, st, speed, now, seed);
+    return this._drawSide(animal, st, speed, now, seed);
+  }
+  /** BOILERPLATE - the back view (walking away, up the screen). Until it is drawn, the profile stands in for it. */
+  _drawUp(animal, st, speed, now, seed) { this._drawSide(animal, st, speed, now, seed); }
+  /** BOILERPLATE - the front view (walking towards the camera, down the screen). Until it is drawn, the profile stands in for it. */
+  _drawDown(animal, st, speed, now, seed) { this._drawSide(animal, st, speed, now, seed); }
+
+  /** The profile, drawn facing right and mirrored when the animal faces left. What to draw comes from the creature's DATA (its `sprite`). */
+  _drawSide(animal, st, speed, now, seed) {
+    const ctx = this.g.ctx, def = AnimalDefs[animal.type], spec = def.sprite || {}, scale = spec.scale || 1;
+    const impl = CreatureSprites.get(spec.kind || (def.pony ? 'pony' : 'sheep')) || CreatureSprites.get('sheep');
+    ctx.save(); ctx.scale(st.flip * scale, scale);
+    impl.draw(this, { animal, def, sprite: spec, phase: st.phase, speed, now, seed, hunting: animal.state === 'chase' });
+    ctx.restore();
+  }
+
+  /** Name (for your own animals) and a coloured LEVEL badge: green = easy for you, yellow = even, orange = hard, red = deadly. A wild pony shows its rarity. */
+  _nameTag(animal, sx, sy, view, height) {
     const g = this.g, ctx = g.ctx, def = AnimalDefs[animal.type], lv = animal.level || 1, mine = !!(animal.owner || animal.captor);
-    const look = def.pony ? PonyLook.describe(animal.look) : null;
+    const look = def.pony ? PonyLook.describe(animal.look) : null, rarity = look ? look.rarity : rarityOf(def.rarity);
     let label = '';
-    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
-    else label = look ? `${look.variantName} ${def.name}` : def.name;
+    const boss = def.boss ? '\u2605 ' : '';
+    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
+    else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name}` : def.name);
     const threat = AnimalLevels.threat(lv, view ? view.ref : 1), color = { easy: '#8be28b', even: '#ffe08a', hard: '#ffab6b', deadly: '#ff6b6b' }[threat];
     ctx.font = 'bold 11px Georgia, serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const badge = 'Lv ' + lv, bw = ctx.measureText(badge).width + 8, tw = ctx.measureText(label).width + 8, width = tw + bw + 4, y = sy - (def.pony ? 64 : 40);
+    const badge = 'Lv ' + lv, bw = ctx.measureText(badge).width + 8, tw = ctx.measureText(label).width + 8, width = tw + bw + 4, y = sy - height;
     const x0 = sx - width / 2;
     g.roundRect(x0, y - 7, width, 14, 6); ctx.fillStyle = 'rgba(10,18,28,.62)'; ctx.fill();
     g.roundRect(x0 + tw + 2, y - 6, bw, 12, 5); ctx.fillStyle = color; ctx.fill();
-    ctx.fillStyle = '#ffd6e8'; ctx.fillText(label, x0 + 4, y);
+    ctx.fillStyle = rarity.order ? rarity.color : '#ffd6e8'; ctx.fillText(label, x0 + 4, y);
     ctx.fillStyle = '#10202f'; ctx.fillText(badge, x0 + tw + 6, y);
     ctx.textAlign = 'center';
   }
@@ -49,6 +74,8 @@ class AnimalSprite {
     const moving = speed > 0.2, stride = moving ? Math.sin(phase) * 4.5 : 0, bob = moving ? Math.abs(Math.sin(phase)) * 1.3 : Math.sin(now / 700) * 0.5;
     const coat = look.coat, shadeDark = g.shade(coat, 0.8), shadeLight = g.shade(coat, 1.14), manes = look.mane;
     const sway = Math.sin(now / 380) * 2;
+    const flying = !!animal.flying, wingScale = flying ? 1.45 : 1;                       // in the air the wings spread wide and beat
+    const flapFar = flying ? Math.sin(now / 85) : moving ? Math.sin(now / 70) : Math.sin(now / 500) * 0.35, flapNear = flying ? Math.sin(now / 85 + 0.7) : moving ? Math.sin(now / 70 + 1) : Math.sin(now / 500) * 0.35;
 
     if (look.glow) this._glow(look.glow, now);                                  // biome ponies shimmer in their own colour
     if (def.mystical) {                                                         // aura + drifting sparkles
@@ -58,9 +85,9 @@ class AnimalSprite {
         this._sparkle(x, y, r, manes[i % manes.length]);
       }
     }
-    g.ellipse(1, 3, 20, 7, 'rgba(0,0,0,.24)');
+    if (!animal.lift) g.ellipse(1, 3, 20, 7, 'rgba(0,0,0,.24)');                     // (a flying pony's shadow is drawn on the ground by the renderer)
 
-    if (def.wings) this._wing(-1, -26 - bob, shadeDark, manes, moving ? Math.sin(now / 70) : Math.sin(now / 500) * 0.35, 0.8);   // far wing
+    if (def.wings) this._wing(-1, -26 - bob, shadeDark, manes, flapFar, 0.8 * wingScale);   // far wing
     if (look.accessory === 'flames') this._flames(now, bob, sway);                                  // an ember pony's mane and tail are fire (drawn under the body)
 
     // tail
@@ -100,7 +127,7 @@ class AnimalSprite {
 
     if (def.horn) this._horn(21, -40 - bob, now, look.accessory === 'crystals');
     this._headAccessory(look.accessory, now, bob);
-    if (def.wings) this._wing(1, -26 - bob, shadeLight, manes, moving ? Math.sin(now / 70 + 1) : Math.sin(now / 500) * 0.35, 1);        // near wing
+    if (def.wings) this._wing(1, -26 - bob, shadeLight, manes, flapNear, 1 * wingScale);        // near wing
   }
 
   _wing(side, y, color, manes, flap, scale) {
@@ -214,71 +241,19 @@ class AnimalSprite {
     }
   }
 
-  /** A giant spider: bulbous body, eight jointed legs, red eyes (they glow when it is hunting). */
-  _spider(phase, speed, hunting) {
-    const g = this.g, ctx = g.ctx, swing = speed > 0.2 ? Math.sin(phase * 1.4) : 0;
-    g.ellipse(0, 3, 24, 9, 'rgba(0,0,0,.28)');
-    ctx.strokeStyle = '#1d1624'; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.beginPath();
-    for (let i = 0; i < 4; i++) for (const side of [-1, 1]) {
-      const reach = 11 + i * 3.5, wob = Math.sin(phase * 1.4 + i * 1.6 + (side > 0 ? 0 : Math.PI)) * (speed > 0.2 ? 3 : 0);
-      ctx.moveTo(side * 4, -11); ctx.lineTo(side * (reach * 0.9), -22 - i * 0.8 + wob * 0.4); ctx.lineTo(side * (reach * 1.35), 0 + wob * 0.3);
-    }
-    ctx.stroke(); ctx.lineCap = 'butt';
-    g.ellipse(-5, -12 - Math.abs(swing), 10, 8, '#2b2233'); g.ellipse(-6, -15, 5, 3, 'rgba(120,90,160,.35)');   // abdomen
-    g.ellipse(7, -11, 6.5, 5.5, '#352a40');                                                                      // head
-    g.ellipse(9.5, -13, 1.7, 1.7, hunting ? '#ff3030' : '#c24a4a'); g.ellipse(6, -13.5, 1.4, 1.4, hunting ? '#ff3030' : '#c24a4a');
-    ctx.strokeStyle = '#e8e0d0'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(11, -8); ctx.lineTo(13, -4); ctx.moveTo(9, -7); ctx.lineTo(10, -3); ctx.stroke();   // fangs
-  }
-
-  _rabbit(phase, speed) {
-    const g = this.g, hop = speed > 0.2 ? Math.abs(Math.sin(phase * 1.6)) * 6 : 0;
-    g.ellipse(0, 2, 9, 4, 'rgba(0,0,0,.25)');
-    g.ellipse(-3, -6 - hop, 6, 5.5, '#8f7456');                              // haunch
-    g.ellipse(1, -7 - hop, 8, 5.5, '#a98d6c');                               // body
-    g.ellipse(-9, -8 - hop, 2.4, 2.4, '#f3efe6');                            // tail
-    g.ellipse(8, -11 - hop, 4.4, 3.8, '#a98d6c');                            // head
-    g.ellipse(6, -17 - hop, 1.6, 5, '#a98d6c'); g.ellipse(9.5, -17 - hop, 1.6, 5, '#8f7456');   // ears
-    g.ellipse(6, -17 - hop, 0.7, 3.2, '#e8b3b3');
-    g.ellipse(10, -11.5 - hop, 1, 1, '#241a14'); g.ellipse(12, -10 - hop, 1, 0.8, '#d98a8a');
-  }
-
-  _deer(phase, speed, seed) {
-    const g = this.g, ctx = g.ctx, swing = speed > 0.2 ? Math.sin(phase) * 4 : 0, bob = speed > 0.2 ? Math.abs(Math.sin(phase)) * 1.2 : 0;
-    g.ellipse(0, 3, 18, 6.5, 'rgba(0,0,0,.25)');
-    ctx.strokeStyle = '#6b4a2f'; ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.beginPath();   // legs
-    [[9, swing], [5, -swing], [-8, -swing], [-12, swing]].forEach(([x, s]) => { ctx.moveTo(x, -14 - bob); ctx.lineTo(x + s, 0); });
-    ctx.stroke(); ctx.lineCap = 'butt';
-    g.ellipse(0, -19 - bob, 15, 7.5, '#a8794a'); g.ellipse(1, -16 - bob, 11, 4, '#c9a273');   // body + belly
-    g.ellipse(-15, -22 - bob, 3.2, 4, '#f3efe6');                                             // white tail
-    for (const [x, y] of [[-4, -23], [3, -24], [-9, -20]]) g.ellipse(x, y - bob, 1.3, 1.3, 'rgba(255,255,255,.7)');
-    g.polygon([8, -24 - bob, 13, -24 - bob, 21, -34 - bob, 17, -35 - bob], '#a8794a');        // neck
-    g.ellipse(21, -34 - bob, 6, 3.8, '#a8794a'); g.ellipse(26, -33 - bob, 2.4, 2, '#3a2a1e'); // head + muzzle
-    g.ellipse(18, -37 - bob, 1.6, 3, '#8d6238'); g.ellipse(23.5, -35.5 - bob, 1, 1, '#1a120c');
-    if (seed % 2 === 0) {                                                                     // stags carry antlers
-      ctx.strokeStyle = '#d9c9a6'; ctx.lineWidth = 1.7; ctx.beginPath();
-      ctx.moveTo(19, -37 - bob); ctx.lineTo(17, -46 - bob); ctx.moveTo(18, -42 - bob); ctx.lineTo(22, -46 - bob); ctx.moveTo(17.5, -45 - bob); ctx.lineTo(14, -48 - bob);
-      ctx.stroke();
-    }
-  }
-
-  _sheep(phase, speed, now) {
-    const g = this.g, ctx = g.ctx, swing = speed > 0.2 ? Math.sin(phase) * 2.5 : 0, bob = speed > 0.2 ? Math.abs(Math.sin(phase)) * 1 : Math.sin(now / 900) * 0.4;
-    g.ellipse(0, 3, 15, 5.5, 'rgba(0,0,0,.25)');
-    ctx.strokeStyle = '#3b3a3a'; ctx.lineWidth = 2.2; ctx.beginPath();
-    [[-7, swing], [-3, -swing], [4, -swing], [8, swing]].forEach(([x, s]) => { ctx.moveTo(x, -8); ctx.lineTo(x + s, 0); });
-    ctx.stroke();
-    for (const [x, y, r, c] of [[-8, -13, 7, '#e6e1d3'], [8, -13, 7, '#e6e1d3'], [0, -11, 8, '#dcd6c6'], [-5, -17, 7.5, '#f2efe6'], [5, -17, 7.5, '#f2efe6'], [0, -19, 7, '#f7f4ec']]) g.ellipse(x, y - bob, r, r * 0.88, c);
-    g.ellipse(13, -15 - bob, 5.2, 4.6, '#3b3a3a'); g.ellipse(10.5, -20 - bob, 3.4, 2.6, '#f2efe6');   // head + woolly forehead
-    g.ellipse(9.5, -15 - bob, 1.7, 1.2, '#2a2929'); g.ellipse(14.5, -16 - bob, 1, 1, '#ffffff');
-  }
 }
 
-/** Draws one animal into a small canvas (the Pony Book portraits). */
-function renderAnimalPortrait(canvas, type, look) {
+/** A world facing angle that shows each screen direction (for portraits and the editor's previews). */
+const FACING_FOR_DIR = Object.freeze({ right: Math.PI / 4 - Math.PI / 2, left: Math.PI * 3 / 4, up: -Math.PI * 3 / 4, down: Math.PI / 4 });
+
+/** Draws one animal into a small canvas (the Pony Book portraits, the editor). `dir` picks the screen direction. */
+function renderAnimalPortrait(canvas, type, look, dir = 'right', opts = {}) {
   const ctx = canvas.getContext('2d'), sprite = new AnimalSprite(new Gfx(ctx));
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
   const scale = canvas.height / 70;
   ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - 2 * scale, canvas.height - 6 * scale);
-  sprite.draw({ type, look, facing: 0, vx: 0, vy: 0, owner: '', state: 'idle' }, 'portrait', 0, 0, 1234);
+  const facing = dir === 'right' ? 0 : FACING_FOR_DIR[dir];
+  if (dir === 'up' || dir === 'down') sprite.state.portrait = { phase: 0, last: 1234, flip: 1 };          // (front / back views stand in as the profile facing right)
+  sprite.draw({ type, look, facing, vx: 0, vy: 0, owner: '', state: 'idle' }, 'portrait', 0, 0, 1234, null, opts);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

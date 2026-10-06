@@ -5,6 +5,8 @@
 const TILE_SCALE = 1.5;
 
 const CONFIG = {
+  /** The layered world: ring width (tiles), how far a ring edge may wander, the biome region size, and whether the OPTIONAL level-zone layer exists. */
+  world: { ringWidth: 400, ringWobble: 70, biomeCell: 240, villageBiomeRadius: 90, zones: true },
   sim: {
     tickRate: 30,
     mapW: 40, mapH: 40,
@@ -15,13 +17,34 @@ const CONFIG = {
     wadeSpeedFactor: 0.65,                             // walking through shallow water
     ride: { walkSpeed: 2.7, runSpeed: 5.0, radius: 0.28, range: 1.7 },   // on a pony (tiles / second); range = how close you must be to mount
     testKit: true,                                     // this testing version: a small home, a crafting table, all the basic tools and a tamed pony
-    ponyRideLevels: { pony_earth: 1, pony_unicorn: 6, pony_pegasus: 9, pony_alicorn: 14 },   // Horsemanship level needed to ride
+    ponyRideLevels: { pony_plain: 1, pony_earth: 1, pony_unicorn: 6, pony_pegasus: 9, pony_alicorn: 14 },   // Horsemanship level needed to ride
     maxInputsPerTick: 4,                               // server-side anti-speedhack budget
     maxPlayers: 4,
     slotColors: ['#e5534b', '#4f9bea', '#62c370', '#e9c24a'],
-    inventory: { hotbarSlots: 6, totalSlots: 30, beltStart: 24, beltSlots: 6 },   // slots 24-29 are the TOOL BELT bar (usable only while a belt is worn)
+    inventory: { hotbarSlots: 5, starterBag: 'starter_backpack', ponyBagSlots: 2, starterPonyBag: 'starter_side_pack', packReach: 4 },   // the tool belt (keys 1-5) + your bag (data/items/bags.js); every pony has 2+ bag slots
+    combat: { defPerPoint: 0.02, maxReduction: 0.5 },
+    friendship: {                                            // the heart meter: 3 hearts per level, 24 levels (data/friendship/levels.js)
+      heartsPerLevel: 3, heartCost: 12, heartCostPerLevel: 3,   // points for ONE heart at level 1, and how much more each later level asks
+      skillPerLevel: 3,                                         // skill levels per friendship level: Friendship / Animal Friendship 1 allows level 1, 4 allows 2 ... 70 allows 24
+      reach: 1.9, petReach: 1.7,                                // how close you must stand to talk / to pet
+      gains: { pet: 6, groom: 10, feed: 4, feedLiked: 14, feedLoved: 30, talk: 5, gift: 6, giftLiked: 18, giftLoved: 36, giftDisliked: -8, together: 1 },
+      cooldowns: { pet: 15, groom: 20, talk: 45, feed: 4, gift: 3 },       // seconds before the same act with the same one counts again
+      togetherSeconds: 20, togetherRange: 6,                    // a pet near you slowly grows fonder
+      xpPerPoint: 1.5, minXp: 2                                 // skill XP for a friendly act (it trains the skill even when you are at the cap)
+    },          // a cape's DEF: each point soaks 2% of damage, never more than half
     health: { max: 100, regenPerSecond: 0.35, respawnFraction: 0.5 },
-    combat: { armorPerPoint: 0.02, shieldReduction: 0.2, maxReduction: 0.75 },   // damage reduction: 2% per armour point + 20% with a shield, capped
+    /** Bulk resources (see stockpiles.js): stacks of EACH you may carry = base + Constitution level + perPony for every pony with you
+     *  (ridden or leashed, up to maxPonyBonus) + Pack Pony buffs. Everything else is delivered to stockpiles. */
+    carry: { limited: ['wood', 'stone', 'clay'], base: 0, perPony: 1, maxPonyBonus: 3, noticeSeconds: 4 },
+    vitals: false,                                     // hunger and thirst: switched off (no drain, no bars, food is for ponies)
+    construction: false,                               // building walls, floors, doors, windows and fences: switched off (stations such as stockpiles still go down)
+    /** How fast a pony runs: its kind's baseSpeed (tiles / second at level 1) x this curve at its level. [level, multiplier] points, straight lines between.
+     *  Wild ponies flee at wildFleeFactor of that, so you must raise your own pony until it outruns the kind you want to catch.
+     *  Editable in editor.html > Settings (stored in customContent.js as settings.ponySpeedCurve). */
+    ponySpeed: { curve: [[1, 1], [5, 1.1], [10, 1.22], [15, 1.34], [20, 1.46], [30, 1.62], [50, 1.85], [99, 2.2]], walkFraction: 0.55, wildFleeFactor: 0.92, defaultBase: 4 },
+    /** Your own ponies level up from XP: distance ridden, things done from the saddle, food fed to them and grooming. XP for level L = xpBase x (L-1)^xpExponent. */
+    ponyLeveling: { xpBase: 40, xpExponent: 1.55, travelXpPerTile: 0.8, taskXp: 6, feedXp: 10, feedLikedXp: 20, groomXp: 18 },
+    drops: { max: 400, pickupRange: 1.3 },             // items dropped on the ground (kept in the world save)
     // Animal levels rise with distance from the ORIGIN (the starting village): one level per `tilesPerLevel` tiles, on top of each species' own base level
     levels: { origin: { x: 20.5, y: 26.5 }, tilesPerLevel: 60, max: 99 },     // zones are wide: one level per 60 tiles
     light: { torchRadius: 6, campfireRadius: 8, torchSeconds: 120, darkBelow: 0.35 },   // tiles; a torch burns out after torchSeconds of use; "dark" = daylight below darkBelow

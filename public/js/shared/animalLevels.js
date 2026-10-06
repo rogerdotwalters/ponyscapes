@@ -1,7 +1,6 @@
 'use strict';
-/* SHARED - animal levels. They SCALE FROM THE ORIGIN (the starting village): every `tilesPerLevel` tiles of distance adds a level,
- * on top of the species' own base level, so the land gets steadily more dangerous, and ponies steadily rarer and stronger, the farther
- * you go. A level is a pure function of where the animal lives, so the client and server agree and a chunk always holds the same herd.
+/* SHARED - animal levels. A level is a pure function of where the animal lives (its ring's level band, via the OPTIONAL zone layer), so the client
+ * and server agree and a chunk always holds the same herd. The farther out the ring, the stronger the wild things.
  *
  * What a level does:
  *   health        +18% per level above 1        spider bite   +10% per level
@@ -10,12 +9,14 @@
  *                 need more Horsemanship to ride (+1 per 3 levels) and carry you faster (+1.2% per level, to +50%). */
 const AnimalLevels = {
   distance(x, y) { const o = CONFIG.sim.levels.origin; return Math.hypot(x - o.x, y - o.y); },
-  /** How many "level steps" out from the origin this spot is (a fraction). */
-  band(x, y) { return AnimalLevels.distance(x, y) / CONFIG.sim.levels.tilesPerLevel; },
-  /** The level of an animal of `type` born at (x, y). `h` is a 0..1 hash so the same place always rolls the same number. */
-  roll(type, x, y, h) {
-    const raw = ((AnimalDefs[type] && AnimalDefs[type].levelBase) || 1) + AnimalLevels.band(x, y), spread = 1 + raw * 0.12;
-    return clamp(Math.round(raw + (h - 0.5) * 2 * spread), 1, CONFIG.sim.levels.max);
+  /** The level of an animal of `type` born at (x, y). `h` is a 0..1 hash so the same place always rolls the same number.
+   *  With the zone layer (`layers.zones`) the level comes from the ring's band; WITHOUT it every creature just uses its own base level. */
+  roll(type, x, y, h, layers) {
+    const def = AnimalDefs[type], zones = layers && layers.zones;
+    if (def && def.boss) return Rings.all().find(r => r.index === def.bossRing).levelMax;           // a boss is always the top level of its area
+    if (zones) return clamp(zones.levelAt(x, y, h), 1, CONFIG.sim.levels.max);
+    const base = (def && def.levelBase) || 1, spread = 1 + base * 0.12;
+    return clamp(Math.round(base + (h - 0.5) * 2 * spread), 1, CONFIG.sim.levels.max);
   },
   hpFactor: level => 1 + 0.18 * ((level || 1) - 1),
   damageFactor: level => 1 + 0.10 * ((level || 1) - 1),
@@ -27,7 +28,7 @@ const AnimalLevels = {
   rideLevel: (type, level) => (CONFIG.sim.ponyRideLevels[type] || 1) + Math.floor(((level || 1) - 1) / 3),
   rideSpeedFactor: level => 1 + Math.min(0.5, 0.012 * ((level || 1) - 1)),
   /** Wild animals around a spot are about this level (for the map). */
-  zoneLevel: (x, y) => Math.max(1, Math.round(1 + AnimalLevels.band(x, y))),
+  zoneLevel: (x, y, layers) => (layers && layers.zones ? layers.zones.zoneLevel(x, y) : 1),
   /** How threatening a level looks to you: 'easy' | 'even' | 'hard' | 'deadly' by how far above your own level it is. */
   threat(level, mine) { const d = level - mine; return d <= 0 ? 'easy' : d <= 3 ? 'even' : d <= 8 ? 'hard' : 'deadly'; }
 };

@@ -7,8 +7,9 @@ const Village = (() => {
   const SHALLOW_RING = 1.28;                           // the shallows reach this much farther than the deep water
   const PLAZA = { x0: 17, y0: 17, x1: 23, y1: 23 };
   const KEEP = { x0: 4, y0: 4, x1: 11, y1: 10 };
-  const HOUSES = [{ x0: 26, y0: 25, w: 5, h: 3, doorX: 28 }, { x0: 10, y0: 25, w: 3, h: 3, doorX: 11 }];
-  const HOME = { x0: 14, y0: 30, x1: 17, y1: 32 };                     // the little starter home (built by the server in the testing version)
+  const HOME_SITE = BuildingSites.list.find(s => s.def.instance === 'player');           // the buildings themselves are BuildingSites (data: js/data/buildings/)
+  const HOME = HOME_SITE ? { x0: HOME_SITE.x0, y0: HOME_SITE.y0, x1: HOME_SITE.x1, y1: HOME_SITE.y1 } : { x0: 14, y0: 30, x1: 17, y1: 32 };   // the player home
+  const WORKSHOP = { x: 19, y: 31 };                                   // the open-air crafting table in the home's yard (the testing version builds it)
   const PADDOCK = { x0: 21, y0: 31, x1: 26, y1: 35 };                  // the starter fenced paddock (with a stable inside), east of the home
   const SPAWNS = [{ x: 19.5, y: 25.5 }, { x: 21.5, y: 25.5 }, { x: 19.5, y: 27.5 }, { x: 21.5, y: 27.5 }];
   const INFLUENCE_FALLOFF = 16;                       // tiles over which natural terrain is lifted above sea level
@@ -27,9 +28,12 @@ const Village = (() => {
     if (inX && (ty === 20 || ty === 21)) return TILE.DIRT;                                  // east-west road
     if (inY && (tx === 20 || tx === 21)) return TILE.DIRT;                                  // north-south road
     if ((tx === 7 || tx === 8) && ty >= 11 && ty <= 19) return TILE.DIRT;                   // keep gate road
-    if (ty === 29 && tx >= 21 && tx <= 28) return TILE.DIRT;                                // house A road
-    if (tx === 28 && ty === 28) return TILE.DIRT;
-    if (ty === 28 && tx >= 11 && tx <= 19) return TILE.DIRT;                                // house B road
+    if (ty === 28 && tx >= 10 && tx <= 19) return TILE.DIRT;                                // west street (carpenter)
+    if (ty === 29 && tx >= 21 && tx <= 31) return TILE.DIRT;                                // east street (general store, veterinary)
+    for (const s of BuildingSites.list) {                                                    // a path from every door down to its street (or a step outside)
+      const street = s.doorY >= 28 ? s.doorY + 1 : s.doorX > 20 ? 28 : 27;
+      if (tx === s.doorX && ty > s.doorY && ty <= street) return TILE.DIRT;
+    }
     if (inEllipse(LAKE, tx, ty, SHALLOW_RING) || inEllipse(POND, tx, ty, SHALLOW_RING)) return TILE.SHALLOW;   // wading ring round the deep water
     return -1;
   }
@@ -42,10 +46,7 @@ const Village = (() => {
       const gate = ty === KEEP.y1 && (tx === 7 || tx === 8);
       return edge && !gate ? OBJ.WALL : OBJ.NONE;
     }
-    for (const h of HOUSES) {
-      if (tx >= h.x0 && tx < h.x0 + h.w && ty >= h.y0 && ty < h.y0 + h.h) return tx === h.doorX && ty === h.y0 + h.h - 1 ? OBJ.DOOR : OBJ.HOUSE;
-    }
-    return OBJ.NONE;
+    return BuildingSites.obj(tx, ty);                                                       // the carpenter, store, veterinary, homes...
   }
 
   /** 1 inside the village, fading to 0 over INFLUENCE_FALLOFF tiles. Used to lift natural terrain so the village stays on land. */
@@ -69,7 +70,7 @@ const Village = (() => {
   const rng = mulberry32(4242);
   props.set(tileKey(20, 20), { t: 'well', x: 20.5, y: 20.5, r: 0.5 / TILE_SCALE, v: 0 });
   [[17.5, 17.5], [22.5, 17.5], [17.5, 22.5], [22.5, 22.5], [5.5, 5.5], [10.5, 5.5], [10.5, 9.5], [5.5, 9.5],
-   [26.5, 28.5], [30.5, 28.5], [31.5, 25.5], [9.5, 28.5], [13.5, 25.5]].forEach(([x, y]) => {
+   [13.5, 24.5], [29.5, 23.5], [34.5, 25.5], [23.5, 24.5]].forEach(([x, y]) => {
     props.set(tileKey(Math.floor(x), Math.floor(y)), { t: 'barrel', x: x + (rng() - 0.5) * 0.2, y: y + (rng() - 0.5) * 0.2, r: 0.26 / TILE_SCALE, v: 0 });
   });
   props.set(tileKey(23, 26), { t: 'chest', x: 23.5, y: 26.5, r: 0.32 / TILE_SCALE, v: 0 });          // the beginner's loot chest, next to the spawn
@@ -82,5 +83,5 @@ const Village = (() => {
   /** Chunks that contain the lake / pond always get a boat. */
   const hasBoatFeature = (cx, cy) => (cx === (LAKE.cx >> CHUNK_SHIFT) && cy === (LAKE.cy >> CHUNK_SHIFT)) || (cx === (POND.cx >> CHUNK_SHIFT) && cy === (POND.cy >> CHUNK_SHIFT));
 
-  return { tile, obj, influence, blocksTrees, propAtTile, hasBoatFeature, spawns: SPAWNS, home: HOME, paddock: PADDOCK };
+  return { tile, obj, influence, blocksTrees, propAtTile, hasBoatFeature, spawns: SPAWNS, home: HOME, workshop: WORKSHOP, paddock: PADDOCK };
 })();

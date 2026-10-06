@@ -38,15 +38,21 @@ class KeyboardInput {
     if (code === 'KeyQ') this.bus.emit('toggleCrafting');
     if (code === 'KeyJ') this.bus.emit('toggleJournal');
     if (code === 'KeyM') this.bus.emit('toggleMap');
+    if (code === 'KeyB') this.bus.emit('ability');
+    if (code === 'KeyN') this.bus.emit('mainPony');                     // riding one of your ponies: make it your main pony                      // a pony's ability: take off / land
+    if (code === 'KeyZ') this.bus.emit('dismount');                     // get off your pony, even with something to pick nearby
     if (code === 'KeyU') this.bus.emit('release');                      // let go / untie (a separate key from the action key; a catch asks first)
     if (code === 'KeyR') this.bus.emit('rotateBuild');
     if (code === 'KeyF') this.bus.emit('interact');
-    if (code === 'KeyX') this.bus.emit('toggleDrawn');            // draw / sheathe the sword
     if (code === 'KeyG') this.bus.emit('toggleGear');
     if (code === 'KeyP') this.bus.emit('togglePonies');
     if (code === 'KeyV') this.bus.emit('toggleEmotes');
+    if (code === 'KeyH') this.bus.emit('ponyPower', 1);            // the ridden pony's first rarity ability (rare ponies and better)
+    if (code === 'KeyK') this.bus.emit('ponyPower', 2);            // ...and its second (legendary)
+    if (code === 'KeyL') this.bus.emit('throwLasso');              // the lasso in the lasso slot (whatever is in your hand)
+    if (code === 'KeyT') this.bus.emit('toggleTown');              // stockpiles and building upgrades
     if (code === 'Escape') this.bus.emit('closePanels');
     const digit = /^Digit([1-9])$/.exec(code);
-    if (digit) this.bus.emit('selectSlot', (shift ? CONFIG.sim.inventory.beltStart : 0) + Number(digit[1]) - 1);   // Shift+1..6 = the tool-belt bar
+    if (digit) this.bus.emit('selectSlot', Number(digit[1]) - 1);
   }
 }

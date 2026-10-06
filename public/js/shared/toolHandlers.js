@@ -9,6 +9,7 @@ class TreeHarvestHandler {
   constructor(deps) { Object.assign(this, deps); }
 
   find(p, tool) {
+    if (gridOf(p)) return null;                                          // (trees, buildings and water are in the overworld)
     const hit = findTreeInReach(this.map, p, tool.reach);
     return hit ? { ref: tileKey(hit.tx, hit.ty), x: hit.tree.x, y: hit.tree.y, tx: hit.tx, ty: hit.ty } : null;
   }
@@ -28,7 +29,7 @@ class TreeHarvestHandler {
 
   _harvest(id, key, tree) {
     this.emit({ type: 'fell', key, x: tree.x, y: tree.y, by: id });
-    const lv = this.getPlayer(id).lv, bonus = this.rng() < Skills.bonusYieldChance(lv, 'woodcutting') ? 1 : 0;     // a sharper woodcutter gets more logs
+    const p = this.getPlayer(id), bonus = this.rng() < Skills.bonusYieldChance(p.lv, 'woodcutting') + luckChance(p) ? 1 : 0;     // a sharper (or luckier) woodcutter gets more logs
     const wanted = this.trees.rollLogCount() + bonus;
     const gained = wanted - this.getInventory(id).add(TreeDef.dropItemId, wanted);
     if (gained > 0) {
@@ -43,7 +44,8 @@ class DemolishHandler {
   constructor(deps) { Object.assign(this, deps); }
 
   find(p, tool) {
-    const hit = BuildSystem.findDemolishable(this.map, p, tool.reach);
+    if (gridOf(p)) return null;                                          // (trees, buildings and water are in the overworld)
+    const hit = BuildSystem.findDemolishable(this.map, p, tool.reach, !CONFIG.sim.construction);      // with construction off, only stations come down
     return hit ? { ref: `${hit.tx},${hit.ty},${hit.slot}`, x: hit.x, y: hit.y, tx: hit.tx, ty: hit.ty, slot: hit.slot } : null;
   }
 
@@ -61,8 +63,10 @@ class DemolishHandler {
       const tile = this.map.built[tileKey(target.tx, target.ty)] || {};
       if (SIDES.some(s => tile[s])) { this.emit({ type: 'notice', to: id, text: 'Remove the walls on this floor first' }); return; }
     }
+    if (def.stockpile && !Stockpiles.isEmpty(this.map, tileKey(target.tx, target.ty))) { this.emit({ type: 'notice', to: id, text: 'Empty the stockpile first (take its contents out in the Town window)' }); return; }
     if (!inventory.canAdd(def.refundItemId, 1)) { this.emit({ type: 'notice', to: id, text: 'Inventory full' }); return; }
     BuildSystem.remove(this.map, target.tx, target.ty, target.slot);
+    if (target.slot === 'c') { Stockpiles.forget(this.map, target.tx, target.ty); this.markStockChanged(); }   // its level (and empty pile) go with it
     inventory.add(def.refundItemId, 1);
     this.markBuiltChanged(target.slot === 'f' ? 'floors' : 'built'); this.markInventoryChanged(id);
     this.emit({ type: 'demolished', tx: target.tx, ty: target.ty, side: target.slot, by: id });
@@ -83,11 +87,11 @@ function strikeAnimal(deps, id, animalId, damage) {
   let lost = false;
   for (const drop of result.drops) {
     const gained = drop.count - inventory.add(drop.item, drop.count);
-    if (gained < drop.count) lost = true;
+    if (gained < drop.count) { lost = true; deps.dropOnGround(drop.item, drop.count - gained, a.x, a.y, gridOf(a)); }      // what does not fit falls on the ground
     if (gained > 0) deps.emit({ type: 'gain', to: id, item: drop.item, count: gained });
   }
   deps.markInventoryChanged(id);
-  if (lost) deps.emit({ type: 'notice', to: id, text: 'Inventory full: some drops were lost' });
+  if (lost) deps.emit({ type: 'notice', to: id, text: 'Your pack is full: the rest fell on the ground' });
 }
 
 /** The knife and the spear: melee against animals. Kills drop meat, hide, wool or antler straight into the hunter's inventory. */
@@ -145,6 +149,7 @@ class FishingHandler {
   constructor(deps) { Object.assign(this, deps); }
 
   find(p, tool) {
+    if (gridOf(p)) return null;                                          // (trees, buildings and water are in the overworld)
     for (let d = 1; d <= tool.reach; d += 0.5) {
       const tx = Math.floor(p.x + Math.cos(p.facing) * d), ty = Math.floor(p.y + Math.sin(p.facing) * d);
       if (isWaterTile(this.map.tile(tx, ty))) return { ref: tileKey(tx, ty), x: tx + 0.5, y: ty + 0.5 };
@@ -188,9 +193,17 @@ class LeashHandler {
 
   apply(id, target) {
     const inventory = this.getInventory(id), a = this.animals.animals[target.ref], p = this.getPlayer(id), def = AnimalDefs[a.type];
-    if (!inventory.has('leash', 1)) return;
-    const dist = Math.hypot(a.x - p.x, a.y - p.y), mine = a.owner === id;
-    const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv);
+    const item = p.held, lasso = ItemDB.getLasso(item) || { tier: 1, chance: 0 }, fromSlot = p.lassoSwing && p.gear.lasso === item;   // thrown from the lasso slot (L), or held from the bar
+    if (!fromSlot && !inventory.has(item, 1)) return;
+    const dist = Math.hypot(a.x - p.x, a.y - p.y), mine = a.owner === id, need = def.pony ? (def.lassoTier || 1) : 1;
+    if (!mine && need > lasso.tier) {                                                   // a rarer pony slips out of a plain loop
+      const better = Object.values(ItemDefs).find(d => d.lasso && d.lasso.tier === need);
+      this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id });
+      this.animals.startle(target.ref, p);
+      this.emit({ type: 'notice', to: id, text: `It slips right out of your ${ItemDefs[item].name}: catching a ${def.name} takes a ${better ? better.name : 'better lasso'} or better` });
+      return;
+    }
+    const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv, p.buffs) + lasso.chance;
     this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: landed, by: id });
     if (!landed) {
       this.animals.startle(target.ref, p);
@@ -198,7 +211,8 @@ class LeashHandler {
       this.emit({ type: 'notice', to: id, text: 'The loop missed! It bolted' });
       return;
     }
-    inventory.remove('leash', 1);                                        // the lasso stays on the animal; untie it to get it back
+    if (fromSlot) p.gear.lasso = ''; else inventory.remove(item, 1);       // the lasso stays on the animal; untie it to get it back
+    a.lassoItem = item;
     this.markInventoryChanged(id);
     if (def.pony && !mine) {
       this.animals.capture(target.ref, id);
