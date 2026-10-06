@@ -35,7 +35,9 @@ class DungeonSystem {
     s._moveToGrid(id, p, Grids.cave(ring), entry.x, entry.y);
     this.ensureBoss(ring);
     const down = s.worldProgress.isDefeated(ring);
-    s._notice(id, down ? 'The lair is quiet: its guardian has been defeated' : `You enter the lair of the ${def.name}. It is a level ${AnimalLevels.roll(def.id, 0, 0, 0.5, null)} guardian`);
+    const q = def.wants && def.wants.quest, young = q && AnimalDefs[q.creature];
+    s._notice(id, s.wants.appeased[ring] ? `The ${def.name} rests peacefully with her cubs` : down ? 'The lair is quiet: its guardian has been defeated'
+      : `You enter the lair of the ${def.name}, a level ${AnimalLevels.roll(def.id, 0, 0, 0.5, null)} guardian.` + (q ? ` Fight her, or bring back her ${q.count} lost ${young ? young.name.toLowerCase() + 's' : 'young'} from ${rings.def(ring).name} (they come to you for fish). Carrying one, she will not attack you.` : ''));
     s.pendingEvents.push({ type: 'enteredCave', to: id, ring });
   }
 
@@ -50,24 +52,30 @@ class DungeonSystem {
 
   /** The guardian is placed in the arena (once, until it dies). */
   ensureBoss(ring) {
-    const s = this.server;
-    if (s.worldProgress.isDefeated(ring)) return;
+    const s = this.server, calm = s.wants.appeased[ring];
+    if (s.worldProgress.isDefeated(ring) && !calm) return;                       // (an appeased guardian stays, peacefully, with its young)
     const current = s.animals.animals[this.bosses[ring]];
     if (current) return;
     const def = Fauna.bossOf(ring), arena = DungeonSpace.arena();
     const id = s.animals.spawn(def.id, arena.x, arena.y, 0, { level: AnimalLevels.roll(def.id, arena.x, arena.y, 0.5, null), grid: Grids.cave(ring) });
     s.animals.animals[id].home = { x: arena.x, y: arena.y };
     this.bosses[ring] = id;
+    if (calm) s.wants.restoreCalmBoss(ring, s.animals.animals[id]); else s.wants.refresh(s.animals.animals[id]);
   }
 
   /** AnimalSystem tells us whenever something dies. */
   onKilled(animal, def) {
     if (!def.boss) return;
-    const s = this.server, ring = def.bossRing;
-    delete this.bosses[ring];
+    delete this.bosses[def.bossRing];
+    this.conquer(def.bossRing, def.name, false);
+  }
+
+  /** A ring's guardian is beaten (or appeased: wantSystem.js): the next ring opens for everyone. */
+  conquer(ring, name, appeased) {
+    const s = this.server;
     if (!s.worldProgress.defeatBoss(ring)) return;
     const R = s.map.layers.rings;
-    s.pendingEvents.push({ type: 'bossDefeated', ring, name: def.name, nextRing: ring + 1 < R.count ? R.def(ring + 1).name : '', final: ring + 1 >= R.count });
+    s.pendingEvents.push({ type: 'bossDefeated', ring, name, appeased: !!appeased, nextRing: ring + 1 < R.count ? R.def(ring + 1).name : '', final: ring + 1 >= R.count });
     for (const pid in s.treasureMaps) {                                                      // everybody's scroll to this cave is used up
       const before = s.treasureMaps[pid].length;
       s.treasureMaps[pid] = s.treasureMaps[pid].filter(m => !(m.kind === 'dungeon' && m.ring === ring));

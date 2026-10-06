@@ -23,7 +23,9 @@ class AnimalSprite {
     if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
     const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
     if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
-    if (!animal.rider && view && (view.friend || view.invite)) HeartMeter.draw(ctx, sx, sy - tagY - 16, view.friend || null, now);        // your hearts with it (or three faint empty ones, inviting you to make friends)
+    const hearts = !animal.rider && view && (view.friend || view.invite);
+    if (hearts) HeartMeter.draw(ctx, sx, sy - tagY - 16, view.friend || null, now);        // your hearts with it (or three faint empty ones, inviting you to make friends)
+    if (animal.want && view && view.wantNear) WantBubble.draw(ctx, sx, sy - tagY - (hearts ? 30 : 10), animal.want, animal.wantN, now, view.holding === animal.want || (Wants.of(animal.type) || { items: [] }).items.includes(view.holding));   // what it is asking for
   }
 
   /** The procedural artwork for one screen direction. */

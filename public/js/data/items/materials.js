@@ -7,6 +7,7 @@ Materials.registerAll([
   { id: 'stone', name: 'Stone', maxStack: 20, resource: 'stone' },
   { id: 'hide', name: 'Hide', maxStack: 20 },
   { id: 'wool', name: 'Wool', maxStack: 20 },
+  { id: 'bone', name: 'Bone', maxStack: 20 },                                                                                                   // dogs love them (hunted animals drop them)
   { id: 'antler', name: 'Antler', maxStack: 10, rarity: 'uncommon', spawns: [{ biome: 'forest', rate: 1.5 }, { biome: 'jungle', rate: 1 }] },   // shed antlers lie about in the woods
   { id: 'gold_coin', name: 'Gold Coin', maxStack: 999, rarity: 'rare', spawns: [{ biome: 'beach', rate: 0.6 }] },                              // the odd coin washed up long ago
   { id: 'rope', name: 'Rope', maxStack: 30 },

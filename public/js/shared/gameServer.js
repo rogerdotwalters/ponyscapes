@@ -60,6 +60,7 @@ class GameServer {
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
+    this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
@@ -570,7 +571,7 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.animals.update(this.tick, this._humans());
-    this.npcs.update(this.tick, this._humans().filter(h => !gridOf(h))); this.friendship.update(this.tick);      // (the villagers live in the overworld)
+    this.npcs.update(this.tick, this._humans().filter(h => !gridOf(h))); this.friendship.update(this.tick); this.wants.update(this.tick);      // (the villagers live in the overworld)
     this._streamWorld();
   }
 
@@ -681,11 +682,14 @@ class GameServer {
 
   /** A small animal (a rabbit) is simply picked up. */
   _carryAnimal(id, animal) {
-    const type = animal.type, item = Object.keys(ItemDefs).find(k => ItemDefs[k].creature === type), inventory = this.inventories[id];
+    const type = animal.type, item = Object.keys(ItemDefs).find(k => ItemDefs[k].creature === type), inventory = this.inventories[id], w = Wants.of(type), name = AnimalDefs[type].name.toLowerCase();
+    if (animal.delivered) { this._notice(id, `The ${name} is home with its mother`); return; }
+    if (w && w.unlocks === 'pickup' && !animal.fed) { this._notice(id, `The ${name} squirms away: it wants ${ItemDefs[w.items[0]].name.toLowerCase()} first`); return; }   // (a lost cub: feed it a fish)
     if (!item || !inventory.canAdd(item, 1)) { this._notice(id, 'Inventory full'); return; }
     this.animals.pickup(animal.id);
     inventory.add(item, 1); this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'carried', to: id, x: animal.x, y: animal.y, animal: type });
+    if (Wants.isQuestCreature(type)) this._notice(id, `You carry the ${AnimalDefs[type].name.toLowerCase()}. Hold it in your hand (toolbar) in the cave: its mother will not attack you, and F gives it back to her`);
   }
 
   /** Holding a carried animal and pressing Use sets it down next to you as your pet. */
@@ -694,8 +698,14 @@ class GameServer {
     if (!input.action || !def || !def.creature || p.eatT > 0) return;
     const x = p.x + Math.cos(p.facing) * 0.7, y = p.y + Math.sin(p.facing) * 0.7;
     inventory.remove(p.held, 1); this.inventoryRev[id]++;
-    const pet = this.animals.release(def.creature, x, y, id, undefined, { grid: gridOf(p) });
     p.eatT = 0.8;
+    if (Wants.isQuestCreature(def.creature)) {                                   // a lost cub is set down as it was (fed, still lost), never kept as a pet
+      const cub = this.animals.animals[this.animals.spawn(def.creature, x, y, undefined, { grid: gridOf(p), level: 1 })];
+      cub.fed = true; cub.quest = true; this.wants.refresh(cub);
+      this.pendingEvents.push({ type: 'released', to: id, x, y, animal: def.creature });
+      return;
+    }
+    const pet = this.animals.release(def.creature, x, y, id, undefined, { grid: gridOf(p) });
     this.pendingEvents.push({ type: 'released', to: id, x: pet.x, y: pet.y, animal: def.creature });
   }
 

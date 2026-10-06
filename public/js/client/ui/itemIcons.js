@@ -248,6 +248,23 @@ const ItemIcons = (() => {
     cooked_rabbit(ctx) { meatChunk(ctx, '#8a4a2a', '#c98a5a', 0.8); },
     cooked_venison(ctx) { meatChunk(ctx, '#6e3320', '#b06a46', 1.1); },
     cooked_mutton(ctx) { meatChunk(ctx, '#7c4026', '#c07a52', 1); },
+    bone(ctx) {
+      ctx.save(); ctx.translate(24, 24); ctx.rotate(-Math.PI / 4);
+      ctx.fillStyle = '#f2ead6'; ctx.strokeStyle = '#a89a7a'; ctx.lineWidth = 1.5;
+      ctx.fillRect(-12, -3.5, 24, 7); ctx.strokeRect(-12, -3.5, 24, 7);
+      for (const [x, y] of [[-13, -4], [-13, 4], [13, -4], [13, 4]]) { ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+      ctx.fillRect(-12, -3, 24, 6); ctx.restore();
+    },
+    bear_cub(ctx) {
+      const fur = '#8a5a35';
+      ctx.fillStyle = fur; for (const x of [13, 35]) { ctx.beginPath(); ctx.arc(x, 13, 6, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#c99a6a'; for (const x of [13, 35]) { ctx.beginPath(); ctx.arc(x, 13, 3, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = fur; ctx.beginPath(); ctx.arc(24, 27, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d9b48a'; ctx.beginPath(); ctx.ellipse(24, 33, 7.5, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#241a14'; ctx.beginPath(); ctx.arc(18, 24, 2.2, 0, Math.PI * 2); ctx.arc(30, 24, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(24, 31, 3, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(18.7, 23.3, 0.8, 0, Math.PI * 2); ctx.arc(30.7, 23.3, 0.8, 0, Math.PI * 2); ctx.fill();
+    },
     leash: lassoPainter('leash'), lasso_silk: lassoPainter('lasso_silk'), lasso_gold: lassoPainter('lasso_gold'), lasso_star: lassoPainter('lasso_star'),
     brush: brushPainter('#4a3424'), soft_brush: brushPainter('#f4ead8'),
     captured_rabbit(ctx) {

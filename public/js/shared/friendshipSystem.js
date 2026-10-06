@@ -10,6 +10,18 @@ class FriendshipSystem {
   _bump(pid) { this.rev[pid] = (this.rev[pid] || 0) + 1; }
 
   /** @param act 'pet' | 'talk' | 'feed' | 'gift'   @returns { points, ups, capped } or null if nothing happened */
+  /** Hearts for something given another way (a creature's want: wantSystem.js): `points` straight to the bond, no item handling, no cooldown. */
+  reward(pid, being, points) {
+    const S = this.s, p = S.players[pid];
+    if (!p || !being || !being.befriendable) return null;
+    const result = being.befriend(pid, points, Skills._s(p.lv, being.skill));
+    if (points > 0) S.progress.award(pid, being.skill, Math.max(CONFIG.sim.friendship.minXp, Math.round(points * CONFIG.sim.friendship.xpPerPoint)));
+    this._bump(pid);
+    S.pendingEvents.push({ type: 'friend', to: pid, id: being.id, x: being.x, y: being.y, level: result.bond.level, hearts: Friendship.hearts(result.bond), gain: points, up: result.ups > 0, capped: result.capped, name: being.name || being.def.name });
+    if (result.ups > 0) S._notice(pid, `${being.name || being.def.name} is now ${Friendship.info(result.bond.level).name} friends with you!`);
+    return result;
+  }
+
   act(pid, being, act, itemId = '') {
     const S = this.s, C = CONFIG.sim.friendship, p = S.players[pid], inv = S.inventories[pid];
     if (!p || !being || !being.befriendable) return null;

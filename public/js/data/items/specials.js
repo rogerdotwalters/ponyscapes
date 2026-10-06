@@ -8,5 +8,6 @@ SpecialItems.registerAll([
   { id: 'brick_form', name: 'Brick Form', maxStack: 1, kind: 'tool-item' },
   { id: 'torch', name: 'Torch', maxStack: 10, kind: 'light' },
   { id: 'captured_rabbit', name: 'Rabbit (carried)', maxStack: 4, kind: 'creature', creature: 'rabbit' },
+  { id: 'bear_cub', name: 'Bear Cub (carried)', maxStack: 3, rarity: 'rare', kind: 'creature', creature: 'bear_cub' },                    // a lost cub: take it home to its mother in the cave
   { id: 'dungeon_scroll', name: 'Cave Scroll', maxStack: 5, kind: 'treasure', use: { revealsCave: true } }
 ]);

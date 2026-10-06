@@ -10,7 +10,7 @@ const STEALTH_KEY = { idle: 'idle', sneak: 'sneak', walk: 'walk', run: 'run', ro
 /** How an animal reacts to food in a player's hand: { radius, trust, approach } or null. Earth ponies ADORE apples:
  *  they notice them from much farther away, trust you for longer and trot up faster. Charisma widens everyone's trust. */
 function lureFor(def, itemId, levels, buffs) {
-  if (!def.lure || !ItemDB.getFood(itemId)) return null;
+  if (!def.lure || !ItemDB.getFood(itemId) || (def.lureItems && !def.lureItems.includes(itemId))) return null;      // (some only come for one thing: a lost cub for fish)
   const charm = Skills.trustFactor(levels) * (1 + ((buffs && buffs.friendship) || 0) / 100);     // Warm Heart ponies: animals trust you from farther
   if (def.id === 'pony_earth' && itemId === 'apple') return { radius: LURE_RADIUS * 1.8 * charm, trust: TRUST_SECONDS * 2, approach: 2.2 };
   return { radius: LURE_RADIUS * charm, trust: TRUST_SECONDS, approach: 1.5 };
@@ -53,6 +53,16 @@ class AnimalSystem {
   /** Who is in charge of this animal this tick: its owner / captor (a pet), or the behaviour its data names. */
   _think(a, def, humans, dt) {
     if (a.owner || a.captor) { this._thinkPet(a, def, humans, dt); return; }
+    if (a.appeased || a.delivered || a.fed) {                                     // calmed for good / home again / fed and waiting to be picked up: no running off
+      if (a.state === 'flee' || a.state === 'chase') { a.state = 'idle'; a.timer = 1; }
+      if (a.delivered && a.home && Math.hypot(a.home.x - a.x, a.home.y - a.y) > 3) { a.state = 'idle'; this._steerAlong(a, a.home.x - a.x, a.home.y - a.y, def.wanderSpeed); return; }
+      this._wander(a, def, dt); return;
+    }
+    const wants = def.wants;
+    if (wants && def.hostile) {                                                   // someone holding what it wants (its cub): it does not attack them
+      const calmer = humans.find(h => wants.items.includes(h.held) && Math.hypot(h.x - a.x, h.y - a.y) < 10);
+      if (calmer) { a.state = 'idle'; this._steerAlong(a, 0, 0, 0); a.facing = Math.atan2(calmer.y - a.y, calmer.x - a.x); return; }
+    }
     if (def.hostile) {
       if (this.hostilesOff) {                                                    // the host switched monsters off: they only wander, never chase or attack
         if (a.state !== 'wander') { a.state = 'idle'; if (!(a.timer > 0)) a.timer = 1; }
@@ -306,6 +316,7 @@ class AnimalSystem {
       if (humans.some(h => sameGrid(h, a) && Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_SYNC_RADIUS)) {
         out[id] = { id, type: a.type, level: a.level, x: a.x, y: a.y, vx: a.vx, vy: a.vy, facing: a.facing, hp: a.hp, state: a.state, look: a.look, owner: a.owner, captor: a.captor, leashed: a.leashed, rider: a.rider };
         if (a.grid) out[id].grid = a.grid;
+        if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)
       }
     }
     return out;

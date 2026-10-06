@@ -47,6 +47,7 @@ const SaveData = {
       treeStates: JSON.parse(JSON.stringify(m.treeStates)), forageStates: JSON.parse(JSON.stringify(m.forageStates)),
       stockpiles: Stockpiles.exportState(m),
       interiors: server.interiors.exportState(),                               // whose home is which room
+      wants: server.wants.exportState(),                                       // bosses being appeased (lost cubs brought home)
       pets: server._exportOwnedPets(),                                         // every player's ponies and pets, by owner key (they wait in the world for them)
       drops: Object.values(server.drops).map(d => ({ item: d.item, count: d.count, x: d.x, y: d.y, grid: d.grid || undefined })),
       bossesDefeated: [...server.worldProgress.defeated], hostilesOff: !!server.settings.hostilesOff,
@@ -58,7 +59,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null, wants: data.wants && typeof data.wants === 'object' ? JSON.parse(JSON.stringify(data.wants)) : null };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -140,6 +141,7 @@ const SaveData = {
     server.tick = world.tick;
     if (world.clockHours !== null && world.clockHours !== undefined) GameSettings.setClock(world.tick, world.clockHours);   // the time of day carries on where it was
     if (world.interiors) server.interiors.restore(world.interiors);
+    if (world.wants) server.wants.restore(world.wants);
     server.trees.respawns = world.treeRespawns.map(r => Object.assign({}, r));
     server.forage.regrows = world.forageRegrows.map(r => Object.assign({}, r));
     server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;

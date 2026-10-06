@@ -95,7 +95,7 @@ function launch(choice, query) {
     const tradeUI = new TradeUI({ panel: $('tradePanel'), body: $('tradeBody'), closeButton: $('tradeClose'), game, requestOpen: () => panels.open('trade') });
     const toasts = new Toasts($('toasts'));
     if (ContentPack.source === 'draft') toasts.show('Playing your content editor draft (this browser only)', 'info', 6000);
-    game.events.on('bossDefeated', e => toasts.show(e.final ? `The ${e.name} is defeated! The realm is free.` : `The ${e.name} has fallen! ${e.nextRing} is open.`, 'ok', 8000));
+    game.events.on('bossDefeated', e => toasts.show(e.appeased ? `The ${e.name} is at peace with her cubs home! ${e.final ? 'The realm is free.' : e.nextRing + ' is open.'}` : e.final ? `The ${e.name} is defeated! The realm is free.` : `The ${e.name} has fallen! ${e.nextRing} is open.`, 'ok', 8000));
     game.events.on('enteredCave', () => toasts.show('You descend into the cave...', 'info', 3000));
     let sessionUI = null;
     if (game.session) sessionUI = new SessionUI({ panel: $('sessionPanel'), body: $('sessionBody'), closeButton: $('sessionClose'), badge: $('sessionBadge'), endOverlay: $('endOverlay'), adapter, toasts, confirm: confirmUI });

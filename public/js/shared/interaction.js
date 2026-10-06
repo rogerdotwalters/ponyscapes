@@ -62,6 +62,7 @@ const Interactions = {
       if (mounted) break;                                // (all of that needs two feet on the ground)
       const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
       if (!def || !sameGrid(a, p)) continue;                // (only what is on your grid)
+      if (Wants.accepts(a, heldItemId) && d <= WANT_REACH + def.radius) primary.push({ kind: 'give', label: `Give ${ItemDefs[heldItemId].creature ? AnimalDefs[ItemDefs[heldItemId].creature].name : ItemDefs[heldItemId].name}`, dist: d - 0.8, animal: a });   // what it asks for (its bubble)
       if (a.owner === selfId && !a.leashed && !a.rider && def.pony && !p.mount && d <= CONFIG.sim.ride.range) primary.push({ kind: 'ride', label: 'Ride', dist: d, animal: a });
       else if (a.captor === selfId && d <= UNTIE_RANGE && heldItemId === 'apple') primary.push({ kind: 'feed', label: 'Feed apple', dist: d - 1, animal: a });   // a caught wild pony: hold an apple and feed it (wins over a gate next to it)
       else if (def.carry && d <= PICKUP_RANGE && a.state !== 'flee' && (!a.owner || a.owner === selfId)) primary.push({ kind: 'pickup', label: 'Pick up', dist: d, animal: a });

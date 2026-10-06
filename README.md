@@ -113,6 +113,18 @@ interact button) to go in; stand on the **doormat** inside and press F to go bac
   place and turn furniture, resize, undo, see the room as the game draws it, and get warnings (no doormat, a blocked arrival tile, overlapping furniture).
   **Play-test room** opens the game standing inside it (`index.html?solo=1&content=draft&enter=<building>`); **Download interiors.js** gives you the file.
 
+## Creatures that want things, and bosses you can appease
+
+A creature whose data has `wants` shows a **thought bubble** with what it is after when you come near (`js/shared/wantSystem.js`). Hold that item
+and press **F** ("Give ...") beside it: it is happier with you (hearts) and stops asking for a while. Dogs want a **bone** (dropped by deer, sheep,
+goats, boar, elk and wolves) or raw meat; cats want fish.
+
+**The Cave Bear can be fought or appeased.** Three of her **cubs** are lost somewhere in the first ring. They only come to you for **fish** (catch
+some with the rod), and they won't be picked up until you have fed them one. Carry a cub to her cave and hold it in your hand: she won't attack
+you, and F gives it back (her bubble counts 0/3). With all three home she is at peace, the next ring opens just as if she had been beaten, and she
+stays in the cave with her cubs from then on (saved with the world). Any other boss can get the same treatment from its data: `wants: { items, need,
+appease: true, quest: { creature, count } }`, plus a young creature with `wants: { items, unlocks: 'pickup' }` and a carried item for it.
+
 ## Admin page (testing)
 
 Menu > **Admin** (the host only) asks for the code **112298** (remembered until the tab closes; **Lock** locks it again). It is there to keep
