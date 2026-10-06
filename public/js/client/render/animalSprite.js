@@ -34,7 +34,7 @@ class AnimalSprite {
     const ctx = this.g.ctx, look = PonyLook.describe(animal.look), side = dir === 'left' || dir === 'right';
     if (look.glow) { ctx.save(); ctx.translate(sx, sy); this._glow(look.glow, now); ctx.restore(); }
     PixelPony.draw(ctx, look, dir, sx, sy, { moving: speed > 0.2, phase: st.phase, now, seed: seed * 0.13, lift: animal.lift });
-    if (side && look.accessory && look.accessory !== 'flames') {
+    if (side && look.accessory && look.accessory !== 'flames' && look.accessory !== 'frost') {        // (ember and frost effects are part of the pixel pony)
       ctx.save(); ctx.translate(sx, sy); ctx.scale(dir === 'left' ? -1 : 1, 1);
       this._bodyAccessory(look.accessory, now, 0, speed > 0.2, look.coat); this._headAccessory(look.accessory, now, 0);
       ctx.restore();
