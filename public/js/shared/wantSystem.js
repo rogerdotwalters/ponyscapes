@@ -21,8 +21,21 @@ const WANT_REACH = 1.8;
 
 InteractionHandlers.give = (server, id, p, action) => server.wants.give(id, p, server.animals.animals[action.animal.id]);
 
+/** Pure (client + server): glowing paw prints in a cave within reach? Studying them puts the lost young on your map. */
+function findTracksInteraction(map, p) {
+  if (map.kind !== 'cave') return null;
+  const px = Math.floor(p.x), py = Math.floor(p.y);
+  for (let ty = py - 1; ty <= py + 1; ty++) for (let tx = px - 1; tx <= px + 1; tx++) {
+    const prop = map.propAt(tx, ty), d = prop && prop.t === 'tracks' ? Math.hypot(prop.x - p.x, prop.y - p.y) : Infinity;
+    if (d <= 1.4) return { kind: 'track', label: 'Study the tracks', dist: d, ring: prop.ring };
+  }
+  return null;
+}
+Interactions.extra.push(findTracksInteraction);
+InteractionHandlers.track = (server, id, p, action) => server.wants.track(id, action.ring);
+
 class WantSystem {
-  constructor(server) { this.s = server; this.progress = {}; this.appeased = {}; }
+  constructor(server) { this.s = server; this.progress = {}; this.appeased = {}; this.trackers = {}; this.marksSent = {}; }   // trackers: ring -> { player key: true }
 
   /** What an animal wants right now (a.want: an item id or '', a.wantN: "have/need" for a boss), from its data and its state. */
   refresh(a) {
@@ -116,10 +129,42 @@ class WantSystem {
     if (q) for (let n = 0; n < q.count; n++) this._spawnHome(q.creature, boss);
   }
 
-  exportState() { return { progress: Object.assign({}, this.progress), appeased: Object.keys(this.appeased).map(Number) }; }
+  /* ---- tracking the lost young ---- */
+  _key(id) { return this.s.playerKeys[id] || 'seat:' + id; }
+  /** Studying the paw prints in the cave: from now on this player sees the lost young of that ring on their map. */
+  track(id, ring) {
+    const s = this.s, def = Fauna.bossOf(ring), q = def && def.wants && def.wants.quest;
+    if (!q) return;
+    if (this.appeased[ring] || s.worldProgress.isDefeated(ring)) { s._notice(id, 'Old tracks: nobody is lost any more'); return; }
+    const set = this.trackers[ring] = this.trackers[ring] || {}, first = !set[this._key(id)];
+    set[this._key(id)] = true; this.marksSent[id] = null;
+    const young = AnimalDefs[q.creature] ? AnimalDefs[q.creature].name.toLowerCase() + 's' : 'young';
+    s._notice(id, first ? `Small paw prints lead out of the lair... You can follow them now: the lost ${young} show on your map (M)` : `The lost ${young} are on your map (M)`);
+    s.pendingEvents.push({ type: 'tracked', to: id, ring, x: s.players[id].x, y: s.players[id].y });
+  }
+  /** Where the lost young are, for a player who tracked them: [{ x, y, ring, kind }] in the overworld (only when it changed, else null). */
+  marksFor(id) {
+    const s = this.s, key = this._key(id), marks = [];
+    for (const [ring, set] of Object.entries(this.trackers)) {
+      if (!set[key] || this.appeased[ring] || s.worldProgress.isDefeated(Number(ring))) continue;
+      const q = Fauna.bossOf(Number(ring)).wants.quest, item = Object.keys(ItemDefs).find(k => ItemDefs[k].creature === q.creature);
+      for (const a of Object.values(s.animals.animals)) if (a.type === q.creature && !a.delivered && !gridOf(a)) marks.push({ x: Math.round(a.x), y: Math.round(a.y), ring: Number(ring), kind: a.fed ? 'fed' : 'lost' });
+      for (const d of Object.values(s.drops)) if (d.item === item && !gridOf(d)) marks.push({ x: Math.round(d.x), y: Math.round(d.y), ring: Number(ring), kind: 'fed' });
+    }
+    const json = JSON.stringify(marks);
+    if (this.marksSent[id] === json) return null;
+    this.marksSent[id] = json;
+    return marks;
+  }
+
+  exportState() { return { progress: Object.assign({}, this.progress), appeased: Object.keys(this.appeased).map(Number), trackers: JSON.parse(JSON.stringify(this.trackers)) }; }
   restore(state) {
     if (!state || typeof state !== 'object') return;
     for (const [ring, n] of Object.entries(state.progress || {})) if (/^\d$/.test(ring) && Number.isInteger(n) && n >= 0 && n < 100) this.progress[ring] = n;
     for (const ring of Array.isArray(state.appeased) ? state.appeased : []) if (Number.isInteger(ring) && ring >= 0 && ring < 10) this.appeased[ring] = true;
+    for (const [ring, set] of Object.entries(state.trackers && typeof state.trackers === 'object' ? state.trackers : {})) {
+      if (!/^\d$/.test(ring) || !set || typeof set !== 'object') continue;
+      for (const key of Object.keys(set)) if (/^(seat:)?[A-Za-z0-9_-]{1,64}$/.test(key)) (this.trackers[ring] = this.trackers[ring] || {})[key] = true;
+    }
   }
 }

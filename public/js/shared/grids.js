@@ -29,9 +29,20 @@ class CavePlan {
   exitPoint() { return DungeonSpace.exit(); }
   entryPoint() { return DungeonSpace.entry(); }
   arena() { return DungeonSpace.arena(); }
+  /** The portal out, and (in a cave whose guardian lost its young: wantSystem.js) a trail of small glowing paw prints leading out of the lair. */
   propsIn(cx, cy) {
-    const e = this.exitPoint(), tx = Math.floor(e.x), ty = Math.floor(e.y);
-    return tx >> CHUNK_SHIFT === cx && ty >> CHUNK_SHIFT === cy ? [{ tile: [tx, ty], prop: { t: 'portal', x: e.x, y: e.y, r: 0.2, v: this.ring, ring: this.ring } }] : [];
+    const e = this.exitPoint(), out = [], here = (x, y) => Math.floor(x) >> CHUNK_SHIFT === cx && Math.floor(y) >> CHUNK_SHIFT === cy;
+    if (here(e.x, e.y)) out.push({ tile: [Math.floor(e.x), Math.floor(e.y)], prop: { t: 'portal', x: e.x, y: e.y, r: 0.2, v: this.ring, ring: this.ring } });
+    for (const [x, y, i] of this.tracks()) if (here(x, y)) out.push({ tile: [Math.floor(x), Math.floor(y)], prop: { t: 'tracks', x, y, r: 0, v: i, ring: this.ring } });
+    return out;
+  }
+  /** [[x, y, n]]: the paw prints along the middle of the corridor, from the arena towards the entrance hall (none if no young are lost). */
+  tracks() {
+    const boss = Fauna.bossOf(this.ring);
+    if (!boss || !boss.wants || !boss.wants.quest) return [];
+    const out = [];
+    for (let lx = 31.5, i = 0; lx >= 12; lx -= 2.4, i++) out.push([lx, 31.5 + 2.2 * Math.sin(Math.floor(lx) * 0.55 + this.ring), i]);
+    return out;
   }
 }
 

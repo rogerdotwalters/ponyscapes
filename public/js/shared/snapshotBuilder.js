@@ -43,7 +43,8 @@ const SnapshotBuilder = {
     const rings = server.ringsUpdateFor(id);           if (rings) snapshot.rings = rings;                  // a guardian fell: a ring opened
     const friends = server.friendship.updateFor(id);  if (friends) snapshot.friends = friends;            // your hearts with people and animals, only when they changed
     const settings = server.settingsUpdateFor(id);     if (settings) snapshot.settings = settings;          // the host's testing aids, only when they changed
-    const admin = server.adminUpdateFor(id);           if (admin) snapshot.admin = admin;                  // the Admin page's speed, day split, time and clock (everyone)
+    const admin = server.adminUpdateFor(id);           if (admin) snapshot.admin = admin;
+    const quests = server.tick % 15 === 0 || !server.wants.marksSent[id] ? server.wants.marksFor(id) : null; if (quests) snapshot.quests = quests;   // lost young you have tracked (map)                  // the Admin page's speed, day split, time and clock (everyone)
     const trade = server.tradeUpdateFor(id);           if (trade) snapshot.trade = trade;                  // { state }, only when it changed
     return snapshot;
   }

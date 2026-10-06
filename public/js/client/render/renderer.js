@@ -189,6 +189,7 @@ class Renderer {
     else if (prop.t === 'cave') PropSprites.drawCave(g, item.gx, item.gy, prop.ring, now);
     else if (prop.t === 'portal') PropSprites.drawPortal(g, item.gx, item.gy, now);
     else if (prop.t === 'furniture') InteriorSprites.furniture(g, prop, now);
+    else if (prop.t === 'tracks') { if (!(this.game.defeated || []).includes(prop.ring)) this._drawTracks(item.gx, item.gy, prop, now); }   // (gone once the young are home)
     else PropSprites.drawWell(g, item.gx, item.gy);
   }
 
@@ -207,6 +208,19 @@ class Renderer {
     this.g.ellipse(gx, gy, 11, 5, rarity.order ? rarity.color + '66' : 'rgba(0,0,0,.25)');
     if (img) { const size = 26, h = size * img.naturalHeight / img.naturalWidth; ctx.drawImage(img, gx - size / 2, gy - h - 2 + bob, size, h); }
     if (rarity.order) { ctx.fillStyle = rarity.color; ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(now / 300)); ctx.beginPath(); ctx.arc(gx + 9, gy - 22 + bob, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
+  }
+
+  /** Small glowing paw prints in a cave (a lost cub's trail): two little prints, pulsing one after the other along the trail. */
+  _drawTracks(gx, gy, prop, now) {
+    const ctx = this.ctx, wave = 0.5 + 0.5 * Math.sin(now / 420 - prop.v * 0.9);
+    for (const [dx, dy, k] of [[-7, -3, 0], [6, 3, 1]]) {
+      const x = gx + dx, y = gy + dy, a = 0.35 + 0.55 * (k ? 1 - wave : wave);
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, 14); glow.addColorStop(0, `rgba(150,230,255,${(a * 0.55).toFixed(2)})`); glow.addColorStop(1, 'rgba(150,230,255,0)');
+      ctx.fillStyle = glow; ctx.fillRect(x - 14, y - 14, 28, 28);
+      ctx.fillStyle = `rgba(210,250,255,${a.toFixed(2)})`;
+      ctx.beginPath(); ctx.ellipse(x, y, 3.4, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+      for (let t = 0; t < 4; t++) { ctx.beginPath(); ctx.ellipse(x - 3.6 + t * 2.4, y - 3.4 - (t === 1 || t === 2 ? 0.8 : 0), 1, 0.8, 0, 0, Math.PI * 2); ctx.fill(); }
+    }
   }
 
   /** A pile someone dropped: the item bobbing on the ground like loot, with its count. */

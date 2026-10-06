@@ -19,7 +19,8 @@ class ClientGame {
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
     this.localSwingT = 0;                              // cosmetic swing so our own tool feels instant
-    this.pets = []; this.book = []; this.varieties = [];                    // the Pony Book: your tamed animals and which pony kinds you have kept
+    this.pets = []; this.book = []; this.varieties = []; this.questMarks = [];   // questMarks: lost young you have tracked (map)
+                       // the Pony Book: your tamed animals and which pony kinds you have kept
     this.buildTarget = null;                           // { tx, ty, side, structure, valid, reason } while holding a placeable item
     this.buildCursor = null;                           // { tx, ty } while a finger / mouse aims; null = tile in front of the player
     this.buildRotation = 0;                            // R: next candidate side (connecting sides come first)
@@ -303,6 +304,7 @@ class ClientGame {
     if (snapshot.settings) { this.settings = snapshot.settings; this.events.emit('settingsChanged', this.settings); }
     if (snapshot.admin) { GameSettings.applyWire(snapshot.admin, false); this.events.emit('adminChanged'); }
     if (snapshot.pets) { this.pets = snapshot.pets; this.events.emit('petsChanged'); }
+    if (snapshot.quests) this.questMarks = snapshot.quests;                       // lost young you have tracked: shown on the map
     if (snapshot.book) this.book = snapshot.book;
     if (snapshot.varieties) this.varieties = snapshot.varieties;
     this._followGrid(snapshot);                                                  // through a door / into a cave: switch to that grid first

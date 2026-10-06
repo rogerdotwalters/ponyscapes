@@ -6,7 +6,7 @@
  * (Many functions still call their World parameter `map`; it is a World.) */
 const CHUNK_SHIFT = 4, CHUNK_SIZE = 1 << CHUNK_SHIFT, CHUNK_MASK = CHUNK_SIZE - 1, CHUNK_AREA = CHUNK_SIZE * CHUNK_SIZE;
 /** Does this prop stop movement? Felled trees, berry bushes and loose stones (you walk over them) do not. */
-const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'portal', 'loot', 'furniture']);      // (solid furniture blocks its tiles instead)
+const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'portal', 'loot', 'furniture', 'tracks']);      // (solid furniture blocks its tiles instead)
 const propBlocks = prop => prop.alive !== false && !NON_BLOCKING_PROPS.has(prop.t);
 
 const chunkKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);

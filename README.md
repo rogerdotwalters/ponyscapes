@@ -120,10 +120,15 @@ and press **F** ("Give ...") beside it: it is happier with you (hearts) and stop
 goats, boar, elk and wolves) or raw meat; cats want fish.
 
 **The Cave Bear can be fought or appeased.** Three of her **cubs** are lost somewhere in the first ring. They only come to you for **fish** (catch
-some with the rod), and they won't be picked up until you have fed them one. Carry a cub to her cave and hold it in your hand: she won't attack
+some with the rod), and they won't be picked up until you have fed them one. To find them, study the **glowing paw prints** in her cave (F): from then on the lost cubs show on your map (saved per player). Carry a cub to her cave and hold it in your hand: she won't attack
 you, and F gives it back (her bubble counts 0/3). With all three home she is at peace, the next ring opens just as if she had been beaten, and she
 stays in the cave with her cubs from then on (saved with the world). Any other boss can get the same treatment from its data: `wants: { items, need,
 appease: true, quest: { creature, count } }`, plus a young creature with `wants: { items, unlocks: 'pickup' }` and a carried item for it.
+
+## The map
+
+Drag the map (mouse or finger) to look around; **Centre on me** brings it back. An arrow on the edge always points the way to **town** (with the
+distance), and others point to you when you have dragged away, to the nearest treasure, and to the nearest lost cub you have tracked.
 
 ## Admin page (testing)
 
