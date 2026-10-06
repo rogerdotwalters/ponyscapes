@@ -70,7 +70,7 @@
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; a brush grooms your pony &middot; G: gear (lasso slot) &middot; V: emotes &middot; 1-6 / wheel: toolbar &middot; I: bag (drop / destroy) &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
+<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
 <div id="portraitHint">Rotate your phone to landscape for the best view</div>
 
 <div id="toolbar"></div>
@@ -83,9 +83,9 @@
 <div id="abilityBar" hidden></div>
 <div id="inventoryPanel" hidden>
   <header><span>Inventory</span><button id="invClose" tabindex="-1">&#x2715;</button></header>
-  <div id="invGrid"></div>
-  <div id="invActions"><span id="invPicked">Tap an item to move, drop or destroy it</span><button id="invDrop1" tabindex="-1" disabled>Drop 1</button><button id="invDropAll" tabindex="-1" disabled>Drop all</button><button id="invDestroy" class="danger" tabindex="-1" disabled>Destroy</button></div>
-  <div id="invPony"><span id="invPonyText"></span><button id="invMainPony" tabindex="-1" hidden>&#x2605; Make main pony</button></div>
+  <div id="invBody" class="scrollable"></div>
+  <div id="invPicked">Tap an item to move, drop or destroy it</div>
+  <div id="invActions"><button id="invUse" tabindex="-1" hidden></button><button id="invDrop1" tabindex="-1" disabled>Drop 1</button><button id="invDropAll" tabindex="-1" disabled>Drop all</button><button id="invDestroy" class="danger" tabindex="-1" disabled>Destroy</button></div>
 </div>
 
 <div id="craftPanel" hidden>
@@ -132,6 +132,10 @@
   <header><span>Town</span><button id="townClose" tabindex="-1">&#x2715;</button></header>
   <div id="townBody" class="scrollable"></div>
 </div>
+<div id="shopPanel" hidden>
+  <header><span>Shop</span><button id="shopClose" tabindex="-1">&#x2715;</button></header>
+  <div id="shopBody" class="scrollable"></div>
+</div>
 <div id="tradePanel" hidden>
   <header><span>Trade</span><button id="tradeClose" tabindex="-1">&#x2715;</button></header>
   <div id="tradeBody" class="scrollable"></div>
@@ -174,6 +178,7 @@
 <script src="js/data/items/weapons.js"></script>
 <script src="js/data/items/wardrobe.js"></script>
 <script src="js/data/items/placeables.js"></script>
+<script src="js/data/items/bags.js"></script>
 <script src="js/data/items/specials.js"></script>
 <script src="js/data/biomes/registry.js"></script>
 <script src="js/data/biomes/normal.js"></script>
@@ -300,6 +305,8 @@
 <script src="js/shared/wantSystem.js"></script>
 <script src="js/shared/gameServer.js"></script>
 <script src="js/shared/serverOwned.js"></script>
+<script src="js/shared/packSystem.js"></script>
+<script src="js/shared/shopSystem.js"></script>
 <!-- network -->
 <script src="js/shared/snapshotBuilder.js"></script>
 <script src="js/shared/deltaCodec.js"></script>
@@ -363,6 +370,7 @@
 <script src="js/client/ui/ponyBookUI.js"></script>
 <script src="js/client/ui/tradeUI.js"></script>
 <script src="js/client/ui/townUI.js"></script>
+<script src="js/client/ui/shopUI.js"></script>
 <script src="js/client/ui/emoteUI.js"></script>
 <script src="js/client/ui/journalUI.js"></script>
 <script src="js/client/ui/menuUI.js"></script>

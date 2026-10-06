@@ -117,8 +117,21 @@ const SaveData = {
     const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
     const x = N(q.x, -1e7, 1e7, NaN), y = N(q.y, -1e7, 1e7, NaN);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return { type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
-      friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null };
+    return Object.assign({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
+      friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null }, SaveData._pack(q, look));
+  },
+  /** A pony's saved bags and pack, cleaned: { bags: [bag id | ''], pack: [slot] } (only pony bags, no more bags than it has slots for, and a pack
+   *  exactly as big as those bags), or {} when it carries none. */
+  _pack(q, look) {
+    if (!Array.isArray(q.bags) || !q.bags.length) return {};
+    const bags = q.bags.slice(0, Bags.ponyBagSlots({ look })).map(b => (typeof b === 'string' && Bags.isPonyBag(b) ? b : ''));
+    if (!bags.some(Boolean)) return {};
+    const size = Bags.packSize(bags), src = Array.isArray(q.pack) ? q.pack : [], pack = [];
+    for (let i = 0; i < size; i++) {
+      const s = src[i], def = SaveData._plain(s) && typeof s.id === 'string' ? ItemDefs[s.id] : null;
+      pack.push(def ? { id: s.id, count: Math.min(SaveData._int(s.count, 1, 9999, 1), def.maxStack) } : null);
+    }
+    return { bags, pack };
   },
   /** Step 3 (the server is built): everybody's ponies, waiting for their owners, and the items lying on the ground. */
   applyOwned(server, world) {
@@ -155,7 +168,7 @@ const SaveData = {
     if (!p || !inventory) return null;
     const out = SaveData.outsideSpot(server, p), spot = SaveData.safeSpot(server, out.x, out.y, p.slot);     // (rowing a boat? put back on the shore; indoors? at the door)
     const pets = Object.values(server.animals.animals).filter(a => a.owner === id && !a.trial).slice(0, SaveData.MAX_PETS)
-      .map(a => ({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, main: a.main || undefined, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }));
+      .map(a => Object.assign({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, main: a.main || undefined, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }, server._exportPack(a)));
     const xp = server.progress.ensure(id);
     return {
       v: SaveData.VERSION, savedAt: Date.now(),
@@ -173,24 +186,29 @@ const SaveData = {
   sanitizeCharacter(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION) return null;
     const N = SaveData._num, I = SaveData._int, S = CONFIG.sim;
-    const out = { v: data.v, x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.totalSlots - 1, 0),
+    const out = { v: data.v, x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0),
       appearance: CharacterLook.sanitize(data.appearance), inventory: [], gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [] }, pets: [] };
-    const total = S.inventory.totalSlots, source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
+    const source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
     const refund = (id, count) => { const old = LEGACY_ITEMS[id]; if (old) refunds.push({ id: old[0], count: old[1] * count }); else if (ItemDefs[id]) refunds.push({ id, count }); };
+    const savedGear = SaveData._plain(data.gear) ? data.gear : {};
+    out.oldBag = !Bags.isPlayerBag(savedGear.bag);                                                    // an older save, from before bags: its main pony gets a side pack
+    for (const [slotName, item] of Object.entries(savedGear)) {
+      if (typeof item !== 'string' || !item) continue;
+      if ((WardrobeSlots.includes(slotName) || GearExtraSlots.includes(slotName)) && ItemDefs[item] && Wardrobe.slotFor(item) === slotName) out.gear[slotName] = item;
+      else refund(item, 1);                                                                           // old armour, shield, belt, scabbard or a sword that was in the sword slot
+    }
+    const total = Bags.playerSize(out.gear);                                                          // the tool belt and the bag you wear
     for (let i = 0; i < Math.max(total, source.length); i++) {
       const slot = source[i], def = slot && typeof slot.id === 'string' ? ItemDefs[slot.id] : null, count = slot ? I(slot.count, 1, 9999, 1) : 0;
       if (i < total) { out.inventory.push(def ? { id: slot.id, count: Math.min(count, def.maxStack) } : null); if (!def && slot && typeof slot.id === 'string') refund(slot.id, Math.min(count, 99)); }
-      else if (slot && typeof slot.id === 'string') refund(slot.id, Math.min(count, 99));            // the old tool-belt slots: folded into the bag
+      else if (slot && typeof slot.id === 'string') refund(slot.id, Math.min(count, 999));          // (an older, bigger inventory: what does not fit goes to the pony: overflow)
     }
-    for (const [slotName, item] of Object.entries(SaveData._plain(data.gear) ? data.gear : {})) {
-      if (typeof item !== 'string' || !item) continue;
-      if ((WardrobeSlots.includes(slotName) || slotName === 'lasso') && ItemDefs[item] && Wardrobe.slotFor(item) === slotName) out.gear[slotName] = item;
-      else refund(item, 1);                                                                           // old armour, shield, belt, scabbard or a sword that was in the sword slot
-    }
-    for (const r of refunds) {                                                                         // put refunds into stacks / free slots; anything that cannot fit is dropped
+    out.overflow = [];
+    for (const r of refunds.slice(0, 200)) {                                                           // put refunds into stacks / free slots; the rest is overflow
       const max = ItemDefs[r.id].maxStack; let left = r.count;
       for (const slot of out.inventory) if (left > 0 && slot && slot.id === r.id && slot.count < max) { const t = Math.min(max - slot.count, left); slot.count += t; left -= t; }
       for (let i = 0; i < out.inventory.length && left > 0; i++) if (!out.inventory[i]) { const t = Math.min(max, left); out.inventory[i] = { id: r.id, count: t }; left -= t; }
+      if (left > 0) out.overflow.push({ id: r.id, count: left });
     }
     for (const kind of ['s', 'a']) {
       const defs = kind === 's' ? SkillDefs : AttributeDefs, src = SaveData._plain(data.xp) && SaveData._plain(data.xp[kind]) ? data.xp[kind] : {};
@@ -204,7 +222,7 @@ const SaveData = {
     if (Array.isArray(data.pets)) for (const q of data.pets.slice(0, SaveData.MAX_PETS)) {
       if (!SaveData._plain(q) || !AnimalDefs[q.type] || !(AnimalDefs[q.type].pony || AnimalDefs[q.type].tameable)) continue;      // only things you can actually keep: a saved "pet" can never be a dragon
       const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
-      out.pets.push({ type: q.type, main: q.main === true || undefined, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) });
+      out.pets.push(Object.assign({ type: q.type, main: q.main === true || undefined, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) }, SaveData._pack(q, look)));
     }
     out.friends = {};                                                                       // hearts with the villagers: { 'n_baker': [level, points] }
     if (SaveData._plain(data.friends)) for (const key of Object.keys(data.friends).slice(0, 40)) { const bond = Friendship.decode(data.friends[key]); if (/^n_[a-z_]+$/.test(key) && Npcs.has(key.slice(2)) && bond) out.friends[key] = bond; }
@@ -236,8 +254,12 @@ const SaveData = {
       if (q.friend) pet.friends[id] = q.friend;                                  // a pet remembers how fond of you it is
       if (Number.isFinite(q.xp)) pet.xp = q.xp;
       if (q.main) pet.main = true;
+      server._restorePack(pet, q);
     }
-    server._ensureMainPony(id);                                              // (an older save: its first pony becomes the main pony)
+    server._ensureMainPony(id);
+    const main = server._mainPonyOf(id);
+    if (c.oldBag && main && !(main.bags || []).some(Boolean)) { server._ponyBags(main).bags[0] = CONFIG.sim.inventory.starterPonyBag; server._ponyBags(main); }   // (from before bags: a side pack for the main pony)
+    server._stowOverflow(id, c.overflow);                                     // what the bag cannot hold: the main pony's pack, else the ground                                              // (an older save: its first pony becomes the main pony)
     server.friendship.restore(id, c.friends);
     server._updateCompanions();                                              // carry limit and pony buffs, straight away
     return true;

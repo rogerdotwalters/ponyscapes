@@ -21,7 +21,7 @@ const CONFIG = {
     maxInputsPerTick: 4,                               // server-side anti-speedhack budget
     maxPlayers: 4,
     slotColors: ['#e5534b', '#4f9bea', '#62c370', '#e9c24a'],
-    inventory: { hotbarSlots: 6, totalSlots: 24 },
+    inventory: { hotbarSlots: 5, starterBag: 'starter_backpack', ponyBagSlots: 2, starterPonyBag: 'starter_side_pack', packReach: 4 },   // the tool belt (keys 1-5) + your bag (data/items/bags.js); every pony has 2+ bag slots
     combat: { defPerPoint: 0.02, maxReduction: 0.5 },
     friendship: {                                            // the heart meter: 3 hearts per level, 24 levels (data/friendship/levels.js)
       heartsPerLevel: 3, heartCost: 12, heartCostPerLevel: 3,   // points for ONE heart at level 1, and how much more each later level asks

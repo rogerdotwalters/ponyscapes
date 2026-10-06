@@ -1,7 +1,9 @@
 'use strict';
-/* SHARED - inventory data + rules. No UI, no networking. Slots 0..hotbar-1 are the toolbar. */
+/* SHARED - inventory data + rules. No UI, no networking.
+ * A player's inventory is their TOOL BELT (slots 0..4: the hotbar, keys 1-5) followed by the slots of the BAG they wear (gear.bag; Bags below).
+ * A pony's PACK is an Inventory too: the slots of every bag strapped onto it, one after another. */
 class Inventory {
-  constructor(size = CONFIG.sim.inventory.totalSlots) {
+  constructor(size = Bags.playerSize(null)) {
     this.slots = new Array(size).fill(null);          // null | { id, count }
     this.carryStacks = null;                          // stacks of EACH limited resource (wood, stone, clay) this pack may hold; null = no limit (see Carry)
     this.limitHit = null;                             // the resource an add() was last turned away for (the server tells the player why)
@@ -77,6 +79,22 @@ class Inventory {
     return left;
   }
 
+  /** Grow or shrink to n slots (a new bag). Stacks beyond the end move into free slots (the bag first, then the belt). False (and nothing
+   *  changes) if they would not all fit. */
+  resize(n, firstFree = CONFIG.sim.inventory.hotbarSlots) {
+    const kept = this.slots.slice(0, n), extra = this.slots.slice(n).filter(Boolean);
+    while (kept.length < n) kept.push(null);
+    const free = [];
+    for (let i = 0; i < n; i++) if (!kept[i]) free.push(i);
+    free.sort((a, b) => (a >= firstFree) === (b >= firstFree) ? a - b : a >= firstFree ? -1 : 1);
+    if (extra.length > free.length) return false;
+    extra.forEach((stack, k) => { kept[free[k]] = stack; });
+    this.slots = kept;
+    return true;
+  }
+  /** How many slots hold something. */
+  get used() { return this.slots.reduce((n, s) => n + (s ? 1 : 0), 0); }
+
   /** Moves a stack: merges into the same item, otherwise swaps. Returns true if anything changed. */
   move(from, to) {
     const valid = i => Number.isInteger(i) && i >= 0 && i < this.slots.length;
@@ -94,11 +112,29 @@ class Inventory {
   }
 }
 
-/** The starting pack. The testing version hands out every basic tool and a stock of materials; otherwise just an axe. */
+/** Bags: how big a player's inventory and a pony's pack are. */
+const Bags = {
+  get BELT() { return CONFIG.sim.inventory.hotbarSlots; },
+  /** Slots a bag item adds (0 for anything that is not a bag). */
+  slots: id => { const b = ItemDB.getBag(id); return b ? b.slots : 0; },
+  isPlayerBag: id => { const b = ItemDB.getBag(id); return !!(b && b.for === 'player'); },
+  isPonyBag: id => { const b = ItemDB.getBag(id); return !!(b && b.for === 'pony'); },
+  /** A player's inventory size: the belt plus the bag they wear (a missing bag counts as the starter backpack). */
+  playerSize(gear) { const bag = gear && Bags.isPlayerBag(gear.bag) ? gear.bag : CONFIG.sim.inventory.starterBag; return Bags.BELT + Bags.slots(bag); },
+  /** How many bags a pony can wear: 2, 3 for a rare or epic pony, 4 for a legendary one. */
+  ponyBagSlots(a) { const order = a && a.look ? a.look[5] | 0 : 0; return CONFIG.sim.inventory.ponyBagSlots + (order >= 4 ? 2 : order >= 2 ? 1 : 0); },
+  /** A pony's pack size: all its bags together. */
+  packSize: bags => (bags || []).reduce((n, id) => n + Bags.slots(id), 0)
+};
+
+/** The starting pack. The testing version hands out every basic tool and a stock of materials: the belt and the starter backpack take the tools,
+ *  the starter pony's side pack the rest (TestKitPony: gameServer._giveStarterPony). Otherwise just an axe. */
 const TestKit = Object.freeze([
-  ['axe', 1], ['stone_hammer', 1], ['knife', 1], ['shovel', 1], ['fishing_rod', 1], ['spear', 1],      // the first six fill the hotbar
-  ['bow', 1], ['arrow', 20], ['brush', 1], ['jug', 1], ['torch', 3],                    // (the Rope Lasso waits in the lasso slot)
-  ['plank', 30], ['rope', 8], ['string', 6], ['stone', 10], ['clay', 4], ['apple', 6], ['raspberry', 6]     // (one stack each of wood, stone and clay: more waits in the starter stockpiles)
+  ['axe', 1], ['stone_hammer', 1], ['knife', 1], ['shovel', 1], ['fishing_rod', 1],              // the tool belt (keys 1-5)
+  ['spear', 1], ['brush', 1]                                                                      // the starter backpack, with room to spare (the Rope Lasso waits in the lasso slot)
+]);
+const TestKitPony = Object.freeze([                                                               // the starter pony's side pack: all ten slots
+  ['bow', 1], ['arrow', 20], ['torch', 3], ['jug', 1], ['plank', 30], ['rope', 8], ['string', 6], ['stone', 10], ['apple', 6], ['gold_coin', 25]   // (gold for a bigger bag)
 ]);
 
 function createStarterInventory() {

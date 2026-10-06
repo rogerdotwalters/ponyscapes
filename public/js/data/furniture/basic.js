@@ -10,7 +10,7 @@ FurnitureDefs.registerAll([
   { id: 'fireplace', name: 'Fireplace', size: [2, 1], solid: true, height: 46, style: 'fireplace', light: 3, colors: { stone: '#9a948a', dark: '#3a3530', fire: '#ff9a2a' } },
   { id: 'potted_plant', name: 'Potted Plant', size: [1, 1], solid: true, height: 30, style: 'plant', colors: { pot: '#b8734a', leaf: '#5e9c4a' } },
   { id: 'lamp', name: 'Standing Lamp', size: [1, 1], solid: false, height: 44, style: 'lamp', light: 2.5, colors: { pole: '#4a3a2a', shade: '#f2d99a' } },
-  { id: 'counter', name: 'Shop Counter', size: [3, 1], solid: true, height: 26, style: 'counter', colors: { top: '#c49a62', front: '#8a5f33', trim: '#5b3e24' } },
+  { id: 'counter', name: 'Shop Counter', size: [3, 1], solid: true, shop: true, height: 26, style: 'counter', colors: { top: '#c49a62', front: '#8a5f33', trim: '#5b3e24' } },
   { id: 'goods_shelf', name: 'Goods Shelf', size: [2, 1], solid: true, height: 50, style: 'shelf', colors: { wood: '#8a5f33', goods: ['#e2c874', '#b8734a', '#e9e4d6', '#9e3b3b', '#5c8a4a'] } },
   { id: 'crate', name: 'Crate', size: [1, 1], solid: true, height: 20, style: 'crate', colors: { wood: '#b58a55', band: '#7a5233' } },
   { id: 'workbench', name: 'Workbench', size: [2, 1], solid: true, height: 24, style: 'workbench', colors: { top: '#c49a62', leg: '#6d4c2f', tool: '#9aa0a8' } },

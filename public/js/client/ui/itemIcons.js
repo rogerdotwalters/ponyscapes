@@ -384,6 +384,26 @@ const ItemIcons = (() => {
   painters.stockpile_stone = ctx => stockpileIcon(ctx, 'stone');
   painters.stockpile_clay = ctx => stockpileIcon(ctx, 'clay');
 
+  /** A bag in its own leather: a backpack (worn by you) or a pair of saddlebags on a strap (a pony's). Bigger bags get brass buckles. */
+  const bagPainter = def => ctx => {
+    const leather = def.color || '#9a6b3f', dark = 'rgba(0,0,0,.35)', big = def.bag.slots >= (def.bag.for === 'pony' ? 15 : 8);
+    const pouch = (x, y, w, h) => {
+      ctx.fillStyle = leather; ctx.strokeStyle = dark; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + h - 5); ctx.quadraticCurveTo(x + w, y + h, x + w - 5, y + h); ctx.lineTo(x + 5, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.fillRect(x + 2, y + 2, w - 4, 4);
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(x, y, w, h * 0.38);                                   // the flap
+      ctx.fillStyle = big ? '#e8c45a' : '#d8cfb8'; ctx.fillRect(x + w / 2 - 2.5, y + h * 0.3, 5, 5);           // buckle
+    };
+    if (def.bag.for === 'pony') {
+      ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(12, 14); ctx.quadraticCurveTo(24, 6, 36, 14); ctx.stroke();
+      pouch(4, 14, 17, 26); pouch(27, 14, 17, 26);
+    } else {
+      ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(24, 12, 7, Math.PI, 0); ctx.stroke();
+      pouch(9, 12, 30, 31);
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(14, 30, 20, 9);                                         // front pocket
+    }
+  };
+
   /** An item you created without an icon yet: a badge in its colour (or its rarity's) with its first letter. */
   const badgePainter = def => ctx => {
     const color = def.color || rarityOf(def.rarity).color;
@@ -397,7 +417,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.lasso ? lassoPainter(itemId) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d'));
     return (cache[key] = canvas.toDataURL());
   }

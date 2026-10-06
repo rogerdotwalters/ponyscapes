@@ -51,8 +51,8 @@ Object.assign(GameServer.prototype, {
       const key = this._ownerKeyOf(a);
       if (!key || a.trial) continue;
       const friend = a.friends[a.owner] || a.parkedFriend;
-      out.push({ key, grid: gridOf(a) || undefined, main: a.main || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
-        x: a.x, y: a.y, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null });
+      out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
+        x: a.x, y: a.y, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null }, this._exportPack(a)));
     }
     return out;
   },
@@ -65,6 +65,7 @@ Object.assign(GameServer.prototype, {
       if (q.main) pet.main = true;
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction)); pet.home = { x: q.hx, y: q.hy };
       if (q.friend) pet.parkedFriend = Friendship.decode(q.friend);
+      this._restorePack(pet, q);
     }
   },
 

@@ -58,7 +58,7 @@ if (!CONFIG.sim.construction) for (const id of CONSTRUCTION_RECIPES) delete BASE
 /** Wardrobe recipes are GENERATED from the wardrobe table: an item with a `craft` list gets "make_<id>" at the crafting table. */
 /** ...and so is every other item with a `craft` list (your own items from the content editor included): "make_<id>" at the crafting table. */
 const WARDROBE_RECIPES = Object.fromEntries(Object.values(ItemDefs).filter(w => Array.isArray(w.craft) && w.craft.length && !BASE_RECIPES['make_' + w.id]).map(w =>
-  ['make_' + w.id, makeRecipe('make_' + w.id, w.name, w.craft.filter(([item]) => ItemDefs[item]).map(([item, n]) => ing(item, n)), [ing(w.id, 1)], { station: 'crafting_table', tools: w.equip ? ['knife'] : [] })]));
+  ['make_' + w.id, makeRecipe('make_' + w.id, w.name, w.craft.filter(([item]) => ItemDefs[item]).map(([item, n]) => ing(item, n)), [ing(w.id, 1)], { station: 'crafting_table', tools: w.equip || w.bag ? ['knife'] : [] })]));
 const COOK_STATIONS = ['clay_furnace', 'campfire'];
 const COOK_RECIPES = Object.fromEntries(Foods.where(f => f.cooksInto && f.recipe).map(f =>
   [f.recipe.id, makeRecipe(f.recipe.id, f.recipe.name, [ing(f.id, 1), ing('plank', 1)], [ing(f.cooksInto, 1)], { station: COOK_STATIONS })]));

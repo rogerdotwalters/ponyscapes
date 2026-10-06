@@ -12,7 +12,8 @@
 const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
-const INV_ACTIONS_H = 38 + 36;                      // the Drop / Destroy row and the main pony row
+const INV_ACTIONS_H = 22 + 36;                      // what you picked, and the Wear / To pony / Drop / Destroy row
+const INV_COLS = 5, INV_ROWS = 7;                    // the bag panel: rows of five (the tool belt, your bag, your pony's pack), scrolling past seven rows
 const makeRect = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 const rectsOverlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const unionRect = rects => {
@@ -137,7 +138,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
 
   /* ---- overlay panels: they are modal (a click-off backdrop sits over the thumb controls), so they may cover those, but never the HUD that stays usable above the backdrop ---- */
   const pp = Math.round(12 * k), pg = Math.round(5 * k), header = Math.round(34 * k);
-  const invSlotFor = r => Math.min(maxSlot, Math.floor((r.w - 2 * pp - 5 * pg) / 6), Math.floor((r.h - header - 2 * pp - 3 * pg) / 4));
+  const invSlotFor = r => Math.min(maxSlot, Math.floor((r.w - 2 * pp - (INV_COLS - 1) * pg) / INV_COLS), Math.floor((r.h - header - 2 * pp - 3 * pg) / 4));
   let region;
   if (touch) {
     const regionBottom = utilityAtBottom ? emote.y - m : bottom;
@@ -151,7 +152,9 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const needH = header + 4 * MIN_PANEL_SLOT + 3 * pg + 2 * pp, regionBottomY = region.y + region.h;
   const coversHud = region.h < needH;
   if (coversHud) region = makeRect(region.x, top, region.w, regionBottomY - top);
-  const invSlot = Math.max(MIN_PANEL_SLOT, invSlotFor(region)), invW = 6 * invSlot + 5 * pg + 2 * pp, invH = header + 4 * invSlot + 3 * pg + 2 * pp + INV_ACTIONS_H;   // (+ the Drop / Destroy row)
+  const invSlot = Math.max(MIN_PANEL_SLOT, invSlotFor(region)), sectionH = Math.round(20 * k);
+  const invW = Math.min(region.w, Math.max(INV_COLS * invSlot + (INV_COLS - 1) * pg + 2 * pp, Math.round(300 * k)));
+  const invH = Math.min(region.h, header + 2 * pp + INV_ACTIONS_H + INV_ROWS * (invSlot + pg) + 3 * sectionH);         // (the sections scroll inside when there is more)
   const craftW = Math.min(Math.round(350 * k), region.w);
   const sidePanel = makeRect(region.x + (region.w - craftW) / 2, region.y, craftW, region.h);   // crafting, gear, trade and host settings share one rect
   const mapW = Math.min(right - left, 720), mapH = Math.min(bottom - top, 470);                 // the map is view-only, so it may cover the thumb controls: a big window in the middle
@@ -162,7 +165,8 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     region, slot: invSlot, gap: pg, pad: pp, header, coversHud,
     inventory: makeRect(region.x + (region.w - invW) / 2, region.y + Math.max(0, (region.h - invH) / 2), invW, invH),
     crafting: sidePanel, settings: sidePanel, gear: sidePanel, trade: sidePanel, map: mapRect, confirm: confirmRect,
-    craftListMaxHeight: Math.max(60, region.h - header - 2 * pp)
+    craftListMaxHeight: Math.max(60, region.h - header - 2 * pp),
+    invBodyMaxHeight: Math.max(invSlot + 10, invH - header - 2 * pp - INV_ACTIONS_H)
   };
 
   /* ---- text overlays ---- */
@@ -212,14 +216,15 @@ class UiLayout {
     bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
 
     const P = L.panels;
-    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
+    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
       el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
       el.style.setProperty('--slot', P.slot + 'px'); el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--pad', P.pad + 'px');
     }
-    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
-    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
+    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
+    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.shopBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.menuBody.style.maxHeight = dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';
+    dom.inventoryPanel.style.width = P.inventory.w + 'px'; if (dom.invBody) dom.invBody.style.maxHeight = P.invBodyMaxHeight + 'px';
     dom.confirmPanel.style.width = P.confirm.w + 'px';
     dom.mapPanel.style.width = P.map.w + 'px'; dom.mapBody.style.maxHeight = Math.max(80, P.map.h - P.header - 2 * P.pad - 6) + 'px';        // the tab row takes some of the room
 

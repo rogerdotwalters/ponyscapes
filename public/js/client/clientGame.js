@@ -18,6 +18,7 @@ class ClientGame {
     this.npcs = {}; this.npcView = {}; this.friends = {}; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
+    this.pack = null;                                  // the pack of the pony you ride or stand next to: { id, name, bags, riding, inventory } (packSystem.js)
     this.localSwingT = 0;                              // cosmetic swing so our own tool feels instant
     this.pets = []; this.book = []; this.varieties = []; this.questMarks = [];   // questMarks: lost young you have tracked (map)
                        // the Pony Book: your tamed animals and which pony kinds you have kept
@@ -44,6 +45,7 @@ class ClientGame {
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
     this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeDrops = welcome.drops || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {};
     if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory, this.local.carryStacks);
+    if (welcome.pack !== undefined && welcome.pack !== null) this._applyPack(welcome.pack);
     this.isHost = !!welcome.host;
     this.settings = welcome.settings || { hostilesOff: false, testPony: false };            // the host's testing aids (Settings); only the host is ever told
     if (welcome.progress) this.progress = welcome.progress;
@@ -82,8 +84,18 @@ class ClientGame {
   }
   moveSlot(from, to) { this.net.sendCommand({ type: 'moveSlot', from, to }); }   // server decides; we wait for the update
   /** Drop `count` from a pack slot onto the ground in front of you (anyone can pick it up), or destroy it for good. */
-  dropItem(slot, count) { this.net.sendCommand({ type: 'drop', slot, count }); }
-  destroyItem(slot, count) { this.net.sendCommand({ type: 'destroy', slot, count }); }
+  dropItem(slot, count, pack = false) { this.net.sendCommand({ type: 'drop', slot, count, pack: !!pack }); }
+  destroyItem(slot, count, pack = false) { this.net.sendCommand({ type: 'destroy', slot, count, pack: !!pack }); }
+  /** Move a stack between your bag and your pony's pack: { pack: bool, i } each end (to.i -1: wherever it fits). */
+  packMove(from, to) { this.net.sendCommand({ type: 'packMove', from: { pack: !!from.pack, i: from.i }, to: { pack: !!to.pack, i: to.i } }); }
+  /** Take the bag in this bag slot off the pony (into your bag). */
+  ponyBagOff(index) { this.net.sendCommand({ type: 'ponyBagOff', index }); }
+  /** At a shop counter: buy one of this item. */
+  buy(item) { this.net.sendCommand({ type: 'buy', item }); }
+  _applyPack(wire) {
+    this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
+    this.events.emit('packChanged');
+  }
   /** L: throw the lasso in the lasso slot (whatever is in your hand). */
   throwLasso() {
     const lasso = this.local && this.local.gear && this.local.gear.lasso;
@@ -323,6 +335,7 @@ class ClientGame {
     if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
     if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
     else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }
+    if (snapshot.pack !== undefined) this._applyPack(snapshot.pack);
     if (snapshot.progress) { this.progress = snapshot.progress; this.events.emit('progressChanged'); }
     if (snapshot.treasure) { this.treasureMaps = snapshot.treasure; this.mapIndex = Math.min(this.mapIndex, Math.max(0, this.treasureMaps.length - 1)); this.events.emit('treasureChanged'); }
     if (snapshot.trade) { this.trade = snapshot.trade.state; this.events.emit('tradeChanged'); }

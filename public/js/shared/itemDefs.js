@@ -13,6 +13,7 @@ const ITEM_MAKERS = [
   [Weapons,      d => Object.assign({ id: d.id, name: d.name, maxStack: 1, tool: d.tool }, d.kind ? { kind: d.kind } : {})],
   [WardrobeItems, d => ({ id: d.id, name: d.name, maxStack: 1, kind: 'wardrobe', equip: { slot: d.slot, body: d.body || 'any', power: d.power || 0, def: d.def || 0 }, look: d.look })],
   [Placeables,   d => ({ id: d.id, name: d.name, maxStack: d.maxStack, kind: 'building', placeable: { structure: d.id } })],
+  [BagItems,     d => ({ id: d.id, name: d.name, maxStack: 1, kind: 'bag', bag: { slots: d.slots, for: d.for }, color: d.color })],
   [SpecialItems, d => Object.assign({}, d)]
 ];
 
@@ -26,13 +27,13 @@ const ResourceTypes = Object.freeze({
 const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash', 'brush']);
 const ItemEquipSlots = Object.freeze(['crown', 'outfit', 'cape']);                     // the wardrobe slots (equipment.js)
 /** Fields any table entry may carry through to its item: rarity, resource type, where it lies about, a crafting recipe, your pictures. */
-const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites', 'lasso', 'groom'];
+const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites', 'lasso', 'groom', 'price'];
 
 const ItemRegistry = new Registry('items', { required: ['name', 'maxStack'] });
 for (const [table, make] of ITEM_MAKERS) for (const entry of table.all()) {
   const item = make(entry);
   for (const key of ITEM_EXTRAS) if (entry[key] !== undefined && item[key] === undefined) item[key] = entry[key];
-  for (const key of ['tool', 'food', 'drink', 'equip', 'look', 'placeable']) if (item[key]) item[key] = Object.freeze(Object.assign({}, item[key]));
+  for (const key of ['tool', 'food', 'drink', 'equip', 'look', 'placeable', 'bag']) if (item[key]) item[key] = Object.freeze(Object.assign({}, item[key]));
   ItemRegistry.register(item);
 }
 
@@ -60,8 +61,13 @@ function buildItemDef(d, id, isNew) {
       if (!ContentPack.isPlain(out.look)) out.look = { style: { crown: 'royal', outfit: 'tunic', cape: 'plain' }[d.equip.slot], color: d.color || null };
     }
   }
+  if (d.bag !== undefined) {
+    if (!ContentPack.isPlain(d.bag) || !['player', 'pony'].includes(d.bag.for)) delete out.bag;
+    else { out.bag = { slots: Math.round(num(d.bag.slots, 1, 30, 5)), for: d.bag.for }; out.maxStack = 1; out.kind = 'bag'; }
+  }
   if (isNew) delete out.placeable;
   out.spawns = Array.isArray(d.spawns) ? d.spawns.filter(s => s && typeof s.biome === 'string' && +s.rate > 0).map(s => ({ biome: s.biome, rate: Math.min(50, +s.rate) })) : [];
+  if (d.price !== undefined) out.price = Array.isArray(d.price) ? d.price.filter(c => Array.isArray(c) && typeof c[0] === 'string' && +c[1] > 0).map(c => [c[0], Math.round(+c[1])]) : undefined;
   if (d.craft !== undefined) out.craft = Array.isArray(d.craft) ? d.craft.filter(c => Array.isArray(c) && typeof c[0] === 'string' && +c[1] > 0).map(c => [c[0], Math.round(+c[1])]) : undefined;
   return out;
 }
@@ -86,5 +92,7 @@ const ItemDB = {
   getEquip: id => (ItemDefs[id] && ItemDefs[id].equip) || null,
   getPlaceable: id => (ItemDefs[id] && ItemDefs[id].placeable) || null,
   /** A lasso's { tier, chance }, or null. */
-  getLasso: id => (ItemDefs[id] && ItemDefs[id].lasso) || null
+  getLasso: id => (ItemDefs[id] && ItemDefs[id].lasso) || null,
+  /** A bag's { slots, for: 'player' | 'pony' }, or null (data/items/bags.js). */
+  getBag: id => (ItemDefs[id] && ItemDefs[id].bag) || null
 };

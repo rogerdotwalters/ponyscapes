@@ -103,6 +103,7 @@ class WantSystem {
       let found = this.progress[def.bossRing] || 0;
       for (const a of Object.values(s.animals.animals)) if (a.type === q.creature && !a.delivered) found++;
       for (const inv of Object.values(s.inventories)) if (item) found += inv.count(item);
+      for (const a of Object.values(s.animals.animals)) if (item && a.pack) found += a.pack.count(item);           // (one stowed in a pony's pack)
       for (const d of Object.values(s.drops)) if (d.item === item) found += d.count;
       for (let n = found; n < q.count; n++) this._placeLost(q.creature, def.bossRing);
     }

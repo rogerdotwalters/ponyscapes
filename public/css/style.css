@@ -36,17 +36,25 @@ canvas{display:block}
   background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
 #inventoryPanel header,#craftPanel header,#settingsPanel header{display:flex;justify-content:space-between;align-items:center;height:calc(34px - 8px);margin-bottom:8px;font:600 15px Georgia,serif}
 #invClose,#craftClose,#settingsClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
-#invGrid{display:grid;grid-template-columns:repeat(6,var(--slot,46px));gap:var(--gap,5px)}
+#invBody{overflow-y:auto;touch-action:pan-y}
+.invgrid{display:grid;grid-template-columns:repeat(5,var(--slot,46px));gap:var(--gap,5px);justify-content:center;margin-bottom:4px}
+.invsec{display:flex;align-items:center;gap:6px;margin:6px 0 4px;font:600 12px Georgia,serif;color:#e9ddb8}
+.invsec small{font:400 11px sans-serif;opacity:.7;margin-left:auto}
+.invbags{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 5px}
+.invbag{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 6px 0 3px;border-radius:6px;border:1.5px dashed rgba(227,194,122,.45);background:transparent;color:#f4e6c1;font-size:11px}
+.invbag.filled{border-style:solid}
+.invbag img{width:20px;height:20px}
+.invbag.target{border-color:#7fd1ff;box-shadow:0 0 0 1px #7fd1ff}
+.invnote{font-size:11px;opacity:.7;margin:2px 0 4px}
 .pgrow{font-size:11px;opacity:.85;margin:2px 0}.pgrow i{display:block;height:4px;border-radius:2px;margin-top:2px;background:linear-gradient(90deg,#ffd36a var(--p),rgba(255,255,255,.15) var(--p))}
-#invActions{display:flex;align-items:center;gap:6px;margin-top:8px;height:30px}
-#invPicked{flex:1;min-width:0;font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#invActions{display:flex;align-items:center;justify-content:flex-end;gap:6px;height:30px;margin-top:4px}
+#invPicked{margin-top:6px;height:16px;font-size:12px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#invUse{border-color:#7fd1ff !important;color:#dff3ff !important}
 #invActions button{height:28px;padding:0 8px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:12px;white-space:nowrap}
 #invActions button:disabled{opacity:.35}
 #invActions button.danger{border-color:#e07a6a;color:#ffd6cf}
 #invActions button.armed{background:rgba(160,40,30,.8)}
-#invPony{display:flex;align-items:center;gap:8px;margin-top:6px;height:30px;font-size:12px}
-#invPonyText{flex:1;min-width:0;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#invMainPony{height:28px;padding:0 10px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif;white-space:nowrap}
+#invMainPony{height:22px;padding:0 8px;margin-left:6px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif;white-space:nowrap}
 #craftList,#settingsList{overflow-y:auto;touch-action:pan-y}
 .recipe{display:flex;align-items:center;gap:10px;padding:6px 8px;margin-bottom:6px;border-radius:8px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.25)}
 .recipe .out{position:relative;width:42px;height:42px;flex:none}
@@ -94,10 +102,12 @@ canvas{display:block}
 #emoteWheel{position:fixed;inset:0;z-index:9;background:rgba(5,10,20,.35)}
 .ebubble{position:absolute;border-radius:50%;border:2px solid rgba(227,194,122,.85);background:rgba(250,246,232,.96);padding:0;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .ebubble.etrade{background:rgba(227,194,122,.95);color:#10202f;font-family:Georgia,serif;font-weight:700}
-#gearPanel,#ponyPanel,#townPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
-#gearPanel header,#ponyPanel header,#townPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
+#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
+#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
 #gearClose,#tradeClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
-#gearBody,#ponyBody,#townBody,#tradeBody{overflow-y:auto;touch-action:pan-y}
+#gearBody,#ponyBody,#townBody,#tradeBody,#shopBody{overflow-y:auto;touch-action:pan-y}
+.shophead{display:flex;align-items:center;gap:4px;margin:0 0 8px;font-size:13px}.shophead img{width:20px;height:20px}
+.shopbuy{height:30px;padding:0 12px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif}.shopbuy:disabled{opacity:.35}
 .gsum{font-size:12px;margin-bottom:8px;color:#e9ddb8}
 .ggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
 .gslot{position:relative;height:52px;border-radius:8px;border:1.5px solid rgba(227,194,122,.35);background:rgba(10,18,28,.55);color:#bfb48e;font:11px Georgia,serif;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}

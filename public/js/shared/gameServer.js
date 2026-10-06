@@ -29,7 +29,7 @@ class GameServer {
     this.tick = 0;
     this.rng = mulberry32(seed ^ 0x9e3779b9);
     this.players = {}; this.inputQueues = {}; this.bots = {};
-    this.inventories = {}; this.inventoryRev = {}; this.inventorySentRev = {};
+    this.inventories = {}; this.inventoryRev = {}; this.inventorySentRev = {}; this.packSent = {}; this.packCheck = {};
     this.builtRev = 1; this.builtSentRev = {}; this.floorsRev = 1; this.floorsSentRev = {};
     this.stockRev = 1; this.stockSentRev = {}; this.carryNoticeAt = {};
     this.playerKeys = {}; this.keyTokens = {}; this.tokenKeys = {}; this.tokenSeq = 0; this.petsClaimed = {};   // who owns what across seats (serverOwned.js): seat id -> player key, key <-> away token
@@ -137,6 +137,9 @@ class GameServer {
     const pony = this.animals.release('pony_earth', spawn.x - 2.2, spawn.y + 0.6, id, 7000 + p.slot * 13, { level: 1, variant: 0, rarity: 'rare' });   // rare: its ability can be tried at once (ride it, press H)
     pony.starter = true;                                                     // (it makes way if this player's own ponies are waiting in the world)
     pony.main = true;                                                        // ...and it is their main pony: it follows them about
+    this._ponyBags(pony).bags[0] = CONFIG.sim.inventory.starterPonyBag;      // ...wearing the Starter Side Pack (10 slots): the rest of the test kit is in it
+    this._ponyBags(pony);
+    if (CONFIG.sim.testKit) TestKitPony.forEach(([item, count]) => pony.pack.add(item, count));
     this._remember(id, pony);
     return pony;
   }
@@ -200,7 +203,7 @@ class GameServer {
     delete this.playerKeys[id]; delete this.petsClaimed[id];
     const boat = this.boats[this.players[id] && this.players[id].boat];
     if (boat) boat.occupant = '';
-    [this.players, this.inputQueues, this.bots, this.inventories, this.inventoryRev, this.inventorySentRev, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
+    [this.players, this.inputQueues, this.bots, this.inventories, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
       .forEach(t => delete t[id]);
     delete this.ringsSentRev[id]; delete this.settingsSentRev[id];
     delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
@@ -257,6 +260,10 @@ class GameServer {
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
       case 'equip': this._handleEquip(id, inventory, cmd.from); break;
+      case 'packMove': this._packMove(id, inventory, cmd); break;                                           // between your bag and your pony's pack (packSystem.js)
+      case 'ponyBagOn': this._ponyBagOn(id, inventory, cmd.from); break;
+      case 'ponyBagOff': this._ponyBagOff(id, inventory, cmd.index); break;
+      case 'buy': if (typeof cmd.item === 'string') this._buy(id, cmd.item); break;                          // at a shop counter (shopSystem.js)
       case 'unequip': this._handleUnequip(id, inventory, cmd.slot); break;
       case 'emote': this._handleEmote(id, cmd.id); break;
       case 'release': this._handleRelease(id, cmd); break;
@@ -270,8 +277,12 @@ class GameServer {
       case 'setVitals': this._handleSetVitals(id, cmd); break;
       case 'stockTake': this._handleStockTake(id, inventory, cmd); break;
       case 'upgrade': this._handleUpgrade(id, inventory, cmd); break;
-      case 'drop': this._handleDrop(id, inventory, cmd); break;
-      case 'destroy': this._handleDestroy(id, inventory, cmd); break;
+      case 'drop': case 'destroy': {
+        const from = cmd.pack ? this._packPonyOf(id) : null;
+        if (cmd.pack && !from) break;
+        if (cmd.type === 'drop') this._handleDrop(id, from ? from.pack : inventory, cmd); else this._handleDestroy(id, from ? from.pack : inventory, cmd);
+        break;
+      }
     }
   }
 
@@ -446,6 +457,8 @@ class GameServer {
     const p = this.players[id], gear = p.gear;
     if (!Number.isInteger(from) || from < 0 || from >= inventory.size) return;
     const item = inventory.itemIdAt(from), slot = item && Wardrobe.slotFor(item);          // (a lasso goes into the lasso slot)
+    if (Bags.isPonyBag(item)) { this._ponyBagOn(id, inventory, from); return; }             // a pony bag: onto the pony you can reach
+    if (slot === 'bag') { this._equipBag(id, inventory, from); return; }                     // a bigger bag: everything moves into it (packSystem.js)
     if (!slot) { if (item) this._notice(id, 'You cannot wear that'); return; }
     if (!Wardrobe.fits(item, p.appearance)) { this._notice(id, `That is ${Wardrobe.forWhom(item)}`); return; }
     const previous = gear[slot];
@@ -459,6 +472,7 @@ class GameServer {
 
   _handleUnequip(id, inventory, slot) {
     const gear = this.players[id].gear, item = gear[slot];
+    if (slot === 'bag') { if (item) this._notice(id, 'You always carry a bag: wear a bigger one to swap it'); return; }
     if (!item || !(WardrobeSlots.includes(slot) || slot === 'lasso')) return;
     if (inventory.add(item, 1) > 0) { this._notice(id, 'Inventory full'); return; }
     gear[slot] = '';

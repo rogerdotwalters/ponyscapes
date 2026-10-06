@@ -153,8 +153,20 @@ younger testers out, not real security: the code is in `js/client/ui/settingsUI.
   Golden (3: unicorns) → Starlight (4: alicorns), each crafted from the one before at the crafting table.
 * **Your main pony** (★ on its name) follows you everywhere when you are not riding it: around the world, into buildings and caves, and it
   catches up if you gallop off on another pony. Your starter pony begins as your main pony. Riding another of your ponies, open the bag (**I**) and press
-  **★ Make main pony** (or press **N**) to make it your main pony instead (the old one stays where it is). It is in the bag, not on the screen,
+  **★ Make main pony** in its section (or press **N**) to make it your main pony instead (the old one stays where it is). It is in the bag, not on the screen,
   so it is never hit by accident. It is saved with your character and the world.
+* **Tool belt and bags** (`js/data/items/bags.js`, `js/shared/packSystem.js`): you carry a **5-slot tool belt** (the hotbar, keys **1-5**) plus the
+  **bag** you wear (the Bag slot in Gear). Everybody starts with the **Starter Backpack** (5 slots); buy a **Leather Satchel** (8) or an **Explorer's Pack** (12)
+  at the General Store, or craft one at a crafting table, then **Wear bag** (in the bag, **I**) or **Swap bag** (Gear). You always wear exactly one bag;
+  a swap is refused if the new bag is too small for what you carry, and the old bag goes into the new one.
+* **Pony packs**: every pony you own has at least **2 bag slots** (3 for rare and epic ponies, 4 for legendary), and pony bags are bigger. The starter pony
+  wears the **Starter Side Pack** (10 slots), which holds the rest of the test kit (bow, arrows, torches, jug, planks, rope, string, stone, apples and 25 gold).
+  **Saddlebags** (15) and **Great Saddlebags** (20) are sold at the General Store or crafted. Ride your pony or stand next to it and the bag (**I**) shows
+  its pack: tap a stack and tap a slot in any section, or use **To pony** / **To my bag**; pick a pony bag and press **Put on pony**, tap a bag on the pony to
+  take it off (the rest of the pack must still hold everything). The pack is saved with the pony (character and world saves). An older save with a bigger
+  inventory loses nothing: what the new bag cannot hold goes into the main pony's pack (it gets a Starter Side Pack), or on the ground.
+* **Shops**: the General Store's **Shop Counter** (press **F** at it) sells bags, torches and jugs for gold coins (an item's `price` in its data table; a building
+  lists what it sells with `shop: [...]`, and any furniture with `shop: true` is a counter). Coins come from your bag first, then from your pony's pack.
 * **Brushes**: a Wooden Brush (by hand: plank + 2 string) or a Soft Brush grooms a pony you own (Use beside it): hearts and XP.
 * **Items on the ground**: in the bag (**I**) pick a stack, then **Drop 1**, **Drop all** or **Destroy** (tap twice). Anyone picks a pile up with **F**; loot that does not fit
   in your pack falls on the ground too.
