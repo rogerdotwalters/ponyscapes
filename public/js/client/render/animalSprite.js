@@ -21,6 +21,11 @@ class AnimalSprite {
 
     const drawn = !opts.procedural && SpriteRegistry.drawCreature(ctx, animal.type, animal.look, dir, sx, sy, speed > 0.2, now);
     if (!drawn && PixelPony.covers(animal.type)) this._drawPixelPony(animal, st, dir, sx, sy, speed, now, seed);
+    else if (!drawn && PixelCreatures.has((def.sprite && def.sprite.kind) || 'sheep')) {                // the retro pixel-art creatures (pixelCreatures.js)
+      const spec = Object.assign({ kind: 'sheep' }, def.sprite || {});
+      PixelCreatures.draw(ctx, spec, sx, sy, st.flip, { moving: speed > 0.2, phase: st.phase, now, seed: (seed % 7) * 0.13, hunting: animal.state === 'chase',
+        extra: spec.kind === 'deer' && seed % 2 === 0 ? 'stag' : '' });
+    }
     else if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
     const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
     if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
