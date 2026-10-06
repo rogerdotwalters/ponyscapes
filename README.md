@@ -1,37 +1,39 @@
 # Realm: multiplayer on Cloudflare
 
-One Cloudflare Worker does two jobs: it **serves the game** (static files in `public/`) and it **relays WebSocket messages** between the player who hosts a game and up to three friends. The game itself runs in the **host's browser**; the relay only copies messages. Nothing about the game is stored on Cloudflare.
+**Cloudflare Pages serves the game** (static files in `public/`) and a small **relay Worker relays WebSocket messages** between the player who hosts a game and up to three friends. The game itself runs in the **host's browser**; the relay only copies messages. Nothing about the game is stored on Cloudflare.
 
 ```
  friend ─┐                                   ┌─ Durable Object "room ABCDE" (one per code, stores nothing)
- friend ─┼─ wss://your-worker/ws?room=ABCDE ─┤        copies frames host <-> friends
+ friend ─┼─ wss://your-site/ws?room=ABCDE ──┤        copies frames host <-> friends
  friend ─┘                                   └─ host (runs the whole game, keeps the saves in ITS OWN browser database)
 ```
 
-## Deploy (about 5 minutes)
+## Deploy to Cloudflare Pages (about 10 minutes)
 
-You need a free Cloudflare account and Node 18+.
+You need a free Cloudflare account and Node 18+. Two pieces go up: the **relay Worker** (multiplayer rooms, a Durable Object; Pages cannot host those itself)
+and the **Pages site** (the game). The site's `/ws` function hands each WebSocket to the relay, so players only ever use the Pages address.
 
 ```bash
-cd realm-cloudflare
-npm install            # installs wrangler
-npx wrangler login     # opens a browser once
-npm run deploy         # builds ./public from the game source and deploys
+npm install
+npx wrangler login          # opens a browser once
+npm run deploy:relay        # 1. the relay Worker "realm-relay" (do this first: the site binds to it)
+npm run deploy:pages        # 2. the game on Pages, project "realm" (wrangler asks to create it the first time)
 ```
 
-Wrangler prints your address, e.g. `https://realm-relay.YOURNAME.workers.dev`. Open it: that is the game. One person presses **Host a game**, shares the 5-letter code (or the invite link from *Menu > Session*), and up to three friends press **Join a game**.
+Or both at once: `npm run deploy`. Open the address wrangler prints (e.g. `https://realm.pages.dev`), press **Host a game**, and share the code or link.
+Check the relay binding at `https://realm.pages.dev/health` (`"relay": true`).
 
-Try it locally first with `npm run dev` (needs the `workerd` binary that wrangler installs).
+**Deploying from Git instead:** in the Cloudflare dashboard, Workers & Pages > Create > Pages > Connect to Git, pick this repository and set
+*Build command:* (leave empty), *Build output directory:* `public`. The repo's `wrangler.toml` supplies the relay binding, and `functions/` is picked up
+automatically. The relay Worker still has to be deployed once with `npm run deploy:relay`; redeploy it only when `src/` or the relay modules change.
 
-## Game on Cloudflare Pages instead
+Names: the Pages project is `realm` and the relay Worker `realm-relay` (in `wrangler.toml` and `relay/wrangler.toml`). If you rename the Worker, change
+`script_name` in `wrangler.toml` to match.
 
-Pages cannot run Durable Objects, so deploy the Worker as above and put the game on Pages:
+**All-in-one alternative:** the relay Worker also serves the game, so `npm run deploy:relay` alone gives a working site at `https://realm-relay.NAME.workers.dev`.
+Try everything locally with `npm run dev` (that Worker) or, for the Pages setup, `npx wrangler dev -c relay/wrangler.toml` in one terminal and `npx wrangler pages dev` in another.
 
-1. `npm run build` then `npx wrangler pages deploy public --project-name realm`.
-2. Edit `public/relay-config.js`: `window.REALM_RELAY = 'wss://realm-relay.YOURNAME.workers.dev/ws';` (it survives rebuilds).
-3. In `wrangler.toml` set `ALLOWED_ORIGINS = "https://realm.pages.dev"` and `npm run deploy` again, so only your page may open relay sockets.
-
-Players can also point at any relay from the lobby ("Relay address") or with `?relay=wss://...` in the link.
+Players can still point at any relay from the lobby ("Relay address") or with `?relay=wss://...` in the link; `public/relay-config.js` stays empty for Pages.
 
 ## How saving works
 
@@ -50,11 +52,13 @@ Players can also point at any relay from the lobby ("Relay address") or with `?r
 ## Layout
 
 ```
-wrangler.toml       Worker + Durable Object + static assets
-src/index.js        routes /ws to the room, serves /health and the game
-src/relay*.js       the room's rules (shared with the browser; copied here by tools/build.py)
-public/             the game (built by tools/build.py; edit relay-config.js here)
-tools/build.py      copies the game source + relay modules into place
+wrangler.toml         the Cloudflare Pages project (output: public/, binds the relay's Durable Object)
+functions/            Pages Functions: /ws (hands WebSockets to the relay) and /health
+relay/wrangler.toml   the relay Worker + Durable Object (also serves the game: the all-in-one option)
+src/index.js          the relay Worker's code; src/relay*.js are copies of public/js/shared/relay*.js (npm run build syncs them)
+public/               the game itself, deployed as it is; editor.html is the content editor
+tools/build.py        syncs the relay modules into src/ (it no longer touches public/)
+tools/bundle.py       packs the game into one self-contained HTML file
 ```
 
 ## Your own content (editor.html)
@@ -84,5 +88,5 @@ You carry only as many stacks of wood, stone and clay as your Constitution level
 Stockpiles at the crafting table (they need a stone hammer), deliver to them with **F**, and manage them in the **Town** window (**T**). Crafting tables pull missing
 ingredients from linked stockpiles and store overflow there; buildings (stockpiles, crafting table, stable) upgrade with resources from nearby stockpiles.
 
-`public/` is the game source (it came from realm.zip). `tools/build.py` still rebuilds `public/` from a separate `../realm` folder and deletes `public/` first: do not run it (or `npm run build` / `deploy` / `dev`, which call it) unless that folder holds these changes too.
+`public/` is the game source (it came from realm.zip) and is deployed as it is.
 `python3 tools/bundle.py out.html` packs the game in `public/` into one self-contained HTML file.
