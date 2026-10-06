@@ -57,7 +57,7 @@ function resolveCollisions(map, p, r) {
 
 /** Read-only overlap test (used by path smoothing and tap targets). */
 /** In the air nothing on the ground stops you (trees, water, fences, houses): only a ring's barrier and a cave wall are solid. */
-const isFlightBlocked = (map, tx, ty) => map.tile(tx, ty) === TILE.CAVE_WALL || !!map.layers.rings.barrierAt(tx, ty);
+const isFlightBlocked = (map, tx, ty) => map.tile(tx, ty) === TILE.CAVE_WALL || InteriorSpace.region(tx, ty) || !!map.layers.rings.barrierAt(tx, ty);
 function resolveFlightCollisions(map, p, r) {
   const push = { x: 0, y: 0 };
   for (let iter = 0; iter < 4; iter++) {

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Level Editor</title>
+<link rel="stylesheet" href="css/editor.css">
+<link rel="stylesheet" href="css/levelEditor.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand"><b>Level Editor</b><span id="status"></span></div>
+  <nav class="links"><a href="editor.html">Content editor</a></nav>
+  <div class="actions">
+    <button id="btnUndo" title="Undo (Ctrl+Z)">&#x21B6; Undo</button>
+    <button id="btnRedo" title="Redo (Ctrl+Y)">&#x21B7; Redo</button>
+    <button id="btnPlay" title="Opens the game (solo) with this draft, inside a building that uses this room">Play-test room</button>
+    <button id="btnDownload" class="primary" title="Save this as js/content/interiors.js">Download interiors.js</button>
+    <label class="btn" title="Load an interiors.js (or .json) you saved before">Import&hellip;<input id="importFile" type="file" accept=".js,.json" hidden></label>
+    <button id="btnDiscard" title="Throw the draft away and start again from js/content/interiors.js">Discard draft</button>
+  </div>
+</header>
+<div id="banner" hidden></div>
+<main>
+  <aside id="sidebar">
+    <div class="sidetools"><b class="grow">Rooms</b><button id="btnNewRoom">+ New</button></div>
+    <div id="rooms"></div>
+    <div id="roomProps"></div>
+  </aside>
+  <section id="stage">
+    <div id="planWrap">
+      <div class="stagebar"><b>Plan</b><small id="hoverInfo"></small><span class="grow"></span><label>Zoom <input id="zoom" type="range" min="14" max="48" value="30"></label></div>
+      <div id="planScroll"><canvas id="plan"></canvas></div>
+    </div>
+    <div id="previewWrap">
+      <div class="stagebar"><b>How it looks in the game</b><span class="grow"></span><label><input id="previewWalls" type="checkbox" checked> walls</label></div>
+      <canvas id="preview"></canvas>
+      <div id="warnings"></div>
+    </div>
+  </section>
+  <aside id="palette">
+    <div class="ptitle">Tools <small>(keys)</small></div>
+    <div id="tools"></div>
+    <div class="ptitle">Tiles</div>
+    <div id="tileList"></div>
+    <div class="ptitle">Furniture <small>R turns it</small></div>
+    <div id="furnitureList"></div>
+    <div class="phelp">
+      <b>How to</b><br>
+      Pick a tile and paint with the mouse; <b>Room</b> draws walls round a floor in one drag (the last wall and floor you picked).
+      The <b>doormat</b> is the way out: you arrive on the tile above it. Pick a piece of furniture and click to place it (drag a placed one to move it,
+      right-click to remove). Walls at the top and left are drawn tall in the game, walls at the bottom and right low.
+    </div>
+  </aside>
+</main>
+<dialog id="newDialog">
+  <form method="dialog">
+    <h3>New room</h3>
+    <label>Id <small>(lower case, letters, digits and _ ; a building's <code>interior</code> uses it)</small><input id="newId" required pattern="[a-z][a-z0-9_]{0,39}" autocomplete="off" spellcheck="false"></label>
+    <label>Name<input id="newName" autocomplete="off"></label>
+    <label>Start from<select id="newFrom"></select></label>
+    <div id="newError" class="error"></div>
+    <menu><button value="cancel" formnovalidate>Cancel</button><button id="newCreate" value="ok" class="primary">Create</button></menu>
+  </form>
+</dialog>
+
+<!-- the game's own tables and drawing code, so a room looks here exactly as it will in the game -->
+<script src="js/shared/config.js"></script>
+<script src="js/shared/mathUtils.js"></script>
+<script src="js/shared/tileTypes.js"></script>
+<script src="js/content/customContent.js"></script>
+<script src="js/content/interiors.js"></script>
+<script src="js/shared/contentPack.js"></script>
+<script src="js/core/registry.js"></script>
+<script src="js/data/buildings/registry.js"></script>
+<script src="js/data/buildings/carpenter.js"></script>
+<script src="js/data/buildings/veterinary.js"></script>
+<script src="js/data/buildings/general_store.js"></script>
+<script src="js/data/buildings/player_home.js"></script>
+<script src="js/data/furniture/registry.js"></script>
+<script src="js/data/furniture/basic.js"></script>
+<script src="js/data/interiors/tiles.js"></script>
+<script src="js/shared/layers/buildingSites.js"></script>
+<script src="js/shared/layers/interiorSpace.js"></script>
+<script src="js/client/render/isoProjection.js"></script>
+<script src="js/client/render/spriteRegistry.js"></script>
+<script src="js/client/render/interiorSprites.js"></script>
+<script src="js/editor/levelEditor.js"></script>
+</body>
+</html>

@@ -24,8 +24,12 @@ class Renderer {
     for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const o = chunk.obj[(ly << CHUNK_SHIFT) | lx];
       if (!o) continue;
-      const tx = chunk.cx * CHUNK_SIZE + lx, ty = chunk.cy * CHUNK_SIZE + ly;
-      items.push({ kind: 'structure', depth: tx + ty + 1, o, tx, ty, gx: (tx - ty) * TILE_HALF_W, gy: (tx + ty + 1) * TILE_HALF_H });
+      const tx = chunk.cx * CHUNK_SIZE + lx, ty = chunk.cy * CHUNK_SIZE + ly, item = { kind: 'structure', depth: tx + ty + 1, o, tx, ty, gx: (tx - ty) * TILE_HALF_W, gy: (tx + ty + 1) * TILE_HALF_H };
+      if (o >= INTERIOR_OBJ_BASE) {                                                    // a room's wall: low at the front, a window on the side facing in
+        const room = (x, y) => { const c = InteriorSpace.cell(x, y); return !!c && !c.layout.walls[c.i] && !isInteriorVoid(c.layout.grid[c.i]); };
+        Object.assign(item, { low: InteriorSpace.wallIsLow(tx, ty), windowS: room(tx, ty + 1), windowE: room(tx + 1, ty) });
+      }
+      items.push(item);
     }
     for (const prop of chunk.props) {
       items.push({ kind: 'prop', depth: prop.x + prop.y, prop, key: tileKey(Math.floor(prop.x), Math.floor(prop.y)), gx: isoX(prop.x, prop.y), gy: isoY(prop.x, prop.y) });
@@ -64,7 +68,8 @@ class Renderer {
     const me = state.players[this.game.myId], ctx = this.ctx;
     this.camera.follow(isoX(me.x, me.y), isoY(me.x, me.y) - 18, frameMs);
 
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = OCEAN_COLOR; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    const indoors = InteriorSpace.contains(Math.floor(me.x), Math.floor(me.y));
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = indoors ? '#0b0d12' : OCEAN_COLOR; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.camera.applyTransform(ctx);
     const bounds = this.camera.bounds();
 
@@ -72,6 +77,7 @@ class Renderer {
     TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
     this._drawTapMarker(now);
     for (const item of this._sortedWorldItems(state, bounds, tiles)) this._drawItem(item, now);
+    if (!indoors) this._drawBuildingNames(me);
     this._drawLighting(me, state);
     this.effects.draw(this.g, frameMs);              // particles and floating text sit above the night overlay
   }
@@ -86,8 +92,22 @@ class Renderer {
       const flicker = 1 + Math.sin(performance.now() / 140 + l.x * 3) * 0.03;
       return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * flicker, kind: l.kind };
     });
-    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, DungeonSpace.contains(Math.floor(this.game.local.x), Math.floor(this.game.local.y)) ? 0 : this.game.hour(), px, py, s, lights);
+    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, DungeonSpace.contains(Math.floor(this.game.local.x), Math.floor(this.game.local.y)) ? 0 : InteriorSpace.contains(Math.floor(this.game.local.x), Math.floor(this.game.local.y)) ? 12 : this.game.hour(), px, py, s, lights);
     this.camera.applyTransform(this.ctx);
+  }
+
+  /** The name of each building near you, on a little banner above its door. */
+  _drawBuildingNames(me) {
+    const ctx = this.ctx;
+    for (const site of BuildingSites.list) {
+      const f = BuildingSites.doorFront(site);
+      if (Math.hypot(f.x - me.x, f.y - me.y) > 14) continue;
+      const x = isoX(site.doorX + 0.5, site.doorY + 1), y = isoY(site.doorX + 0.5, site.doorY + 1) - CONFIG.view.houseH - 34;
+      ctx.font = '600 12px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(site.def.name).width + 16;
+      this.g.roundRect(x - w / 2, y - 10, w, 20, 8); ctx.fillStyle = 'rgba(20,28,40,.78)'; ctx.fill();
+      ctx.fillStyle = site.def.exterior.sign || '#f4e6c1'; ctx.fillText(site.def.name, x, y + 0.5);
+    }
   }
 
   /** A speech bubble above someone's head, its text wrapped to a few short lines. */
@@ -167,6 +187,7 @@ class Renderer {
     else if (prop.t === 'loot') { if (prop.ripe) this._drawLoot(item.gx, item.gy, prop, now); }
     else if (prop.t === 'cave') PropSprites.drawCave(g, item.gx, item.gy, prop.ring, now);
     else if (prop.t === 'portal') PropSprites.drawPortal(g, item.gx, item.gy, now);
+    else if (prop.t === 'furniture') InteriorSprites.furniture(g, prop, now);
     else PropSprites.drawWell(g, item.gx, item.gy);
   }
 

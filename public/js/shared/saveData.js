@@ -37,6 +37,7 @@ const SaveData = {
       built: JSON.parse(JSON.stringify(m.built)), floors: Object.assign({}, m.floors), treasureDug: Object.assign({}, m.treasureDug),
       treeStates: JSON.parse(JSON.stringify(m.treeStates)), forageStates: JSON.parse(JSON.stringify(m.forageStates)),
       stockpiles: Stockpiles.exportState(m),
+      interiors: server.interiors.exportState(),                               // whose home is which room
       pets: server._exportOwnedPets(),                                         // every player's ponies and pets, by owner key (they wait in the world for them)
       drops: Object.values(server.drops).map(d => ({ item: d.item, count: d.count, x: d.x, y: d.y })),
       bossesDefeated: [...server.worldProgress.defeated], hostilesOff: !!server.settings.hostilesOff,
@@ -48,7 +49,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [] };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -112,8 +113,9 @@ const SaveData = {
 
   /** Step 1 (before any chunk exists): what players changed on the map itself. `world` must already be sanitized. */
   applyMapState(map, world) {
-    map.built = {}; BuildSystem.replaceAll(map, world.built);
-    BuildSystem.replaceFloors(map, world.floors);
+    const open = table => Object.fromEntries(Object.entries(table).filter(([key]) => !BuildingSites.at(keyTileX(key), keyTileY(key))));   // (an older save's walls where a building now stands)
+    map.built = {}; BuildSystem.replaceAll(map, open(world.built));
+    BuildSystem.replaceFloors(map, open(world.floors));
     map.treasureDug = Object.assign({}, world.treasureDug);
     map.treeStates = JSON.parse(JSON.stringify(world.treeStates));
     map.forageStates = JSON.parse(JSON.stringify(world.forageStates));
@@ -123,6 +125,7 @@ const SaveData = {
   applyTimers(server, world) {
     server.tick = world.tick;
     if (world.clockHours !== null && world.clockHours !== undefined) GameSettings.setClock(world.tick, world.clockHours);   // the time of day carries on where it was
+    if (world.interiors) server.interiors.restore(world.interiors);
     server.trees.respawns = world.treeRespawns.map(r => Object.assign({}, r));
     server.forage.regrows = world.forageRegrows.map(r => Object.assign({}, r));
     server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;

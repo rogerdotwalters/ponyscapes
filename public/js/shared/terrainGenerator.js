@@ -54,6 +54,7 @@ class TerrainGenerator {
   /** Final ground type of a tile. */
   tile(tx, ty) {
     if (DungeonSpace.contains(tx, ty)) return DungeonSpace.tileAt(tx, ty);              // cave interiors live in their own block of the map
+    if (InteriorSpace.region(tx, ty)) return InteriorSpace.tileAt(tx, ty);            // ...and so do the rooms inside buildings
     const forced = Village.tile(tx, ty);
     if (forced >= 0) return forced;
     const T = TERRAIN, e = this.elevation(tx, ty);
@@ -139,7 +140,7 @@ class TerrainGenerator {
   /** The animals that live in this chunk: [{ type, x, y, gene, variant, level, biome }]. Deterministic, so a chunk always holds the same herd.
    *  WHAT lives here is decided by the RING (each creature's own data says which ring it belongs to and how common it is). */
   animalGroup(cx, cy, tileOf) {
-    if (DungeonSpace.contains(cx * CHUNK_SIZE, cy * CHUNK_SIZE) || hash3(this.seed, cx, cy, 21) >= FAUNA_CHANCE) return [];
+    if (DungeonSpace.contains(cx * CHUNK_SIZE, cy * CHUNK_SIZE) || InteriorSpace.region(cx * CHUNK_SIZE, cy * CHUNK_SIZE) || hash3(this.seed, cx, cy, 21) >= FAUNA_CHANCE) return [];
     for (let attempt = 0; attempt < 10; attempt++) {
       const tx = cx * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 30 + attempt) * CHUNK_SIZE);
       const ty = cy * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 50 + attempt) * CHUNK_SIZE);

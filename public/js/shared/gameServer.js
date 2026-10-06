@@ -45,6 +45,7 @@ class GameServer {
     this.everTamed = {};                                   // ownerId -> { animalType: true }: the Pony Book remembers every kind you have kept
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
+    this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
     this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
@@ -70,16 +71,11 @@ class GameServer {
     this.builtRev++; this.stockRev++;
   }
 
-  /** The testing version starts with a little home: a floored room with a door, a window and a crafting table. */
+  /** The testing version starts with an open-air crafting table in the yard of the player home (the home itself is a building you walk into). */
   _buildStarterHome() {
-    const H = Village.home, put = (tx, ty, type, slot) => BuildSystem.place(this.map, tx, ty, type, slot);
-    for (let ty = H.y0; ty <= H.y1; ty++) for (let tx = H.x0; tx <= H.x1; tx++) put(tx, ty, 'wood_floor', 'f');
-    for (let tx = H.x0; tx <= H.x1; tx++) { put(tx, H.y0, 'wood_wall', 'n'); put(tx, H.y1, 'wood_wall', 's'); }
-    for (let ty = H.y0; ty <= H.y1; ty++) { put(H.x0, ty, 'wood_wall', 'w'); put(H.x1, ty, 'wood_wall', 'e'); }
-    put(H.x0 + 1, H.y1, 'wood_door', 's');                  // the door faces south, towards the village
-    put(H.x1 - 1, H.y0, 'wood_window', 'n');
-    put(H.x1 - 1, H.y0 + 1, 'crafting_table', 'c');
-    this.builtRev++; this.floorsRev++;
+    const W = Village.workshop;
+    BuildSystem.place(this.map, W.x, W.y, 'crafting_table', 'c');
+    this.builtRev++;
   }
 
   /** A fenced paddock with a gate and a stable in it, next to the home: somewhere to lead a caught wild pony and feed it apples. */

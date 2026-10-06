@@ -146,6 +146,11 @@ function launch(choice, query) {
     $('game').addEventListener('wheel', e => { e.preventDefault(); game.cycleSlot(Math.sign(e.deltaY)); }, { passive: false });
     setTimeout(() => { $('hint').style.opacity = '0'; }, 10000);
 
+    const enterParam = new URLSearchParams(location.search).get('enter');
+    if (enterParam && adapter.server) {                     // ?enter=<building id>: start inside that building (testing rooms from level-editor.html)
+      const site = BuildingSites.list.find(s => s.id === enterParam || s.def.interior === enterParam);
+      if (site) setTimeout(() => { const s = adapter.server, p = s.players[game.myId]; if (p) s.interiors.enter(game.myId, p, site.index); }, 400);
+    }
     window.realm = { game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, emoteUI, layout };      // handy for console debugging
 
     let rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;

@@ -29,6 +29,7 @@ const TerrainRenderer = (() => {
       else if (type === TILE.CLAY) drawClay(g.ctx, tx, ty, cx, cy, variant, noise);
       else if (type === TILE.CAVE) drawCave(g.ctx, variant, noise, cx, cy, t, tx, ty);
       else if (type === TILE.CAVE_WALL) drawCaveWall(g.ctx, variant, noise, cx, cy);
+      else if (type >= INTERIOR_TILE_BASE) InteriorSprites.tile(g.ctx, type, cx, cy, tx, ty);       // a room's floor (or the dark outside it)
       else drawStone(g.ctx, variant);
       if (rings && rings.barrierAt(tx, ty)) drawBarrier(g.ctx, cx, cy, t, tx, ty);          // a sealed ring's magical wall
       if (anyFloors && map.floors[tileKey(tx, ty)]) StructureSprites.drawFloor(g.ctx, cx, cy);   // built floors sit on top of the ground

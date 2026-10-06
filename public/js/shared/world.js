@@ -6,7 +6,7 @@
  * (Many functions still call their World parameter `map`; it is a World.) */
 const CHUNK_SHIFT = 4, CHUNK_SIZE = 1 << CHUNK_SHIFT, CHUNK_MASK = CHUNK_SIZE - 1, CHUNK_AREA = CHUNK_SIZE * CHUNK_SIZE;
 /** Does this prop stop movement? Felled trees, berry bushes and loose stones (you walk over them) do not. */
-const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'portal', 'loot']);
+const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'portal', 'loot', 'furniture']);      // (solid furniture blocks its tiles instead)
 const propBlocks = prop => prop.alive !== false && !NON_BLOCKING_PROPS.has(prop.t);
 
 const chunkKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
@@ -129,11 +129,16 @@ function generateChunk(world, cx, cy) {
   };
   const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
   const special = caveProps(world, cx, cy);                                                // the cave mouths and cave exits that stand in this chunk
+  const indoors = InteriorSpace.region(x0, y0);                                          // a building's room (InteriorSpace): its walls, floors and furniture
   for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;
-    const tile = T.tile(tx, ty), obj = Village.obj(tx, ty);
+    const tile = T.tile(tx, ty), obj = indoors ? InteriorSpace.objAt(tx, ty) : Village.obj(tx, ty);
     chunk.tiles[li] = tile; chunk.obj[li] = obj;
-    chunk.solid[li] = tile === TILE.WATER || tile === TILE.CAVE_WALL || obj !== OBJ.NONE ? 1 : 0;
+    chunk.solid[li] = tile === TILE.WATER || tile === TILE.CAVE_WALL || obj !== OBJ.NONE || (indoors && InteriorSpace.solidAt(tx, ty)) ? 1 : 0;
+  }
+  if (indoors) {
+    for (const { tile: [tx, ty], prop } of InteriorSpace.furnitureIn(cx, cy)) addChunkProp(chunk, ((ty - y0) << CHUNK_SHIFT) | (tx - x0), prop);
+    return chunk;
   }
   for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;

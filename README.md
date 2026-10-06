@@ -93,6 +93,22 @@ You carry only as many stacks of wood, stone and clay as your Constitution level
 Stockpiles at the crafting table (they need a stone hammer), deliver to them with **F**, and manage them in the **Town** window (**T**). Crafting tables pull missing
 ingredients from linked stockpiles and store overflow there; buildings (stockpiles, crafting table, stable) upgrade with resources from nearby stockpiles.
 
+## Buildings, interiors and the level editor
+
+The village has four buildings you walk into: the **Carpenter**, the **Veterinary**, the **General Store** and **Your Home** (they replace the old
+placeholder houses and the wall-built starter home; the crafting table now stands in the home's yard). Walk up to a door and press **F** (or tap the
+interact button) to go in; stand on the **doormat** inside and press F to go back out.
+
+* **Instances and layers.** A room is not a separate world: like the caves, every room is a block of tiles in **interior space**, a layer far from
+  the overworld (`js/shared/layers/interiorSpace.js`), so collision, saving and multiplayer just work. The store, carpenter and vet each have one room
+  everyone shares; **Your Home** gives every player their own instance (remembered by their player key and saved with the world).
+* **Data.** Buildings are `js/data/buildings/` (one file each: size, door, colours, sign, which room, shared or per player), where they stand is
+  `js/shared/layers/buildingSites.js`, tile types are `js/data/interiors/tiles.js` and furniture is `js/data/furniture/` (bed, table, chair, bookshelf,
+  dresser, rug, fireplace, potted plant, lamp, shop counter, goods shelf, crate, workbench, lumber rack, exam table, medicine cabinet, hay bale).
+* **The rooms** live in `public/js/content/interiors.js`, written by **`/level-editor.html`**: paint tiles (paint, room, rectangle, fill, pick, erase),
+  place and turn furniture, resize, undo, see the room as the game draws it, and get warnings (no doormat, a blocked arrival tile, overlapping furniture).
+  **Play-test room** opens the game standing inside it (`index.html?solo=1&content=draft&enter=<building>`); **Download interiors.js** gives you the file.
+
 ## Admin page (testing)
 
 Menu > **Admin** (the host only) asks for the code **112298** (remembered until the tab closes; **Lock** locks it again). It is there to keep

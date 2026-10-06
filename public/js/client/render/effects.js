@@ -49,6 +49,7 @@ class Effects {
     game.events.on('groomed', e => { this._burst(e.x, e.y, 10, ['#fff6d8', '#ffd1e8', '#e8dcc4'], 20); this._float(e, `${e.name} looks lovely`); });
     game.events.on('dropped', e => { const def = ItemDB.get(e.item); this._float(e, `Dropped ${e.count} ${def ? def.name : e.item}`); });
     game.events.on('destroyed', e => { const def = ItemDB.get(e.item); this._float(e, `Destroyed ${e.count} ${def ? def.name : e.item}`); });
+    game.events.on('enteredBuilding', e => this._float(e, e.name));                                     // the building's name as you step in
     game.events.on('built', e => this._onBuilt(e));
     game.events.on('demolished', e => this._onBuilt(e, true));
     game.events.on('notice', e => this._float(e, e.text));
