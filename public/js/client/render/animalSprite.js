@@ -20,7 +20,7 @@ class AnimalSprite {
     const def = AnimalDefs[animal.type], scale = (def.sprite && def.sprite.scale) || 1;
 
     const drawn = !opts.procedural && SpriteRegistry.drawCreature(ctx, animal.type, animal.look, dir, sx, sy, speed > 0.2, now);
-    if (!drawn && PIXEL_PONIES[animal.type]) this._drawPixelPony(animal, st, dir, sx, sy, speed, now, seed);
+    if (!drawn && PixelPony.covers(animal.type)) this._drawPixelPony(animal, st, dir, sx, sy, speed, now, seed);
     else if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
     const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
     if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
@@ -29,16 +29,15 @@ class AnimalSprite {
     if (animal.want && view && view.wantNear) WantBubble.draw(ctx, sx, sy - tagY - (hearts ? 30 : 10), animal.want, animal.wantN, now, view.holding === animal.want || (Wants.of(animal.type) || { items: [] }).items.includes(view.holding));   // what it is asking for
   }
 
-  /** The retro pixel-art pony (pixelPony.js), in its own colours. Its biome's glow and effects are laid over it as before. */
+  /** The retro pixel-art pony (pixelPony.js): its kind's wings and horn, its biome's effects, and a soft glow / magic aura behind it. */
   _drawPixelPony(animal, st, dir, sx, sy, speed, now, seed) {
-    const ctx = this.g.ctx, look = PonyLook.describe(animal.look), side = dir === 'left' || dir === 'right';
-    if (look.glow) { ctx.save(); ctx.translate(sx, sy); this._glow(look.glow, now); ctx.restore(); }
-    PixelPony.draw(ctx, look, dir, sx, sy, { moving: speed > 0.2, phase: st.phase, now, seed: seed * 0.13, lift: animal.lift });
-    if (side && look.accessory && look.accessory !== 'flames' && look.accessory !== 'frost') {        // (ember and frost effects are part of the pixel pony)
-      ctx.save(); ctx.translate(sx, sy); ctx.scale(dir === 'left' ? -1 : 1, 1);
-      this._bodyAccessory(look.accessory, now, 0, speed > 0.2, look.coat); this._headAccessory(look.accessory, now, 0);
-      ctx.restore();
-    }
+    const ctx = this.g.ctx, def = AnimalDefs[animal.type], look = PonyLook.describe(animal.look);
+    ctx.save(); ctx.translate(sx, sy);
+    if (look.glow) this._glow(look.glow, now);
+    if (def.mystical) this.g.ellipse(0, -22, 30, 24, `rgba(255,240,255,${0.10 + 0.04 * Math.sin(now / 500)})`);
+    ctx.restore();
+    PixelPony.draw(ctx, look, dir, sx, sy, { moving: speed > 0.2, phase: st.phase, now, seed: seed * 0.13, lift: animal.lift, flying: !!animal.flying,
+      kind: { wings: !!def.wings, horn: !!def.horn, mystical: !!def.mystical } });
   }
 
   /** The procedural artwork for one screen direction. */

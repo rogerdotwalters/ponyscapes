@@ -3,17 +3,19 @@
  * coat, mane and cutie-mark colours (PonyLook), outlined, cached, and drawn scaled up with hard edges.
  * Views: 'right' (the profile; 'left' is its mirror), 'down' (walking towards the camera), 'up' (walking away).
  * Animations: a 4-frame trot tied to the distance walked; standing, the tail swishes, the ears flick and the eyes blink.
- * PIXEL_PONIES says which pony kinds use it (the plain and earth ponies for now; winged and horned ones keep the older smooth drawing). */
-const PIXEL_PONIES = { pony_plain: true, pony_earth: true };
+ * Every pony kind uses it: pegasi and alicorns get feathered wings (folded on the ground, beating in the air), unicorns and alicorns a spiral horn,
+ * mystical ponies circling sparkles, and each biome variety its own effect (fire, frost, leaves, gem shards, stars, sprinkles, a flower crown,
+ * bubbles, dust, a rainbow). A kind listed in PIXEL_PONIES_OFF keeps the older smooth drawing (AnimalSprite._pony). */
+const PIXEL_PONIES_OFF = {};
 const PixelPony = (() => {
-  const W = 52, H = 42, CX = 26, GROUND = 40, PX = 1.25;
+  const W = 52, H = 50, TOP = 8, CX = 26, GROUND = 40, PX = 1.25;   // (TOP: rows above the ears for raised wings and horns)
   const { css, shade, light, mix, tones, outline } = PixelCharacter.util;
   const cache = new Map();
   const HOOF = { b: '#4a4148', l: '#7a6e74', d: '#2e282d' };
 
   function palette(look) {
     const coat = look.coat, m = look.mane;
-    const manes = [m[0], m[1] || light(m[0], 0.3), m[2] || light(m[1] || m[0], 0.45)].map(tones);
+    const manes = (m.length >= 3 ? m : [m[0], m[1] || light(m[0], 0.3), light(m[1] || m[0], 0.45)]).map(tones);   // (a rainbow mane has four)
     return {
       coat: tones(coat), muzzle: tones(mix(coat, '#f1dcc0', 0.45)), feather: tones(mix(coat, '#f6ead2', 0.6)),
       ear: mix(coat, '#e98fa6', 0.5), eye: '#2a1810', iris: mix(m[0], '#4a2a18', 0.55),
@@ -96,7 +98,7 @@ const PixelPony = (() => {
   const lock = (C, i, y, w = 4) => {
     if (C.fx === 'flames') return fire(C, i, y, w);
     if (C.fx === 'frost' && y % 5 === 0 && (i & 1) === 0) return ICE.white;                 // frost glinting in the hair
-    const off = Math.round(Math.sin(y / 3 + i * 0.4)), band = Math.floor((i + off + 8) / 2), t = C.manes[band % 3], within = (i + off + 8) % 2;
+    const off = Math.round(Math.sin(y / 3 + i * 0.4)), band = Math.floor((i + off + 8) / 2), t = C.manes[band % C.manes.length], within = (i + off + 8) % 2;
     return within === 1 && y % 3 === 0 ? t.d : within === 0 && y % 4 === 1 ? t.l : t.b;
   };
 
@@ -132,17 +134,105 @@ const PixelPony = (() => {
     rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') P.px(x + i, y + j, C.markColor); else if (ch === 'o') P.px(x + i, y + j, C.mark === 'apple' ? '#4f8a3a' : C.mark === 'snow' ? '#ffffff' : '#fff3b0'); }));
   }
 
+  /* ---- WINGS: a leading edge from the root, feathers hanging off it in scallops, tipped in the mane colour ---- */
+  const WING_BEAT = [1.15, 0.55, 0.0, -0.45];                                                // the flap, frame by frame (radians above level)
+  /** sgn -1: the wing points left (backwards in the profile). out: which way the feathers hang ([x, y]); by default, downwards. */
+  function wing(P, C, rx, ry, a, L, depth, sgn, far, out, curve = 3) {
+    const dx = sgn * Math.cos(a), dy = -Math.sin(a);
+    let [qx, qy] = out || [-dy, dx];
+    if (!out && qy < 0) { qx = -qx; qy = -qy; }
+    const f = far ? { b: shade(C.wing.b, 0.78), l: C.wing.b, d: shade(C.wing.d, 0.8) } : C.wing, tipT = far ? C.manes[0].d : C.manes[0].b;
+    const steps = Math.ceil(L * 1.6), pix = new Map();
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps, lx = rx + dx * L * t - qx * curve * t * t, ly = ry + dy * L * t - qy * curve * t * t, feather = Math.floor(t * 5);   // (the leading edge arcs up towards the tip)
+      const d = Math.max(1, Math.round(depth * (1 - t * 0.5)) - (s % 5 > 2 ? 1 : 0));                // scalloped feather ends
+      for (let k = 0; k <= d; k++) {
+        const c = k === 0 ? f.l : k >= d ? tipT : (s % 5 === 0 ? f.d : feather % 2 ? f.b : f.l);
+        pix.set(Math.round(lx + qx * k) + ',' + Math.round(ly + qy * k), c);
+      }
+    }
+    const edge = shade(C.coat.b, far ? 0.45 : 0.55), tip = new Set([tipT]);                       // its own dark line round the edge, so it stands out on the coat
+    for (const [k, c] of pix) {
+      const [x, y] = k.split(',').map(Number), open = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([u, v]) => !pix.has((x + u) + ',' + (y + v)));
+      P.px(x, y, open && !tip.has(c) ? edge : c);
+    }
+  }
+  /** The wings for a view: folded along the side on the ground, beating in the air. far: the wing behind the body (side view). */
+  function wings(P, C, view, layer) {
+    const fly = C.flying, a = fly ? WING_BEAT[C.wf] : null;
+    if (view === 'right') {
+      if (layer === 'far') { if (fly) wing(P, C, 27, 16, a * 0.8 + 0.25, 15, 6, -1, true); return; }
+      if (fly) wing(P, C, 25, 18, a * 0.8, 17, 7, -1, false);                                    // rooted over the barrel, behind the mane
+      else wing(P, C, 31, 18, -0.22 + (C.ruffle ? 0.08 : 0), 16, 6, -1, false, null, 1.5);      // folded along the side
+    } else {
+      const back = view === 'up';
+      for (const sgn of [-1, 1]) {
+        const rx = CX + sgn * (back ? 5 : 8), ry = back ? 20 : 21;
+        if (fly) wing(P, C, rx, ry, a, 17, 6, sgn, false);
+        else wing(P, C, rx, ry, -1.3, back ? 7 : 8, 2, sgn, false, [sgn, 0], 0);           // folded: a feathered edge down each side
+      }
+    }
+  }
+
+  /* ---- HORN: a spiral horn of gold (or a gem, on a crystal pony) ---- */
+  function horn(P, C, x0, y0, x1, y1) {
+    const g = C.fx === 'crystals' ? { b: '#bff3ff', l: '#ffffff', d: '#5fc4e0' } : { b: '#f6d56f', l: '#fff2a8', d: '#b8902a' };
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2;
+    for (let s = 0; s <= n; s++) {
+      const t = s / n, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, w = t < 0.35 ? 3 : t < 0.75 ? 2 : 1;
+      for (let k = 0; k < w; k++) P.px(x - (w >> 1) + k, y, k === 0 ? g.l : Math.round(y) % 2 ? g.d : g.b);
+    }
+  }
+
+  /* ---- BIOME EFFECTS painted into the sprite ---- */
+  const SPRINKLES = ['#ff4081', '#ffeb3b', '#40c4ff', '#69f0ae', '#ffffff', '#b388ff'];
+  const SPOTS = {                                                                              // places on the coat for stars, sprinkles and twinkles
+    right: [[14, 20], [22, 19], [29, 23], [18, 26], [25, 27], [33, 21], [11, 24], [20, 23], [27, 20], [16, 28]],
+    down: [[21, 24], [30, 25], [26, 28], [19, 27], [33, 27], [24, 25], [28, 29], [22, 30]],
+    up: [[20, 23], [31, 24], [26, 29], [22, 26], [30, 28], [18, 27], [34, 27], [24, 21]],
+  };
+  const leaf = (P, x, y) => { P.px(x, y, '#3f8a3c'); P.px(x + 1, y, '#5fae4e'); P.px(x + 1, y - 1, '#5fae4e'); P.px(x + 2, y - 1, '#8fd16a'); P.px(x, y + 1, '#2f6a2c'); };
+  const flower = (P, x, y, c) => { for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1]]) P.px(x + dx, y + dy, c); P.px(x, y, '#f9a825'); };
+  function shard(P, x, base, h, c) { for (let k = 0; k < h; k++) { P.px(x, base - k, k === h - 1 ? '#ffffff' : c); if (k < h - 2) { P.px(x - 1, base - k, shade(c, 0.8)); P.px(x + 1, base - k, c); } } }
+  function bodyFx(P, C, view) {
+    const spots = SPOTS[view], fx = C.fx;
+    if (fx === 'leaves') {                                                                     // moss on the back, a few leaves
+      const [x0, x1, y] = view === 'right' ? [14, 30, 17] : view === 'up' ? [19, 33, 18] : [20, 32, 19];
+      for (let x = x0; x <= x1; x++) { P.px(x, y, (x * 5) % 3 ? '#4f8a3a' : '#6fae4e'); if (x % 3 === 0) P.px(x, y - 1, '#3f7a3c'); }
+      for (const x of view === 'right' ? [17, 25] : [x0 + 2, x1 - 4]) leaf(P, x, y - 1);
+    } else if (fx === 'crystals') {                                                            // gem shards growing along the back
+      const xs = view === 'right' ? [15, 19, 23, 27] : view === 'up' ? [19, 23, 27, 31] : [18, 34], base = view === 'right' ? 18 : 19;
+      xs.forEach((x, i) => shard(P, x, base, [5, 7, 6, 5][i % 4], i % 2 ? '#c7a8ff' : '#8ef0ff'));
+    } else if (fx === 'stars') {                                                               // a coat dusted with stars, some twinkling
+      spots.forEach(([x, y], i) => P.px(x, y, i % 3 ? '#ffffff' : '#fff5b0'));
+      const [x, y] = spots[C.tw % spots.length]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) P.px(x + dx, y + dy, '#fff5b0');
+    } else if (fx === 'sprinkles') {                                                           // candy sprinkles
+      spots.forEach(([x, y], i) => { const c = SPRINKLES[i % SPRINKLES.length]; P.px(x, y, c); P.px(x + (i % 2), y + ((i + 1) % 2), c); });
+    }
+  }
+  function headFx(P, C, view) {
+    if (C.fx === 'crown') {                                                                    // a crown of flowers between the ears
+      const cols = ['#ff7eb6', '#ffffff', '#ff9ec7', '#ffd54f', '#ffffff'];
+      const at = view === 'right' ? [[33, 2], [36, 0], [39, 0], [42, 2]] : view === 'down' ? [[20, 2], [23, 0], [26, -1], [29, 0], [32, 2]] : [[21, 3], [26, 1], [31, 3]];
+      at.forEach(([x, y], i) => flower(P, x, y, cols[i % cols.length]));
+    } else if (C.fx === 'leaves') {
+      if (view === 'right') leaf(P, 36, 0); else leaf(P, view === 'down' ? 28 : 25, 1);
+    }
+  }
+
   /* =====================================================================================================================
    * SIDE VIEW (facing right)
    * ===================================================================================================================== */
   function side(P, C, F, blink) {
     const b = F.bob;
+    if (C.wings) P.at(0, b, () => wings(P, C, 'right', 'far'));
     leg(P, C, 29, 28, F.B, true, 3); leg(P, C, 16, 28, F.A, true, 3);                    // far legs, behind the body
     P.at(0, b, () => {
       tailSide(P, C, F);
       P.shape([[23, 24, 12.5, 7], [13, 23, 6.5, 7], [32, 24, 5, 7]], C.coat);             // the barrel, the rump and the chest
       for (let x = 15; x < 31; x++) if ((x * 7) % 5 === 0) P.px(x, 31, C.coat.d);          // a shaggy belly
       mark(P, C, 11, 21);
+      bodyFx(P, C, 'right');
       for (let y = 9; y <= 24; y++) { const t = (y - 9) / 15, xl = Math.round(33 - t * 6), xr = Math.round(41 - t * 4); P.row(y, xl, xr, C.coat.b); P.px(xr, y, C.coat.d); P.px(xr - 1, y, t > 0.3 ? C.coat.b : C.coat.d); }   // the neck
     });
     leg(P, C, 31, 28, F.A, false); leg(P, C, 11, 28, F.B, false);                         // near legs, in front
@@ -151,6 +241,9 @@ const PixelPony = (() => {
       if (C.fx === 'frost') for (const [x, len] of [[19, 3], [22, 2], [25, 3], [28, 2]]) for (let k = 0; k < len; k++) P.px(x, 31 + k, k ? ICE.blue : ICE.white);   // icicles under the belly
       maneSide(P, C, F);
       headSide(P, C, F, blink);
+      if (C.horn) horn(P, C, 40, 2, 44, -7);
+      headFx(P, C, 'right');
+      if (C.wings) wings(P, C, 'right', 'near');
     });
   }
 
@@ -198,8 +291,10 @@ const PixelPony = (() => {
     const b = F.bob;
     leg(P, C, 19, 30, [0, F.B[1]], true, 3); leg(P, C, 31, 30, [0, F.A[1]], true, 3);     // hind legs, behind
     P.at(0, b, () => {
+      if (C.wings) wings(P, C, 'down');
       for (let y = 20; y <= 33; y++) { const x = 35 + (y > 24 ? F.sway : 0) - (y > 29 ? 1 : 0); for (let i = 0; i < 3; i++) P.px(x + i, y, C.fx === 'frost' && y > 30 ? ICE.pale : lock(C, i, y, 3)); }   // the tail, peeking out
       P.shape([[CX, 26, 9.5, 7]], C.coat);                                                  // the chest
+      bodyFx(P, C, 'down');
       P.rect(21, 13, 11, 11, C.coat.b); P.rect(30, 13, 2, 11, C.coat.d);                    // the neck
     });
     leg(P, C, 20, 30, [0, F.A[1]], false); leg(P, C, 28, 30, [0, F.B[1]], false);         // front legs
@@ -215,6 +310,8 @@ const PixelPony = (() => {
       }
       for (const [y, x0, x1] of [[2, 22, 30], [3, 21, 31], [4, 21, 31], [5, 22, 30], [6, 23, 29], [7, 24, 28], [8, 25, 27]]) for (let x = x0; x <= x1; x++) P.px(x, y, lock(C, x - x0, y, x1 - x0 + 1));   // the forelock
       for (let y = 6; y <= 28; y++) { const wave = Math.round(Math.sin(y / 2.6)), w = y > 25 ? 3 : 5; const x = 15 + wave + (y > 18 ? F.sway : 0); for (let i = 0; i < w; i++) P.px(x + i, y, C.fx === 'frost' && y > 25 ? ICE.pale : lock(C, i, y, w)); if (C.fx === 'flames') tongue(P, C, x, y, -1); }   // the mane, falling on one side
+      if (C.horn) horn(P, C, CX, 2, CX, -7);
+      headFx(P, C, 'down');
     });
   }
 
@@ -225,12 +322,16 @@ const PixelPony = (() => {
     const b = F.bob, far = { b: C.coat.d, d: shade(C.coat.d, 0.85), l: C.coat.b };
     leg(P, C, 21, 30, [0, F.A[1]], true, 3); leg(P, C, 29, 30, [0, F.B[1]], true, 3);     // front legs, far away
     P.at(0, b, () => {
+      if (C.horn) horn(P, C, CX, 4, CX, -6);
       for (const [x, out] of [[20, -1], [30, 1]]) { P.px(x + 1 + out, 0, C.coat.d); P.rect(x + (out > 0 ? 1 : 0), 1, 2, 1, C.coat.d); P.rect(x, 2, 3, 2, C.coat.d); }
       P.blob(CX, 9, 6, 5.5, far, false);                                                    // the back of the head
       P.rect(21, 12, 11, 9, C.coat.d);                                                      // the neck
       for (let y = 2; y <= 22; y++) { const wave = Math.round(Math.sin(y / 2.6)); for (let i = 0; i < 6; i++) P.px(23 + i + wave, y, lock(C, i, y, 6)); if (C.fx === 'flames') { tongue(P, C, 23 + wave, y, -1); tongue(P, C, 28 + wave, y + 1, 1); } }   // the mane down the neck
+      headFx(P, C, 'up');
       P.shape([[CX, 26, 10.5, 8]], C.coat);                                                  // the rump
       for (let y = 28; y <= 33; y++) P.px(CX, y, C.coat.d);
+      bodyFx(P, C, 'up');
+      if (C.wings) wings(P, C, 'up');
     });
     leg(P, C, 17, 30, [0, F.B[1]], false); leg(P, C, 31, 30, [0, F.A[1]], false);          // hind legs
     P.at(0, b, () => {
@@ -249,9 +350,33 @@ const PixelPony = (() => {
   };
 
   /** Live, uncached effects: embers rising off a fiery mane; snowflakes drifting down and a frosty breath. Drawn in art pixels. */
-  function drawFx(ctx, look, dir, view, sx, top, now, seed) {
+  function drawFx(ctx, look, dir, view, sx, top, now, seed, kind = {}, moving = false) {
     const left = dir === 'left', w = W * PX;
-    const dot = (ax, ay, color, a) => { ctx.globalAlpha = a; ctx.fillStyle = color; ctx.fillRect(left ? sx + w / 2 - (Math.round(ax) + 1) * PX : sx - w / 2 + Math.round(ax) * PX, top + Math.round(ay) * PX, PX, PX); };
+    const dot = (ax, ay, color, a) => { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = color; ctx.fillRect(left ? sx + w / 2 - (Math.round(ax) + 1) * PX : sx - w / 2 + Math.round(ax) * PX, top + Math.round(ay) * PX, PX, PX); };
+    const plus = (ax, ay, color, a, big) => { dot(ax, ay, '#ffffff', a); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(ax + dx, ay + dy, color, a); if (big) for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) dot(ax + dx, ay + dy, color, a * 0.6); };
+    const acc = look.accessory, side = view === 'right';
+    if (kind.mystical) for (let i = 0; i < 4; i++) {                                              // magic: sparkles circling the pony
+      const a = now / 900 + i * 1.6, x = CX + Math.cos(a) * (side ? 24 : 16), y = 20 + Math.sin(a * 1.3) * 15;
+      plus(x, y, look.mane[i % look.mane.length], 0.55 + 0.45 * Math.sin(now / 260 + i * 2), false);
+    }
+    if (kind.horn) { const [hx, hy] = side ? [44, -8] : [CX, -8]; plus(hx, hy, '#fff2a8', 0.5 + 0.5 * Math.abs(Math.sin(now / 250)), Math.sin(now / 250) > 0.6); }   // the horn glints
+    if (acc === 'bubbles') for (let i = 0; i < 4; i++) {                                          // marsh: bubbles rising
+      const t = ((now / 1900) + i / 4 + seed) % 1, x = 12 + i * 8 + Math.sin(now / 500 + i) * 1.5, y = 30 - t * 30;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(x + dx, y + dy, '#d2faff', 0.85 * (1 - t));
+    }
+    if (acc === 'dust' && moving) for (let i = 0; i < 5; i++) {                                    // dune: dust kicked up behind
+      const t = ((now / 520) + i / 5) % 1, x = side ? 10 - t * 12 : CX + (i - 2) * 4, y = 39 - t * 6;
+      for (const [dx, dy] of [[0, 0], [1, 0], [0, -1]]) dot(x + dx + (side ? 0 : (i - 2) * t * 3), y + dy, '#e1c38c', 0.6 * (1 - t));
+    }
+    if (acc === 'crown') for (let i = 0; i < 2; i++) {                                             // blossom: petals drifting down
+      const t = ((now / 2600) + i * 0.5) % 1; dot((side ? 36 : CX) + Math.sin(now / 500 + i * 3) * 4 + i * 4, -1 + t * 40, '#ffb3d1', 1 - t);
+    }
+    if ((acc === 'stars' || acc === 'crystals') && Math.sin(now / 340 + seed * 9) > 0.3) plus(side ? 18 + (Math.floor(now / 2200) % 3) * 6 : CX + 5, side ? 14 : 16, acc === 'stars' ? '#fff5b0' : '#bff3ff', 0.9, false);
+    if (acc === 'rainbow') {                                                                       // a rainbow streaming from the tail
+      const cols = ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#2979ff', '#d500f9'];
+      if (moving && side) for (let k = 0; k < 12; k++) cols.forEach((c, j) => dot(5 - k, 20 + j + Math.round(Math.sin((now / 120) - k * 0.6)), c, 0.75 * (1 - k / 12)));
+      else for (let i = 0; i < 3; i++) { const t = ((now / 1800) + i / 3) % 1; plus(CX + Math.cos(i * 2.1) * 14, 24 - t * 24, cols[(i * 2) % 6], 1 - t, false); }
+    }
     if (look.accessory === 'flames') {
       const from = view === 'right' ? [[30, 6], [8, 24], [28, 14], [6, 30]] : view === 'down' ? [[16, 10], [17, 20], [37, 24], [26, 3]] : [[25, 6], [26, 24], [24, 14], [27, 30]];
       for (let i = 0; i < 8; i++) {
@@ -275,12 +400,12 @@ const PixelPony = (() => {
   function render(C, view, F, blink) {
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d'), P = painter(ctx);
-    if (view === 'up') back(P, C, F); else if (view === 'down') front(P, C, F, blink); else side(P, C, F, blink);
+    P.at(0, TOP, () => { if (view === 'up') back(P, C, F); else if (view === 'down') front(P, C, F, blink); else side(P, C, F, blink); });
     outline(ctx, C.outline, W, H);
-    if (C.fx === 'frost') {                                                                  // frost twinkling on the coat
+    if (C.fx === 'frost') P.at(0, TOP, () => {                                                                  // frost twinkling on the coat
       const spots = TWINKLES[view], at = k => spots[(C.tw + k) % spots.length];
       for (const k of [0, 3]) { const [x, y] = at(k); P.at(0, F.bob, () => { P.px(x, y, ICE.white); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) P.px(x + dx, y + dy, ICE.sparkle); }); }
-    }
+    });
     return canvas;
   }
 
@@ -289,25 +414,32 @@ const PixelPony = (() => {
    * anim: { moving, phase (radians of stride), now, seed, lift (shadow is skipped while flying) }. Returns { top, h }.
    */
   function draw(ctx, look, dir, sx, sy, anim) {
-    const C = palette(look), two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
+    const C = palette(look), kind = anim.kind || {};
+    C.wings = !!kind.wings; C.horn = !!kind.horn; C.flying = !!(kind.wings && anim.flying);
+    C.wf = C.flying ? Math.floor(anim.now / 85) % 4 : 0;                                          // the wingbeat
+    C.wing = tones(mix(look.coat, '#ffffff', 0.35));
+    const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 420 + anim.seed) % 4);
-    const F = anim.moving ? TROT[frame] : STAND[frame];
+    const F = C.flying ? STAND[0] : anim.moving ? TROT[frame] : STAND[frame];
+    C.ruffle = !C.flying && anim.moving && frame % 2 === 1;
     const blink = !anim.moving && ((anim.now + anim.seed * 1311) % 4200) < 150;
     const view = dir === 'left' ? 'right' : dir;
     C.ff = Math.floor(anim.now / 120) % 4; C.tw = Math.floor(anim.now / 350) % 8;                     // flame flicker, frost twinkle
-    const fxFrame = C.fx === 'flames' ? C.ff : C.fx === 'frost' ? C.tw : 0;
-    const key = `${look.coat}|${look.mane.join()}|${look.mark}|${C.fx}${fxFrame}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
+    const fxFrame = C.fx === 'flames' ? C.ff : C.fx === 'frost' || C.fx === 'stars' ? C.tw : 0;
+    const key = `${look.coat}|${look.mane.join()}|${look.mark}|${C.fx}${fxFrame}|${C.wings ? 'w' + (C.flying ? C.wf : 'f') : ''}${C.horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
     let canvas = cache.get(key);
     if (!canvas) { if (cache.size > 800) cache.clear(); canvas = render(C, view, F, blink); cache.set(key, canvas); }
-    const w = W * PX, h = H * PX, top = sy - (GROUND + 1) * PX;
+    const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
     if (!anim.lift) { ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, view === 'right' ? 20 : 11, 6, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.save(); ctx.imageSmoothingEnabled = false;
     if (dir === 'left') { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.drawImage(canvas, -w / 2, top, w, h); }
     else ctx.drawImage(canvas, sx - w / 2, top, w, h);
     ctx.restore();
-    if (C.fx === 'flames' || C.fx === 'frost') drawFx(ctx, look, dir, view, sx, top, anim.now, anim.seed);
-    return { top, h: (GROUND + 1) * PX };
+    drawFx(ctx, look, dir, view, sx, top + TOP * PX, anim.now, anim.seed, kind, anim.moving);
+    return { top: top + TOP * PX, h: (GROUND + 1) * PX };
   }
 
-  return { draw, W, H, PX };
+  /** Whether a kind of animal is drawn as a pixel pony. */
+  const covers = type => !!(AnimalDefs[type] && AnimalDefs[type].pony && !PIXEL_PONIES_OFF[type]);
+  return { draw, covers, W, H, PX };
 })();
