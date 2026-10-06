@@ -151,6 +151,9 @@ younger testers out, not real security: the code is in `js/client/ui/settingsUI.
 * **Ponies level up** from distance ridden, tasks done in the saddle (chopping, hunting, lassoing...), treats (more for food they love) and grooming.
 * **Lasso slot** (Gear, **G**): **L** (or the Lasso button) throws whatever lasso is in it. Rope Lasso (tier 1: ponies, earth ponies) → Silk (2: pegasi) →
   Golden (3: unicorns) → Starlight (4: alicorns), each crafted from the one before at the crafting table.
+* **Your main pony** (★ on its name) follows you everywhere when you are not riding it: around the world, into buildings and caves, and it
+  catches up if you gallop off on another pony. Your starter pony begins as your main pony. Riding another of your ponies, press **N** or the
+  **★ Main** button to make it your main pony instead (the old one stays where it is). It is saved with your character and the world.
 * **Brushes**: a Wooden Brush (by hand: plank + 2 string) or a Soft Brush grooms a pony you own (Use beside it): hearts and XP.
 * **Items on the ground**: in the bag (**I**) pick a stack, then **Drop 1**, **Drop all** or **Destroy** (tap twice). Anyone picks a pile up with **F**; loot that does not fit
   in your pack falls on the ground too.

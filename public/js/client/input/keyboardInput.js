@@ -38,7 +38,8 @@ class KeyboardInput {
     if (code === 'KeyQ') this.bus.emit('toggleCrafting');
     if (code === 'KeyJ') this.bus.emit('toggleJournal');
     if (code === 'KeyM') this.bus.emit('toggleMap');
-    if (code === 'KeyB') this.bus.emit('ability');                      // a pony's ability: take off / land
+    if (code === 'KeyB') this.bus.emit('ability');
+    if (code === 'KeyN') this.bus.emit('mainPony');                     // riding one of your ponies: make it your main pony                      // a pony's ability: take off / land
     if (code === 'KeyZ') this.bus.emit('dismount');                     // get off your pony, even with something to pick nearby
     if (code === 'KeyU') this.bus.emit('release');                      // let go / untie (a separate key from the action key; a catch asks first)
     if (code === 'KeyR') this.bus.emit('rotateBuild');

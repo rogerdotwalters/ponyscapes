@@ -27,6 +27,7 @@ Object.assign(GameServer.prototype, {
       if (a.parkedFriend) { a.friends[id] = a.parkedFriend; delete a.parkedFriend; }
     }
     if (n) for (const a of Object.values(this.animals.animals)) if (a.owner === id && a.starter) delete this.animals.animals[a.id];
+    if (n) this._ensureMainPony(id);
     return n;
   },
 
@@ -50,7 +51,7 @@ Object.assign(GameServer.prototype, {
       const key = this._ownerKeyOf(a);
       if (!key || a.trial) continue;
       const friend = a.friends[a.owner] || a.parkedFriend;
-      out.push({ key, grid: gridOf(a) || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
+      out.push({ key, grid: gridOf(a) || undefined, main: a.main || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
         x: a.x, y: a.y, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null });
     }
     return out;
@@ -61,6 +62,7 @@ Object.assign(GameServer.prototype, {
       const pet = this.animals.release(q.type, q.x, q.y, this._tokenFor(q.key), undefined, { level: q.level, variant: q.look ? q.look[4] | 0 : 0, grid: q.grid || '' });
       if (q.look && AnimalDefs[q.type].pony) pet.look = q.look;
       if (Number.isFinite(q.xp)) pet.xp = q.xp;
+      if (q.main) pet.main = true;
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction)); pet.home = { x: q.hx, y: q.hy };
       if (q.friend) pet.parkedFriend = Friendship.decode(q.friend);
     }
@@ -148,6 +150,38 @@ Object.assign(GameServer.prototype, {
     if (uses && !crafted) { inventory.remove(slotted, 1); p.gear.lasso = slotted; }                       // it did not work: put it back
     const made = crafted && recipe.outputs.find(o => ItemDB.getLasso(o.item));
     if (made && !p.gear.lasso && inventory.remove(made.item, 1)) { p.gear.lasso = made.item; this.inventoryRev[id]++; }
+  },
+
+  /* ---------------------------------------- your main pony ---------------------------------------- */
+  /** Your main pony: the one pony that follows you everywhere (into buildings and caves too). */
+  _mainPonyOf(id) { return Object.values(this.animals.animals).find(a => a.owner === id && a.main) || null; },
+  /** Riding one of your own ponies: make it your main pony (the old one stays where it is, near its new home). */
+  _makeMainPony(id) {
+    const p = this.players[id], a = p && this.animals.animals[p.mount];
+    if (!a || a.owner !== id || !AnimalDefs[a.type].pony || a.trial) { this._notice(id, 'Ride one of your own ponies to make it your main pony'); return; }
+    if (a.main) { this._notice(id, 'This is already your main pony'); return; }
+    const old = this._mainPonyOf(id);
+    if (old) { old.main = false; old.home = { x: old.x, y: old.y }; old.state = 'idle'; }
+    a.main = true;
+    const name = a.look ? PonyLook.describe(a.look).name : AnimalDefs[a.type].name;
+    this._notice(id, `${name} is your main pony now: it will follow you everywhere` + (old ? `. ${old.look ? PonyLook.describe(old.look).name : 'Your old one'} stays where it is` : ''));
+    this.pendingEvents.push({ type: 'mainPony', to: id, x: a.x, y: a.y, name });
+  },
+  /** A main pony left far behind (you galloped off on another pony, or it is on another grid) catches up beside you. */
+  _keepMainPoniesClose() {
+    for (const id of this.humanIds()) {
+      const p = this.players[id], a = this._mainPonyOf(id);
+      if (!p || !a || a.rider || a.leashed || p.mount === a.id || p.boat) continue;
+      if (sameGrid(a, p) && Math.hypot(a.x - p.x, a.y - p.y) < 12) continue;
+      const spot = findLanding(this.mapOf(p), p.x - Math.cos(p.facing) * 1.5, p.y - Math.sin(p.facing) * 1.5, AnimalDefs[a.type].radius);
+      a.grid = gridOf(p); a.x = spot.x; a.y = spot.y; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; a.state = 'idle';
+    }
+  },
+  /** Somebody with ponies but no main pony (an older save): their first pony becomes it. */
+  _ensureMainPony(id) {
+    if (this._mainPonyOf(id)) return;
+    const first = Object.values(this.animals.animals).find(a => a.owner === id && AnimalDefs[a.type].pony && !a.trial);
+    if (first) first.main = true;
   },
 
   /* ---------------------------------------- ponies grow ---------------------------------------- */

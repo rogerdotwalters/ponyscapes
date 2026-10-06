@@ -54,7 +54,7 @@ class AnimalSprite {
     const look = def.pony ? PonyLook.describe(animal.look) : null, rarity = look ? look.rarity : rarityOf(def.rarity);
     let label = '';
     const boss = def.boss ? '\u2605 ' : '';
-    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
+    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
     else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name}` : def.name);
     const threat = AnimalLevels.threat(lv, view ? view.ref : 1), color = { easy: '#8be28b', even: '#ffe08a', hard: '#ffab6b', deadly: '#ff6b6b' }[threat];
     ctx.font = 'bold 11px Georgia, serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';

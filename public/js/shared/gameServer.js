@@ -85,8 +85,8 @@ class GameServer {
     if (p.flying) { p.flying = false; p.flyT = 0; }
     const mount = p.mount && this.animals.animals[p.mount];
     if (mount) { mount.grid = grid; mount.x = x; mount.y = y; mount.vx = mount.vy = 0; }
-    for (const a of Object.values(this.animals.animals)) {                  // a pet on a rope comes too
-      if (a.leashed && (a.owner === id || a.captor === id) && a.id !== p.mount) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; }
+    for (const a of Object.values(this.animals.animals)) {                  // a pet on a rope comes too, and so does your main pony
+      if ((a.leashed && (a.owner === id || a.captor === id) || (a.main && a.owner === id)) && a.id !== p.mount) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; }
     }
     this.eventGrid = grid;
   }
@@ -136,6 +136,7 @@ class GameServer {
     const p = this.players[id], spawn = Village.spawns[p.slot];
     const pony = this.animals.release('pony_earth', spawn.x - 2.2, spawn.y + 0.6, id, 7000 + p.slot * 13, { level: 1, variant: 0, rarity: 'rare' });   // rare: its ability can be tried at once (ride it, press H)
     pony.starter = true;                                                     // (it makes way if this player's own ponies are waiting in the world)
+    pony.main = true;                                                        // ...and it is their main pony: it follows them about
     this._remember(id, pony);
     return pony;
   }
@@ -252,7 +253,8 @@ class GameServer {
       case 'setting': if (id === this.hostId) this.applySetting(cmd.key, !!cmd.value); break;           // host-only testing aids
       case 'admin': if (id === this.hostId && cmd.values) { GameSettings.setLive(cmd.values, this.tick); this.adminRev++; } break;   // the Admin page: speed, day split, time (sent to everyone)
       case 'ability': this._useAbility(id, cmd.id); break;
-      case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;                // the dedicated way off a pony (Z)
+      case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
+      case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
       case 'equip': this._handleEquip(id, inventory, cmd.from); break;
       case 'unequip': this._handleUnequip(id, inventory, cmd.slot); break;
@@ -571,7 +573,8 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.animals.update(this.tick, this._humans());
-    this.npcs.update(this.tick, this._humans().filter(h => !gridOf(h))); this.friendship.update(this.tick); this.wants.update(this.tick);      // (the villagers live in the overworld)
+    this.npcs.update(this.tick, this._humans().filter(h => !gridOf(h))); this.friendship.update(this.tick); this.wants.update(this.tick);
+    if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)
     this._streamWorld();
   }
 

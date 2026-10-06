@@ -170,7 +170,8 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
-  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub),
+    mainPony: touchLayout ? makeRect(touchLayout.lasso.x, touchLayout.lasso.y - (touchLayout.lasso.y - touchLayout.ability.y) - touchLayout.lasso.h - 8, touchLayout.lasso.w * 2 + 8, touchLayout.lasso.h) : makeRect(emote.x - ub * 0.6, emote.y - 2 * (gap + ub), ub * 1.6, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -226,6 +227,7 @@ class UiLayout {
     place(dom.health, L.health); place(dom.clock, L.clock);
     for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
+    if (dom.btnMainPony) { place(dom.btnMainPony, L.mainPony); dom.btnMainPony.style.fontSize = Math.max(10, Math.round(L.mainPony.h * 0.26)) + 'px'; }
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
     dom.clock.style.fontSize = Math.round(11 * L.k) + 'px';
     dom.abilityBar.classList.toggle('touch', !L.abilityBar);

@@ -52,6 +52,7 @@ const ANIMAL_RESPAWN_SECONDS = 300;
 const LURE_RADIUS = 5, LURE_STOP = 1.3, TRUST_SECONDS = 4;           // food in your hand calms animals within this many tiles; they walk up to you
 //                                                   and keep trusting you for TRUST_SECONDS after, so you can swap to the leash
 const LEASH_FOLLOW_DISTANCE = 1.8, LEASH_TELEPORT_DISTANCE = 9, LEASH_STUCK_SECONDS = 2.5;
+const MAIN_PONY_FOLLOW_DISTANCE = 2.4;        // your main pony trots along a little farther back than one on a rope
 const PET_HOME_RADIUS = 5;                        // a pet that is not on a leash wanders this far from where it was let go
 const PICKUP_RANGE = 1.1, UNTIE_RANGE = 1.8, TAME_SPEED_BONUS = 1.2;
 

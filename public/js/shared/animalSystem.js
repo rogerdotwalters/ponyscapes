@@ -91,20 +91,27 @@ class AnimalSystem {
    *  A CAUGHT wild pony (captor, not yet owner) follows the same way but is restless: it breaks free unless you get it to shelter. */
   _thinkPet(a, def, humans, dt) {
     if (!a.owner) { this._tickCapture(a, dt); if (!a.captor) return; }                 // (it may just have broken free)
-    if (!a.leashed) { a.hurt = false; this._wander(a, def, dt); return; }
     const leaderId = a.owner || a.captor, owner = humans.find(h => h.id === leaderId);
+    if (!a.leashed) {
+      if (a.main && owner && !owner.boat) { this._follow(a, def, owner, dt, MAIN_PONY_FOLLOW_DISTANCE); a.home = { x: a.x, y: a.y }; return; }   // your main pony goes where you go
+      a.hurt = false; this._wander(a, def, dt); return;
+    }
     if (!owner) {                                                                      // the leader is gone: let go where we stand
       if (a.captor) this.releaseWild(a.id); else { a.leashed = false; a.home = { x: a.x, y: a.y }; }
       return;
     }
+    this._follow(a, def, owner, dt, LEASH_FOLLOW_DISTANCE);
+  }
+  /** Keep up with someone: trot after them, stop a little way off, and catch up at once if left far behind or stuck behind something. */
+  _follow(a, def, owner, dt, distance) {
     const d = Math.hypot(owner.x - a.x, owner.y - a.y);
-    a.stuckT = (d > LEASH_FOLLOW_DISTANCE * 1.7 && Math.hypot(a.vx, a.vy) < 0.3) ? a.stuckT + dt : 0;
-    if (d > LEASH_TELEPORT_DISTANCE || a.stuckT > LEASH_STUCK_SECONDS) {                // too far or wedged behind something: catch up
+    a.stuckT = (d > distance * 1.7 && Math.hypot(a.vx, a.vy) < 0.3) ? a.stuckT + dt : 0;
+    if (d > LEASH_TELEPORT_DISTANCE || a.stuckT > LEASH_STUCK_SECONDS) {
       a.x = owner.x - Math.cos(owner.facing) * 1.2; a.y = owner.y - Math.sin(owner.facing) * 1.2; a.stuckT = 0; a.vx = a.vy = 0;
       return;
     }
-    a.state = d > LEASH_FOLLOW_DISTANCE ? 'follow' : 'idle';
-    this._steerAlong(a, owner.x - a.x, owner.y - a.y, d > LEASH_FOLLOW_DISTANCE ? Math.min(def.followSpeed || def.wanderSpeed * 3, 0.5 + d * 1.5) : 0);
+    a.state = d > distance ? 'follow' : 'idle';
+    this._steerAlong(a, owner.x - a.x, owner.y - a.y, d > distance ? Math.min(def.followSpeed || def.wanderSpeed * 3, 0.5 + d * 1.5) : 0);
   }
 
   /** A caught pony settles inside shelter and frets outside it. */
@@ -259,7 +266,7 @@ class AnimalSystem {
       if (a.owner !== ownerId && a.captor !== ownerId) continue;
       if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; }
       const gentling = a.captor ? { have: a.trust, need: a.applesNeed || AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level), sheltered: !!a.shelter, restless: Math.round(100 * a.captureT / CAPTURE_BREAK_SECONDS) } : null;
-      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
+      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
     }
     return out;
   }
@@ -316,6 +323,7 @@ class AnimalSystem {
       if (humans.some(h => sameGrid(h, a) && Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_SYNC_RADIUS)) {
         out[id] = { id, type: a.type, level: a.level, x: a.x, y: a.y, vx: a.vx, vy: a.vy, facing: a.facing, hp: a.hp, state: a.state, look: a.look, owner: a.owner, captor: a.captor, leashed: a.leashed, rider: a.rider };
         if (a.grid) out[id].grid = a.grid;
+        if (a.main) out[id].main = true;                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)
       }
     }

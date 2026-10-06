@@ -117,7 +117,7 @@ const SaveData = {
     const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
     const x = N(q.x, -1e7, 1e7, NaN), y = N(q.y, -1e7, 1e7, NaN);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return { type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
+    return { type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
       friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null };
   },
   /** Step 3 (the server is built): everybody's ponies, waiting for their owners, and the items lying on the ground. */
@@ -155,7 +155,7 @@ const SaveData = {
     if (!p || !inventory) return null;
     const out = SaveData.outsideSpot(server, p), spot = SaveData.safeSpot(server, out.x, out.y, p.slot);     // (rowing a boat? put back on the shore; indoors? at the door)
     const pets = Object.values(server.animals.animals).filter(a => a.owner === id && !a.trial).slice(0, SaveData.MAX_PETS)
-      .map(a => ({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }));
+      .map(a => ({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, main: a.main || undefined, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }));
     const xp = server.progress.ensure(id);
     return {
       v: SaveData.VERSION, savedAt: Date.now(),
@@ -204,7 +204,7 @@ const SaveData = {
     if (Array.isArray(data.pets)) for (const q of data.pets.slice(0, SaveData.MAX_PETS)) {
       if (!SaveData._plain(q) || !AnimalDefs[q.type] || !(AnimalDefs[q.type].pony || AnimalDefs[q.type].tameable)) continue;      // only things you can actually keep: a saved "pet" can never be a dragon
       const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
-      out.pets.push({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) });
+      out.pets.push({ type: q.type, main: q.main === true || undefined, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) });
     }
     out.friends = {};                                                                       // hearts with the villagers: { 'n_baker': [level, points] }
     if (SaveData._plain(data.friends)) for (const key of Object.keys(data.friends).slice(0, 40)) { const bond = Friendship.decode(data.friends[key]); if (/^n_[a-z_]+$/.test(key) && Npcs.has(key.slice(2)) && bond) out.friends[key] = bond; }
@@ -235,7 +235,9 @@ const SaveData = {
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction));
       if (q.friend) pet.friends[id] = q.friend;                                  // a pet remembers how fond of you it is
       if (Number.isFinite(q.xp)) pet.xp = q.xp;
+      if (q.main) pet.main = true;
     }
+    server._ensureMainPony(id);                                              // (an older save: its first pony becomes the main pony)
     server.friendship.restore(id, c.friends);
     server._updateCompanions();                                              // carry limit and pony buffs, straight away
     return true;

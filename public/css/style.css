@@ -348,6 +348,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 #btnFly{position:fixed;z-index:3;border-color:#9fd8ff;color:#e6f6ff;background:rgba(30,70,110,.7);font-weight:700}
 #btnFly.on{background:rgba(120,200,255,.75);color:#0b2236}
 #btnFly.cooling{opacity:.6;border-style:dashed}
+#btnMainPony{position:fixed;z-index:3;border-color:#ffd36a;color:#fff3c4;background:rgba(110,80,20,.72);font-weight:700}
 
 /* Settings > Testing */
 .testBox{margin-top:12px;padding-top:8px;border-top:1px solid rgba(227,194,122,.3)}

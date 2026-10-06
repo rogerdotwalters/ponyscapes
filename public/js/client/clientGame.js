@@ -170,6 +170,12 @@ class ClientGame {
     if (L.flyCd > 0) return { label: `Fly ${Math.ceil(L.flyCd)}s`, ready: false, flying: false };
     return { label: 'Fly', ready: true, flying: false };
   }
+  /** Riding one of your own ponies that is not your main pony: offer to make it the one that follows you everywhere. */
+  mainPonyHint() {
+    const L = this.local, pony = this.mountedPony();
+    return !!(L && !L.boat && pony && pony.owner === this.myId && !pony.main && AnimalDefs[pony.type] && AnimalDefs[pony.type].pony);
+  }
+  makeMainPony() { if (this.mainPonyHint()) this.net.sendCommand({ type: 'mainPony' }); }
   useAbility(id = 'fly') { if (this.abilityHint()) this.net.sendCommand({ type: 'ability', id }); }
   /** Host only: a testing aid (a flying test pony, hostile mobs off). */
   /** Host: the Admin page's live values (globalSpeed, dayShare, gameHoursPerRealHour). */
