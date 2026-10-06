@@ -30,7 +30,11 @@ window.PONYSCAPES_CONTENT = {
   version: 1,
   items: {
     axe: { sprites: { icon: 'assets/items/axe_icon.png', held: 'assets/items/axe_held.png' } },
-    spear: { sprites: { icon: 'assets/items/spear_icon.png', held: 'assets/items/spear_held.png' } }
+    spear: { sprites: { icon: 'assets/items/spear_icon.png', held: 'assets/items/spear_held.png' } },
+    stone_hammer: { sprites: { icon: 'assets/items/stone_hammer_icon.png', held: 'assets/items/stone_hammer_held.png' } },
+    knife: { sprites: { icon: 'assets/items/knife_icon.png', held: 'assets/items/knife_held.png' } },
+    shovel: { sprites: { icon: 'assets/items/shovel_icon.png', held: 'assets/items/shovel_held.png' } },
+    fishing_rod: { sprites: { icon: 'assets/items/fishing_rod_icon.png', held: 'assets/items/fishing_rod_held.png' } }
   },
   creatures: {},
   characters: {},
