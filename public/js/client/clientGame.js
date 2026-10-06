@@ -84,6 +84,12 @@ class ClientGame {
   }
   moveSlot(from, to) { this.net.sendCommand({ type: 'moveSlot', from, to }); }   // server decides; we wait for the update
   /** Drop `count` from a pack slot onto the ground in front of you (anyone can pick it up), or destroy it for good. */
+  /** X / the Drop button: one of what is in your hand (all: the whole stack) goes on the ground in front of you. */
+  dropHeld(all = false) {
+    const s = this.inventory.getSlot(this.selectedSlot);
+    if (!s) { this.events.emit('notice', { to: this.myId, text: 'Nothing in your hand to drop' }); return; }
+    this.dropItem(this.selectedSlot, all ? s.count : 1);
+  }
   dropItem(slot, count, pack = false) { this.net.sendCommand({ type: 'drop', slot, count, pack: !!pack }); }
   destroyItem(slot, count, pack = false) { this.net.sendCommand({ type: 'destroy', slot, count, pack: !!pack }); }
   /** Move a stack between your bag and your pony's pack: { pack: bool, i } each end (to.i -1: wherever it fits). */

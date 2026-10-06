@@ -22,30 +22,9 @@ const PropSprites = {
     for (let i = 0; i < 3; i++) { ctx.strokeStyle = `rgba(${150 + i * 40},${200 + i * 20},255,${(0.7 - i * 0.18).toFixed(2)})`; ctx.lineWidth = 2.4 - i * 0.5; ctx.beginPath(); ctx.ellipse(sx, sy - 14, 9 - i * 2.2, 17 - i * 3.5, 0, t + i, t + i + Math.PI * 1.5); ctx.stroke(); }
     g.ellipse(sx, sy - 14, 5, 12, 'rgba(210,235,255,.5)');
   },
-  drawTree(g, sx, sy, variant, shakeX, fruit, biome) {
-    const ctx = g.ctx, scale = TREE_SCALE_BASE + (variant % 5) * TREE_SCALE_STEP;    // trees tower over the player
-    g.ellipse(sx + 5, sy + 3, 24 * scale, 11 * scale, 'rgba(0,0,0,.25)');        // shadow stays put while the tree shakes
-    ctx.save(); ctx.translate(sx, sy); ctx.scale(scale, scale);
-    ctx.fillStyle = '#5b3f2a'; ctx.fillRect(-4, -26, 8, 26);
-    ctx.translate(shakeX / scale, 0);                                             // sway the crown only
-    if (variant % 2 === 0) {
-      g.ellipse(-14, -38, 15, 13, '#3f7a3a'); g.ellipse(14, -38, 15, 13, '#3a7236');
-      g.ellipse(0, -48, 20, 17, '#468a40'); g.ellipse(-4, -54, 13, 10, '#5ea24a');
-    } else {
-      const shades = ['#2f6a35', '#387a3d', '#428a45'];
-      for (let i = 0; i < 3; i++) { const w = 26 - i * 6, yb = -16 - i * 18; g.polygon([-w, yb, w, yb, 0, yb - 32], shades[i]); }
-    }
-    const tint = TREE_TINT[biome];                                                   // far-off biomes have their own foliage colour
-    if (tint) {
-      if (variant % 2 === 0) { for (const [x, y, rx, ry] of [[-14, -38, 15, 13], [14, -38, 15, 13], [0, -48, 20, 17], [-4, -54, 13, 10]]) g.ellipse(x, y, rx, ry, tint); }
-      else { const sh = [0, 1, 2]; for (const i of sh) { const w = 26 - i * 6, yb = -16 - i * 18; g.polygon([-w, yb, w, yb, 0, yb - 32], tint); } }
-    }
-    if (fruit && fruit.ripe) {                                                    // apples among the leaves
-      const spots = variant % 2 === 0 ? [[-17, -36], [12, -33], [-6, -44], [5, -52], [19, -42], [-1, -34], [-12, -50]] : [[-14, -24], [11, -22], [-4, -40], [6, -46], [-1, -26], [13, -38]];
-      for (const [ax, ay] of spots) { g.ellipse(ax, ay, 3.6, 3.6, '#d9382b'); g.ellipse(ax - 1.1, ay - 1.2, 1.1, 1.1, 'rgba(255,255,255,.6)'); ctx.fillStyle = '#3b6b2a'; ctx.fillRect(ax - 0.5, ay - 5, 1.2, 2.2); }
-    }
-    ctx.restore();
-  },
+  drawTree(g, sx, sy, variant, shakeX, fruit, biome) { PixelProps.drawTree(g.ctx, sx, sy, variant, shakeX, fruit, biome, TREE_TINT[biome]); },     // retro pixel art (pixelProps.js)
+  /** A felled tree on its way down (see Effects.fall). */
+  drawFallingTree(g, sx, sy, variant, angle, alpha, biome) { PixelProps.drawFalling(g.ctx, sx, sy, variant, angle, alpha, TREE_TINT[biome]); },
 
   /** A small mound of sand with a faint glint: something is buried here (dig it up with a shovel). */
   drawMound(g, sx, sy, variant, now) {
@@ -69,14 +48,7 @@ const PropSprites = {
     ctx.restore();
   },
 
-  drawStump(g, sx, sy) {
-    const ctx = g.ctx;
-    ctx.save(); ctx.translate(sx, sy); ctx.scale(STUMP_SCALE, STUMP_SCALE);
-    g.ellipse(2, 2, 12, 5.5, 'rgba(0,0,0,.25)');
-    g.ellipse(0, 0, 10, 5, '#6f4626'); ctx.fillStyle = '#8a5a33'; ctx.fillRect(-10, -8, 20, 8);
-    g.ellipse(0, 0, 10, 5, '#8a5a33'); g.ellipse(0, -8, 10, 5, '#c9a06a'); g.ellipse(0, -8, 6, 3, '#b58a55');
-    ctx.restore();
-  },
+  drawStump(g, sx, sy) { PixelProps.drawStump(g.ctx, sx, sy); },
 
   /** Berry bush: leafy mound; ripe bushes carry berries in the colour of their berry type. */
   drawBush(g, sx, sy, bush) {

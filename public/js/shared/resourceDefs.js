@@ -5,6 +5,7 @@ const TreeDef = Object.freeze({
   requiredTool: 'axe',
   logsMin: 2, logsMax: 3,
   respawnSeconds: 40,
+  fallSeconds: 0.85,                             // how long a felled tree takes to hit the ground (then it breaks into logs)
   dropItemId: 'log'
 });
 

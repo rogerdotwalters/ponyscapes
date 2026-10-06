@@ -70,7 +70,7 @@
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
+<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
 <div id="portraitHint">Rotate your phone to landscape for the best view</div>
 
 <div id="toolbar"></div>
@@ -151,6 +151,7 @@
   <button class="pbtn danger" id="btnRelease" tabindex="-1" style="display:none">Let go</button>
   <button class="pbtn ability" id="btnAbility" tabindex="-1" style="display:none"></button>
   <button class="pbtn" id="btnLasso" tabindex="-1" title="Throw your lasso (L)">Lasso</button>
+  <button class="pbtn" id="btnDrop" tabindex="-1" title="Drop what is in your hand (X)">Drop</button>
   <button class="pbtn" id="btnRun" tabindex="-1">Run</button>
   <button class="pbtn" id="btnAct" tabindex="-1">Use</button>
 </div>
@@ -337,6 +338,7 @@
 <script src="js/client/render/pixelCharacter.js"></script>
 <script src="js/client/render/pixelPony.js"></script>
 <script src="js/client/render/pixelCreatures.js"></script>
+<script src="js/client/render/pixelProps.js"></script>
 <script src="js/client/render/playerSprite.js"></script>
 <script src="js/client/render/boatSprite.js"></script>
 <script src="js/client/render/creatures/registry.js"></script>

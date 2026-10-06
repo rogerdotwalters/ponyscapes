@@ -104,16 +104,22 @@ Object.assign(GameServer.prototype, {
     this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'destroyed', to: id, item: taken.item, count: taken.count });
   },
-  /** Interact key at a pile: as much as your pack takes. */
+  /** Interact key at a pile: as much as your pack takes, and the other piles of the same thing right around you too
+   *  (a felled tree's logs come up in one go). */
   _pickUpDrop(id, drop) {
-    const d = this.drops[drop.id], inventory = this.inventories[id];
+    const d = this.drops[drop.id], inventory = this.inventories[id], p = this.players[id];
     if (!d) return;
     inventory.limitHit = null;
-    const taken = d.count - inventory.add(d.item, d.count);
-    if (!taken) { if (!inventory.limitHit) this._notice(id, 'Inventory full'); return; }
-    d.count -= taken; if (d.count <= 0) delete this.drops[d.id];
+    const near = Object.values(this.drops).filter(o => o !== d && o.item === d.item && sameGrid(o, d) && Math.hypot(o.x - p.x, o.y - p.y) <= CONFIG.sim.drops.gatherRange);
+    let total = 0;
+    for (const pile of [d, ...near]) {
+      const taken = pile.count - inventory.add(pile.item, pile.count);
+      if (!taken) break;
+      pile.count -= taken; total += taken; if (pile.count <= 0) delete this.drops[pile.id];
+    }
+    if (!total) { if (!inventory.limitHit) this._notice(id, 'Inventory full'); return; }
     this.dropsRev++; this.inventoryRev[id]++;
-    this.pendingEvents.push({ type: 'gain', to: id, item: d.item, count: taken });
+    this.pendingEvents.push({ type: 'gain', to: id, item: d.item, count: total });
   },
   /** Piles near any person (for snapshots). */
   dropStates() {

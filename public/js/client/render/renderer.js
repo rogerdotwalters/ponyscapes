@@ -176,7 +176,11 @@ class Renderer {
     const prop = item.prop;
     if (prop.t === 'tree') {
       if (prop.alive) PropSprites.drawTree(g, item.gx, item.gy, prop.v, this.effects.treeShakeX(item.key, now), prop.forage ? prop : null, this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));
-      else PropSprites.drawStump(g, item.gx, item.gy);
+      else {
+        PropSprites.drawStump(g, item.gx, item.gy);
+        const fall = this.effects.fall(item.key, now);                                  // just felled: the tree topples, then breaks into logs
+        if (fall) PropSprites.drawFallingTree(g, item.gx, item.gy, prop.v, fall.angle, fall.alpha, this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));
+      }
     } else if (prop.t === 'bush') PropSprites.drawBush(g, item.gx, item.gy, prop);
     else if (prop.t === 'stone') { if (prop.ripe) PropSprites.drawStone(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'flax') PropSprites.drawFlax(g, item.gx, item.gy, prop);
@@ -224,8 +228,13 @@ class Renderer {
   }
 
   /** A pile someone dropped: the item bobbing on the ground like loot, with its count. */
+  /** A pile on the ground. A new one arcs in and bounces (dropped from a hand, or a log off a felled tree); logs lie flat as pixel logs. */
   _drawDrop(gx, gy, d, now) {
-    this._drawLoot(gx, gy, { drop: d.item, x: d.x }, now);
+    const seen = this.dropSeen || (this.dropSeen = new Map());
+    if (!seen.has(d.id)) { if (seen.size > 600) seen.clear(); seen.set(d.id, now); }
+    const t = (now - seen.get(d.id)) / 380, lift = t < 1 ? Math.abs(Math.sin(t * Math.PI * 1.5)) * 16 * (1 - t) : 0;
+    if (d.item === 'log') PixelLogs.drawGround(this.ctx, gx, gy, parseInt(d.id.slice(1), 10) || 0, lift);
+    else { this.ctx.save(); this.ctx.translate(0, -lift); this._drawLoot(gx, gy, { drop: d.item, x: d.x }, now); this.ctx.restore(); }
     if (d.count > 1) { const ctx = this.ctx; ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 11, gy - 2); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 11, gy - 2); }
   }
 

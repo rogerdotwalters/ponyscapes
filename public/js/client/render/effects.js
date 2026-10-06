@@ -83,7 +83,23 @@ class Effects {
   }
 
   _onChop(e) { this.shakeStart[e.key] = performance.now(); this._burst(e.x, e.y, 7, CHIP_COLORS, 34); }
-  _onFell(e) { this._burst(e.x, e.y, 20, LEAF_COLORS, 70); this._burst(e.x, e.y, 8, CHIP_COLORS, 14); }
+  /** A felled tree topples away from the woodcutter; when it lands: leaves, dust and chips where the crown hits, and it breaks into logs. */
+  _onFell(e) {
+    this.falls = this.falls || {};
+    this.falls[e.key] = { start: performance.now(), side: e.side || 1, x: e.x, y: e.y, landed: false };
+    this._burst(e.x, e.y, 8, CHIP_COLORS, 14);
+  }
+  /** Where a falling tree is: { angle, alpha }, or null once it has broken into logs. */
+  fall(key, now) {
+    const f = this.falls && this.falls[key]; if (!f) return null;
+    const t = (now - f.start) / (TreeDef.fallSeconds * 1000);
+    if (t >= 1 && !f.landed) {                                               // the crash
+      f.landed = true; const d = 1.4, wx = f.x + f.side / Math.SQRT2 * d, wy = f.y - f.side / Math.SQRT2 * d;
+      this._burst(wx, wy, 22, LEAF_COLORS, 40); this._burst(wx, wy, 12, DUST_COLORS, 10); this._burst(wx, wy, 10, CHIP_COLORS, 16);
+    }
+    if (t >= 1.35) { delete this.falls[key]; return null; }
+    return { angle: f.side * (Math.PI / 2 - 0.12) * Math.min(1, t) * Math.min(1, t), alpha: t < 1 ? 1 : 1 - (t - 1) / 0.35 };   // (gravity: slow at first, then fast)
+  }
   _onBuilt(e, demolished) { this._burst(e.tx + 0.5, e.ty + 0.5, demolished ? 12 : 9, demolished ? CHIP_COLORS : DUST_COLORS, 22); }
   _onGain(e) { const def = ItemDB.get(e.item); this._float(e, `+${e.count} ${def ? def.name : e.item}`); }
 

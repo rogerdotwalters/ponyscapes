@@ -33,7 +33,7 @@ class GameServer {
     this.builtRev = 1; this.builtSentRev = {}; this.floorsRev = 1; this.floorsSentRev = {};
     this.stockRev = 1; this.stockSentRev = {}; this.carryNoticeAt = {};
     this.playerKeys = {}; this.keyTokens = {}; this.tokenKeys = {}; this.tokenSeq = 0; this.petsClaimed = {};   // who owns what across seats (serverOwned.js): seat id -> player key, key <-> away token
-    this.drops = {}; this.nextDropId = 1; this.dropsRev = 1;                            // items lying on the ground      // the town's stockpiles + building levels (stockpiles.js), and when each player was last told they carry too much
+    this.drops = {}; this.nextDropId = 1; this.dropsRev = 1; this.later = [];            // (later: things that happen a moment from now, such as a felled tree breaking into logs)                            // items lying on the ground      // the town's stockpiles + building levels (stockpiles.js), and when each player was last told they carry too much
     this.progress = new Progression({ emit: e => this.pendingEvents.push(e), onLevels: (id, lv) => this._applyLevels(id, lv) });
     this.progressSent = {};                                // id -> { value }: which XP revision the client has
     this.treasureMaps = {}; this.treasureRev = {}; this.treasureSent = {}; this.rideAcc = {};
@@ -169,7 +169,8 @@ class GameServer {
       award: (id, skill, xp) => this.progress.award(id, skill, xp),
       pickUp: (id, found) => this._pickUp(id, found), digTreasure: (id, site) => this._digTreasure(id, site),
       mapSitesOf: id => this.treasureMaps[id],
-      dropOnGround: (item, count, x, y, grid) => this._dropOnGround(item, count, x, y, grid), groom: (id, a, item) => this._groom(id, a, item)
+      dropOnGround: (item, count, x, y, grid) => this._dropOnGround(item, count, x, y, grid),
+      later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
     const hunt = new HuntHandler(deps);
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
@@ -558,6 +559,7 @@ class GameServer {
   /* ---- simulation ---- */
   step() {
     this.tick++;
+    if (this.later.length) { const due = this.later.filter(l => l.at <= this.tick); if (due.length) { this.later = this.later.filter(l => l.at > this.tick); due.forEach(l => l.fn()); } }
     let focus = null;
     for (const id in this.inputQueues) {
       const queue = this.inputQueues[id];

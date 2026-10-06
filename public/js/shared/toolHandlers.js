@@ -27,15 +27,21 @@ class TreeHarvestHandler {
     if (felled) { this.award(id, 'woodcutting', 30); this._harvest(id, target.ref, tree); }
   }
 
+  /** The tree topples AWAY from the woodcutter (sideways on screen) and, when it hits the ground, breaks into logs lying along the trunk.
+   *  Pick them up with the interact key (one press gathers the whole lot). */
   _harvest(id, key, tree) {
-    this.emit({ type: 'fell', key, x: tree.x, y: tree.y, by: id });
-    const p = this.getPlayer(id), bonus = this.rng() < Skills.bonusYieldChance(p.lv, 'woodcutting') + luckChance(p) ? 1 : 0;     // a sharper (or luckier) woodcutter gets more logs
-    const wanted = this.trees.rollLogCount() + bonus;
-    const gained = wanted - this.getInventory(id).add(TreeDef.dropItemId, wanted);
-    if (gained > 0) {
-      this.markInventoryChanged(id);
-      this.emit({ type: 'gain', to: id, item: TreeDef.dropItemId, count: gained });
-    }
+    const p = this.getPlayer(id), side = (tree.x - tree.y) - (p.x - p.y) >= 0 ? 1 : -1;            // (screen x runs along x - y)
+    this.emit({ type: 'fell', key, x: tree.x, y: tree.y, by: id, side });
+    const bonus = this.rng() < Skills.bonusYieldChance(p.lv, 'woodcutting') + luckChance(p) ? 1 : 0;     // a sharper (or luckier) woodcutter gets more logs
+    const count = this.trees.rollLogCount() + bonus, ux = side / Math.SQRT2, uy = -side / Math.SQRT2;   // along the fall, on the ground
+    this.later(TreeDef.fallSeconds, () => {
+      for (let i = 0; i < count; i++) {
+        const d = 0.75 + i * 0.7, j = i % 2 ? 0.2 : -0.2;
+        let x = tree.x + ux * d - uy * j, y = tree.y + uy * d + ux * j;
+        if (isWaterTile(this.map.tile(Math.floor(x), Math.floor(y)))) { x = tree.x + (i - 1) * 0.35; y = tree.y + 0.55; }   // (never into the water)
+        this.dropOnGround(TreeDef.dropItemId, 1, x, y, '');
+      }
+    });
   }
 }
 

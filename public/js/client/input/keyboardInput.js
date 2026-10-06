@@ -50,6 +50,7 @@ class KeyboardInput {
     if (code === 'KeyH') this.bus.emit('ponyPower', 1);            // the ridden pony's first rarity ability (rare ponies and better)
     if (code === 'KeyK') this.bus.emit('ponyPower', 2);            // ...and its second (legendary)
     if (code === 'KeyL') this.bus.emit('throwLasso');              // the lasso in the lasso slot (whatever is in your hand)
+    if (code === 'KeyX') this.bus.emit('dropHeld', shift);         // drop what is in your hand (Shift: the whole stack)
     if (code === 'KeyT') this.bus.emit('toggleTown');              // stockpiles and building upgrades
     if (code === 'Escape') this.bus.emit('closePanels');
     const digit = /^Digit([1-9])$/.exec(code);

@@ -325,15 +325,7 @@ const ItemIcons = (() => {
       ctx.beginPath(); ctx.moveTo(11, 36); ctx.lineTo(37, 16); ctx.moveTo(11, 26); ctx.lineTo(37, 26); ctx.stroke();
       ctx.fillStyle = '#e0b84a'; ctx.beginPath(); ctx.arc(34, 26, 1.8, 0, Math.PI * 2); ctx.fill();
     },
-    log(ctx) {
-      ctx.fillStyle = '#8a5a33'; ctx.fillRect(9, 17, 28, 16);
-      ctx.fillStyle = '#6f4626'; ctx.beginPath(); ctx.ellipse(37, 25, 5, 8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#c9a06a'; ctx.beginPath(); ctx.ellipse(9, 25, 5, 8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#8a5a33'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.ellipse(9, 25, 3, 5, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(9, 25, 1, 2, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.moveTo(15, 20); ctx.lineTo(33, 20); ctx.moveTo(15, 29); ctx.lineTo(33, 29); ctx.stroke();
-    }
+    log(ctx) { PixelLogs.icon(ctx); }                                       // the pixel-art log (pixelProps.js)
   };
   /** A small cluster of berries on a leaf, in the item's own colour. */
   function berryPainter(color) {

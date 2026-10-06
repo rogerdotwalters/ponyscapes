@@ -33,13 +33,14 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const release = makeRect(sneak.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
   const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
   const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
-  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability, lasso]);
+  const drop = makeRect(lasso.x - g - small, ability.y, small, small);       // drop what is in your hand, beside the lasso
+  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability, lasso, drop]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, run: runRect, board, rot, sneak, release, ability, lasso, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, run: runRect, board, rot, sneak, release, ability, lasso, drop, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -243,7 +244,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnDrop', T.drop]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);
