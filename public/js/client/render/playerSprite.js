@@ -49,6 +49,7 @@ class PlayerSprite {
     const L = CharacterLook.describe(p.appearance), body = L.princess ? 'princess' : 'prince', moving = p.state !== 'idle';
     const drawn = !opts.procedural && SpriteRegistry.drawCharacter(this.g.ctx, body, pose.dir, sx, sy - pose.crouch * 0.5, moving, now);
     if (drawn) pose.headY = sy - drawn.h + 6;                                           // (the name tag and emote sit above the picture)
+    else if (PIXEL_BODIES[body]) this._drawPixel(p, sx, sy, pose, riding, now, L);
     else if (pose.dir === 'up') this._drawUp(p, sx, sy, pose, riding);
     else if (pose.dir === 'down') this._drawDown(p, sx, sy, pose, riding);
     else this._drawSide(p, sx, sy, pose, riding);
@@ -59,6 +60,15 @@ class PlayerSprite {
   _drawSide(p, sx, sy, pose, riding) { if (!riding) this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose); }
   _drawUp(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
   _drawDown(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
+
+  /** The retro pixel-art body (pixelCharacter.js): it walks with the stride, breathes and blinks when idle, and sits lower when riding. */
+  _drawPixel(p, sx, sy, pose, riding, now, L) {
+    const moving = p.state !== 'idle' && !riding;
+    const at = PixelCharacter.draw(this.g.ctx, L, this._wardrobe(p, pose.gear), pose.dir, sx, sy, {
+      moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0,
+      crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: riding ? 11 : pose.crouch ? 2 : 0 });
+    pose.headY = at.headY; pose.torsoTop = at.torsoTop;
+  }
 
   /** Worn items that have images: full-body overlays for the facing direction. */
   _drawWorn(p, sx, sy, pose, moving, now) {
@@ -84,7 +94,7 @@ class PlayerSprite {
     const torsoTop = sy - 33 + crouch - bob, dir = SpriteRegistry.dirOf(p.facing);
     const gear = Object.assign({}, p.gear || {});                                   // gear with its own worn images is not drawn procedurally
     for (const slot of WORN_ORDER) if (gear[slot] && SpriteRegistry.wornImage(gear[slot], dir)) gear[slot] = '';
-    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, gear };
+    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, gear, phase: walk.phase };
   }
 
   _drawGroundMarkers(p, sx, sy, pose) {
