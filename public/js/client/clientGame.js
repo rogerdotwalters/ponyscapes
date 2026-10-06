@@ -34,6 +34,7 @@ class ClientGame {
 
   onWelcome(welcome) {
     this.myId = welcome.id;
+    if (welcome.admin) GameSettings.applyWire(welcome.admin, true);     // the host's speed, clock and trees: before the land is built, so it matches the server's
     this.map = new World(welcome.mapSeed);                   // same seed as the server -> identical terrain, never sent
     this._applyRings(welcome.rings);                          // which rings are open decides where the barriers are
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
@@ -167,6 +168,8 @@ class ClientGame {
   }
   useAbility(id = 'fly') { if (this.abilityHint()) this.net.sendCommand({ type: 'ability', id }); }
   /** Host only: a testing aid (a flying test pony, hostile mobs off). */
+  /** Host: the Admin page's live values (globalSpeed, dayShare, gameHoursPerRealHour). */
+  setAdmin(values) { this.net.sendCommand({ type: 'admin', values }); }
   setSetting(key, value) { this.net.sendCommand({ type: 'setting', key, value: !!value }); }
   requestDismount() { this.net.sendCommand({ type: 'dismount' }); }
   _animalName(animal) { return animal.look ? PonyLook.describe(animal.look).name : AnimalDefs[animal.type].name; }
@@ -295,6 +298,7 @@ class ClientGame {
     for (const id in snapshot.animals || {}) this.beingTypes[id] = snapshot.animals[id].type;          // remember what each animal is, so the Journal can list your friends when they are far away
     if (snapshot.rings) this._applyRings(snapshot.rings);
     if (snapshot.settings) { this.settings = snapshot.settings; this.events.emit('settingsChanged', this.settings); }
+    if (snapshot.admin) { GameSettings.applyWire(snapshot.admin, false); this.events.emit('adminChanged'); }
     if (snapshot.pets) { this.pets = snapshot.pets; this.events.emit('petsChanged'); }
     if (snapshot.book) this.book = snapshot.book;
     if (snapshot.varieties) this.varieties = snapshot.varieties;

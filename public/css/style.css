@@ -405,3 +405,25 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .tup{margin-top:5px}
 .ttake button:disabled,.tup:disabled{opacity:.4;cursor:default}
 .tempty{font-size:12px;color:#c9bb98;padding:4px 0}
+
+/* the Admin page */
+.adminLock p{font-size:13px;opacity:.85;margin:4px 0 10px}
+.admRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.admRow input,.admSlide input[type=number]{background:#16283a;color:#f4e6c1;border:1px solid rgba(227,194,122,.6);border-radius:6px;padding:6px 8px;font:14px Georgia,serif;width:110px}
+.adminBody button,.adminLock button{background:transparent;color:#f4e6c1;border:1.5px solid rgba(227,194,122,.6);border-radius:6px;padding:5px 10px;font:13px Georgia,serif;touch-action:manipulation}
+.adminBody button.primary{background:rgba(227,194,122,.85);color:#1b2433}
+.admErr{color:#ffb4a6;font-size:13px;min-height:16px}
+.admHead{display:flex;justify-content:space-between;align-items:center}
+.admBox{margin-top:12px;padding-top:8px;border-top:1px solid rgba(227,194,122,.3)}
+.admSlide{display:grid;grid-template-columns:minmax(120px,1fr) minmax(110px,1.3fr) auto;gap:4px 10px;align-items:center;padding:6px 2px}
+.admSlide b{display:block;font-weight:600;font-size:14px}.admSlide small{display:block;font-size:11px;opacity:.75}
+.admSlide input[type=range]{width:100%;accent-color:#e3c27a}
+.admSlide output{font-size:12px;min-width:70px;text-align:right;white-space:nowrap}
+.admTrees>summary,.admBiome>summary{cursor:pointer;padding:6px 2px;font-size:14px}
+.admBiome{margin:2px 0 2px 10px;border-left:2px solid rgba(227,194,122,.25);padding-left:8px}
+.admBiome>summary small{opacity:.7;font-size:11px}.admBiome.changed>summary{color:#ffd36a}
+.admNote{font-size:12px;opacity:.8;margin:4px 0}.admNote code{font-size:11px}
+.admPending{font-size:12px;color:#ffd36a;margin:6px 0}
+.admJson{width:100%;box-sizing:border-box;background:#0f1c2b;color:#e8dcc0;border:1px solid rgba(227,194,122,.4);border-radius:6px;font:11px ui-monospace,monospace;padding:6px}
+.admMsg{font-size:12px;opacity:.85}
+@media (max-width:560px){.admSlide{grid-template-columns:1fr auto}.admSlide input[type=range],.admSlide input[type=number]{grid-column:1/-1;order:3}}

@@ -73,7 +73,8 @@ class TerrainGenerator {
   hasTree(tx, ty, tileType) {
     if (tileType !== TILE.GRASS || Village.blocksTrees(tx, ty)) return false;
     const T = TERRAIN;
-    const density = clamp(T.treeBase + 0.9 * Math.max(0, this.forestiness(tx, ty) * 0.9 + this.moisture(tx, ty) * 0.5 - 0.02) + TreeBoost[this.layers.biomes.at(tx, ty)], 0, T.treeMax);
+    const biome = this.layers.biomes.at(tx, ty);
+    const density = GameSettings.treeDensity(biome, T.treeBase + 0.9 * Math.max(0, this.forestiness(tx, ty) * 0.9 + this.moisture(tx, ty) * 0.5 - 0.02) + TreeBoost[biome], T.treeMax);   // (the Admin page's amount and cap per biome)
     return hash3(this.seed, tx, ty, 1) < density;
   }
 

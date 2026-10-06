@@ -8,6 +8,7 @@ const SERVER_STREAM_RADIUS = 2, SERVER_KEEP_RADIUS = 6, BOAT_SYNC_RADIUS = 90;  
 class GameServer {
   /** @param {number} seed  @param {{world?: object}} [options] world: a sanitized saved world (SaveData.sanitizeWorld) to continue instead of starting fresh */
   constructor(seed, options = {}) {
+    GameSettings.startHost();                                                // the Admin page's values (this browser's, else js/content/gameSettings.js): before any land is made
     this.map = new World(seed);
     if (options.world) SaveData.applyMapState(this.map, options.world);      // before any chunk exists, so props are generated already felled / picked
     this.map.onChunkGenerated = chunk => this._onChunkGenerated(chunk);
@@ -44,7 +45,7 @@ class GameServer {
     this.everTamed = {};                                   // ownerId -> { animalType: true }: the Pony Book remembers every kind you have kept
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
-    this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.testPonyId = '';      // the host's testing aids
+    this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
     this.tools = new ToolSystem({ handlers: this._createToolHandlers(), heldFor: (id, p, inventory, input) => this._heldFor(id, p, inventory, input),
@@ -219,6 +220,7 @@ class GameServer {
     if (!inventory || !cmd) return;
     switch (cmd.type) {
       case 'setting': if (id === this.hostId) this.applySetting(cmd.key, !!cmd.value); break;           // host-only testing aids
+      case 'admin': if (id === this.hostId && cmd.values) { GameSettings.setLive(cmd.values, this.tick); this.adminRev++; } break;   // the Admin page: speed, day split, time (sent to everyone)
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;                // the dedicated way off a pony (Z)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
@@ -754,6 +756,13 @@ class GameServer {
       if (host.mount === existing.id) this._dismount(this.hostId, host);
       delete this.animals.animals[existing.id]; this.testPonyId = '';
     }
+  }
+
+  /** The Admin page's live values and the clock, for EVERY player (their movement and clock must match the server's); only when they changed. */
+  adminUpdateFor(id) {
+    if (this.adminSentRev[id] === this.adminRev) return null;
+    this.adminSentRev[id] = this.adminRev;
+    return GameSettings.wire();
   }
 
   /** What the host's Settings panel shows; sent only to the host, and only when it changed (else null). */

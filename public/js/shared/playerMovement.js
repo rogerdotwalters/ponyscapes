@@ -71,7 +71,7 @@ function stepPlayer(p, input, dt, map) {
   if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
   const pony = riding ? PonySpeed.ride(p.mountType || 'pony_earth', p.mountLevel) : null;   // a pony's speed is its kind's base speed x the level curve (ponyProgress.js)
   const walk = riding ? pony.walk * boost : C.walkSpeed * Skills.speedFactor(p.lv) * boost;
-  const topSpeed = (weak ? walk * slowdown : input.run ? (riding ? pony.run * boost : C.runSpeed * Skills.speedFactor(p.lv) * boost) : input.sneak && !riding ? C.sneakSpeed : walk) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1);
+  const topSpeed = (weak ? walk * slowdown : input.run ? (riding ? pony.run * boost : C.runSpeed * Skills.speedFactor(p.lv) * boost) : input.sneak && !riding ? C.sneakSpeed : walk) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1) * GameSettings.speed();      // (the Admin page's global speed)
 
   accelerateToward(p, mx * topSpeed, my * topSpeed, movementRate(p, mx * topSpeed, my * topSpeed, moving) * dt);
   p.x += p.vx * dt; p.y += p.vy * dt;

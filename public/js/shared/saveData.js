@@ -33,7 +33,7 @@ const SaveData = {
   exportWorld(server) {
     const m = server.map;
     return {
-      v: SaveData.VERSION, seed: m.seed, tick: server.tick,
+      v: SaveData.VERSION, seed: m.seed, tick: server.tick, clockHours: GameSettings.totalHours(server.tick),      // (the in-game time: how fast it runs may have changed since)
       built: JSON.parse(JSON.stringify(m.built)), floors: Object.assign({}, m.floors), treasureDug: Object.assign({}, m.treasureDug),
       treeStates: JSON.parse(JSON.stringify(m.treeStates)), forageStates: JSON.parse(JSON.stringify(m.forageStates)),
       stockpiles: Stockpiles.exportState(m),
@@ -48,7 +48,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [] };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [] };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -122,6 +122,7 @@ const SaveData = {
   /** Step 2 (after the systems exist): the clock and the regrow timers, so a felled tree comes back when it was due to. */
   applyTimers(server, world) {
     server.tick = world.tick;
+    if (world.clockHours !== null && world.clockHours !== undefined) GameSettings.setClock(world.tick, world.clockHours);   // the time of day carries on where it was
     server.trees.respawns = world.treeRespawns.map(r => Object.assign({}, r));
     server.forage.regrows = world.forageRegrows.map(r => Object.assign({}, r));
     server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;

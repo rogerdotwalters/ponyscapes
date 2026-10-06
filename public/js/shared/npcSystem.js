@@ -34,7 +34,8 @@ class NpcSystem {
     const dx = n.tx - n.x, dy = n.ty - n.y, d = Math.hypot(dx, dy);
     if (d < 0.15 || n.timer <= 0) { n.state = 'idle'; n.vx = n.vy = 0; n.timer = 2 + this.rng() * 5; return; }
     const [ux, uy] = isoNormalize(dx / d, dy / d), px = n.x, py = n.y;
-    n.vx = ux * NPC_SPEED; n.vy = uy * NPC_SPEED; n.x += n.vx * TICK_DT; n.y += n.vy * TICK_DT;
+    const speed = NPC_SPEED * GameSettings.speed();
+    n.vx = ux * speed; n.vy = uy * speed; n.x += n.vx * TICK_DT; n.y += n.vy * TICK_DT;
     resolveCollisions(this.map, n, 0.25);
     n.facing = Math.atan2(dy, dx);
     if (Math.hypot(n.x - px, n.y - py) < 0.2 * NPC_SPEED * TICK_DT) { n.state = 'idle'; n.timer = 1; }                   // walked into something: stop and think again

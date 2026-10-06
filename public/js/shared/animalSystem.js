@@ -125,6 +125,7 @@ class AnimalSystem {
 
   _move(a, def, dt) {
     let pace = def.pony ? 1 : AnimalLevels.speedFactor(a.level);          // higher-level animals are a little quicker (a pony's level is already in its speed curve)
+    pace *= GameSettings.speed();                                        // (the Admin page's global speed)
     if (a.slowT > 0) { a.slowT -= dt; pace *= a.slowF || 1; }             // chilled by a Frost Nova
     accelerateToward(a, (a.tvx || 0) * pace, (a.tvy || 0) * pace, ANIMAL_ACCEL * dt);
     a.x += a.vx * dt; a.y += a.vy * dt;

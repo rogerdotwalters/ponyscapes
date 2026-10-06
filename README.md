@@ -93,6 +93,19 @@ You carry only as many stacks of wood, stone and clay as your Constitution level
 Stockpiles at the crafting table (they need a stone hammer), deliver to them with **F**, and manage them in the **Town** window (**T**). Crafting tables pull missing
 ingredients from linked stockpiles and store overflow there; buildings (stockpiles, crafting table, stable) upgrade with resources from nearby stockpiles.
 
+## Admin page (testing)
+
+Menu > **Admin** (the host only) asks for the code **112298** (remembered until the tab closes; **Lock** locks it again). It is there to keep
+younger testers out, not real security: the code is in `js/client/ui/settingsUI.js`. Behind it:
+
+* **Testing**: the flying test pony and hostile mobs off.
+* **World** (changes at once, for everyone in the game): **Global speed** 1-100 (everything that moves; 100 = as built), **Day / night** (% of each day
+  that is daylight; 54 = as built, a 50 / 50 button), **Game time** (in-game hours per real hour; 180 = as built, a day in 8 real minutes).
+* **Trees per biome** (folded, one entry per biome): amount (% of normal) and max (% of grass tiles). Trees are part of the land each machine builds
+  from the seed, so they change from the next time a world is started or continued, and only where the land has not been seen yet.
+* **Save into the game folder**: the settings live in `public/js/content/gameSettings.js`. Changes on the page are kept in the host's browser; **Export JSON**
+  (or **Download gameSettings.js**) gives you the values to paste into that file so everyone gets them. You can also paste JSON back in, or go back to the file's values.
+
 ## Ponies, lassos and grooming
 
 * **Speed scales with level.** Every pony kind has a `baseSpeed` (Pony 3.8, Earth 4.4, Pegasus 5.2, Unicorn 4.8, Alicorn 5.6 tiles/s); its level multiplies that by

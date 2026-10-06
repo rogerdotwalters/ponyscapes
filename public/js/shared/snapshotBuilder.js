@@ -10,7 +10,7 @@ const SnapshotBuilder = {
       inventory: server.inventoryUpdateFor(id), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
       boats: server.boatStates(), drops: server.dropStates(), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
       animals: server.animals.states(server._humans()), npcs: server.npcs.states(), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
-      pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id)
+      pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire())
     };
   },
 
@@ -35,6 +35,7 @@ const SnapshotBuilder = {
     const rings = server.ringsUpdateFor(id);           if (rings) snapshot.rings = rings;                  // a guardian fell: a ring opened
     const friends = server.friendship.updateFor(id);  if (friends) snapshot.friends = friends;            // your hearts with people and animals, only when they changed
     const settings = server.settingsUpdateFor(id);     if (settings) snapshot.settings = settings;          // the host's testing aids, only when they changed
+    const admin = server.adminUpdateFor(id);           if (admin) snapshot.admin = admin;                  // the Admin page's speed, day split, time and clock (everyone)
     const trade = server.tradeUpdateFor(id);           if (trade) snapshot.trade = trade;                  // { state }, only when it changed
     return snapshot;
   }

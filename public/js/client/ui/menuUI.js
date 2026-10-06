@@ -10,7 +10,7 @@ const MENU_SECTIONS = [
   { id: 'ponies',    glyph: '\uD83D\uDC0E', label: 'Ponies',    sub: 'Pony Book and your herd', key: 'P' },
   { id: 'town',      glyph: '\uD83C\uDFD8', label: 'Town',      sub: 'Stockpiles and upgrades', key: 'T' },
   { id: 'session',   glyph: '\uD83C\uDF10', label: 'Session',   sub: 'Room code, players, saving', key: '', needsSession: true },
-  { id: 'settings',  glyph: '\u2699',       label: 'Settings',   sub: CONFIG.sim.vitals ? 'Host: hunger, thirst, testing' : 'Host: testing aids', key: '', hostOnly: true }
+  { id: 'settings',  glyph: '\u2699',       label: 'Admin',      sub: 'Host: testing tools and game settings (code)', key: '', hostOnly: true }
 ];
 
 class MenuUI {
