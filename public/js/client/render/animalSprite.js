@@ -20,12 +20,25 @@ class AnimalSprite {
     const def = AnimalDefs[animal.type], scale = (def.sprite && def.sprite.scale) || 1;
 
     const drawn = !opts.procedural && SpriteRegistry.drawCreature(ctx, animal.type, animal.look, dir, sx, sy, speed > 0.2, now);
-    if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
+    if (!drawn && PIXEL_PONIES[animal.type]) this._drawPixelPony(animal, st, dir, sx, sy, speed, now, seed);
+    else if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
     const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
     if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
     const hearts = !animal.rider && view && (view.friend || view.invite);
     if (hearts) HeartMeter.draw(ctx, sx, sy - tagY - 16, view.friend || null, now);        // your hearts with it (or three faint empty ones, inviting you to make friends)
     if (animal.want && view && view.wantNear) WantBubble.draw(ctx, sx, sy - tagY - (hearts ? 30 : 10), animal.want, animal.wantN, now, view.holding === animal.want || (Wants.of(animal.type) || { items: [] }).items.includes(view.holding));   // what it is asking for
+  }
+
+  /** The retro pixel-art pony (pixelPony.js), in its own colours. Its biome's glow and effects are laid over it as before. */
+  _drawPixelPony(animal, st, dir, sx, sy, speed, now, seed) {
+    const ctx = this.g.ctx, look = PonyLook.describe(animal.look), side = dir === 'left' || dir === 'right';
+    if (look.glow) { ctx.save(); ctx.translate(sx, sy); this._glow(look.glow, now); ctx.restore(); }
+    PixelPony.draw(ctx, look, dir, sx, sy, { moving: speed > 0.2, phase: st.phase, now, seed: seed * 0.13, lift: animal.lift });
+    if (side && look.accessory && look.accessory !== 'flames') {
+      ctx.save(); ctx.translate(sx, sy); ctx.scale(dir === 'left' ? -1 : 1, 1);
+      this._bodyAccessory(look.accessory, now, 0, speed > 0.2, look.coat); this._headAccessory(look.accessory, now, 0);
+      ctx.restore();
+    }
   }
 
   /** The procedural artwork for one screen direction. */

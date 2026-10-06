@@ -6,11 +6,14 @@
  * PIXEL_BODIES says which bodies use it (the princess for now; the prince keeps the older smooth drawing). */
 const PIXEL_BODIES = { princess: true, prince: false };
 const PixelCharacter = (() => {
-  const W = 28, H = 40, TOP = 2, CX = 14, PX = 1.3;   // (TOP: rows above the head kept for tall crowns)                  // art size, centre column, and how many world pixels one art pixel covers
+  const W = 28, H = 40, TOP = 2, CX = 14, PX = 1.3, PixelCharacter_W = W, PixelCharacter_H = H;   // (TOP: rows above the head kept for tall crowns)                  // art size, centre column, and how many world pixels one art pixel covers
   const cache = new Map();
 
   /* ---- colour helpers ---- */
-  const hex = c => { const m = /^#?([0-9a-f]{6})$/i.exec(c || '') ; const n = m ? parseInt(m[1], 16) : 0x888888; return [n >> 16, (n >> 8) & 255, n & 255]; };
+  const hex = c => {                                                                        // '#rrggbb' or 'rgb(r,g,b)' -> [r, g, b]
+    const rgb = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(c || ''); if (rgb) return [+rgb[1], +rgb[2], +rgb[3]];
+    const m = /^#?([0-9a-f]{6})$/i.exec(c || ''), n = m ? parseInt(m[1], 16) : 0x888888; return [n >> 16, (n >> 8) & 255, n & 255];
+  };
   const css = ([r, g, b]) => `rgb(${Math.max(0, Math.min(255, r | 0))},${Math.max(0, Math.min(255, g | 0))},${Math.max(0, Math.min(255, b | 0))})`;
   const shade = (c, f) => css(hex(c).map(v => v * f));
   const light = (c, f) => css(hex(c).map(v => v + (255 - v) * f));
@@ -52,7 +55,7 @@ const PixelCharacter = (() => {
   }
 
   /* ---- the outline: every empty pixel touching the figure turns dark ---- */
-  function outline(ctx, color) {
+  function outline(ctx, color, W = PixelCharacter_W, H = PixelCharacter_H) {
     const img = ctx.getImageData(0, 0, W, H), d = img.data, solid = i => d[i * 4 + 3] > 0, mark = [];
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (solid(y * W + x)) continue;
@@ -366,5 +369,7 @@ const PixelCharacter = (() => {
     return { top, headY: top + (TOP + 9) * PX, torsoTop: top + (TOP + 17) * PX };
   }
 
-  return { draw, W, H, PX };
+  /** Shared with the other pixel-art sprites (pixelPony.js). */
+  const util = { hex, css, shade, light, mix, tones, outline };
+  return { draw, W, H, PX, util };
 })();
