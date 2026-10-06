@@ -207,6 +207,46 @@ const InteriorSprites = (() => {
         else box(ctx, b.x0 + off, b.y0 + 0.05, b.x0 + off + 0.22, b.y1 - 0.05, 4, c.plank, lift);
       }
     },
+    /** A loom: two posts and a beam, the warp threads strung down the frame, a length of woven cloth rolled at the front. */
+    loom(ctx, b, def, rot, now) {
+      const c = def.colors, h = def.height || 44, longX = (b.x1 - b.x0) >= (b.y1 - b.y0), face = frontFace(rot);
+      const fb = { x0: b.x0 + 0.08, y0: b.y0 + 0.2, x1: b.x1 - 0.08, y1: b.y1 - 0.2 };
+      if (!longX) { fb.x0 = b.x0 + 0.2; fb.x1 = b.x1 - 0.2; fb.y0 = b.y0 + 0.08; fb.y1 = b.y1 - 0.08; }
+      const post = (u) => { const [x0, y0] = longX ? [fb.x0 + (fb.x1 - fb.x0) * u - 0.06, fb.y0] : [fb.x0, fb.y0 + (fb.y1 - fb.y0) * u - 0.06]; box(ctx, x0, y0, x0 + (longX ? 0.12 : fb.x1 - fb.x0), y0 + (longX ? fb.y1 - fb.y0 : 0.12), h, c.wood); };
+      post(0.04); post(0.96);
+      box(ctx, fb.x0, fb.y0, fb.x1, fb.y1, 4, c.light, h - 6);                                  // the top beam
+      box(ctx, fb.x0 + 0.04, fb.y0, fb.x1 - 0.04, fb.y1, 6, c.wood, 6);                         // the cloth beam
+      for (let u = 0.12; u < 0.9; u += 0.055) faceQuad(ctx, fb, face, u, u + 0.012, 12, h - 6, c.warp);   // the warp threads
+      const shuttle = 0.2 + 0.6 * (0.5 + 0.5 * Math.sin((now || 0) / 420));                                  // the shuttle drifting across
+      faceQuad(ctx, fb, face, 0.1, 0.9, 12, 22, c.cloth);                                       // woven cloth
+      faceQuad(ctx, fb, face, shuttle - 0.05, shuttle + 0.05, 22, 26, '#a8763f');
+    },
+    /** A dye press: a tub on legs with a big screw and a plank, a spout dripping colour into a pot. */
+    press(ctx, b, def, rot, now) {
+      const c = def.colors, h = def.height || 34, mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
+      box(ctx, mx - 0.34, my - 0.34, mx + 0.34, my + 0.34, 14, c.tub);                          // the tub
+      box(ctx, mx - 0.3, my - 0.3, mx + 0.3, my + 0.3, 2, '#7b45c4', 14);                       // dye in it
+      box(ctx, mx - 0.36, my - 0.06, mx + 0.36, my + 0.06, 4, c.light, 22);                     // the pressing plank
+      box(ctx, mx - 0.04, my - 0.04, mx + 0.04, my + 0.04, h - 22, c.iron, 22);                  // the screw
+      box(ctx, mx - 0.28, my - 0.03, mx + 0.28, my + 0.03, 3, c.wood, h - 3);                    // its handle
+      const [sx, sy] = P(mx + 0.38, my + 0.38), drip = ((now || 0) / 600) % 1;
+      ctx.fillStyle = '#5a3a22'; ctx.fillRect(sx - 4, sy - 7, 8, 6);                             // a pot under the spout
+      ctx.fillStyle = '#7b45c4'; ctx.fillRect(sx - 1, sy - 13 + drip * 6, 2, 2);                  // a drip
+    },
+    /** A bin: a slatted wooden box, heaped with what it holds (f.fill 0..1). */
+    bin(ctx, b, def, rot, now, f) {
+      const c = def.colors, h = def.height || 20, fb = { x0: b.x0 + 0.06, y0: b.y0 + 0.08, x1: b.x1 - 0.06, y1: b.y1 - 0.08 }, fill = Math.max(0, Math.min(1, (f && f.fill) || 0));
+      box(ctx, fb.x0, fb.y0, fb.x1, fb.y1, h, shadeOf(c.wood, 0.75));
+      if (fill > 0) {                                                                           // the heap of wool, rising as it fills
+        const top = h - 4 + fill * 10, n = Math.round(3 + fill * 6);
+        for (let i = 0; i < n; i++) {
+          const u = (i + 0.5) / n, [x, y] = P(fb.x0 + (fb.x1 - fb.x0) * u, (fb.y0 + fb.y1) / 2 + Math.sin(i * 2.3) * 0.12);
+          ctx.fillStyle = i % 2 ? c.fill : shadeOf(c.fill, 0.9); ctx.beginPath(); ctx.ellipse(x, y - top + Math.sin(i * 1.7) * 2, 7, 5, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      for (const face of ['S', 'E']) for (const u of [0.02, 0.5, 0.98]) faceQuad(ctx, fb, face, u - 0.02, u + 0.02, 0, h, c.band);   // corner posts
+      for (const face of ['S', 'E']) faceQuad(ctx, fb, face, 0, 1, h / 2 - 1, h / 2 + 1, c.band);                                     // a slat
+    },
     hay(ctx, b, def) {
       const c = def.colors, h = def.height || 18, fb = { x0: b.x0 + 0.08, y0: b.y0 + 0.12, x1: b.x1 - 0.08, y1: b.y1 - 0.12 };
       box(ctx, fb.x0, fb.y0, fb.x1, fb.y1, h, c.hay);
@@ -229,7 +269,7 @@ const InteriorSprites = (() => {
       return;
     }
     if (def.height && def.style !== 'rug') { ctx.fillStyle = 'rgba(0,0,0,.14)'; const [cx, cy] = P(f.x, f.y); ctx.beginPath(); ctx.ellipse(cx, cy + 2, (f.w + f.h) * W * 0.32, (f.w + f.h) * H * 0.32, 0, 0, Math.PI * 2); ctx.fill(); }
-    (STYLES[def.style] || STYLES.crate)(ctx, b, def, f.rot | 0, now);
+    (STYLES[def.style] || STYLES.crate)(ctx, b, def, f.rot | 0, now, f);
   }
 
   return { tile, wall, furniture, box, styles: Object.keys(STYLES), TALL, LOW };

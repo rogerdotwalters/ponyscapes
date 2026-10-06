@@ -192,7 +192,17 @@ class Renderer {
     else if (prop.t === 'loot') { if (prop.ripe) this._drawLoot(item.gx, item.gy, prop, now); }
     else if (prop.t === 'cave') PropSprites.drawCave(g, item.gx, item.gy, prop.ring, now);
     else if (prop.t === 'portal') PropSprites.drawPortal(g, item.gx, item.gy, now);
-    else if (prop.t === 'furniture') InteriorSprites.furniture(g, prop, now);
+    else if (prop.t === 'furniture') {
+      const def = FurnitureDefs.get(prop.id);
+      if (def && def.store) {                                                               // a bin: how full it is, and a label with its count
+        const key = HomeCrafts.storeKey(this.game.grid, { x: Math.round(prop.x - prop.w / 2), y: Math.round(prop.y - prop.h / 2) }), n = HomeCrafts.storeCount(this.game.worldMap, key), cap = def.store.capacity || 500;
+        prop.fill = n / cap;
+        InteriorSprites.furniture(g, prop, now);
+        const ctx = this.ctx, label = `${ItemDefs[def.store.item].name} ${n} / ${cap}`, x = isoX(prop.x, prop.y), y = isoY(prop.x, prop.y) - (def.height || 20) - 26;
+        ctx.font = '600 11px Georgia, serif'; ctx.textAlign = 'center'; const w = ctx.measureText(label).width + 12;
+        g.roundRect(x - w / 2, y - 8, w, 16, 6); ctx.fillStyle = 'rgba(10,18,28,.62)'; ctx.fill(); ctx.fillStyle = '#f2efe6'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y);
+      } else InteriorSprites.furniture(g, prop, now);
+    }
     else if (prop.t === 'tracks') { if (!(this.game.defeated || []).includes(prop.ring)) this._drawTracks(item.gx, item.gy, prop, now); }   // (gone once the young are home)
     else PropSprites.drawWell(g, item.gx, item.gy);
   }

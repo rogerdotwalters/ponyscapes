@@ -55,7 +55,7 @@ const Interactions = {
   extra: [],
   /** @returns {{kind:'pick'|'door'|'board'|'untie'|'pickup'|'drink'|'fill', label:string, dist:number, forage?, door?, boat?, water?}|null} */
   find(map, boats, p, heldItemId, animals = {}, selfId = p.id, npcs = {}, drops = {}) {
-    for (const finder of Interactions.extra) { const found = finder(map, p); if (found) return found; }
+    for (const finder of Interactions.extra) { const found = finder(map, p, heldItemId); if (found) return found; }
     const mounted = !!p.mount;                           // in the saddle you can still pick, open and loot: only when there is nothing to do does the key get you off
     const primary = [];
     for (const id in animals) {                          // tied pets can be untied, small animals picked up

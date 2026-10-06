@@ -15,6 +15,7 @@ const BASE_RECIPES = ({
   make_stone_hammer:  makeRecipe('make_stone_hammer', 'Stone Hammer', [ing('stone', 2), ing('plank', 1)], [ing('stone_hammer', 1)]),
   make_rope_hide:     makeRecipe('make_rope_hide', 'Rope (from hide)', [ing('hide', 1)], [ing('rope', 2)], { tools: ['knife'] }),
   make_rope_wool:     makeRecipe('make_rope_wool', 'Rope (from wool)', [ing('wool', 3)], [ing('rope', 1)]),
+  weave_linen:        makeRecipe('weave_linen', 'Linen (weave on a loom)', [ing('string', 3)], [ing('linen', 1)], { station: 'loom' }),
   make_rope_string:   makeRecipe('make_rope_string', 'Rope (from string)', [ing('string', 3)], [ing('rope', 1)]),
   make_torch:         makeRecipe('make_torch', 'Torches (x2)', [ing('plank', 1), ing('string', 1)], [ing('torch', 2)]),
   make_campfire:      makeRecipe('make_campfire', 'Campfire', [ing('log', 3), ing('stone', 4)], [ing('campfire', 1)]),

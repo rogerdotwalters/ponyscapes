@@ -31,7 +31,7 @@ const Village = (() => {
     if (ty === 28 && tx >= 10 && tx <= 19) return TILE.DIRT;                                // west street (carpenter)
     if (ty === 29 && tx >= 21 && tx <= 31) return TILE.DIRT;                                // east street (general store, veterinary)
     for (const s of BuildingSites.list) {                                                    // a path from every door down to its street (or a step outside)
-      const street = s.doorY >= 28 ? s.doorY + 1 : s.doorX > 20 ? 28 : 27;
+      const street = s.doorY >= 28 ? s.doorY + 1 : s.doorY < 20 ? 19 : s.doorX > 20 ? 28 : 27;      // (north of the main road: a step down to it)
       if (tx === s.doorX && ty > s.doorY && ty <= street) return TILE.DIRT;
     }
     if (inEllipse(LAKE, tx, ty, SHALLOW_RING) || inEllipse(POND, tx, ty, SHALLOW_RING)) return TILE.SHALLOW;   // wading ring round the deep water

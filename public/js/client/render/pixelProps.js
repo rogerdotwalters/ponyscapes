@@ -231,3 +231,33 @@ const PixelWool = (() => {
 
 /** Ground sprites for items that have one (everything else lies as its icon). */
 const PixelGround = { log: PixelLogs.drawGround, wool: PixelWool.drawGround };
+
+/* ---- DYES (a little stoppered bottle of colour) and LINEN (a folded bolt of cloth): pixel icons ---- */
+const PixelCraftIcons = (() => {
+  const { outline, shade, light } = PixelCharacter.util;
+  const grid = (paint) => { const c = document.createElement('canvas'); c.width = 24; c.height = 24; const s = c.getContext('2d'); paint((x, y, col) => { s.fillStyle = col; s.fillRect(x, y, 1, 1); }); outline(s, '#1e1a18', 24, 24); return c; };
+  const put = (g, c) => { g.save(); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, 48, 48); g.restore(); };
+  function dye(g, color) {
+    put(g, grid(px => {
+      for (let y = 9; y <= 20; y++) for (let x = 6; x <= 17; x++) {                                // the round body of the bottle
+        const d = Math.hypot(x - 11.5, y - 14.5); if (d > 5.8) continue;
+        const glass = d > 4.6, liquid = y >= 11;
+        px(x, y, glass ? '#cfe6ee' : liquid ? (x < 10 && y < 15 ? light(color, 0.3) : x > 13 || y > 18 ? shade(color, 0.72) : color) : '#e8f4f8');
+      }
+      for (let y = 5; y <= 8; y++) for (let x = 10; x <= 13; x++) px(x, y, x === 10 ? '#e8f4f8' : '#cfe6ee');   // the neck
+      for (let x = 9; x <= 14; x++) { px(x, 3, '#8a5f33'); px(x, 4, '#a8763f'); }                   // the cork
+      px(9, 12, '#ffffff'); px(8, 13, '#ffffff');                                                     // a gleam
+    }));
+  }
+  function linen(g) {
+    put(g, grid(px => {
+      for (let k = 0; k < 3; k++) for (let y = 0; y < 4; y++) for (let x = 3; x <= 20; x++) {      // three folds stacked
+        const yy = 7 + k * 4 + y, edge = y === 3, top = y === 0;
+        px(x - k, yy, edge ? '#bfb59a' : top ? '#fffaf0' : (x + yy) % 4 === 0 ? '#e2d9c2' : '#efe8d6');
+      }
+      for (let y = 7; y < 19; y++) { px(21, y, '#cfc5a8'); }
+      px(12, 9, '#c9a06a'); px(13, 9, '#c9a06a'); px(12, 13, '#c9a06a');                           // a twine tie
+    }));
+  }
+  return { dye, linen };
+})();

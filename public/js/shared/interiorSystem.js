@@ -12,6 +12,7 @@ function findBuildingInteraction(map, p) {
   if (map.grid) return null;
   const near = BuildingSites.nearDoor(p.x, p.y, BUILDING_REACH);
   if (!near) return null;
+  if (near.site.def.locked) return { kind: 'locked_building', label: near.site.def.name + ' (locked)', dist: near.dist, site: near.site.index };   // the empty homes, for now
   return { kind: 'enter_building', label: near.site.def.instance === 'player' ? 'Go home' : 'Enter ' + near.site.def.name, dist: near.dist, site: near.site.index };
 }
 const BUILDING_REACH = 1.5;
@@ -32,7 +33,7 @@ class InteriorSystem {
 
   enter(id, p, siteIndex) {
     const s = this.server, site = BuildingSites.list[siteIndex];
-    if (!site || s.dungeons._cooling(id)) return;
+    if (!site || site.def.locked || s.dungeons._cooling(id)) return;
     const grid = this.gridFor(id, site), room = s.grids.get(grid);
     if (room.grid !== grid) { s._notice(id, `The ${site.def.name} has nothing inside yet (make its room in level-editor.html)`); return; }
     const entry = room.entryPoint();

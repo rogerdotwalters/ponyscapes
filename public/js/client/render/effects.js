@@ -8,6 +8,7 @@ class Effects {
     this.game = game; this.arrows = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {};
     game.events.on('chop', e => this._onChop(e));
     game.events.on('fell', e => this._onFell(e));
+    game.events.on('pressed', e => { const c = e.color || '#7b45c4'; this._burst(e.x, e.y, 12, [c, c, '#ffffff'], 14); });   // a splash of the dye's colour at the press
     game.events.on('shear', e => { this._burst(e.x, e.y, 14, WOOL_COLORS, 16); this._float(Object.assign({ to: e.by }, e), 'Snip!'); });   // a puff of fluff; the tufts land a moment later
     game.events.on('gain', e => this._onGain(e));
     game.events.on('pick', e => this._burst(e.x, e.y, 9, e.prop === 'stone' ? DUST_COLORS : LEAF_COLORS, 12));

@@ -59,7 +59,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {} }, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null, wants: data.wants && typeof data.wants === 'object' ? JSON.parse(JSON.stringify(data.wants)) : null };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {}, rooms: {} }, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null, wants: data.wants && typeof data.wants === 'object' ? JSON.parse(JSON.stringify(data.wants)) : null };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -96,6 +96,7 @@ const SaveData = {
       if (keyOk(k) && Buildings.upgradeable(type)) out.stockpiles.levels[k] = SaveData._int(level, 1, BuildingUpgrades[type].length, 1);
     }
     for (const [k, tile] of Object.entries(out.built)) if (Stockpiles.isStockpile(tile.c) && !out.stockpiles.piles[k]) out.stockpiles.piles[k] = { items: {} };
+    for (const [k, n] of Object.entries(SaveData._plain(stock.rooms) ? stock.rooms : {})) if (/^room:[0-9:]{1,24}\|\d{1,3},\d{1,3}$/.test(k)) out.stockpiles.rooms[k] = SaveData._int(n, 0, 99999, 0);   // the bins in rooms
     for (const q of Array.isArray(data.pets) ? data.pets.slice(0, SaveData.MAX_PETS * 64) : []) {             // (older saves have none)
       const pet = SaveData._pet(q);
       if (!pet || typeof q.key !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(q.key)) continue;
