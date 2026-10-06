@@ -1,13 +1,14 @@
 'use strict';
 /* CLIENT - purely visual feedback driven by server events: wood chips, falling leaves, floating "+2 Log", tree shake. */
 const SHAKE_MS = 320, SHAKE_PIXELS = 5;
-const CHIP_COLORS = ['#c9a06a', '#8a5a33', '#b58a55'], LEAF_COLORS = ['#468a40', '#5ea24a', '#3f7a3a'], DUST_COLORS = ['#d8cfb8', '#b9ae92', '#e9e2d0'], GOLD_COLORS = ['#ffe08a', '#ffc94a', '#fff2c2'], HEART_COLORS = ['#ff7ab6', '#ffd1e8', '#ff9ec7', '#fff3b0'], FUR_COLORS = ['#e8dcc4', '#b79a72', '#8d6a45'], SPLASH_COLORS = ['#e8f6ff', '#9fd0f2', '#5aa6dc'];
+const CHIP_COLORS = ['#c9a06a', '#8a5a33', '#b58a55'], LEAF_COLORS = ['#468a40', '#5ea24a', '#3f7a3a'], DUST_COLORS = ['#d8cfb8', '#b9ae92', '#e9e2d0'], GOLD_COLORS = ['#ffe08a', '#ffc94a', '#fff2c2'], HEART_COLORS = ['#ff7ab6', '#ffd1e8', '#ff9ec7', '#fff3b0'], FUR_COLORS = ['#e8dcc4', '#b79a72', '#8d6a45'], SPLASH_COLORS = ['#e8f6ff', '#9fd0f2', '#5aa6dc'], WOOL_COLORS = ['#ffffff', '#f2efe6', '#e6e1d3'];
 
 class Effects {
   constructor(bus, game) {
     this.game = game; this.arrows = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {};
     game.events.on('chop', e => this._onChop(e));
     game.events.on('fell', e => this._onFell(e));
+    game.events.on('shear', e => { this._burst(e.x, e.y, 14, WOOL_COLORS, 16); this._float(Object.assign({ to: e.by }, e), 'Snip!'); });   // a puff of fluff; the tufts land a moment later
     game.events.on('gain', e => this._onGain(e));
     game.events.on('pick', e => this._burst(e.x, e.y, 9, e.prop === 'stone' ? DUST_COLORS : LEAF_COLORS, 12));
     game.events.on('eat', e => this._float(e, `Yum! +${e.hunger} hunger`));

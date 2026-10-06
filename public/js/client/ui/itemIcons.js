@@ -189,11 +189,8 @@ const ItemIcons = (() => {
       ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.ellipse(22, 22, 9, 6, 0.4, 0, Math.PI * 2); ctx.fill();
     },
-    wool(ctx) {
-      for (const [x, y, r, c] of [[16, 28, 9, '#e6e1d3'], [30, 28, 9, '#e6e1d3'], [23, 22, 10, '#f2efe6'], [14, 20, 7, '#f7f4ec'], [32, 20, 7, '#f7f4ec'], [23, 33, 8, '#dcd6c6']]) {
-        ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      }
-    },
+    wool(ctx) { PixelWool.icon(ctx); },                                     // pixel art (pixelProps.js)
+    shears(ctx) { PixelWool.shearsIcon(ctx); },
     antler(ctx) {
       ctx.strokeStyle = '#d9c9a6'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath();
       ctx.moveTo(24, 42); ctx.lineTo(24, 26); ctx.moveTo(24, 30); ctx.lineTo(12, 18); ctx.moveTo(24, 26); ctx.lineTo(34, 12);

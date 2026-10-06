@@ -40,6 +40,7 @@ class AnimalSystem {
     for (const h of humans) (byGrid[gridOf(h)] = byGrid[gridOf(h)] || []).push(h);
     for (const id in this.animals) {
       const a = this.animals[id], near = byGrid[gridOf(a)];
+      if (a.shornUntil && tick >= a.shornUntil) a.shornUntil = 0;                       // its wool has grown back
       if (a.rider || !near || !near.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_ACTIVE_RADIUS)) continue;     // a ridden pony is steered by its rider
       const def = AnimalDefs[a.type];
       this.active = a;                                                                   // (what it does is shown on its grid: see GameServer's events)
@@ -323,7 +324,8 @@ class AnimalSystem {
       if (humans.some(h => sameGrid(h, a) && Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_SYNC_RADIUS)) {
         out[id] = { id, type: a.type, level: a.level, x: a.x, y: a.y, vx: a.vx, vy: a.vy, facing: a.facing, hp: a.hp, state: a.state, look: a.look, owner: a.owner, captor: a.captor, leashed: a.leashed, rider: a.rider };
         if (a.grid) out[id].grid = a.grid;
-        if (a.main) out[id].main = true;                                                       // someone's main pony (it follows them)
+        if (a.main) out[id].main = true;
+        if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)
       }
     }

@@ -170,12 +170,13 @@ class GameServer {
       pickUp: (id, found) => this._pickUp(id, found), digTreasure: (id, site) => this._digTreasure(id, site),
       mapSitesOf: id => this.treasureMaps[id],
       dropOnGround: (item, count, x, y, grid) => this._dropOnGround(item, count, x, y, grid),
+      tick: () => this.tick,
       later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
     const hunt = new HuntHandler(deps);
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
     deps.onTamed = (ownerId, animal) => this._remember(ownerId, animal);
-    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps) };
+    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: new ShearHandler(deps) };
   }
 
   /* ---- membership ---- */

@@ -5,7 +5,7 @@
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
-const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9 };
+const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10 };
 /** Each lasso's look: rope, braid highlight, outline, the ring (honda) the loop runs through, its ribbon tails (none: a plain rope end)
  *  and whether it is old and frayed (the starter). A lasso made in the editor uses its item colour. Shared with the item icons and the throw effect. */
 const LASSO_LOOKS = {
@@ -307,6 +307,7 @@ class PlayerSprite {
     if (tool.kind === 'bow') this._drawBow(handX, handY, dirX, dirY, perpX, perpY);
     else if (tool.kind === 'leash') this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0, lassoLook(p.held));
     else if (tool.kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
+    else if (tool.kind === 'shears') this._drawShears(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0 ? Math.abs(Math.sin(p.swingT * 18)) : 0);
     else {
       ctx.strokeStyle = tool.kind === 'rod' ? '#a07a45' : '#7a5230'; ctx.lineWidth = tool.kind === 'rod' ? 1.8 : 2.5;
       ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(tipX, tipY); ctx.stroke();
@@ -389,6 +390,17 @@ class PlayerSprite {
       ctx.strokeStyle = look.rope; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
     }
   }
+  /** Shears: two blades pivoting at a rivet, with loop handles in the hand; they open and snap shut while snipping (open 0..1). */
+  _drawShears(x, y, dx, dy, px, py, open) {
+    const ctx = this.g.ctx, a = 0.12 + open * 0.38, piv = [x + dx * 3, y + dy * 3];
+    for (const s of [-1, 1]) {
+      const c = Math.cos(a * s), sn = Math.sin(a * s), bx = dx * c - dy * sn, by = dx * sn + dy * c;     // each blade turned a little off the line
+      ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(piv[0], piv[1]); ctx.lineTo(piv[0] + bx * 9, piv[1] + by * 9); ctx.stroke();
+      ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(piv[0] - bx * 3.2 + px * s * 1.6, piv[1] - by * 3.2 + py * s * 1.6, 1.8, 0, Math.PI * 2); ctx.stroke();   // the finger loops
+    }
+    ctx.fillStyle = '#4a4148'; ctx.fillRect(piv[0] - 0.8, piv[1] - 0.8, 1.6, 1.6);
+  }
+
   /** A grooming brush: a short wooden handle and a block of bristles (a soft brush has pale ones). */
   _drawBrush(x, y, dx, dy, px, py, itemId) {
     const ctx = this.g.ctx, tipX = x + dx * 9, tipY = y + dy * 9;

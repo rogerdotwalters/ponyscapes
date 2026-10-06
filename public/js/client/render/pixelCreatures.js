@@ -170,14 +170,22 @@ const PixelCreatures = (() => {
     paint(P, C, F) {
       const sw = F.swing;
       for (const [x, d] of [[10, -sw], [21, sw]]) P.leg(x, 16, 24, d, 0, 2, { b: shade('#3b3a3a', 0.7), d: '#2a2929' });
+      const shorn = F.extra === 'shorn';
       P.at(0, F.bob, () => {
-        P.shape([[16, 12, 10, 6], [9, 13, 5, 5], [23, 13, 5, 5], [16, 8, 7, 4]], C.wool, { texture: false });
-        for (let y = 6; y < 18; y += 3) for (let x = 7 + (y % 2); x < 26; x += 4) { P.px(x, y, C.wool.d); P.px(x + 1, y - 1, C.wool.l); }   // curls
+        if (shorn) {                                                                                       // shorn: a slim pink-grey body with a short fuzz
+          const skin = tones('#d9c2b8');
+          P.shape([[16, 13, 8.5, 4.5], [10, 13, 4, 4]], skin, { texture: false });
+          for (let y = 10; y < 17; y += 2) for (let x = 9 + (y % 4 ? 1 : 0); x < 24; x += 3) P.px(x, y, '#efe6dc');   // stubble
+          P.px(6, 11, '#efe6dc'); P.px(5, 10, '#efe6dc');                                                   // a little tuft left on its tail
+        } else {
+          P.shape([[16, 12, 10, 6], [9, 13, 5, 5], [23, 13, 5, 5], [16, 8, 7, 4]], C.wool, { texture: false });
+          for (let y = 6; y < 18; y += 3) for (let x = 7 + (y % 2); x < 26; x += 4) { P.px(x, y, C.wool.d); P.px(x + 1, y - 1, C.wool.l); }   // curls
+        }
       });
       for (const [x, d] of [[8, sw], [19, -sw]]) P.leg(x, 16, 24, d, 0, 2, C.face);
       P.at(0, F.bob + (!F.moving && F.i === 3 ? 2 : 0), () => {                                          // (it grazes now and then)
         P.shape([[28, 11, 3.6, 3.4]], C.face, { texture: false }); P.row(9, 24, 25, C.face.d);        // head, ear
-        P.shape([[27, 7, 2.4, 1.6]], C.wool, { texture: false });                                        // woolly forehead
+        if (!shorn) P.shape([[27, 7, 2.4, 1.6]], C.wool, { texture: false });                            // woolly forehead
         P.px(29, 10, '#e8e8e8'); P.px(31, 12, '#555');
       });
     },

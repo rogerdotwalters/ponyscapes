@@ -194,3 +194,40 @@ const PixelLogs = (() => {
   }
   return { drawGround, icon };
 })();
+
+/* ---- WOOL: a fluffy tuft on the ground (and the wool icon), and SHEARS (their icon) ---- */
+const PixelWool = (() => {
+  const { outline } = PixelCharacter.util;
+  const PX = 1.25, WOOL = ['#cfc8b6', '#e6e1d3', '#f4f1e8', '#ffffff'];
+  let ground = null;
+  function paint(g, ox, oy) {
+    const px = (x, y, c) => { g.fillStyle = c; g.fillRect(ox + x, oy + y, 1, 1); };
+    for (const [cx, cy, r] of [[5, 6, 3.6], [10, 5, 4], [14, 6.5, 3.4], [8, 3, 3], [12, 2.5, 2.6]]) for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) {
+      const d = Math.hypot(x - cx, y - cy); if (d > r) continue;
+      const v = (cy - y) / r * 0.6 + (cx - x) / r * 0.25 + 0.45;                   // lit from the upper left, puffy
+      px(x, y, WOOL[Math.max(0, Math.min(3, Math.floor(v * 3.2 + ((x + y) & 1) * 0.3)))]);
+    }
+    for (const [x, y] of [[6, 7], [11, 6], [9, 4], [13, 7]]) px(x, y, WOOL[0]);       // curls
+  }
+  function art() { if (ground) return ground; const c = document.createElement('canvas'); c.width = 20; c.height = 12; const g = c.getContext('2d'); paint(g, 1, 1); outline(g, '#5a5244', 20, 12); return (ground = c); }
+  function drawGround(ctx, sx, sy, seed, lift = 0) {
+    const c = art(), u = PX, flip = seed % 2 ? -1 : 1;
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 10, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(sx, sy - 11 * u - lift); ctx.scale(flip, 1); ctx.drawImage(c, -10 * u, 0, 20 * u, 12 * u); ctx.restore();
+  }
+  function icon(g) { const c = art(); g.save(); g.imageSmoothingEnabled = false; g.drawImage(c, 4, 10, 40, 24); g.restore(); }
+  /** The shears' icon: two steel blades crossed at a rivet over wooden loop handles, in pixels. */
+  function shearsIcon(g) {
+    const c = document.createElement('canvas'); c.width = 24; c.height = 24; const s = c.getContext('2d'), px = (x, y, col) => { s.fillStyle = col; s.fillRect(x, y, 1, 1); };
+    for (let i = 0; i < 11; i++) { px(12 + i * 0.75 | 0, 11 - i, '#e4e8ee'); px(13 + i * 0.75 | 0, 11 - i, '#9aa2ad'); px(10 - i * 0.2 | 0, 11 - i, '#e4e8ee'); px(11 - i * 0.2 | 0, 11 - i, '#9aa2ad'); }   // blades
+    for (const [cx, cy] of [[7, 17], [15, 18]]) for (let a = 0; a < 16; a++) { const x = Math.round(cx + Math.cos(a / 16 * Math.PI * 2) * 3), y = Math.round(cy + Math.sin(a / 16 * Math.PI * 2) * 2.6); px(x, y, a < 8 ? '#6e4e32' : '#a07a4a'); }   // loop handles
+    for (let y = 12; y < 16; y++) { px(10, y, '#8c6844'); px(13, y, '#8c6844'); }
+    px(11, 11, '#4a4148'); px(12, 11, '#4a4148');                                        // the rivet
+    outline(s, '#1e1a18', 24, 24);
+    g.save(); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, 48, 48); g.restore();
+  }
+  return { drawGround, icon, shearsIcon };
+})();
+
+/** Ground sprites for items that have one (everything else lies as its icon). */
+const PixelGround = { log: PixelLogs.drawGround, wool: PixelWool.drawGround };

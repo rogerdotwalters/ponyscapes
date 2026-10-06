@@ -45,6 +45,45 @@ class TreeHarvestHandler {
   }
 }
 
+/** Shears: Use beside a sheep (any creature whose data has `shear`: { item, min, max, regrowSeconds }) that still has its wool. The tufts
+ *  pop off one after another and land around it, to be picked up (one press gathers them all); a wild one scurries off, and the wool
+ *  grows back after regrowSeconds. */
+class ShearHandler {
+  constructor(deps) { Object.assign(this, deps); }
+  find(p, tool) {
+    let best = null, shorn = null;
+    for (const a of Object.values(this.animals.animals)) {
+      const def = AnimalDefs[a.type];
+      if (!def.shear || a.rider || !sameGrid(a, p)) continue;
+      const d = Math.hypot(a.x - p.x, a.y - p.y);
+      if (d > tool.reach + def.radius) continue;
+      if (a.shornUntil) { shorn = a; continue; }
+      if (!best || d < best.d) best = { a, d };
+    }
+    if (!best) {
+      this.emit({ type: 'notice', to: p.id, text: shorn ? `That ${AnimalDefs[shorn.type].name.toLowerCase()} is already shorn: its wool grows back in a while` : 'Stand beside a sheep to shear it (sneak up, or lure it with food)' });
+      return null;
+    }
+    return { ref: best.a.id, x: best.a.x, y: best.a.y };
+  }
+  isValid(p, target, tool) { const a = this.animals.animals[target.ref]; return !!a && !a.shornUntil && Math.hypot(a.x - p.x, a.y - p.y) <= tool.reach + 0.6; }
+  apply(id, target) {
+    const a = this.animals.animals[target.ref], S = AnimalDefs[a.type].shear, p = this.getPlayer(id), x0 = a.x, y0 = a.y, grid = a.grid || '';
+    const count = S.min + Math.floor(this.rng() * (S.max - S.min + 1)) + (this.rng() < Skills.bonusYieldChance(p.lv, 'animal_friendship') ? 1 : 0);
+    a.shornUntil = this.tick() + Math.round((S.regrowSeconds || 240) / TICK_DT);
+    this.emit({ type: 'shear', id: a.id, x: x0, y: y0, by: id, count });
+    this.award(id, 'animal_friendship', 12);
+    if (!a.owner) this.animals.startle(a.id, p);                                          // a wild one scurries off; your own stays put
+    const turn = this.rng() * Math.PI * 2;
+    for (let i = 0; i < count; i++) this.later(0.12 + i * 0.15, () => {                   // the tufts pop off one by one, spread round it (far enough apart not to merge)
+      const ang = turn + i * Math.PI * 2 / count, r = 0.75 + this.rng() * 0.2;
+      let x = x0 + Math.cos(ang) * r, y = y0 + Math.sin(ang) * r;
+      if (!grid && isWaterTile(this.map.tile(Math.floor(x), Math.floor(y)))) { x = x0; y = y0; }
+      this.dropOnGround(S.item, 1, x, y, grid);
+    });
+  }
+}
+
 class DemolishHandler {
   /** @param {{map, getInventory, emit, markInventoryChanged, markBuiltChanged:(layer)=>void}} deps */
   constructor(deps) { Object.assign(this, deps); }
