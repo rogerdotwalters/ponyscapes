@@ -18,7 +18,7 @@ class TradeSystem {
     const a = this.players[from], b = this.players[target];
     if (!a || !b || from === target) { this.notice(from, 'Nobody to trade with'); return; }
     if (this.sessionOf(from) || this.sessionOf(target)) { this.notice(from, 'One of you is already trading'); return; }
-    if (Math.hypot(a.x - b.x, a.y - b.y) > CONFIG.sim.tradeRange) { this.notice(from, 'Too far away to trade'); return; }
+    if (!sameGrid(a, b) || Math.hypot(a.x - b.x, a.y - b.y) > CONFIG.sim.tradeRange) { this.notice(from, 'Too far away to trade'); return; }
     const s = { a: from, b: target, status: this.bots[target] ? 'active' : 'pending', offers: { [from]: {}, [target]: {} }, confirmed: { [from]: false, [target]: false } };
     this.sessions.push(s);
     if (this.bots[target]) s.offers[target] = { [BOT_TRADE_STOCK[Math.floor(this.rng() * BOT_TRADE_STOCK.length)]]: 1 };   // a bot puts something on the table
@@ -88,7 +88,7 @@ class TradeSystem {
   update() {
     for (const s of [...this.sessions]) {
       const a = this.players[s.a], b = this.players[s.b];
-      if (!a || !b || Math.hypot(a.x - b.x, a.y - b.y) > CONFIG.sim.tradeRange + 2) this.cancel(a ? s.a : s.b, 'Trade cancelled: out of range');
+      if (!a || !b || !sameGrid(a, b) || Math.hypot(a.x - b.x, a.y - b.y) > CONFIG.sim.tradeRange + 2) this.cancel(a ? s.a : s.b, 'Trade cancelled: out of range');
     }
   }
 

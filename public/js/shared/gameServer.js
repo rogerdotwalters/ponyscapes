@@ -5,11 +5,25 @@
 const ForageSkill = { bush: 'foraging', flax: 'foraging', apple_tree: 'foraging', bottle: 'foraging', stone: 'digging', clay: 'digging', mound: 'digging' };
 const SERVER_STREAM_RADIUS = 2, SERVER_KEEP_RADIUS = 6, BOAT_SYNC_RADIUS = 90;     // chunks / chunks / tiles
 
+/** The server's event list. Each event remembers the grid it happened on (GameServer.eventGrid at the time), so a puff of dust in a cave is only
+ *  shown to the people in that cave. Events with no position, or addressed to one player, go wherever they are meant to. */
+class GridEvents extends Array {
+  static get [Symbol.species]() { return Array; }
+  static of(server) { const list = new GridEvents(); list.server = server; return list; }
+  push(...events) {
+    const grid = this.server ? this.server.eventGrid : '';
+    if (grid) for (const e of events) if (e && typeof e === 'object' && e.grid === undefined) e.grid = grid;
+    return super.push(...events);
+  }
+}
+
 class GameServer {
   /** @param {number} seed  @param {{world?: object}} [options] world: a sanitized saved world (SaveData.sanitizeWorld) to continue instead of starting fresh */
   constructor(seed, options = {}) {
     GameSettings.startHost();                                                // the Admin page's values (this browser's, else js/content/gameSettings.js): before any land is made
-    this.map = new World(seed);
+    this.map = new World(seed);                                              // THE OVERWORLD grid ('')
+    this.grids = new GridSet(seed, this.map);                                // ...and every instance (rooms, caves: js/shared/grids.js), built when first entered
+    this.eventGrid = '';                                                     // which grid the events pushed now happened on
     if (options.world) SaveData.applyMapState(this.map, options.world);      // before any chunk exists, so props are generated already felled / picked
     this.map.onChunkGenerated = chunk => this._onChunkGenerated(chunk);
     this.tick = 0;
@@ -25,12 +39,12 @@ class GameServer {
     this.treasureMaps = {}; this.treasureRev = {}; this.treasureSent = {}; this.rideAcc = {};
     this.hostId = null; this.vitalSettings = {};          // the host (first human) sets hunger / thirst modes per player slot
     this.boats = {};
-    this.pendingEvents = [];
+    this.pendingEvents = GridEvents.of(this);
     this.trees = new TreeSystem(this.map, this.rng, () => this.tick);
     this.forage = new ForageSystem(this.map, this.rng, () => this.tick);
     this.vitals = new VitalsSystem({ emit: e => this.pendingEvents.push(e), markInventoryChanged: id => { this.inventoryRev[id]++; } });
     this.lightCache = [];                                  // campfires + held torches, rebuilt every tick
-    this.animals = new AnimalSystem({ map: this.map, rng: this.rng, getTick: () => this.tick, emit: e => this.pendingEvents.push(e),
+    this.animals = new AnimalSystem({ map: this.map, mapOf: a => this.mapOf(a), rng: this.rng, getTick: () => this.tick, emit: e => this._emitFrom(this.animals.active, e),
       damagePlayer: (id, amount) => this._damagePlayer(id, amount), getLights: () => this.lightCache, onKilled: (a, def) => this.dungeons.onKilled(a, def) });
     this.npcs = new NpcSystem({ map: this.map, rng: this.rng });                                    // the villagers (placed once the server is fully built, below)
     this.friendship = new FriendshipSystem(this);                                                   // the heart meter, for people and animals alike
@@ -55,6 +69,25 @@ class GameServer {
     if (options.world) SaveData.applyOwned(this, options.world);                 // everybody's ponies (waiting for their owners) and the items on the ground
     else if (CONFIG.sim.testKit) { this._buildStarterHome(); this._buildStarterPaddock(); this._buildStarterStockpiles(); this._spawnTutorialPony(); }
     this.npcs.populate();                                  // the villagers move in
+  }
+
+  /** The World an entity (player, animal, item on the ground) is on: the overworld or its instance. */
+  mapOf(entity) { return this.grids.of(entity); }
+  /** An event that happened where `who` is (its grid), e.g. an animal biting. */
+  _emitFrom(who, e) { if (who && who.grid && e.grid === undefined) e.grid = who.grid; this.pendingEvents.push(e); }
+  /** Move someone to another grid (through a door, into a cave, back out): their mount and any pet on their rope come along. */
+  _moveToGrid(id, p, grid, x, y) {
+    const map = this.grids.get(grid);
+    grid = map.grid;                                                         // (an unknown grid id means the overworld)
+    map.ensureAround(x, y, SERVER_STREAM_RADIUS);
+    p.grid = grid; p.x = x; p.y = y; p.vx = p.vy = 0;
+    if (p.flying) { p.flying = false; p.flyT = 0; }
+    const mount = p.mount && this.animals.animals[p.mount];
+    if (mount) { mount.grid = grid; mount.x = x; mount.y = y; mount.vx = mount.vy = 0; }
+    for (const a of Object.values(this.animals.animals)) {                  // a pet on a rope comes too
+      if (a.leashed && (a.owner === id || a.captor === id) && a.id !== p.mount) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; }
+    }
+    this.eventGrid = grid;
   }
 
   /** Three stockpiles in the home's yard, already holding some of what the testing kit used to put in your pack. */
@@ -131,7 +164,7 @@ class GameServer {
       award: (id, skill, xp) => this.progress.award(id, skill, xp),
       pickUp: (id, found) => this._pickUp(id, found), digTreasure: (id, site) => this._digTreasure(id, site),
       mapSitesOf: id => this.treasureMaps[id],
-      dropOnGround: (item, count, x, y) => this._dropOnGround(item, count, x, y), groom: (id, a, item) => this._groom(id, a, item)
+      dropOnGround: (item, count, x, y, grid) => this._dropOnGround(item, count, x, y, grid), groom: (id, a, item) => this._groom(id, a, item)
     };
     const hunt = new HuntHandler(deps);
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
@@ -240,8 +273,8 @@ class GameServer {
   }
 
   _handleCraft(id, inventory, cmd) {
-    const p = this.players[id], supply = Stockpiles.supplyFor(this.map, p);      // the crafting table pulls from (and stores into) the stockpiles linked to it
-    const result = CraftingSystem.craft(inventory, cmd.recipe, BuildSystem.stationsNear(this.map, p), supply);
+    const p = this.players[id], map = this.mapOf(p), supply = Stockpiles.supplyFor(map, p);      // the crafting table pulls from (and stores into) the stockpiles linked to it
+    const result = CraftingSystem.craft(inventory, cmd.recipe, BuildSystem.stationsNear(map, p), supply);
     if (!result.ok) { this._notice(id, result.reason); return; }
     this.inventoryRev[id]++;
     if (result.usedSupply) this.stockRev++;
@@ -253,6 +286,7 @@ class GameServer {
   _handlePlace(id, inventory, cmd) {
     const player = this.players[id];
     if (player.boat) return;                                       // no building from a boat
+    if (gridOf(player)) { this._notice(id, 'You cannot build in here'); return; }       // (only the overworld is built on, for now)
     const slotIndex = Number.isInteger(cmd.slot) ? sanitizeSlot(cmd.slot) : player.sel;
     const itemId = inventory.itemIdAt(slotIndex), placeable = ItemDB.getPlaceable(itemId);
     if (!placeable || !Number.isInteger(cmd.tx) || !Number.isInteger(cmd.ty)) return;
@@ -301,7 +335,7 @@ class GameServer {
   _handleStockTake(id, inventory, cmd) {
     if (!Number.isInteger(cmd.tx) || !Number.isInteger(cmd.ty) || typeof cmd.item !== 'string' || !ItemDefs[cmd.item]) return;
     const key = tileKey(cmd.tx, cmd.ty), p = this.players[id];
-    if (!this.map.stockpiles[key]) return;
+    if (gridOf(p) || !this.map.stockpiles[key]) return;
     if (Math.hypot(cmd.tx + 0.5 - p.x, cmd.ty + 0.5 - p.y) > STATION_RANGE + 0.5) { this._notice(id, 'Walk up to the stockpile to take things out'); return; }
     inventory.limitHit = null;
     const taken = Stockpiles.withdraw(this.map, key, inventory, cmd.item, clamp(cmd.count | 0, 1, 999));
@@ -348,7 +382,7 @@ class GameServer {
       for (const a of withOwner) {
         const traits = PonyRarity.of(a.look, a.type), mine = a.owner === id;
         if (mine) companions++;
-        for (const b of traits.buffs) if (mine || (b.affectsOthers && Math.hypot(a.x - p.x, a.y - p.y) <= b.range)) buffs[b.type] += b.value;
+        for (const b of traits.buffs) if (mine || (b.affectsOthers && sameGrid(a, p) && Math.hypot(a.x - p.x, a.y - p.y) <= b.range)) buffs[b.type] += b.value;
         if (mine && a.rider === id) abilities = traits.abilities.filter(ab => !ab.passive).map(ab => ab.id);
       }
       p.buffs = buffs; p.companions = companions; p.abilities = abilities;
@@ -374,7 +408,7 @@ class GameServer {
     if (effect.shape === 'self') { if (effect.kind === 'speed') { p.dashT = effect.duration; p.dashBoost = effect.value; } return; }
     for (const aid of Object.keys(this.animals.animals)) {
       const a = this.animals.animals[aid], def = a && AnimalDefs[a.type];
-      if (!a || a.owner || a.captor || a.rider || def.protected) continue;            // never pets, never ponies
+      if (!a || a.owner || a.captor || a.rider || def.protected || !sameGrid(a, p)) continue;            // never pets, never ponies; only on your grid
       if ((effect.target === 'hostile' && !def.hostile) || !effect.covers(p, p.facing, a.x, a.y)) continue;
       if (effect.kind === 'damage') strikeAnimal(this.toolDeps, id, aid, effect.value);
       else if (effect.kind === 'slow') { a.slowT = effect.duration; a.slowF = Math.max(0.1, 1 - effect.value / 100); }
@@ -458,7 +492,7 @@ class GameServer {
     this._dismount(id, p);
     p.flying = false; p.flyT = 0; p.flyCd = 0;
     const spawn = Village.spawns[p.slot];
-    p.x = spawn.x; p.y = spawn.y; p.vx = p.vy = 0;
+    p.grid = ''; p.x = spawn.x; p.y = spawn.y; p.vx = p.vy = 0;                // (back in the overworld, wherever it happened)
     p.hp = p.maxHp * CONFIG.sim.health.respawnFraction;
     p.hunger = Math.max(p.hunger, 40); p.thirst = Math.max(p.thirst, 40);
     this.map.ensureAround(p.x, p.y, SERVER_STREAM_RADIUS);
@@ -497,7 +531,7 @@ class GameServer {
       }
     }
     if (this.bots[id] && p.emoteT === 0 && this.rng() < 0.002) {
-      const human = this._humans().find(h => Math.hypot(h.x - p.x, h.y - p.y) < 5);
+      const human = this._humans().find(h => sameGrid(h, p) && Math.hypot(h.x - p.x, h.y - p.y) < 5);
       if (human) this._handleEmote(id, 'wave');
     }
   }
@@ -511,12 +545,15 @@ class GameServer {
     for (const id in this.inputQueues) {
       const queue = this.inputQueues[id];
       // Each input is applied exactly once with a fixed dt, so client prediction matches bit-for-bit.
+      this.eventGrid = gridOf(this.players[id]);                                       // (what they do is shown on their grid)
       for (let n = 0; n < CONFIG.sim.maxInputsPerTick && queue.length; n++) this._applyInput(id, queue.shift());
       if (!focus) focus = this.players[id];
     }
     for (const id in this.bots) {
-      this._applyInput(id, sanitizeInput(botInput(this.bots[id], this.players[id], this.map, this.rng, TICK_DT, focus)));
+      const bot = this.players[id]; this.eventGrid = gridOf(bot);
+      this._applyInput(id, sanitizeInput(botInput(this.bots[id], bot, this.mapOf(bot), this.rng, TICK_DT, focus && sameGrid(focus, bot) ? focus : null)));
     }
+    this.eventGrid = '';
     for (const id in this.boats) {                                                   // drifting boats glide to a stop, then sleep
       const boat = this.boats[id];
       if (!boat.occupant && (boat.vx !== 0 || boat.vy !== 0)) stepBoat(boat, NO_INPUT, TICK_DT, this.map);
@@ -533,7 +570,7 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.animals.update(this.tick, this._humans());
-    this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick);
+    this.npcs.update(this.tick, this._humans().filter(h => !gridOf(h))); this.friendship.update(this.tick);      // (the villagers live in the overworld)
     this._streamWorld();
   }
 
@@ -542,8 +579,13 @@ class GameServer {
 
   _streamWorld() {
     const humans = this._humans();
-    for (const p of humans) this.map.ensureAround(p.x, p.y, SERVER_STREAM_RADIUS);
-    if (this.tick % 150 === 0) this.map.unloadFar(Object.values(this.players), SERVER_KEEP_RADIUS);
+    for (const p of humans) this.mapOf(p).ensureAround(p.x, p.y, SERVER_STREAM_RADIUS);
+    if (this.tick % 150 !== 0) return;
+    const everyone = Object.values(this.players);
+    for (const id of this.grids.ids()) {                                               // each grid keeps what its own people are near; an empty instance is forgotten
+      const here = everyone.filter(p => gridOf(p) === id);
+      if (id && !here.length) this.grids.drop(id); else this.grids.get(id).unloadFar(here, SERVER_KEEP_RADIUS);
+    }
   }
 
   _applyInput(id, input) {
@@ -552,7 +594,7 @@ class GameServer {
     if (p.boat) this._row(id, p, inventory, input);
     else if (p.mount) this._ride(id, p, inventory, input);
     else {
-      stepPlayer(p, input, TICK_DT, this.map);
+      stepPlayer(p, input, TICK_DT, this.mapOf(p));
       this.tools.update(id, p, inventory, this._lassoInput(id, p, input), TICK_DT); this._lassoDone(p);
       this.vitals.consumeHeld(id, p, inventory, input, TICK_DT);
       this._useCarriedAnimal(id, p, inventory, input, TICK_DT);
@@ -573,13 +615,14 @@ class GameServer {
   /** The interact key: get off whatever we are on (boat or pony), otherwise do the NEAREST of pick up / ride / board / drink / fill. */
   _interact(id, p) {
     if (p.flying) return;                                                                          // nothing to pick, open or enter from the air: land first
-    if (!p.boat) { const cave = findCaveInteraction(this.map, p); if (cave) { InteractionHandlers[cave.kind](this, id, p, cave); return; } }   // a cave mouth wins, even from a pony's back
+    const map = this.mapOf(p), outside = !gridOf(p);
+    if (!p.boat) { const cave = findCaveInteraction(map, p); if (cave) { InteractionHandlers[cave.kind](this, id, p, cave); return; } }   // a cave mouth wins, even from a pony's back
     if (p.boat) {
       const boat = this.boats[p.boat], spot = BoatSystem.findLanding(this.map, boat);
       if (spot) BoatSystem.leave(p, boat, spot); else this._notice(id, 'No shore nearby');
       return;
     }
-    const action = Interactions.find(this.map, this.boats, p, p.held, this.animals.animals, id, this.npcs.npcs, this.drops);
+    const action = Interactions.find(map, outside ? this.boats : {}, p, p.held, this.animals.animals, id, outside ? this.npcs.npcs : {}, this.drops);   // (boats and villagers are in the overworld)
     if (!action) return;
     if (action.kind === 'dismount') this._dismount(id, p);
     else if (action.kind === 'pick') this._pickUp(id, action.forage);
@@ -623,9 +666,9 @@ class GameServer {
   _feedPony(id, animal) {
     const p = this.players[id], inventory = this.inventories[id], def = AnimalDefs[animal.type];
     if (p.held !== 'apple' || !inventory.has('apple', 1)) { this._notice(id, 'Hold an apple to feed it'); return; }
-    if (!Shelter.find(this.map, animal.x, animal.y)) { this._notice(id, 'It will not eat out here: lead it to a stable or a closed pen first'); return; }
+    if (!Shelter.find(this.mapOf(animal), animal.x, animal.y)) { this._notice(id, 'It will not eat out here: lead it to a stable or a closed pen first'); return; }
     inventory.remove('apple', 1); this.inventoryRev[id]++;
-    const result = this.animals.feed(animal.id, id, Buildings.appleDiscountAt(this.map, animal.x, animal.y));
+    const result = this.animals.feed(animal.id, id, Buildings.appleDiscountAt(this.mapOf(animal), animal.x, animal.y));
     this.progress.award(id, 'horsemanship', 12);
     this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need });
     if (!result.done) return;                                                  // (the client shows "Apple 1/2")
@@ -651,7 +694,7 @@ class GameServer {
     if (!input.action || !def || !def.creature || p.eatT > 0) return;
     const x = p.x + Math.cos(p.facing) * 0.7, y = p.y + Math.sin(p.facing) * 0.7;
     inventory.remove(p.held, 1); this.inventoryRev[id]++;
-    const pet = this.animals.release(def.creature, x, y, id);
+    const pet = this.animals.release(def.creature, x, y, id, undefined, { grid: gridOf(p) });
     p.eatT = 0.8;
     this.pendingEvents.push({ type: 'released', to: id, x: pet.x, y: pet.y, animal: def.creature });
   }
@@ -710,7 +753,7 @@ class GameServer {
     if (!a) return;
     a.rider = ''; a.home = { x: a.x, y: a.y }; a.state = 'idle'; a.vx = a.vy = 0;
     const side = p.facing + Math.PI / 2, spot = { x: a.x + Math.cos(side) * 0.9, y: a.y + Math.sin(side) * 0.9 };
-    if (!circleBlocked(this.map, spot.x, spot.y, CONFIG.sim.playerRadius)) { p.x = spot.x; p.y = spot.y; }
+    if (!circleBlocked(this.mapOf(p), spot.x, spot.y, CONFIG.sim.playerRadius)) { p.x = spot.x; p.y = spot.y; }
     p.vx = p.vy = 0;
   }
 
@@ -719,7 +762,7 @@ class GameServer {
     const a = this.animals.animals[p.mount];
     if (!a) { p.mount = ''; p.flying = false; return; }
     if (p.flying) { p.flyT = Math.max(0, +(p.flyT - TICK_DT).toFixed(4)); if (p.flyT <= 0) this._land(id, p, false); }
-    stepPlayer(p, input, TICK_DT, this.map);
+    stepPlayer(p, input, TICK_DT, this.mapOf(p));
     this.tools.update(id, p, inventory, this._lassoInput(id, p, input), TICK_DT); this._lassoDone(p);   // everything works from the saddle: lasso, spear, sword, bow, rod, knife, axe...
     if (a.owner === id) this._rideXp(p, a);                             // your own pony grows with the miles
     a.x = p.x; a.y = p.y; a.vx = p.vx; a.vy = p.vy; a.facing = p.facing; a.state = Math.hypot(p.vx, p.vy) > 0.2 ? 'ride' : 'idle';
@@ -744,8 +787,8 @@ class GameServer {
     if (!host) return;
     const existing = this.animals.animals[this.testPonyId];
     if (on && !existing) {
-      const spot = findLanding(this.map, host.x + 1.6, host.y, CONFIG.sim.ride.radius);
-      const pet = this.animals.release('pony_pegasus', spot.x, spot.y, this.hostId, this.rng() * 1000 | 0, { level: 12 });
+      const spot = findLanding(this.mapOf(host), host.x + 1.6, host.y, CONFIG.sim.ride.radius);
+      const pet = this.animals.release('pony_pegasus', spot.x, spot.y, this.hostId, this.rng() * 1000 | 0, { level: 12, grid: gridOf(host) });
       pet.trial = true; pet.leashed = false; this.testPonyId = pet.id;
       this._notice(this.hostId, 'Your test pegasus is here: ride it, then press B (or the Fly button)');
     } else if (!on && existing) {
@@ -776,6 +819,7 @@ class GameServer {
     const a = !p.boat && this.animals.animals[p.mount];
     if (!a) { this._notice(id, 'Ride a pegasus to fly'); return; }
     if (!PonyAbilityRules.has(a.type, 'fly')) { this._notice(id, `${AnimalDefs[a.type].name}s cannot fly`); return; }
+    if (gridOf(p)) { this._notice(id, 'There is no room to fly in here'); return; }
     if (p.flying) { this._land(id, p, true); return; }
     if (p.flyCd > 0) { this._notice(id, `Its wings are resting (${Math.ceil(p.flyCd)}s)`); return; }
     p.flyDur = p.flyT = PonyAbilityRules.flightDuration(a.level, Wardrobe.power(p.gear)); p.flying = true;
@@ -788,7 +832,7 @@ class GameServer {
     const a = this.animals.animals[p.mount], used = Math.max(0, p.flyDur - p.flyT);
     p.flying = false; p.flyT = 0;
     if (a) {
-      const spot = findLanding(this.map, p.x, p.y, CONFIG.sim.ride.radius);
+      const spot = findLanding(this.mapOf(p), p.x, p.y, CONFIG.sim.ride.radius);
       p.x = a.x = spot.x; p.y = a.y = spot.y; p.vx = p.vy = a.vx = a.vy = 0;
       p.flyCd = +(PonyAbilityRules.flightCooldown(a.level, Wardrobe.power(p.gear)) * (early ? Math.max(0.25, Math.min(1, used / Math.max(0.01, p.flyDur))) : 1)).toFixed(2);
     }
@@ -816,7 +860,7 @@ class GameServer {
   /** A cave scroll shows where the cave of the ring you are STANDING in is hidden (and goes on your map). */
   _revealCave(id, p, inventory) {
     const rings = this.map.layers.rings, ring = rings.at(p.x, p.y).index, maps = this.treasureMaps[id];
-    if (DungeonSpace.contains(Math.floor(p.x), Math.floor(p.y))) { this._notice(id, 'The scroll only works under the open sky'); return; }
+    if (gridOf(p)) { this._notice(id, 'The scroll only works under the open sky'); return; }
     if (this.worldProgress.isDefeated(ring)) { this._notice(id, 'The scroll crumbles: the lair of this area has already been cleared'); return; }
     if (maps.some(m => m.kind === 'dungeon' && m.ring === ring)) { this._notice(id, 'You already know where the cave in this area is'); return; }
     if (maps.length >= TREASURE.maxMaps) { this._notice(id, 'Your journal is full of maps: dig up a treasure first'); return; }
@@ -828,6 +872,7 @@ class GameServer {
 
   _revealMap(id, p, inventory) {
     const maps = this.treasureMaps[id];
+    if (gridOf(p)) { this._notice(id, 'Read it under the open sky'); return; }
     if (maps.length >= TREASURE.maxMaps) { this._notice(id, 'Your journal is full of maps: dig up a treasure first'); return; }
     const site = TreasureSites.findFor(this.map, p.x, p.y, new Set(maps.map(m => m.key)));
     if (!site) { this._notice(id, 'The map is blank: no treasure is left to find nearby'); return; }
@@ -865,12 +910,12 @@ class GameServer {
     const players = {};
     for (const id in this.players) players[id] = clonePlayer(this.players[id]);
     const snapshot = { tick: this.tick, players, boats: this.boatStates(), trees: collectTreeStates(this.map), forage: collectForageStates(this.map), animals: this.animals.states(this._humans()), npcs: this.npcs.states(), drops: this.dropStates(), events: this.pendingEvents };
-    this.pendingEvents = [];
+    this.pendingEvents = GridEvents.of(this);
     return snapshot;
   }
   /** Boats near a human player (the rest are not worth sending). */
   boatStates() {
-    const out = {}, humans = Object.keys(this.inputQueues).map(id => this.players[id]);
+    const out = {}, humans = this._humans().filter(p => !gridOf(p));                        // (boats are in the overworld)
     for (const id in this.boats) {
       const b = this.boats[id];
       if (humans.some(p => Math.hypot(p.x - b.x, p.y - b.y) < BOAT_SYNC_RADIUS)) out[id] = cloneBoat(b);

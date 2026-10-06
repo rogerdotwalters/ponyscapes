@@ -9,10 +9,11 @@ const LightSources = {
     for (const key of Object.keys(map.built)) {
       if (map.built[key].c === 'campfire') out.push({ x: keyTileX(key) + 0.5, y: keyTileY(key) + 0.5, radius: L.campfireRadius, kind: 'campfire' });
     }
-    for (const p of players) if (p.held === 'torch') out.push({ x: p.x, y: p.y, radius: L.torchRadius, kind: 'torch' });
+    const here = e => gridOf(e) === (map.grid || '');                 // only what is on this map's grid gives it light
+    for (const p of players) if (p.held === 'torch' && here(p)) out.push({ x: p.x, y: p.y, radius: L.torchRadius, kind: 'torch' });
     if (animals && dark) for (const id in animals) {
       const a = animals[id];
-      if (!a.look) continue;
+      if (!a.look || !here(a)) continue;
       const glow = PonyRarity.of(a.look, a.type).abilities.find(ab => ab.passive);
       const light = glow && glow.effectDefs.find(e => e.kind === 'light');
       if (light) out.push({ x: a.x, y: a.y, radius: light.radius, kind: 'pony' });

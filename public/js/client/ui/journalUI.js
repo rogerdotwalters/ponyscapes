@@ -99,7 +99,7 @@ class JournalUI {
     if (this.mapCache[entry.key]) return this.mapCache[entry.key];
     const R = Math.ceil(MINIMAP_RADIUS * 1.5) + 3, px = MINIMAP_TILE_PX, size = (2 * R + 1) * px, layer = document.createElement('canvas');      // (bigger than the view: it is turned 45 degrees)
     layer.width = layer.height = size; layer.R = R;
-    const ctx = layer.getContext('2d'), T = this.game.map.terrain;
+    const ctx = layer.getContext('2d'), T = this.game.worldMap.terrain;
     for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
       const tx = entry.tx + dx, ty = entry.ty + dy, tile = T.tile(tx, ty), x = (dx + R) * px, y = (dy + R) * px;
       ctx.fillStyle = MINIMAP_COLORS[tile] || '#6aa84f'; ctx.fillRect(x, y, px, px);

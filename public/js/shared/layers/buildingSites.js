@@ -1,7 +1,7 @@
 'use strict';
 /* LAYER - where the buildings stand in the overworld, and their doors. Pure functions of tile coordinates (like the village), so every chunk
  * can ask "is there a building here?" on its own. A building's look and its room come from js/data/buildings/; this is only the map.
- * Each site's index is also the number of its room in interior space (InteriorSpace): a 'player' building gives each player a room of their own. */
+ * Each site's index also names its room's grid ('room:<site>', js/shared/grids.js): a 'player' building gives each player a room of their own. */
 const BuildingSites = (() => {
   /** The village street: [building id, west x, north y]. The door is on the south face (see the building's `door`). */
   const PLACED = [['carpenter', 8, 23], ['general_store', 24, 23], ['veterinary', 30, 23], ['player_home', 14, 30]];

@@ -10,6 +10,7 @@ class Renderer {
     this.g = new Gfx(this.ctx); this.game = game; this.effects = effects; this.getTapMarker = getTapMarker;
     this.camera = new Camera(); this.playerSprite = new PlayerSprite(this.g); this.boatSprite = new BoatSprite(this.g); this.animalSprite = new AnimalSprite(this.g); this.lighting = new Lighting(); this.builtItems = [];
     game.events.on('builtChanged', () => this.rebuildBuilt());
+    game.events.on('gridChanged', () => this.rebuildBuilt());                       // (another grid: its own buildings, or none)
   }
 
   resize() {
@@ -25,9 +26,9 @@ class Renderer {
       const o = chunk.obj[(ly << CHUNK_SHIFT) | lx];
       if (!o) continue;
       const tx = chunk.cx * CHUNK_SIZE + lx, ty = chunk.cy * CHUNK_SIZE + ly, item = { kind: 'structure', depth: tx + ty + 1, o, tx, ty, gx: (tx - ty) * TILE_HALF_W, gy: (tx + ty + 1) * TILE_HALF_H };
-      if (o >= INTERIOR_OBJ_BASE) {                                                    // a room's wall: low at the front, a window on the side facing in
-        const room = (x, y) => { const c = InteriorSpace.cell(x, y); return !!c && !c.layout.walls[c.i] && !isInteriorVoid(c.layout.grid[c.i]); };
-        Object.assign(item, { low: InteriorSpace.wallIsLow(tx, ty), windowS: room(tx, ty + 1), windowE: room(tx + 1, ty) });
+      const plan = this.game.map.plan;
+      if (o >= INTERIOR_OBJ_BASE && plan && plan.wallIsLow) {                           // a room's wall: low at the front, a window on the side facing in
+        Object.assign(item, { low: plan.wallIsLow(tx, ty), windowS: plan.isFloor(tx, ty + 1), windowE: plan.isFloor(tx + 1, ty) });
       }
       items.push(item);
     }
@@ -68,7 +69,7 @@ class Renderer {
     const me = state.players[this.game.myId], ctx = this.ctx;
     this.camera.follow(isoX(me.x, me.y), isoY(me.x, me.y) - 18, frameMs);
 
-    const indoors = InteriorSpace.contains(Math.floor(me.x), Math.floor(me.y));
+    const indoors = this.game.map.kind !== 'world';                                  // a room or a cave: darkness all round
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = indoors ? '#0b0d12' : OCEAN_COLOR; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.camera.applyTransform(ctx);
     const bounds = this.camera.bounds();
@@ -92,7 +93,7 @@ class Renderer {
       const flicker = 1 + Math.sin(performance.now() / 140 + l.x * 3) * 0.03;
       return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * flicker, kind: l.kind };
     });
-    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, DungeonSpace.contains(Math.floor(this.game.local.x), Math.floor(this.game.local.y)) ? 0 : InteriorSpace.contains(Math.floor(this.game.local.x), Math.floor(this.game.local.y)) ? 12 : this.game.hour(), px, py, s, lights);
+    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, this.game.map.kind === 'cave' ? 0 : this.game.map.kind === 'room' ? 12 : this.game.hour(), px, py, s, lights);
     this.camera.applyTransform(this.ctx);
   }
 

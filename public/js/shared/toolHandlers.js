@@ -9,6 +9,7 @@ class TreeHarvestHandler {
   constructor(deps) { Object.assign(this, deps); }
 
   find(p, tool) {
+    if (gridOf(p)) return null;                                          // (trees, buildings and water are in the overworld)
     const hit = findTreeInReach(this.map, p, tool.reach);
     return hit ? { ref: tileKey(hit.tx, hit.ty), x: hit.tree.x, y: hit.tree.y, tx: hit.tx, ty: hit.ty } : null;
   }
@@ -43,6 +44,7 @@ class DemolishHandler {
   constructor(deps) { Object.assign(this, deps); }
 
   find(p, tool) {
+    if (gridOf(p)) return null;                                          // (trees, buildings and water are in the overworld)
     const hit = BuildSystem.findDemolishable(this.map, p, tool.reach, !CONFIG.sim.construction);      // with construction off, only stations come down
     return hit ? { ref: `${hit.tx},${hit.ty},${hit.slot}`, x: hit.x, y: hit.y, tx: hit.tx, ty: hit.ty, slot: hit.slot } : null;
   }
@@ -85,7 +87,7 @@ function strikeAnimal(deps, id, animalId, damage) {
   let lost = false;
   for (const drop of result.drops) {
     const gained = drop.count - inventory.add(drop.item, drop.count);
-    if (gained < drop.count) { lost = true; deps.dropOnGround(drop.item, drop.count - gained, a.x, a.y); }      // what does not fit falls on the ground
+    if (gained < drop.count) { lost = true; deps.dropOnGround(drop.item, drop.count - gained, a.x, a.y, gridOf(a)); }      // what does not fit falls on the ground
     if (gained > 0) deps.emit({ type: 'gain', to: id, item: drop.item, count: gained });
   }
   deps.markInventoryChanged(id);
@@ -147,6 +149,7 @@ class FishingHandler {
   constructor(deps) { Object.assign(this, deps); }
 
   find(p, tool) {
+    if (gridOf(p)) return null;                                          // (trees, buildings and water are in the overworld)
     for (let d = 1; d <= tool.reach; d += 0.5) {
       const tx = Math.floor(p.x + Math.cos(p.facing) * d), ty = Math.floor(p.y + Math.sin(p.facing) * d);
       if (isWaterTile(this.map.tile(tx, ty))) return { ref: tileKey(tx, ty), x: tx + 0.5, y: ty + 0.5 };

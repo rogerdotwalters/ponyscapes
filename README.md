@@ -99,9 +99,13 @@ The village has four buildings you walk into: the **Carpenter**, the **Veterinar
 placeholder houses and the wall-built starter home; the crafting table now stands in the home's yard). Walk up to a door and press **F** (or tap the
 interact button) to go in; stand on the **doormat** inside and press F to go back out.
 
-* **Instances and layers.** A room is not a separate world: like the caves, every room is a block of tiles in **interior space**, a layer far from
-  the overworld (`js/shared/layers/interiorSpace.js`), so collision, saving and multiplayer just work. The store, carpenter and vet each have one room
-  everyone shares; **Your Home** gives every player their own instance (remembered by their player key and saved with the world).
+* **Grids and instances.** The overworld and every instance are separate game **grids**, each its own World with its own coordinates
+  (`js/shared/grids.js`). Going through a door moves you to another grid rather than to a far-off corner of the overworld. Grid ids: `''` the overworld,
+  `room:<site>` a shared room (store, carpenter, vet), `room:<site>:<n>` a player's own copy (Your Home: every player gets one, remembered by
+  their player key and saved with the world), `cave:<ring>` a ring's dungeon. Players, animals and items on the ground carry their `grid`; things are
+  only ever near each other on the same grid, and each player is only sent what is on theirs. The client keeps the overworld (its buildings, trees and
+  stockpiles stay up to date) plus the grid it stands on. A new kind of instance is a plan class (tiles, walls, props, entry / exit) and one line in
+  `Grids.plan()`.
 * **Data.** Buildings are `js/data/buildings/` (one file each: size, door, colours, sign, which room, shared or per player), where they stand is
   `js/shared/layers/buildingSites.js`, tile types are `js/data/interiors/tiles.js` and furniture is `js/data/furniture/` (bed, table, chair, bookshelf,
   dresser, rug, fireplace, potted plant, lamp, shop counter, goods shelf, crate, workbench, lumber rack, exam table, medicine cabinet, hay bale).

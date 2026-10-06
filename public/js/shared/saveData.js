@@ -22,11 +22,20 @@ const SaveData = {
   /** Somewhere a person can actually stand, near (x, y): their own spot if it is fine, else the closest free tile, else the village spawn. */
   safeSpot(server, x, y, slot) {
     const map = server.map, spawn = Village.spawns[slot] || Village.spawns[0];
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return { x: spawn.x, y: spawn.y };
+    if (!Number.isFinite(x) || !Number.isFinite(y) || Math.abs(x) > 500000 || Math.abs(y) > 500000) return { x: spawn.x, y: spawn.y };   // (older saves kept caves and rooms far out in the overworld)
     map.ensureAround(x, y, 1);
     if (!isWaterTile(map.tile(Math.floor(x), Math.floor(y))) && !circleBlocked(map, x, y, CONFIG.sim.playerRadius)) return { x, y };
     const free = nearestFreeTile(map, Math.floor(x), Math.floor(y), 12);
     return free || { x: spawn.x, y: spawn.y };
+  },
+
+  /** Where someone in an instance stands when saved as a character: outside its door (a room) or its mouth (a cave); else where they are. */
+  outsideSpot(server, p) {
+    const grid = gridOf(p);
+    if (!grid) return { x: p.x, y: p.y };
+    const site = Grids.siteOf(grid);
+    if (site) return BuildingSites.doorFront(site);
+    return p.returnTo || Village.spawns[p.slot] || Village.spawns[0];
   },
 
   /* ---------------------------------- WORLD ---------------------------------- */
@@ -39,7 +48,7 @@ const SaveData = {
       stockpiles: Stockpiles.exportState(m),
       interiors: server.interiors.exportState(),                               // whose home is which room
       pets: server._exportOwnedPets(),                                         // every player's ponies and pets, by owner key (they wait in the world for them)
-      drops: Object.values(server.drops).map(d => ({ item: d.item, count: d.count, x: d.x, y: d.y })),
+      drops: Object.values(server.drops).map(d => ({ item: d.item, count: d.count, x: d.x, y: d.y, grid: d.grid || undefined })),
       bossesDefeated: [...server.worldProgress.defeated], hostilesOff: !!server.settings.hostilesOff,
       treeRespawns: server.trees.respawns.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick })),
       forageRegrows: server.forage.regrows.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick }))
@@ -88,10 +97,15 @@ const SaveData = {
     for (const [k, tile] of Object.entries(out.built)) if (Stockpiles.isStockpile(tile.c) && !out.stockpiles.piles[k]) out.stockpiles.piles[k] = { items: {} };
     for (const q of Array.isArray(data.pets) ? data.pets.slice(0, SaveData.MAX_PETS * 64) : []) {             // (older saves have none)
       const pet = SaveData._pet(q);
-      if (pet && typeof q.key === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(q.key)) out.pets.push(Object.assign(pet, { key: q.key, hx: SaveData._num(q.hx, -1e7, 1e7, pet.x), hy: SaveData._num(q.hy, -1e7, 1e7, pet.y) }));
+      if (!pet || typeof q.key !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(q.key)) continue;
+      const grid = typeof q.grid === 'string' && Grids.valid(q.grid) ? q.grid : '';
+      if (Math.abs(pet.x) > 500000 || Math.abs(pet.y) > 500000) { pet.x = Village.home.x0 - 1.5; pet.y = Village.home.y1 + 1.5; }   // (an older save's cave or room)
+      const far = v => Math.abs(v) > 500000, hx = SaveData._num(q.hx, -1e7, 1e7, pet.x), hy = SaveData._num(q.hy, -1e7, 1e7, pet.y);
+      out.pets.push(Object.assign(pet, { key: q.key, grid, hx: far(hx) ? pet.x : hx, hy: far(hy) ? pet.y : hy }));
     }
     for (const d of Array.isArray(data.drops) ? data.drops.slice(0, CONFIG.sim.drops.max) : []) {
-      if (SaveData._plain(d) && ItemDefs[d.item] && Number.isFinite(d.x) && Number.isFinite(d.y)) out.drops.push({ item: d.item, count: SaveData._int(d.count, 1, 9999, 1), x: d.x, y: d.y });
+      if (SaveData._plain(d) && ItemDefs[d.item] && Number.isFinite(d.x) && Number.isFinite(d.y) && Math.abs(d.x) < 500000 && Math.abs(d.y) < 500000)
+        out.drops.push({ item: d.item, count: SaveData._int(d.count, 1, 9999, 1), x: d.x, y: d.y, grid: typeof d.grid === 'string' && Grids.valid(d.grid) ? d.grid : '' });
     }
     return out;
   },
@@ -108,7 +122,7 @@ const SaveData = {
   /** Step 3 (the server is built): everybody's ponies, waiting for their owners, and the items lying on the ground. */
   applyOwned(server, world) {
     server._restoreOwnedPets(world.pets || []);
-    for (const d of world.drops || []) server._dropOnGround(d.item, d.count, d.x, d.y);
+    for (const d of world.drops || []) server._dropOnGround(d.item, d.count, d.x, d.y, d.grid || '');
   },
 
   /** Step 1 (before any chunk exists): what players changed on the map itself. `world` must already be sanitized. */
@@ -137,9 +151,9 @@ const SaveData = {
   exportCharacter(server, id) {
     const p = server.players[id], inventory = server.inventories[id];
     if (!p || !inventory) return null;
-    const spot = SaveData.safeSpot(server, p.x, p.y, p.slot);                   // (rowing a boat? they are put back on the shore)
+    const out = SaveData.outsideSpot(server, p), spot = SaveData.safeSpot(server, out.x, out.y, p.slot);     // (rowing a boat? put back on the shore; indoors? at the door)
     const pets = Object.values(server.animals.animals).filter(a => a.owner === id && !a.trial).slice(0, SaveData.MAX_PETS)
-      .map(a => ({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, x: a.x, y: a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }));
+      .map(a => ({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }));
     const xp = server.progress.ensure(id);
     return {
       v: SaveData.VERSION, savedAt: Date.now(),

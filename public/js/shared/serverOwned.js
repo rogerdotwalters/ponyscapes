@@ -50,7 +50,7 @@ Object.assign(GameServer.prototype, {
       const key = this._ownerKeyOf(a);
       if (!key || a.trial) continue;
       const friend = a.friends[a.owner] || a.parkedFriend;
-      out.push({ key, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
+      out.push({ key, grid: gridOf(a) || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
         x: a.x, y: a.y, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null });
     }
     return out;
@@ -58,7 +58,7 @@ Object.assign(GameServer.prototype, {
   /** Bring saved pets back into the world, waiting for their owners (sanitized by SaveData). */
   _restoreOwnedPets(list) {
     for (const q of list) {
-      const pet = this.animals.release(q.type, q.x, q.y, this._tokenFor(q.key), undefined, { level: q.level, variant: q.look ? q.look[4] | 0 : 0 });
+      const pet = this.animals.release(q.type, q.x, q.y, this._tokenFor(q.key), undefined, { level: q.level, variant: q.look ? q.look[4] | 0 : 0, grid: q.grid || '' });
       if (q.look && AnimalDefs[q.type].pony) pet.look = q.look;
       if (Number.isFinite(q.xp)) pet.xp = q.xp;
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction)); pet.home = { x: q.hx, y: q.hy };
@@ -67,13 +67,14 @@ Object.assign(GameServer.prototype, {
   },
 
   /* ---------------------------------------- items on the ground ---------------------------------------- */
-  /** Put items on the ground at (x, y), joining a pile of the same item right there. Returns the drop. */
-  _dropOnGround(item, count, x, y) {
+  /** Put items on the ground at (x, y) on a grid ('' = the overworld), joining a pile of the same item right there. Returns the drop. */
+  _dropOnGround(item, count, x, y, grid = '') {
     if (!ItemDefs[item] || !(count > 0)) return null;
-    for (const d of Object.values(this.drops)) if (d.item === item && Math.hypot(d.x - x, d.y - y) < 0.6 && d.count + count <= 9999) { d.count += count; this.dropsRev++; return d; }
+    for (const d of Object.values(this.drops)) if (d.item === item && gridOf(d) === grid && Math.hypot(d.x - x, d.y - y) < 0.6 && d.count + count <= 9999) { d.count += count; this.dropsRev++; return d; }
     const ids = Object.keys(this.drops);
     if (ids.length >= CONFIG.sim.drops.max) delete this.drops[ids[0]];                  // the oldest pile goes when the world is littered
     const id = 'd' + (this.nextDropId++), drop = { id, item, count, x: +x.toFixed(3), y: +y.toFixed(3) };
+    if (grid) drop.grid = grid;
     this.drops[id] = drop; this.dropsRev++;
     return drop;
   },
@@ -89,7 +90,7 @@ Object.assign(GameServer.prototype, {
   _handleDrop(id, inventory, cmd) {
     const p = this.players[id], taken = this._takeFromSlot(inventory, cmd.slot, cmd.count);
     if (!taken) return;
-    this._dropOnGround(taken.item, taken.count, p.x + Math.cos(p.facing) * 0.55, p.y + Math.sin(p.facing) * 0.55);
+    this._dropOnGround(taken.item, taken.count, p.x + Math.cos(p.facing) * 0.55, p.y + Math.sin(p.facing) * 0.55, gridOf(p));
     this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'dropped', to: id, item: taken.item, count: taken.count, x: p.x, y: p.y });
   },
@@ -114,7 +115,7 @@ Object.assign(GameServer.prototype, {
   /** Piles near any person (for snapshots). */
   dropStates() {
     const humans = this._humans(), out = {};
-    for (const d of Object.values(this.drops)) if (humans.some(h => Math.hypot(h.x - d.x, h.y - d.y) < ANIMAL_SYNC_RADIUS)) out[d.id] = d;
+    for (const d of Object.values(this.drops)) if (humans.some(h => sameGrid(h, d) && Math.hypot(h.x - d.x, h.y - d.y) < ANIMAL_SYNC_RADIUS)) out[d.id] = d;
     return out;
   },
 
@@ -133,7 +134,7 @@ Object.assign(GameServer.prototype, {
     if (a) delete a.lassoItem;
     if (!p) return;
     if (!p.gear.lasso) p.gear.lasso = item;
-    else if (inventory.add(item, 1) > 0) this._dropOnGround(item, 1, p.x, p.y);
+    else if (inventory.add(item, 1) > 0) this._dropOnGround(item, 1, p.x, p.y, gridOf(p));
     this.inventoryRev[id]++;
   },
   /** A lasso that is a crafting ingredient may be the one in the slot: it is taken into the pack for the craft, and the new one goes in its place. */
@@ -195,7 +196,7 @@ class GroomHandler {
     let best = null;
     for (const a of Object.values(this.animals.animals)) {
       const d = Math.hypot(a.x - p.x, a.y - p.y);
-      if (a.owner === p.id && !a.rider && d <= tool.reach + AnimalDefs[a.type].radius && (!best || d < best.d)) best = { a, d };
+      if (a.owner === p.id && !a.rider && sameGrid(a, p) && d <= tool.reach + AnimalDefs[a.type].radius && (!best || d < best.d)) best = { a, d };
     }
     if (!best) { this.emit({ type: 'notice', to: p.id, text: 'Stand beside a pony of yours to groom it' }); return null; }
     return { ref: best.a.id, x: best.a.x, y: best.a.y };

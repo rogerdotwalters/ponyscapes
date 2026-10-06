@@ -62,7 +62,7 @@ class MapUI {
     if (this.layer && Math.hypot(this.layer.cx - cx, this.layer.cy - cy) < 5) return this.layer;
     const R = AREA_MAP_LAYER_RADIUS, px = AREA_MAP_PX, size = (2 * R + 1) * px, canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
-    const ctx = canvas.getContext('2d'), T = this.game.map.terrain, fx = Math.floor(cx), fy = Math.floor(cy);
+    const ctx = canvas.getContext('2d'), T = this.game.worldMap.terrain, fx = Math.floor(cx), fy = Math.floor(cy);
     for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
       const tx = fx + dx, ty = fy + dy, tile = T.tile(tx, ty), x = (dx + R) * px, y = (dy + R) * px;
       ctx.fillStyle = this._color(T, tx, ty); ctx.fillRect(x, y, px, px);
@@ -73,11 +73,11 @@ class MapUI {
 
   /** The zoomed-out terrain: every 4th tile, 1 px each, remade when you have moved 50 tiles. */
   _farTerrain(cx, cy) {
-    const locks = this.game.map.layers.rings.unlockedList().join();
+    const locks = this.game.worldMap.layers.rings.unlockedList().join();
     if (this.farLayer && this.farLayer.locks === locks && Math.hypot(this.farLayer.cx - cx, this.farLayer.cy - cy) < 50) return this.farLayer;
     const half = FAR_MAP_LAYER / 2, canvas = document.createElement('canvas');
     canvas.width = canvas.height = FAR_MAP_LAYER;
-    const ctx = canvas.getContext('2d'), T = this.game.map.terrain, rings = this.game.map.layers.rings, fx = Math.floor(cx), fy = Math.floor(cy), S = FAR_MAP_STEP;
+    const ctx = canvas.getContext('2d'), T = this.game.worldMap.terrain, rings = this.game.worldMap.layers.rings, fx = Math.floor(cx), fy = Math.floor(cy), S = FAR_MAP_STEP;
     for (let dy = -half; dy < half; dy += FAR_MAP_STEP) for (let dx = -half; dx < half; dx += FAR_MAP_STEP) {
       const x = fx + dx, y = fy + dy, ring = rings.at(x, y).index;
       ctx.fillStyle = this._color(T, x, y); ctx.fillRect(dx + half, dy + half, S, S);
@@ -89,7 +89,7 @@ class MapUI {
 
   draw() {
     const canvas = this.canvas; if (!canvas) return;
-    const g = this.game, me = g.local, ctx = canvas.getContext('2d'), size = canvas.width, mid = size / 2, far = this.zoom === 'far';
+    const g = this.game, me = g.grid ? Object.assign({}, g.local, g.outsidePosition()) : g.local, ctx = canvas.getContext('2d'), size = canvas.width, mid = size / 2, far = this.zoom === 'far';
     const px = far ? size / FAR_MAP_SPAN : size / (2 * AREA_MAP_RADIUS + 1), span = far ? FAR_MAP_SPAN / 2 : AREA_MAP_RADIUS;
     ctx.fillStyle = '#2c6b99'; ctx.fillRect(0, 0, size, size);
     /* The world is drawn ISOMETRICALLY (turned 45 degrees), so the map is turned the same way: what is up-screen in the game is up-map here, and walking

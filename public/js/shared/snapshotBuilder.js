@@ -1,15 +1,21 @@
 'use strict';
 /* SHARED - turns the server's state into the messages a player receives. One place, used by the solo LocalAdapter and by the host
- * of an online session, so a remote friend gets exactly what a local player gets. */
+ * of an online session, so a remote friend gets exactly what a local player gets.
+ * GRIDS: a player is only sent what is on THEIR grid (people, animals, items on the ground, and the events that happened there); villagers and
+ * boats only in the overworld. The overworld's buildings, trees and stockpiles are always sent (the client keeps the overworld while indoors). */
 const SnapshotBuilder = {
+  /** Only what is on this grid: a { id: thing } table filtered by each thing's `grid`. */
+  onGrid(table, grid) { const out = {}; for (const k in table || {}) if (gridOf(table[k]) === grid) out[k] = table[k]; return out; },
+  /** Events this player should see: everything addressed to them, plus what happened on their grid (or nowhere in particular). */
+  eventsFor(events, id, grid) { return events.filter(e => e.to === id || (e.to === undefined && (e.grid === undefined ? !grid || (e.x === undefined && e.tx === undefined) : e.grid === grid))); },
   /** Everything a player needs to start: their seat, the world seed, and the full state around them. */
   welcomeFor(server, id) {
-    const player = server.players[id];
+    const player = server.players[id], grid = gridOf(player), outside = !grid, on = t => SnapshotBuilder.onGrid(t, grid);
     return {
       id, slot: player.slot, mapSeed: server.map.seed, tickRate: CONFIG.sim.tickRate, tick: server.tick, player,
       inventory: server.inventoryUpdateFor(id), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
-      boats: server.boatStates(), drops: server.dropStates(), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
-      animals: server.animals.states(server._humans()), npcs: server.npcs.states(), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
+      boats: outside ? server.boatStates() : {}, drops: on(server.dropStates()), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
+      animals: on(server.animals.states(server._humans())), npcs: outside ? server.npcs.states() : {}, friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
       pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire())
     };
   },
@@ -23,8 +29,10 @@ const SnapshotBuilder = {
 
   /** The shared part plus what only this player may see: their pack, maps, trade window, ponies, and events addressed to them. */
   personalize(server, base, id) {
-    const snapshot = Object.assign({}, base);
-    snapshot.events = base.events.filter(e => e.to === undefined || e.to === id);
+    const snapshot = Object.assign({}, base), grid = gridOf(server.players[id]), on = t => SnapshotBuilder.onGrid(t, grid);
+    snapshot.players = on(base.players); snapshot.animals = on(base.animals); snapshot.drops = on(base.drops);            // only your own grid
+    if (grid) { snapshot.boats = {}; snapshot.npcs = {}; }
+    snapshot.events = SnapshotBuilder.eventsFor(base.events, id, grid);
     snapshot.pets = server.petsFor(id); snapshot.book = server.bookFor(id); snapshot.varieties = server.varietiesFor(id);   // the Pony Book, every snapshot (it is small)
     const inventory = server.inventoryUpdateFor(id);   if (inventory) snapshot.inventory = inventory;
     const built = server.builtUpdateFor(id);           if (built) snapshot.built = built;

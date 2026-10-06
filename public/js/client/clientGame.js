@@ -7,7 +7,8 @@ class ClientGame {
   constructor(net) {
     this.net = net;
     this.events = new EventBus();                      // 'inventoryChanged', 'selectedSlotChanged', 'builtChanged', 'chop', 'fell', 'gain', 'built', 'notice', ...
-    this.map = null; this.myId = null;
+    this.map = null; this.myId = null;                   // map: the grid we stand on (the overworld, or a room / cave instance)
+    this.worldMap = null; this.grids = null; this.grid = '';   // worldMap: the overworld, always kept (its buildings, trees and stockpiles keep updating)
     this.local = null; this.prevLocal = null;          // predicted local player (current / previous tick)
     this.localBoat = null;                             // predicted copy of the boat we are rowing
     this.correction = { x: 0, y: 0 };                  // visual error offset that decays after a correction
@@ -35,7 +36,9 @@ class ClientGame {
   onWelcome(welcome) {
     this.myId = welcome.id;
     if (welcome.admin) GameSettings.applyWire(welcome.admin, true);     // the host's speed, clock and trees: before the land is built, so it matches the server's
-    this.map = new World(welcome.mapSeed);                   // same seed as the server -> identical terrain, never sent
+    this.worldMap = new World(welcome.mapSeed);              // same seed as the server -> identical terrain, never sent
+    this.grids = new GridSet(welcome.mapSeed, this.worldMap);
+    this.grid = gridOf(welcome.player); this.map = this.grids.get(this.grid);     // (we may join standing inside a room)
     this._applyRings(welcome.rings);                          // which rings are open decides where the barriers are
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
     this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeDrops = welcome.drops || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {};
@@ -44,11 +47,11 @@ class ClientGame {
     this.settings = welcome.settings || { hostilesOff: false, testPony: false };            // the host's testing aids (Settings); only the host is ever told
     if (welcome.progress) this.progress = welcome.progress;
     if (welcome.treasure) this.treasureMaps = welcome.treasure;
-    if (welcome.built) BuildSystem.replaceAll(this.map, welcome.built);
-    if (welcome.floors) BuildSystem.replaceFloors(this.map, welcome.floors);
-    if (welcome.stockpiles) Stockpiles.replaceAll(this.map, welcome.stockpiles);
-    applyTreeStates(this.map, welcome.trees || {});
-    applyForageStates(this.map, welcome.forage || {});
+    if (welcome.built) BuildSystem.replaceAll(this.worldMap, welcome.built);
+    if (welcome.floors) BuildSystem.replaceFloors(this.worldMap, welcome.floors);
+    if (welcome.stockpiles) Stockpiles.replaceAll(this.worldMap, welcome.stockpiles);
+    applyTreeStates(this.worldMap, welcome.trees || {});
+    applyForageStates(this.worldMap, welcome.forage || {});
     this.map.ensureAround(this.local.x, this.local.y, CLIENT_STREAM_RADIUS);
     this._refreshBuildTarget();
   }
@@ -214,7 +217,7 @@ class ClientGame {
   cancelBuild() { this.buildCursor = null; this._refreshBuildTarget(); }
 
   _refreshBuildTarget() {
-    const placeable = this.local && this.holdingPlaceable() ? ItemDB.getPlaceable(this.heldItemId()) : null;
+    const placeable = this.local && !this.grid && this.holdingPlaceable() ? ItemDB.getPlaceable(this.heldItemId()) : null;     // (only the overworld is built on)
     if (!placeable || (!CONFIG.sim.construction && StructureDefs[placeable.structure].layer !== 'station')) { this.buildTarget = null; return; }   // (walls and floors are switched off)
     let tx, ty, dx, dy;
     if (this.buildCursor) {                                     // aimed with a finger / mouse: face the builder
@@ -286,7 +289,7 @@ class ClientGame {
   /** A guardian fell (or we just arrived): open the rings the server says are open. */
   _applyRings(rings) {
     if (!rings) return;
-    this.map.layers.rings.setUnlocked(rings.unlocked);
+    this.worldMap.layers.rings.setUnlocked(rings.unlocked);
     this.defeated = rings.defeated || [];
     this.events.emit('ringsChanged', rings);
   }
@@ -302,13 +305,14 @@ class ClientGame {
     if (snapshot.pets) { this.pets = snapshot.pets; this.events.emit('petsChanged'); }
     if (snapshot.book) this.book = snapshot.book;
     if (snapshot.varieties) this.varieties = snapshot.varieties;
+    this._followGrid(snapshot);                                                  // through a door / into a cave: switch to that grid first
     this._bufferForInterpolation(snapshot);
     this._reconcile(snapshot);
-    applyTreeStates(this.map, snapshot.trees || {});
-    applyForageStates(this.map, snapshot.forage || {});
-    if (snapshot.built) { BuildSystem.replaceAll(this.map, snapshot.built); this.events.emit('builtChanged'); }
-    if (snapshot.floors) BuildSystem.replaceFloors(this.map, snapshot.floors);
-    if (snapshot.stockpiles) { Stockpiles.replaceAll(this.map, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
+    applyTreeStates(this.worldMap, snapshot.trees || {});                         // (the overworld's: kept up to date even while we are indoors)
+    applyForageStates(this.worldMap, snapshot.forage || {});
+    if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
+    if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
+    if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
     if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
     else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }
     if (snapshot.progress) { this.progress = snapshot.progress; this.events.emit('progressChanged'); }
@@ -318,6 +322,28 @@ class ClientGame {
     if (gearKey !== this.gearKey) { this.gearKey = gearKey; this.events.emit('gearChanged'); }
     this._refreshBuildTarget();
     for (const e of snapshot.events || []) this.events.emit(e.type, e);
+  }
+
+  /** The server moved us to another grid: stand on that grid's World from now on. Everything around us (people, animals, items) arrives with
+   *  the snapshot, which only ever holds our own grid, so the interpolation buffer starts afresh. */
+  _followGrid(snapshot) {
+    const mine = snapshot.players && snapshot.players[this.myId];
+    if (!mine || gridOf(mine) === this.grid) return;
+    const from = this.grid;
+    this.grid = gridOf(mine); this.map = this.grids.get(this.grid);
+    if (from) this.grids.drop(from);                                            // (an instance we left is rebuilt from its plan if we come back)
+    this.snapshots = []; this.hasSnapshot = false; this.pending = []; this.lastBuildTile = null;
+    this.local = clonePlayer(mine); this.prevLocal = clonePlayer(mine); this.correction.x = this.correction.y = 0;
+    this.map.ensureAround(this.local.x, this.local.y, CLIENT_STREAM_RADIUS);
+    this.events.emit('gridChanged', { from, to: this.grid, kind: this.map.kind });
+  }
+  /** Where we are on the overworld map: our position, or (indoors) the door of the building / the mouth of the cave we are in. */
+  outsidePosition() {
+    if (!this.grid) return { x: this.local.x, y: this.local.y };
+    const site = Grids.siteOf(this.grid), g = Grids.parse(this.grid);
+    if (site) return BuildingSites.doorFront(site);
+    const cave = g && g.kind === 'cave' ? this.worldMap.layers.dungeons.site(g.ring) : null;
+    return cave ? { x: cave.x, y: cave.y } : { x: this.local.x, y: this.local.y };
   }
 
   _bufferForInterpolation(snapshot) {

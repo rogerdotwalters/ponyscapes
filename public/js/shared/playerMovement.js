@@ -6,6 +6,7 @@ function createPlayer(slot, spawn) {
     color: CONFIG.sim.slotColors[slot], slot, ack: 0, name: '', appearance: CharacterLook.defaultFor(slot),
     sel: 0, held: '', swingT: 0, swingHit: false,         // written by the server's ToolSystem
     boat: '',                                             // id of the boat we are rowing, or ''
+    grid: '',                                             // which grid we are on: '' the overworld, else an instance (js/shared/grids.js)
     hunger: CONFIG.sim.hunger.max, thirst: CONFIG.sim.thirst.max, eatT: 0,   // written by the server's VitalsSystem
     hungerMode: 'normal', thirstMode: 'normal',                              // the host can change these per player (see CONFIG.sim.vitalModes)
     id: 'p' + (slot + 1), hp: CONFIG.sim.health.max, hurtT: 0,               // health; damaged by monsters

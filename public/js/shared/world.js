@@ -12,9 +12,12 @@ const propBlocks = prop => prop.alive !== false && !NON_BLOCKING_PROPS.has(prop.
 const chunkKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
 
 class World {
-  constructor(seed) {
+  /** @param {number} seed  @param {object} [terrain] what the land is made of (default: the overworld's TerrainGenerator; an instance grid passes its own) */
+  constructor(seed, terrain) {
     this.seed = seed | 0;
-    this.terrain = new TerrainGenerator(this.seed);
+    this.grid = '';                     // which grid this is: '' = the overworld (instances: js/shared/grids.js)
+    this.kind = 'world';                // 'world' | 'room' | 'cave'
+    this.terrain = terrain || new TerrainGenerator(this.seed);
     this.chunks = new Map();            // chunkKey -> chunk
     this.built = {};                    // tileKey -> { n|e|s|w: structureType }   (authoritative on the server)
     this.slabs = {};                    // tileKey -> [[x0,y0,x1,y1], ...]          derived collision boxes
@@ -33,12 +36,14 @@ class World {
     const key = chunkKey(cx, cy);
     let chunk = this.chunks.get(key);
     if (!chunk) {
-      chunk = generateChunk(this, cx, cy);
+      chunk = this.generate(cx, cy);
       this.chunks.set(key, chunk);
       if (this.onChunkGenerated) this.onChunkGenerated(chunk);
     }
     return chunk;
   }
+  /** Build one chunk (an instance grid overrides this). */
+  generate(cx, cy) { return generateChunk(this, cx, cy); }
   peekChunkOfTile(tx, ty) { return this.chunks.get(chunkKey(tx >> CHUNK_SHIFT, ty >> CHUNK_SHIFT)) || null; }
   chunkOfTile(tx, ty) {
     const cx = tx >> CHUNK_SHIFT, cy = ty >> CHUNK_SHIFT, last = this.lastChunk;
@@ -104,17 +109,14 @@ class World {
   }
 }
 
-/** { local index -> prop } for any cave mouth (overworld) or cave exit portal (cave space) inside chunk (cx, cy). Dungeon sites are pure functions of the seed. */
+/** { local index -> prop } for any cave mouth inside overworld chunk (cx, cy). Dungeon sites are pure functions of the seed. (The way OUT of a cave is
+ *  the cave grid's own portal: js/shared/grids.js.) */
 function caveProps(world, cx, cy) {
   const found = new Map(), x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
   const put = (x, y, prop) => { const tx = Math.floor(x), ty = Math.floor(y); if (tx >= x0 && tx < x0 + CHUNK_SIZE && ty >= y0 && ty < y0 + CHUNK_SIZE) found.set(((ty - y0) << CHUNK_SHIFT) | (tx - x0), prop); };
-  if (DungeonSpace.contains(x0, y0)) {
-    for (let i = 0; i < DungeonSpace.COUNT; i++) { const e = DungeonSpace.exit(i); put(e.x, e.y, { t: 'portal', x: e.x, y: e.y, r: 0.2, v: i, ring: i }); }
-  } else {
-    const o = CONFIG.sim.levels.origin;
-    if (Math.hypot(x0 + 8 - o.x, y0 + 8 - o.y) > world.layers.rings.width * world.layers.rings.count + 400) return found;
-    for (const site of world.layers.dungeons.sites()) put(site.x, site.y, { t: 'cave', x: site.x, y: site.y, r: 0.55 / TILE_SCALE, v: site.ring, ring: site.ring });
-  }
+  const o = CONFIG.sim.levels.origin;
+  if (Math.hypot(x0 + 8 - o.x, y0 + 8 - o.y) > world.layers.rings.width * world.layers.rings.count + 400) return found;
+  for (const site of world.layers.dungeons.sites()) put(site.x, site.y, { t: 'cave', x: site.x, y: site.y, r: 0.55 / TILE_SCALE, v: site.ring, ring: site.ring });
   return found;
 }
 
@@ -129,16 +131,11 @@ function generateChunk(world, cx, cy) {
   };
   const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
   const special = caveProps(world, cx, cy);                                                // the cave mouths and cave exits that stand in this chunk
-  const indoors = InteriorSpace.region(x0, y0);                                          // a building's room (InteriorSpace): its walls, floors and furniture
   for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;
-    const tile = T.tile(tx, ty), obj = indoors ? InteriorSpace.objAt(tx, ty) : Village.obj(tx, ty);
+    const tile = T.tile(tx, ty), obj = Village.obj(tx, ty);
     chunk.tiles[li] = tile; chunk.obj[li] = obj;
-    chunk.solid[li] = tile === TILE.WATER || tile === TILE.CAVE_WALL || obj !== OBJ.NONE || (indoors && InteriorSpace.solidAt(tx, ty)) ? 1 : 0;
-  }
-  if (indoors) {
-    for (const { tile: [tx, ty], prop } of InteriorSpace.furnitureIn(cx, cy)) addChunkProp(chunk, ((ty - y0) << CHUNK_SHIFT) | (tx - x0), prop);
-    return chunk;
+    chunk.solid[li] = tile === TILE.WATER || tile === TILE.CAVE_WALL || obj !== OBJ.NONE ? 1 : 0;
   }
   for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;

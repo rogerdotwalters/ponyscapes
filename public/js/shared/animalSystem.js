@@ -1,7 +1,9 @@
 'use strict';
 /* SERVER-SIDE wildlife: spawning, simple AI (idle -> wander, flee from players, come to food), taming (leash, pets that
  * follow or stay near home), damage, drops, respawn.
- * Animals only think while a player is within ANIMAL_ACTIVE_RADIUS, so a big world costs nothing. */
+ * Animals only think while a player is within ANIMAL_ACTIVE_RADIUS, so a big world costs nothing.
+ * GRIDS: every animal lives on one grid (a.grid: '' the overworld, or an instance such as a cave). It only sees, chases and is reached by players
+ * on the same grid, and moves through that grid's World (deps.mapOf). */
 const ANIMAL_ACCEL = 14, ANIMAL_TURN_RATE = 8, HURT_SPEED_FACTOR = 0.75;
 const STEALTH_KEY = { idle: 'idle', sneak: 'sneak', walk: 'walk', run: 'run', row: 'walk' };
 
@@ -15,32 +17,37 @@ function lureFor(def, itemId, levels, buffs) {
 }
 
 class AnimalSystem {
-  /** @param {{map, rng, getTick, emit, damagePlayer:(id,amount)=>void, getLights:()=>Array}} deps */
-  constructor(deps) { Object.assign(this, deps); this.animals = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; }
+  /** @param {{map, mapOf:(animal)=>World, rng, getTick, emit, damagePlayer:(id,amount)=>void, getLights:()=>Array}} deps  (map: the overworld) */
+  constructor(deps) { Object.assign(this, deps); this.animals = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; this.active = null; if (!this.mapOf) this.mapOf = () => this.map; }
 
   /** @param {number} [gene] decides a pony's look (a chunk's herd always looks the same)
-   *  @param {{level?:number, variant?:number}} [opts] born level (default: from the distance to the origin) and pony variety (default: from the biome here) */
+   *  @param {{level?:number, variant?:number, grid?:string}} [opts] born level (default: from the distance to the origin), pony variety (default: from the biome here), grid ('' = overworld) */
   spawn(type, x, y, gene, opts = {}) {
-    const def = AnimalDefs[type], id = 'a' + this.nextId++;
-    const level = opts.level !== undefined ? opts.level : AnimalLevels.roll(type, x, y, this.rng(), this.map.layers);
-    const variant = def.pony ? (opts.variant !== undefined ? opts.variant : PonyLook.variantOf(this.map.biome(Math.floor(x), Math.floor(y)))) : 0;
+    const def = AnimalDefs[type], id = 'a' + this.nextId++, grid = opts.grid || '', map = this.mapOf({ grid });
+    const level = opts.level !== undefined ? opts.level : AnimalLevels.roll(type, x, y, this.rng(), map.layers);
+    const variant = def.pony ? (opts.variant !== undefined ? opts.variant : PonyLook.variantOf(map.biome(Math.floor(x), Math.floor(y)))) : 0;
     let look = def.pony ? PonyLook.fromGene(gene !== undefined ? gene : Math.floor(this.rng() * 2147483647), variant, def.rarity) : null;   // its rarity is rolled at birth (rarity.js)
     if (look && opts.rarity) look = PonyLook.withRarity(look, opts.rarity);
     const maxHp = Math.max(1, Math.round(def.hp * AnimalLevels.hpFactor(level)));
     this.animals[id] = new Animal(id, type, x, y, { level, maxHp, facing: this.rng() * Math.PI * 2, timer: 1 + this.rng() * 4, look });
+    if (grid) this.animals[id].grid = grid;
     return id;
   }
 
   /** Think + move every active animal, then handle respawns. `humans` are the player objects animals react to. */
   update(tick, humans) {
+    const byGrid = {};                                                                   // an animal only reacts to people on its own grid
+    for (const h of humans) (byGrid[gridOf(h)] = byGrid[gridOf(h)] || []).push(h);
     for (const id in this.animals) {
-      const a = this.animals[id];
-      if (a.rider || !humans.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_ACTIVE_RADIUS)) continue;     // a ridden pony is steered by its rider
+      const a = this.animals[id], near = byGrid[gridOf(a)];
+      if (a.rider || !near || !near.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_ACTIVE_RADIUS)) continue;     // a ridden pony is steered by its rider
       const def = AnimalDefs[a.type];
-      this._think(a, def, humans, TICK_DT);
+      this.active = a;                                                                   // (what it does is shown on its grid: see GameServer's events)
+      this._think(a, def, near, TICK_DT);
       this._move(a, def, TICK_DT);
     }
-    this._runRespawns(tick, humans);
+    this.active = null;
+    this._runRespawns(tick, byGrid[''] || []);
   }
 
   /** Who is in charge of this animal this tick: its owner / captor (a pet), or the behaviour its data names. */
@@ -93,7 +100,7 @@ class AnimalSystem {
   /** A caught pony settles inside shelter and frets outside it. */
   _tickCapture(a, dt) {
     const tick = this.getTick();
-    if (tick - a.shelterTick > 30) { a.shelter = Shelter.find(this.map, a.x, a.y); a.shelterTick = tick; }
+    if (tick - a.shelterTick > 30) { a.shelter = Shelter.find(this.mapOf(a), a.x, a.y); a.shelterTick = tick; }
     if (a.shelter) { a.captureT = Math.max(0, a.captureT - dt * 2); a.warned = false; return; }
     a.captureT += dt;
     if (!a.warned && a.captureT >= CAPTURE_BREAK_SECONDS * CAPTURE_WARN_FRACTION) {
@@ -129,7 +136,7 @@ class AnimalSystem {
     if (a.slowT > 0) { a.slowT -= dt; pace *= a.slowF || 1; }             // chilled by a Frost Nova
     accelerateToward(a, (a.tvx || 0) * pace, (a.tvy || 0) * pace, ANIMAL_ACCEL * dt);
     a.x += a.vx * dt; a.y += a.vy * dt;
-    resolveCollisions(this.map, a, def.radius);                         // water, trees, walls: animals stay out of them too
+    resolveCollisions(this.mapOf(a), a, def.radius);                    // water, trees, walls (of its own grid): animals stay out of them too
     if (Math.hypot(a.vx, a.vy) > 0.05) turnToward(a, Math.atan2(a.vy, a.vx), ANIMAL_TURN_RATE * dt);
   }
 
@@ -138,7 +145,7 @@ class AnimalSystem {
     let best = null;
     for (const id in this.animals) {
       const a = this.animals[id], gap = Math.hypot(a.x - p.x, a.y - p.y) - AnimalDefs[a.type].radius;
-      if (this._huntable(a) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
+      if (this._huntable(a) && sameGrid(a, p) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
     }
     return best;
   }
@@ -151,7 +158,7 @@ class AnimalSystem {
     let best = null;
     for (const id in this.animals) {
       const a = this.animals[id], def = AnimalDefs[a.type], gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
-      if (def.tameable && !a.captor && !a.rider && (!a.owner || (a.owner === p.id && !a.leashed)) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
+      if (def.tameable && sameGrid(a, p) && !a.captor && !a.rider && (!a.owner || (a.owner === p.id && !a.leashed)) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
     }
     return best;
   }
@@ -161,7 +168,7 @@ class AnimalSystem {
     let best = null;
     for (const id in this.animals) {
       const a = this.animals[id], def = AnimalDefs[a.type];
-      if (!def.tameable || a.captor || a.rider || (a.owner && (a.owner !== p.id || a.leashed))) continue;
+      if (!def.tameable || !sameGrid(a, p) || a.captor || a.rider || (a.owner && (a.owner !== p.id || a.leashed))) continue;
       const gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
       if (gap > reach) continue;
       const off = Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing));
@@ -240,7 +247,7 @@ class AnimalSystem {
     for (const id in this.animals) {
       const a = this.animals[id];
       if (a.owner !== ownerId && a.captor !== ownerId) continue;
-      if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.map, a.x, a.y); a.penTick = tick; }
+      if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; }
       const gentling = a.captor ? { have: a.trust, need: a.applesNeed || AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level), sheltered: !!a.shelter, restless: Math.round(100 * a.captureT / CAPTURE_BREAK_SECONDS) } : null;
       out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
     }
@@ -252,7 +259,7 @@ class AnimalSystem {
     let best = null, bestDist = range;
     for (const id in this.animals) {
       const a = this.animals[id], d = Math.hypot(a.x - p.x, a.y - p.y);
-      if (d > bestDist || !this._huntable(a)) continue;
+      if (d > bestDist || !this._huntable(a) || !sameGrid(a, p)) continue;
       if (Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing)) > halfAngle) continue;
       bestDist = d; best = { id, animal: a };
     }
@@ -266,7 +273,7 @@ class AnimalSystem {
     if (a.hp > 0) return { killed: false, drops: [], animal: a };
     delete this.animals[id];
     if (this.onKilled) this.onKilled(a, def);
-    if (!def.boss) this.respawns.push({ type: a.type, cx: Math.floor(a.x) >> CHUNK_SHIFT, cy: Math.floor(a.y) >> CHUNK_SHIFT, atTick: this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS) });
+    if (!def.boss && !gridOf(a)) this.respawns.push({ type: a.type, cx: Math.floor(a.x) >> CHUNK_SHIFT, cy: Math.floor(a.y) >> CHUNK_SHIFT, atTick: this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS) });
     const drops = [];
     for (const d of def.drops) {
       if (d.chance !== undefined && this.rng() >= d.chance) continue;
@@ -291,13 +298,14 @@ class AnimalSystem {
     });
   }
 
-  /** Snapshot part: animals within sync range of any human. */
+  /** Snapshot part: animals within sync range of any human on their grid (each player is later sent only their own grid's). */
   states(humans) {
     const out = {};
     for (const id in this.animals) {
       const a = this.animals[id];
-      if (humans.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_SYNC_RADIUS)) {
+      if (humans.some(h => sameGrid(h, a) && Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_SYNC_RADIUS)) {
         out[id] = { id, type: a.type, level: a.level, x: a.x, y: a.y, vx: a.vx, vy: a.vy, facing: a.facing, hp: a.hp, state: a.state, look: a.look, owner: a.owner, captor: a.captor, leashed: a.leashed, rider: a.rider };
+        if (a.grid) out[id].grid = a.grid;
       }
     }
     return out;

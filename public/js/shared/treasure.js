@@ -69,6 +69,7 @@ class ShovelHandler {
   constructor(deps) { Object.assign(this, deps); this.warmAt = {}; }
 
   find(p, tool, id) {
+    if (gridOf(p)) return null;                                          // (nothing to dig indoors or in a cave)
     const mound = findForageable(this.map, p, tool.reach, 'shovel');
     if (mound && forageKind(mound.prop) === 'mound') return { ref: 'm' + tileKey(mound.tx, mound.ty), kind: 'mound', x: mound.prop.x, y: mound.prop.y, found: mound };
     const site = TreasureSites.near(this.map, p.x, p.y, TREASURE.digRange);

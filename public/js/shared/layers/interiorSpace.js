@@ -1,10 +1,9 @@
 'use strict';
-/* LAYER - interior space: the inside of every building. Like the caves (DungeonSpace), a room is not a separate world: it is a block of ordinary
- * tiles far outside the overworld, built by the same chunk code, so collision, lighting, saving and multiplayer all work inside.
+/* LAYER - the insides of buildings. Every room is its own GRID (an instance: js/shared/grids.js), with its own coordinates from (0, 0), built by the
+ * same chunk code as the overworld, so collision, saving and multiplayer all work inside.
  *
- *   INSTANCES  every room is one block (STRIDE x STRIDE tiles). A 'shared' building has ONE room, numbered by its site (BuildingSites); a 'player'
- *              building gives every player a room of their own (PLAYER_BASE + the player's home number x SITES + the site). Everyone who walks
- *              into the store stands in the same room; everyone who walks into the player home stands in their own.
+ *   INSTANCES  a 'shared' building has ONE room ('room:<site>'): everyone who walks into the store stands in the same room. A 'player' building
+ *              gives every player a room of their own ('room:<site>:<n>', n = their home number).
  *   LAYOUTS    what a room looks like comes from js/content/interiors.js (level-editor.html): rows of tile characters (js/data/interiors/tiles.js),
  *              furniture (js/data/furniture/) and the doormat (the way out). ?content=draft plays the level editor's unsaved draft (solo testing).
  *   TILES      a floor is a tile id from INTERIOR_TILE_BASE up; a wall is an object id from INTERIOR_OBJ_BASE up (solid, drawn as a block). */
@@ -76,58 +75,29 @@ const Interiors = (() => {
   return { DRAFT_KEY, MAX, source, raw, layouts, footprint, build, get: id => layouts[id] || null, ids: () => Object.keys(layouts) };
 })();
 
-const InteriorSpace = {
-  BASE_X: 1000000, BASE_Y: 1200000, STRIDE: 64, PER_ROW: 256, ROWS: 64, PLAYER_BASE: 256, SITES: 16, PAD: 8, MARGIN: 48,
-  contains(tx, ty) {
-    const S = InteriorSpace;
-    return tx >= S.BASE_X && ty >= S.BASE_Y && tx < S.BASE_X + S.STRIDE * S.PER_ROW && ty < S.BASE_Y + S.STRIDE * S.ROWS;
-  },
-  /** Interior space and the dark band around it (nothing but void: no overworld shows at the edge of the screen). */
-  region(tx, ty) {
-    const S = InteriorSpace, m = S.MARGIN;
-    return tx >= S.BASE_X - m && ty >= S.BASE_Y - m && tx < S.BASE_X + S.STRIDE * S.PER_ROW + m && ty < S.BASE_Y + S.STRIDE * S.ROWS + m;
-  },
-  /** Which room (instance number) a tile belongs to, or -1. */
-  indexOf(tx, ty) {
-    const S = InteriorSpace; if (!S.contains(tx, ty)) return -1;
-    return Math.floor((ty - S.BASE_Y) / S.STRIDE) * S.PER_ROW + Math.floor((tx - S.BASE_X) / S.STRIDE);
-  },
-  /** A room's top-left tile (inset PAD tiles in its block, so darkness surrounds it). */
-  originOf(index) { const S = InteriorSpace; return { x: S.BASE_X + (index % S.PER_ROW) * S.STRIDE + S.PAD, y: S.BASE_Y + Math.floor(index / S.PER_ROW) * S.STRIDE + S.PAD }; },
-  /** A player's own room in a 'player' building: their home number `n` (the server hands these out per player). */
-  playerInstance(n, siteIndex) { return InteriorSpace.PLAYER_BASE + n * InteriorSpace.SITES + siteIndex; },
-  /** The building site a room belongs to. */
-  siteOf(index) { const S = InteriorSpace; return BuildingSites.list[index < S.PLAYER_BASE ? index : (index - S.PLAYER_BASE) % S.SITES] || null; },
-  layoutOf(index) { const site = InteriorSpace.siteOf(index); return site ? Interiors.get(site.def.interior) : null; },
-  /** The room tile at (tx, ty): { layout, lx, ly, i } or null (outside every room). */
-  cell(tx, ty) {
-    const index = InteriorSpace.indexOf(tx, ty); if (index < 0) return null;
-    const L = InteriorSpace.layoutOf(index); if (!L) return null;
-    const o = InteriorSpace.originOf(index), lx = tx - o.x, ly = ty - o.y;
-    return lx >= 0 && ly >= 0 && lx < L.w && ly < L.h ? { layout: L, lx, ly, i: ly * L.w + lx } : null;
-  },
-  tileAt(tx, ty) { const c = InteriorSpace.cell(tx, ty); return c ? c.layout.grid[c.i] : InteriorTileInfo.VOID_TILE; },
-  objAt(tx, ty) { const c = InteriorSpace.cell(tx, ty); return c ? c.layout.walls[c.i] : 0; },
-  solidAt(tx, ty) { const c = InteriorSpace.cell(tx, ty); return c ? !!c.layout.solid[c.i] : true; },
-  /** A wall at the bottom / right of a room (floor above or to the left of it) is drawn low, so you can see into the room. */
-  wallIsLow(tx, ty) {
-    const floor = (x, y) => { const c = InteriorSpace.cell(x, y); return !!c && !c.layout.walls[c.i] && !isInteriorVoid(c.layout.grid[c.i]); };
-    return floor(tx, ty - 1) || floor(tx - 1, ty) || floor(tx - 1, ty - 1);
-  },
-  /** World positions of a room's doormat (centre) and where you arrive (the tile north of it). */
-  exitPoint(index) { const L = InteriorSpace.layoutOf(index), o = InteriorSpace.originOf(index); return L ? { x: o.x + L.exit[0] + 0.5, y: o.y + L.exit[1] + 0.5 } : null; },
-  entryPoint(index) { const e = InteriorSpace.exitPoint(index); return e ? { x: e.x, y: e.y - 1 } : null; },
-  /** Furniture props whose top-left tile lies in chunk (cx, cy) (world coordinates; x, y = the centre of the piece). */
-  furnitureIn(cx, cy) {
-    const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE, index = InteriorSpace.indexOf(x0, y0), out = [];
-    if (index < 0) return out;
-    const L = InteriorSpace.layoutOf(index), o = InteriorSpace.originOf(index);
-    if (!L) return out;
-    for (const f of L.furniture) {
-      const tx = o.x + f.x, ty = o.y + f.y;
-      if (tx < x0 || ty < y0 || tx >= x0 + CHUNK_SIZE || ty >= y0 + CHUNK_SIZE) continue;
-      out.push({ tile: [tx, ty], prop: { t: 'furniture', id: f.id, x: tx + f.w / 2, y: ty + f.h / 2, w: f.w, h: f.h, rot: f.rot, r: 0 } });
+/** The inside of one building, in its room grid's own coordinates: (0, 0) is the layout's top-left tile, everything outside it is the dark.
+ *  Each room is its own GRID (js/shared/grids.js: 'room:<site>' shared, 'room:<site>:<n>' a player's own copy), built from this plan. */
+class RoomPlan {
+  constructor(site, layout) { this.site = site; this.layout = layout; }
+  /** Index into the layout's arrays, or -1 outside the room. */
+  cell(tx, ty) { const L = this.layout; return tx >= 0 && ty >= 0 && tx < L.w && ty < L.h ? ty * L.w + tx : -1; }
+  tileAt(tx, ty) { const i = this.cell(tx, ty); return i < 0 ? InteriorTileInfo.VOID_TILE : this.layout.grid[i]; }
+  objAt(tx, ty) { const i = this.cell(tx, ty); return i < 0 ? 0 : this.layout.walls[i]; }
+  solidAt(tx, ty) { const i = this.cell(tx, ty); return i < 0 || !!this.layout.solid[i]; }
+  /** Floor you could stand on (ignoring furniture): not a wall, not the dark. */
+  isFloor(tx, ty) { const i = this.cell(tx, ty); return i >= 0 && !this.layout.walls[i] && !isInteriorVoid(this.layout.grid[i]); }
+  /** A wall at the bottom / right of the room (floor above or to the left of it) is drawn low, so you can see in. */
+  wallIsLow(tx, ty) { return this.isFloor(tx, ty - 1) || this.isFloor(tx - 1, ty) || this.isFloor(tx - 1, ty - 1); }
+  /** The doormat (the way out) and the tile north of it (where you arrive). */
+  exitPoint() { const [x, y] = this.layout.exit; return { x: x + 0.5, y: y + 0.5 }; }
+  entryPoint() { const e = this.exitPoint(); return { x: e.x, y: e.y - 1 }; }
+  /** Furniture props whose top-left tile lies in chunk (cx, cy): [{ tile: [tx, ty], prop }] (x, y = the centre of the piece). */
+  propsIn(cx, cy) {
+    const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE, out = [];
+    for (const f of this.layout.furniture) {
+      if (f.x < x0 || f.y < y0 || f.x >= x0 + CHUNK_SIZE || f.y >= y0 + CHUNK_SIZE) continue;
+      out.push({ tile: [f.x, f.y], prop: { t: 'furniture', id: f.id, x: f.x + f.w / 2, y: f.y + f.h / 2, w: f.w, h: f.h, rot: f.rot, r: 0 } });
     }
     return out;
   }
-};
+}

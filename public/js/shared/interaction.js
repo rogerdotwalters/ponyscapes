@@ -41,7 +41,7 @@ function findRelease(p, animals, selfId = p.id) {
   let best = null;
   for (const id in animals) {
     const a = animals[id], d = Math.hypot(a.x - p.x, a.y - p.y), caught = a.captor === selfId, tied = a.owner === selfId && a.leashed;
-    if (!(caught || tied) || d > RELEASE_RANGE || (best && d >= best.dist)) continue;
+    if (!(caught || tied) || !sameGrid(a, p) || d > RELEASE_RANGE || (best && d >= best.dist)) continue;
     best = { kind: 'release', label: caught ? 'Let go' : 'Untie', dist: d, animal: a, losesCatch: caught };
   }
   return best;
@@ -61,7 +61,7 @@ const Interactions = {
     for (const id in animals) {                          // tied pets can be untied, small animals picked up
       if (mounted) break;                                // (all of that needs two feet on the ground)
       const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
-      if (!def) continue;
+      if (!def || !sameGrid(a, p)) continue;                // (only what is on your grid)
       if (a.owner === selfId && !a.leashed && !a.rider && def.pony && !p.mount && d <= CONFIG.sim.ride.range) primary.push({ kind: 'ride', label: 'Ride', dist: d, animal: a });
       else if (a.captor === selfId && d <= UNTIE_RANGE && heldItemId === 'apple') primary.push({ kind: 'feed', label: 'Feed apple', dist: d - 1, animal: a });   // a caught wild pony: hold an apple and feed it (wins over a gate next to it)
       else if (def.carry && d <= PICKUP_RANGE && a.state !== 'flee' && (!a.owner || a.owner === selfId)) primary.push({ kind: 'pickup', label: 'Pick up', dist: d, animal: a });
@@ -74,7 +74,7 @@ const Interactions = {
     }
     for (const id in npcs) {                              // people: talk, or give the thing you are holding if they have an opinion about it (works from the saddle too)
       const npc = npcs[id], d = Math.hypot(npc.x - p.x, npc.y - p.y);
-      if (d > CONFIG.sim.friendship.reach) continue;
+      if (d > CONFIG.sim.friendship.reach || !sameGrid(npc, p)) continue;
       const tastes = Npcs.get(npc.type) && Npcs.get(npc.type).tastes;
       if (heldItemId && Friendship.opinion(tastes, heldItemId) !== 'neutral') primary.push({ kind: 'gift', label: `Give ${ItemDefs[heldItemId].name}`, dist: d - 0.4, npc });
       else primary.push({ kind: 'talk', label: `Talk to ${npc.name}`, dist: d, npc });                       // (the nearest thing wins: a pony beside you is ridden, not chatted to)
@@ -85,7 +85,7 @@ const Interactions = {
     if (chest && !p.looted) primary.push({ kind: 'loot', label: 'Open', dist: chest.dist, chest });
     for (const d of Object.values(drops)) {               // items lying on the ground
       const dist = Math.hypot(d.x - p.x, d.y - p.y);
-      if (dist <= CONFIG.sim.drops.pickupRange) primary.push({ kind: 'pickDrop', label: 'Pick up', dist: dist - 0.2, drop: d });
+      if (dist <= CONFIG.sim.drops.pickupRange && sameGrid(d, p)) primary.push({ kind: 'pickDrop', label: 'Pick up', dist: dist - 0.2, drop: d });
     }
     const pile = Stockpiles.nearest(map, p);
     if (pile && map.stockpiles[pile.key]) primary.push({ kind: 'stockpile', label: 'Deliver', dist: pile.dist + 0.3, pile });     // deliver the resource you carry

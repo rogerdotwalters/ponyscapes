@@ -45,7 +45,7 @@ class FriendshipSystem {
     if (tick % every !== 0) return;
     for (const id in this.s.animals.animals) {
       const a = this.s.animals.animals[id], o = a.owner && this.s.players[a.owner];
-      if (!o || !a.befriendable || (!a.rider && Math.hypot(o.x - a.x, o.y - a.y) > C.togetherRange)) continue;
+      if (!o || !a.befriendable || !sameGrid(o, a) || (!a.rider && Math.hypot(o.x - a.x, o.y - a.y) > C.togetherRange)) continue;
       const result = a.befriend(a.owner, C.gains.together, Skills._s(o.lv, 'animal_friendship'));
       if (result.gained > 0) this._bump(a.owner);
       if (result.ups > 0) this.s._notice(a.owner, `${a.def.name} is now ${Friendship.info(result.bond.level).name} friends with you!`);
