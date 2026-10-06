@@ -18,7 +18,7 @@ const BASE_RECIPES = ({
   make_rope_string:   makeRecipe('make_rope_string', 'Rope (from string)', [ing('string', 3)], [ing('rope', 1)]),
   make_torch:         makeRecipe('make_torch', 'Torches (x2)', [ing('plank', 1), ing('string', 1)], [ing('torch', 2)]),
   make_campfire:      makeRecipe('make_campfire', 'Campfire', [ing('log', 3), ing('stone', 4)], [ing('campfire', 1)]),
-  make_leash:         makeRecipe('make_leash', 'Rope Lasso', [ing('rope', 2)], [ing('leash', 1)]),
+  make_leash:         makeRecipe('make_leash', 'Old Rope Lasso', [ing('rope', 2)], [ing('leash', 1)]),
   make_brush:         makeRecipe('make_brush', 'Wooden Brush', [ing('plank', 1), ing('string', 2)], [ing('brush', 1)]),
   make_jug:           makeRecipe('make_jug', 'Wooden Jug', [ing('plank', 3)], [ing('jug', 1)]),
   make_crafting_table: makeRecipe('make_crafting_table', 'Crafting Table', [ing('plank', 6), ing('rope', 2)], [ing('crafting_table', 1)], { tools: ['stone_hammer', 'knife'] }),

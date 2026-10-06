@@ -34,7 +34,7 @@ class Effects {
     game.events.on('untied', e => this._float(e, 'Untied'));
     game.events.on('carried', e => { this._burst(e.x, e.y, 6, HEART_COLORS, 12); this._float(e, 'Picked up'); });
     game.events.on('released', e => { this._burst(e.x, e.y, 8, HEART_COLORS, 12); this._float(e, 'Released'); });
-    game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, age: 0 }));
+    game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, look: lassoLook(e.item), age: 0 }));
     game.events.on('caught', e => this._burst(e.x, e.y, 12, HEART_COLORS, 24));        // (the server's notice already says what to do next)
     game.events.on('fed', e => { this._burst(e.x, e.y, 10, HEART_COLORS, 26); this._float(e, `Apple ${e.have}/${e.need}`); });
     game.events.on('letGo', e => { this._burst(e.x, e.y, 8, DUST_COLORS, 12); this._float(e, 'It ran off'); });
@@ -122,9 +122,11 @@ class Effects {
     this.ropes = this.ropes.filter(r => (r.age += dt) < 0.7);                                       // a thrown lasso: a rope flying out with a loop that closes on a catch
     for (const r of this.ropes) {
       const t = Math.min(1, r.age / 0.28), x = r.x0 + (r.x1 - r.x0) * t, y = r.y0 + (r.y1 - r.y0) * t - Math.sin(t * Math.PI) * 14;
-      ctx.strokeStyle = '#d8b66a'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(r.x0, r.y0); ctx.quadraticCurveTo((r.x0 + x) / 2, Math.min(r.y0, y) - 10 + (1 - t) * 10, x, y); ctx.stroke();
       const loop = r.hit && r.age > 0.28 ? Math.max(3, 11 - (r.age - 0.28) * 30) : 11;                 // the loop tightens round the neck
-      ctx.strokeStyle = r.hit ? '#f0d58a' : '#b9a06a'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.ellipse(x, y, loop, loop * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      for (const [color, w] of [[r.look.dark, 3.4], [r.hit ? r.look.braid : r.look.rope, 2]]) {          // the rope in its lasso's colours, outlined
+        ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(r.x0, r.y0); ctx.quadraticCurveTo((r.x0 + x) / 2, Math.min(r.y0, y) - 10 + (1 - t) * 10, x, y); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(x, y, loop, loop * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      }
     }
     this.floaters = this.floaters.filter(f => (f.age += dt) < (f.style === 'levelup' ? 2.4 : 1.4));
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

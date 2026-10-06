@@ -198,13 +198,13 @@ class LeashHandler {
     const dist = Math.hypot(a.x - p.x, a.y - p.y), mine = a.owner === id, need = def.pony ? (def.lassoTier || 1) : 1;
     if (!mine && need > lasso.tier) {                                                   // a rarer pony slips out of a plain loop
       const better = Object.values(ItemDefs).find(d => d.lasso && d.lasso.tier === need);
-      this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id });
+      this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id, item });
       this.animals.startle(target.ref, p);
       this.emit({ type: 'notice', to: id, text: `It slips right out of your ${ItemDefs[item].name}: catching a ${def.name} takes a ${better ? better.name : 'better lasso'} or better` });
       return;
     }
     const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv, p.buffs) + lasso.chance;
-    this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: landed, by: id });
+    this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: landed, by: id, item });
     if (!landed) {
       this.animals.startle(target.ref, p);
       this.award(id, 'horsemanship', 4);

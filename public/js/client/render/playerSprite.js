@@ -6,9 +6,15 @@
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
 const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9 };
-/** Each lasso's rope and its shine (a lasso made in the editor uses its item colour). Shared with the item icons. */
-const LASSO_LOOKS = { leash: ['#8a6a3c', '#d8b66a'], lasso_silk: ['#cfc6e2', '#ffffff'], lasso_gold: ['#c9962a', '#ffe9a0'], lasso_star: ['#5f7fd0', '#e6f0ff'] };
-const lassoLook = id => LASSO_LOOKS[id] || [(ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', '#f0e0b0'];
+/** Each lasso's look: rope, braid highlight, outline, the ring (honda) the loop runs through, its ribbon tails (none: a plain rope end)
+ *  and whether it is old and frayed (the starter). A lasso made in the editor uses its item colour. Shared with the item icons and the throw effect. */
+const LASSO_LOOKS = {
+  leash:      { rope: '#7a5a32', braid: '#a8844f', dark: '#3e2c16', honda: '#6e665a', tails: null, tip: '#c9a874', worn: true },
+  lasso_silk: { rope: '#cfc3e6', braid: '#ffffff', dark: '#5c4f7a', honda: '#c4ccd6', tails: ['#e8b8d8', '#ffffff'], tip: '#c4ccd6' },
+  lasso_gold: { rope: '#c9962a', braid: '#ffe9a0', dark: '#5e3f0a', honda: '#f2c94c', tails: ['#d8433a', '#f2c94c'], tip: '#fff1b8' },
+  lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
+};
+const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
 const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
@@ -355,15 +361,25 @@ class PlayerSprite {
     ctx.strokeStyle = 'rgba(240,240,230,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipA[0], tipA[1]); ctx.lineTo(tipB[0], tipB[1]); ctx.stroke();
   }
 
-  /** A coil of rope in the hand, with the loop swung out in front while throwing. */
+  /** A coil of braided rope in the hand, with the loop swung out in front while throwing (an old rope shows a frayed end). */
   _drawLassoInHand(x, y, dx, dy, px, py, throwing, look = LASSO_LOOKS.leash) {
-    const ctx = this.g.ctx;
-    ctx.strokeStyle = look[0]; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.ellipse(x + dx * 4, y + dy * 4 + 2, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();                 // the coil
-    ctx.strokeStyle = look[1]; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(x + dx * 4, y + dy * 4 + 2, 6.5, 5.2, 0, 0.5, Math.PI * 1.7); ctx.stroke();
-    ctx.strokeStyle = look[0]; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 6, y + 12, x - px * 3, y + 15); ctx.stroke();   // the loose end
-    if (throwing) { ctx.strokeStyle = look[1]; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke(); }
-  }  /** A grooming brush: a short wooden handle and a block of bristles (a soft brush has pale ones). */
+    const ctx = this.g.ctx, cx = x + dx * 4, cy = y + dy * 4 + 2;
+    ctx.strokeStyle = look.dark; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(cx, cy, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();      // outline, then the coil
+    ctx.strokeStyle = look.rope; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.ellipse(cx, cy, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = look.braid; ctx.lineWidth = 1.2; ctx.beginPath();                                                                      // the braid: little twists round the coil
+    for (let k = 0; k < 8; k++) { if (look.worn && k % 3 === 2) continue; const a = k / 8 * Math.PI * 2, ex = cx + Math.cos(a) * 6.5, ey = cy + Math.sin(a) * 5.2; ctx.moveTo(ex - 1, ey - 1); ctx.lineTo(ex + 1, ey + 1); }
+    ctx.stroke();
+    ctx.fillStyle = look.honda; ctx.beginPath(); ctx.arc(cx - 5, cy - 4, 1.8, 0, Math.PI * 2); ctx.fill();                                // the ring
+    const ex = x - px * 3, ey = y + 15;
+    ctx.strokeStyle = look.tails ? look.tails[0] : look.rope; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 6, y + 12, ex, ey); ctx.stroke();   // the loose end
+    if (look.tails) { ctx.strokeStyle = look.tails[1]; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 4, y + 13, ex + 2, ey + 1); ctx.stroke(); }
+    if (look.worn) { ctx.strokeStyle = look.braid; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - 2, ey + 2); ctx.moveTo(ex, ey); ctx.lineTo(ex + 1, ey + 3); ctx.moveTo(ex, ey); ctx.lineTo(ex + 2.5, ey + 1); ctx.stroke(); }
+    if (throwing) {
+      ctx.strokeStyle = look.dark; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = look.rope; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  /** A grooming brush: a short wooden handle and a block of bristles (a soft brush has pale ones). */
   _drawBrush(x, y, dx, dy, px, py, itemId) {
     const ctx = this.g.ctx, tipX = x + dx * 9, tipY = y + dy * 9;
     ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tipX, tipY); ctx.stroke();
