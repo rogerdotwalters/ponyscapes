@@ -41,6 +41,7 @@ function stepBoat(boat, input, dt, map) {
   let mx = input.moveX, my = input.moveY, mag = Math.hypot(mx, my);
   if (mag > 1) { mx /= mag; my /= mag; mag = 1; }
   const moving = mag > 0.01;
+  if (moving) [mx, my] = isoNormalize(mx, my);                  // the same constant on-screen speed as walking
   const top = input.run ? B.fastSpeed : input.sneak ? B.slowSpeed : B.cruiseSpeed;
   accelerateToward(boat, mx * top, my * top, (moving ? B.accel : B.drag) * dt);
   boat.x += boat.vx * dt; boat.y += boat.vy * dt;

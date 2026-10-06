@@ -4,13 +4,24 @@
  *   NEAR  65 tiles across, 4 px per tile: every tree, your ponies, stables.
  *   FAR   260 tiles across, 1 px per tile: the BIOMES, and rings at every 100 tiles out from the village marked with how strong the
  *         animals get there (levels SCALE FROM THE ORIGIN: the farther out, the higher the level and the rarer the ponies). */
-const AREA_MAP_RADIUS = 32, AREA_MAP_LAYER_RADIUS = 48, AREA_MAP_PX = 4;
-const FAR_MAP_SPAN = 640, FAR_MAP_LAYER = 760, FAR_MAP_STEP = 4, FAR_RING_EVERY = 250;       // the far view shows 640 tiles; its terrain image is a little bigger so you can wander before it is remade
+const AREA_MAP_RADIUS = 32, AREA_MAP_LAYER_RADIUS = 58, AREA_MAP_PX = 4;
+/** The map is turned 45 degrees to match the isometric view of the world (world +x runs down-right on screen, +y down-left). */
+/** The map uses the SAME 2:1 isometric projection as the world: a world step (dx, dy) lands at ((dx - dy) * K1, (dx + dy) * K2) with K2 = K1 / 2, so shapes, directions and distances read exactly like the game. */
+const MAP_K1_NEAR = 1.0, MAP_K1_FAR = 1.3;
+const FAR_MAP_SPAN = 640, FAR_MAP_LAYER = 1000, FAR_MAP_STEP = 4, FAR_RING_EVERY = 250;       // the far view shows 640 tiles; its terrain image is a little bigger so you can wander before it is remade
 const AREA_COLORS = { [TILE.GRASS]: '#6aa84f', [TILE.DIRT]: '#a98258', [TILE.STONE]: '#a9a59c', [TILE.WATER]: '#2c6b99', [TILE.SAND]: '#dccb94', [TILE.CLAY]: '#b8734a', [TILE.SHALLOW]: '#7bc3dc' };
 /** Map colours for grass / dirt by biome (a little stronger than the ground so a biome reads at a glance). */
-const BIOME_MAP_COLORS = { meadow: '#6aa84f', forest: '#3f7f3f', wetland: '#3f9a78', dry: '#b3ad55', highland: '#7d9a6c', blossom: '#f0a0c4', crystal: '#9fe0e6', starlit: '#5b5cc0', ember: '#c5552a', clay: '#b8734a', beach: '#dccb94' };
+const BIOME_MAP_COLORS = Object.fromEntries(Biomes.all().map(b => [b.id, b.mapColor]));      // (from the biome table)
 
 class MapUI {
+  /** A little compass: a disc with N, and a tick pointing the way north really goes on screen (world -y = up and to the right). */
+  static compass(ctx, cx, cy, K1, K2) {
+    const dx = K1, dy = -K2, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+    ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.strokeStyle = 'rgba(70,45,20,.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, 11, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.moveTo(cx + ux * 13, cy + uy * 13); ctx.lineTo(cx + ux * 6 - uy * 3.5, cy + uy * 6 + ux * 3.5); ctx.lineTo(cx + ux * 6 + uy * 3.5, cy + uy * 6 - ux * 3.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(40,25,10,.95)'; ctx.font = 'bold 11px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N', cx - ux * 2.5, cy - uy * 2.5 + 0.5); ctx.restore();
+  }
+
   constructor({ panel, body, closeButton, game, onTreasure }) {
     this.panel = panel; this.body = body; this.game = game; this.onTreasure = onTreasure; this.layer = null; this.farLayer = null; this.sinceDraw = 1e9; this.canvas = null; this.zoom = 'near';
     closeButton.addEventListener('click', () => this.close());
@@ -34,7 +45,7 @@ class MapUI {
     this.zoom = zoom; this.sinceDraw = 1e9;
     for (const [id, z] of [['#zoomNear', 'near'], ['#zoomFar', 'far']]) { const b = this.body.querySelector(id); if (b && b.classList) b.classList.toggle('on', z === zoom); }
     const key = this.body.querySelector('#biomeKey');
-    if (key) key.innerHTML = zoom === 'far' ? ['blossom', 'crystal', 'starlit', 'ember'].map(b => `<span style="--c:${BIOME_MAP_COLORS[b]}">${BiomeNames[b]}</span>`).join('') : '';
+    if (key) key.innerHTML = zoom === 'far' ? Biomes.where(b => !b.terrainOnly).map(b => `<span style="--c:${BIOME_MAP_COLORS[b.id]}">${b.name} <small>${b.rarity}</small></span>`).join('') : '';
     this.draw();
   }
   tick(frameMs) { if (this.isOpen && (this.sinceDraw += frameMs) > 250) { this.sinceDraw = 0; this.draw(); } }
@@ -48,7 +59,7 @@ class MapUI {
 
   /** A big terrain image around a centre, re-made only when you wander far from where it was made. */
   _terrain(cx, cy) {
-    if (this.layer && Math.hypot(this.layer.cx - cx, this.layer.cy - cy) < 12) return this.layer;
+    if (this.layer && Math.hypot(this.layer.cx - cx, this.layer.cy - cy) < 5) return this.layer;
     const R = AREA_MAP_LAYER_RADIUS, px = AREA_MAP_PX, size = (2 * R + 1) * px, canvas = document.createElement('canvas');
     canvas.width = canvas.height = size;
     const ctx = canvas.getContext('2d'), T = this.game.map.terrain, fx = Math.floor(cx), fy = Math.floor(cy);
@@ -62,14 +73,18 @@ class MapUI {
 
   /** The zoomed-out terrain: every 4th tile, 1 px each, remade when you have moved 50 tiles. */
   _farTerrain(cx, cy) {
-    if (this.farLayer && Math.hypot(this.farLayer.cx - cx, this.farLayer.cy - cy) < 50) return this.farLayer;
+    const locks = this.game.map.layers.rings.unlockedList().join();
+    if (this.farLayer && this.farLayer.locks === locks && Math.hypot(this.farLayer.cx - cx, this.farLayer.cy - cy) < 50) return this.farLayer;
     const half = FAR_MAP_LAYER / 2, canvas = document.createElement('canvas');
     canvas.width = canvas.height = FAR_MAP_LAYER;
-    const ctx = canvas.getContext('2d'), T = this.game.map.terrain, fx = Math.floor(cx), fy = Math.floor(cy);
+    const ctx = canvas.getContext('2d'), T = this.game.map.terrain, rings = this.game.map.layers.rings, fx = Math.floor(cx), fy = Math.floor(cy), S = FAR_MAP_STEP;
     for (let dy = -half; dy < half; dy += FAR_MAP_STEP) for (let dx = -half; dx < half; dx += FAR_MAP_STEP) {
-      ctx.fillStyle = this._color(T, fx + dx, fy + dy); ctx.fillRect(dx + half, dy + half, FAR_MAP_STEP, FAR_MAP_STEP);
+      const x = fx + dx, y = fy + dy, ring = rings.at(x, y).index;
+      ctx.fillStyle = this._color(T, x, y); ctx.fillRect(dx + half, dy + half, S, S);
+      if (!rings.isUnlocked(ring)) { ctx.fillStyle = 'rgba(30,12,60,.38)'; ctx.fillRect(dx + half, dy + half, S, S); }                 // a sealed ring is dimmed
+      if (rings.at(x + S, y).index !== ring || rings.at(x, y + S).index !== ring) { ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(dx + half, dy + half, S, S); }   // the (imperfect) edge between two rings
     }
-    return (this.farLayer = { canvas, cx: fx + 0.5, cy: fy + 0.5 });
+    return (this.farLayer = { canvas, cx: fx + 0.5, cy: fy + 0.5, locks });
   }
 
   draw() {
@@ -77,28 +92,31 @@ class MapUI {
     const g = this.game, me = g.local, ctx = canvas.getContext('2d'), size = canvas.width, mid = size / 2, far = this.zoom === 'far';
     const px = far ? size / FAR_MAP_SPAN : size / (2 * AREA_MAP_RADIUS + 1), span = far ? FAR_MAP_SPAN / 2 : AREA_MAP_RADIUS;
     ctx.fillStyle = '#2c6b99'; ctx.fillRect(0, 0, size, size);
+    /* The world is drawn ISOMETRICALLY (turned 45 degrees), so the map is turned the same way: what is up-screen in the game is up-map here, and walking
+     * down-right in the game moves you down-right on the map. Terrain is drawn in a rotated frame; text and icons are placed with toMap() and stay upright. */
+    const K1 = far ? MAP_K1_FAR : MAP_K1_NEAR, K2 = K1 / 2;
+    ctx.save(); ctx.translate(mid, mid); ctx.transform(K1, K2, -K1, K2, 0, 0);
     if (far) {
-      const layer = this._farTerrain(me.x, me.y), margin = (FAR_MAP_LAYER - FAR_MAP_SPAN) / 2;      // the window of the layer that is centred on you
-      ctx.drawImage(layer.canvas, me.x - layer.cx + margin, me.y - layer.cy + margin, FAR_MAP_SPAN, FAR_MAP_SPAN, 0, 0, size, size);
-    }
-    else {
+      const layer = this._farTerrain(me.x, me.y); ctx.scale(px, px);
+      ctx.drawImage(layer.canvas, -(me.x - layer.cx + 0.5 + FAR_MAP_LAYER / 2), -(me.y - layer.cy + 0.5 + FAR_MAP_LAYER / 2));
+    } else {
       const layer = this._terrain(me.x, me.y), L = AREA_MAP_LAYER_RADIUS;
-      const sx = (layer.cx - me.x) * px + (L + 0.5) * px - mid, sy = (layer.cy - me.y) * px + (L + 0.5) * px - mid;
-      ctx.drawImage(layer.canvas, sx, sy, size, size, 0, 0, size, size);
+      ctx.drawImage(layer.canvas, -((me.x - layer.cx + L + 0.5) * px), -((me.y - layer.cy + L + 0.5) * px));
     }
-    const toMap = (wx, wy) => [mid + (wx - me.x) * px, mid + (wy - me.y) * px], inside = (x, y) => x > 3 && y > 3 && x < size - 3 && y < size - 3;
+    ctx.restore();
+    const toMap = (wx, wy) => { const dx = (wx - me.x) * px, dy = (wy - me.y) * px; return [mid + (dx - dy) * K1, mid + (dx + dy) * K2]; }, inside = (x, y) => x > 3 && y > 3 && x < size - 3 && y < size - 3;
     ctx.strokeStyle = 'rgba(70,45,20,.9)'; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, size - 3, size - 3);
 
     const O = CONFIG.sim.levels.origin, [ox, oy] = toMap(O.x, O.y);                                          // the origin, and (far) rings of rising level round it
     if (far) {
       ctx.font = 'bold 10px Georgia'; ctx.textAlign = 'left';
-      for (let r = FAR_RING_EVERY; r <= 1000; r += FAR_RING_EVERY) {
-        const rr = r * px; if (rr - Math.hypot(ox - mid, oy - mid) > mid * 1.5 && rr > size * 2) break;
-        ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(ox, oy, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-        for (let k = 0; k < 24; k++) {                                                                       // label where the ring crosses the map: the first spot that is in view
-          const a = -Math.PI / 4 + ((k + r / FAR_RING_EVERY * 5) % 24) * Math.PI / 12, lx = ox + Math.cos(a) * rr, ly = oy + Math.sin(a) * rr;
-          if (lx < 22 || ly < 24 || lx > size - 42 || ly > size - 14) continue;
-          const txt = `Lv ${AnimalLevels.zoneLevel(O.x + r, O.y)}`; ctx.fillStyle = 'rgba(10,20,30,.75)'; ctx.fillRect(lx - 2, ly - 9, ctx.measureText(txt).width + 6, 12); ctx.fillStyle = '#ffe9a8'; ctx.fillText(txt, lx + 1, ly); break;
+      const rings = g.map.layers.rings;
+      for (const def of Rings.all()) {                                                                         // name each ring where it is in view
+        const mid = (def.index + 0.5) * rings.width, locked = !rings.isUnlocked(def.index), txt = `${locked ? '\u{1F512} ' : ''}${def.name}  Lv ${def.levelMin}-${def.levelMax}`;
+        for (let k = 0; k < 36; k++) {
+          const a = -Math.PI / 4 + k * Math.PI / 18, [lx, ly] = toMap(O.x + Math.cos(a) * (def.index ? mid : 120), O.y + Math.sin(a) * (def.index ? mid : 120));
+          if (lx < 30 || ly < 26 || lx > size - 150 || ly > size - 14) continue;
+          ctx.fillStyle = 'rgba(10,20,30,.78)'; ctx.fillRect(lx - 3, ly - 9, ctx.measureText(txt).width + 8, 13); ctx.fillStyle = def.color; ctx.fillText(txt, lx + 1, ly + 1); break;
         }
       }
     }
@@ -121,21 +139,25 @@ class MapUI {
     for (const m of g.treasureMaps) {                                                                                 // treasure
       const wx = m.tx + 0.5, wy = m.ty + 0.5, d = Math.hypot(wx - me.x, wy - me.y); if (!nearest || d < nearest.d) nearest = { d, wx, wy };
       const [x, y] = toMap(wx, wy); if (!inside(x, y)) continue;
+      if (m.kind === 'dungeon') { const rr = far ? 4 : 6; ctx.fillStyle = '#3a1f5a'; ctx.strokeStyle = '#e8d0ff'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y, rr, Math.PI, 0); ctx.lineTo(x + rr, y + rr * 0.8); ctx.lineTo(x - rr, y + rr * 0.8); ctx.closePath(); ctx.fill(); ctx.stroke(); continue; }          // a cave mouth
       const k = far ? 4 : 6; ctx.strokeStyle = '#c0392b'; ctx.lineWidth = far ? 2.4 : 3; ctx.beginPath(); ctx.moveTo(x - k, y - k); ctx.lineTo(x + k, y + k); ctx.moveTo(x + k, y - k); ctx.lineTo(x - k, y + k); ctx.stroke();
     }
-    if (nearest && Math.max(Math.abs(nearest.wx - me.x), Math.abs(nearest.wy - me.y)) > span) {                       // off the map: an arrow on the border
-      const a = Math.atan2(nearest.wy - me.y, nearest.wx - me.x), r = mid - 11;
+    const nm = nearest && toMap(nearest.wx, nearest.wy);
+    if (nearest && !inside(nm[0], nm[1])) {                                                                              // off the map: an arrow on the border
+      const a = Math.atan2(nm[1] - mid, nm[0] - mid), r = mid - 11;
       ctx.save(); ctx.translate(mid + Math.cos(a) * r, mid + Math.sin(a) * r); ctx.rotate(a); ctx.fillStyle = '#c0392b'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-6, -7); ctx.lineTo(-2, 0); ctx.lineTo(-6, 7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     }
-    ctx.save(); ctx.translate(mid, mid); ctx.rotate(me.facing);                                                       // you
+    const fx = Math.cos(me.facing), fy = Math.sin(me.facing);
+    ctx.save(); ctx.translate(mid, mid); ctx.rotate(Math.atan2((fx + fy) * K2, (fx - fy) * K1));                                  // you, pointing the way the world points
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b3d73'; ctx.lineWidth = 2; const k = far ? 0.7 : 1; ctx.beginPath(); ctx.moveTo(8 * k, 0); ctx.lineTo(-5 * k, -5.5 * k); ctx.lineTo(-2.5 * k, 0); ctx.lineTo(-5 * k, 5.5 * k); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
-    ctx.fillStyle = 'rgba(40,25,10,.9)'; ctx.font = 'bold 12px Georgia'; ctx.textAlign = 'center'; ctx.fillText('N', mid, 15);
+    MapUI.compass(ctx, size - 24, 24, K1, K2);                                                                          // north is up-right in an isometric view
 
     const info = this.body.querySelector('#areaInfo');
     if (info) {
-      const dist = AnimalLevels.distance(me.x, me.y), zone = AnimalLevels.zoneLevel(me.x, me.y), biome = isWaterTile(g.map.tile(Math.floor(me.x), Math.floor(me.y))) ? 'Open water' : (BiomeNames[g.map.biome(Math.floor(me.x), Math.floor(me.y))] || '');
-      info.innerHTML = `<b>${biome}</b> &middot; ${Math.round(dist)} tiles from the village<br>Wild animals here are about <b>level ${zone}</b>` +
+      const dist = AnimalLevels.distance(me.x, me.y), zone = AnimalLevels.zoneLevel(me.x, me.y, g.map.layers), biome = isWaterTile(g.map.tile(Math.floor(me.x), Math.floor(me.y))) ? 'Open water' : (BiomeNames[g.map.biome(Math.floor(me.x), Math.floor(me.y))] || '');
+      const rings = g.map.layers.rings, ring = rings.def(rings.at(me.x, me.y).index);
+      info.innerHTML = `<b>${biome}</b> &middot; ${Math.round(dist)} tiles from the village<br><span style="color:${ring.color}">${ring.name}</span> &middot; wild things here are about <b>level ${zone}</b>${rings.isUnlocked(ring.index) ? '' : ' &middot; \u{1F512} sealed until its guardian falls'}` +
         (nearest ? `<br>Nearest treasure X: about ${Math.round(nearest.d)} tiles away.` : '');
     }
   }

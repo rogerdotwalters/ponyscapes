@@ -4,7 +4,10 @@
  *   appearance = [ body, hairStyle, hairColor, skin, outfit, trim ] */
 const CharacterPalette = Object.freeze({
   bodies:     Object.freeze(['Prince', 'Princess']),
-  hairStyles: Object.freeze(['Short', 'Long', 'Ponytail', 'Braid', 'Curly', 'Bun']),
+  // Each body has its OWN six hair styles. The look stores just the index (0-5); the body decides which style that is.
+  hairKinds:      Object.freeze({ prince: Object.freeze(['short', 'swept', 'spiky', 'medium', 'tied', 'curly']), princess: Object.freeze(['bob', 'long', 'ponytail', 'braid', 'curly', 'bun']) }),
+  hairStyleNames: Object.freeze({ prince: Object.freeze(['Short', 'Swept back', 'Spiky', 'Shoulder-length', 'Tied back', 'Curly']), princess: Object.freeze(['Bob', 'Long', 'Ponytail', 'Braid', 'Curly', 'Bun']) }),
+  hairStyles: Object.freeze(['Bob', 'Long', 'Ponytail', 'Braid', 'Curly', 'Bun']),      // (the princess list, kept for older callers)
   hairColors: Object.freeze(['#2b2321', '#5a3a22', '#8a4b24', '#a23d1f', '#e3c068', '#efe6c8', '#c0392b', '#b9bcc4', '#3b6fd1', '#e86aa6']),
   skins:      Object.freeze(['#f6d9bf', '#f0c9a0', '#e2a97e', '#c98b5b', '#a56b3f', '#7a4a2a']),
   outfits:    Object.freeze(['#2f5fc0', '#c0392b', '#2e9b5a', '#7b4fc4', '#d9a82b', '#1f9aa5', '#e0709a', '#e8e8ee', '#e0762e', '#2a3260']),
@@ -31,6 +34,6 @@ const CharacterLook = {
   },
   describe(a) {
     const P = CharacterPalette, l = CharacterLook.sanitize(a) || CharacterLook.defaultFor(0);
-    return { princess: l[0] === 1, body: P.bodies[l[0]], hairStyle: l[1], hair: P.hairColors[l[2]], skin: P.skins[l[3]], outfit: P.outfits[l[4]], trim: P.trims[l[5]] };
+    return { princess: l[0] === 1, body: P.bodies[l[0]], hairStyle: l[1], hairKind: P.hairKinds[l[0] === 1 ? 'princess' : 'prince'][l[1]], hairName: P.hairStyleNames[l[0] === 1 ? 'princess' : 'prince'][l[1]], hair: P.hairColors[l[2]], skin: P.skins[l[3]], outfit: P.outfits[l[4]], trim: P.trims[l[5]] };
   }
 };

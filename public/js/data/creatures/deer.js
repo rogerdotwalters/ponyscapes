@@ -1,0 +1,3 @@
+'use strict';
+/* DATA - creature family: deer */
+Creatures.register({ id: 'deer', name: 'Deer', ring: 0, weight: 2, group: [1, 2], levelBase: 2, hp: 4, radius: 0.22, wanderSpeed: 0.9, fleeSpeed: 3.4, fleeSeconds: 4, tameable: true, lure: true, followSpeed: 3.2, detect: { idle: 3, sneak: 3.5, walk: 6, run: 9 }, drops: [{ item: 'venison', min: 2, max: 3 }, { item: 'hide', min: 1, max: 1 }, { item: 'antler', min: 1, max: 2, chance: 0.8 }], friend: { likes: ['apple', 'blueberry', 'cranberry'], loves: ['lingonberry'], dislikes: ['venison'] }, sprite: { kind: 'deer' } });

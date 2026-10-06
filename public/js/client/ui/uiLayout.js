@@ -29,22 +29,20 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const rot = makeRect(board.x - g - small, rowY, small, small);
   const sneak = makeRect(rot.x - g - small, rowY, small, small);
   const release = makeRect(sneak.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
-  const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
-  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability]);
+  const cluster = unionRect([useRect, runRect, board, rot, sneak, release]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, run: runRect, board, rot, sneak, release, ability, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, run: runRect, board, rot, sneak, release, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
- * @param {{w:number, h:number, insets?:{top,right,bottom,left}, touch:boolean, host?:boolean, belt?:boolean, sheath?:boolean}} screen  CSS pixels
- *        belt = a tool belt is worn (a second bar appears); sheath = a scabbard / sling is worn (the sword slot appears)
- * @returns {{k, topButtons, toolbar, belt, health, hunger, thirst, clock, emote, sword, touch, panels, debug, hint}} every rect is { x, y, w, h }
+ * @param {{w:number, h:number, insets?:{top,right,bottom,left}, touch:boolean, host?:boolean}} screen  CSS pixels
+ * @returns {{k, topButtons, toolbar, health, hunger, thirst, clock, emote, touch, panels, debug, hint}} every rect is { x, y, w, h }
  */
-function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0 }, touch, host = false, belt = false, sheath = false }) {
+function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0 }, touch, host = false }) {
   const k = clamp(Math.min(w, h) / 380, 0.8, 1.25);          // phones ~1, tablets / desktop a little larger
   const m = Math.round(10 * k), gap = Math.round(6 * k);
   const left = insets.left + m, right = w - insets.right - m, top = insets.top + m, bottom = h - insets.bottom - m;
@@ -88,10 +86,9 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     toolbar = makeRect(w / 2 - barW(slot) / 2, bottom - barH(slot), barW(slot), barH(slot));
   }
 
-  /* ---- tool-belt bar (second utility bar) and the vitals row (health | hunger | thirst | clock) ---- */
-  const beltRect = !belt ? null : touch ? makeRect(toolbar.x, toolbar.y + toolbar.h + gap, toolbar.w, toolbar.h) : makeRect(toolbar.x, toolbar.y - gap - toolbar.h, toolbar.w, toolbar.h);
+  /* ---- the vitals row (health | hunger | thirst | clock) ---- */
   const vitalsH = Math.round(16 * k), clockW = Math.round(62 * k), barW4 = Math.floor((toolbar.w - clockW - 3 * gap) / 3);
-  const vitalsY = touch ? (beltRect || toolbar).y + (beltRect || toolbar).h + gap : (beltRect || toolbar).y - gap - vitalsH;
+  const vitalsY = touch ? toolbar.y + toolbar.h + gap : toolbar.y - gap - vitalsH;
   const health = makeRect(toolbar.x, vitalsY, barW4, vitalsH);
   const hunger = makeRect(toolbar.x + (barW4 + gap), vitalsY, barW4, vitalsH);
   const thirst = makeRect(toolbar.x + 2 * (barW4 + gap), vitalsY, barW4, vitalsH);
@@ -107,44 +104,40 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     }
   }
 
-  /* ---- emote button (always) and sword slot (with a scabbard / sling) ---- */
-  const ub = Math.round(44 * Math.max(k, 0.85)), count = sheath ? 2 : 1, rowW = count * ub + (count - 1) * gap;
-  let emote, sword = null, utilityAtBottom = false;
-  const place2 = (x0, y0) => { emote = makeRect(x0, y0, ub, ub); if (sheath) sword = makeRect(x0 - gap - ub, y0, ub, ub); };   // the sword slot sits left of the emote button
+  /* ---- the emote button ---- */
+  const ub = Math.round(44 * Math.max(k, 0.85)), rowW = ub;
+  let emote, utilityAtBottom = false;
+  const place2 = (x0, y0) => { emote = makeRect(x0, y0, ub, ub); };
   let stackedAbove = false;
   if (!touch) {                                                // desktop: beside the toolbar, else above the bars on very narrow windows
-    const rightX = toolbar.x + toolbar.w + gap + (sheath ? ub + gap : 0), leftX = toolbar.x - gap - ub, rowY = toolbar.y + toolbar.h - ub;
+    const rightX = toolbar.x + toolbar.w + gap, leftX = toolbar.x - gap - ub, rowY = toolbar.y + toolbar.h - ub;
     if (rightX + ub <= right) place2(rightX, rowY);
-    else if (leftX - (sheath ? ub + gap : 0) >= left) place2(leftX, rowY);
-    else { place2(toolbar.x + (sheath ? ub + gap : 0), vitalsY - gap - ub); stackedAbove = true; }
+    else if (leftX >= left) place2(leftX, rowY);
+    else { place2(toolbar.x, vitalsY - gap - ub); stackedAbove = true; }
   } else {
     const freeLeft = touchLayout.base.x + touchLayout.base.w + m, freeRight = touchLayout.cluster.x - m;
     if (freeRight - freeLeft >= rowW + 8) {                    // room at the bottom centre between the thumbs
-      const x0 = freeLeft + (freeRight - freeLeft - rowW) / 2 + (sheath ? ub + gap : 0);
+      const x0 = freeLeft + (freeRight - freeLeft - rowW) / 2;
       place2(x0, bottom - ub); utilityAtBottom = true;
-      touchLayout.zone = makeRect(0, touchLayout.zone.y, Math.min(touchLayout.zone.w, (sword || emote).x - 4), touchLayout.zone.h);
+      touchLayout.zone = makeRect(0, touchLayout.zone.y, Math.min(touchLayout.zone.w, emote.x - 4), touchLayout.zone.h);
     } else {                                                   // narrow (portrait): a small row under the vitals instead
-      place2(toolbar.x + (sheath ? ub + gap : 0), vitalsY + vitalsH + gap);
+      place2(toolbar.x, vitalsY + vitalsH + gap);
       topUsed = Math.max(topUsed, emote.y + emote.h + m);
       touchLayout.zone = makeRect(0, Math.max(h * 0.38, topUsed), touchLayout.zone.w, h - Math.max(h * 0.38, topUsed));
     }
   }
-
-  /* ---- desktop: the ridden pony's abilities, in a strip above the vitals (touch screens have the ability button instead) ---- */
-  const abilityH = Math.round(22 * k);
-  const abilityBar = touch ? null : makeRect(toolbar.x, (stackedAbove ? emote.y : vitalsY) - gap - abilityH, toolbar.w, abilityH);
 
   /* ---- overlay panels: they are modal (a click-off backdrop sits over the thumb controls), so they may cover those, but never the HUD that stays usable above the backdrop ---- */
   const pp = Math.round(12 * k), pg = Math.round(5 * k), header = Math.round(34 * k);
   const invSlotFor = r => Math.min(maxSlot, Math.floor((r.w - 2 * pp - 5 * pg) / 6), Math.floor((r.h - header - 2 * pp - 3 * pg) / 4));
   let region;
   if (touch) {
-    const regionBottom = utilityAtBottom ? (sword || emote).y - m : bottom;
+    const regionBottom = utilityAtBottom ? emote.y - m : bottom;
     const between = makeRect(touchLayout.base.x + touchLayout.base.w + m, topUsed, touchLayout.cluster.x - m - (touchLayout.base.x + touchLayout.base.w + m), regionBottom - topUsed);
     const above = makeRect(left, topUsed, right - left, touchLayout.cluster.y - m - topUsed);
     region = invSlotFor(between) >= MIN_PANEL_SLOT || invSlotFor(between) >= invSlotFor(above) ? between : above;
   } else {
-    region = makeRect(left, topUsed, right - left, abilityBar.y - m - topUsed);
+    region = makeRect(left, topUsed, right - left, (stackedAbove ? emote.y : vitalsY) - m - topUsed);
   }
   /* tiny screens: if the HUD stack leaves no room for the panels, they may sit OVER the top HUD (never over the thumb controls) */
   const needH = header + 4 * MIN_PANEL_SLOT + 3 * pg + 2 * pp, regionBottomY = region.y + region.h;
@@ -169,7 +162,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
-  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), belt: beltRect, health, hunger, thirst, clock, emote, sword, abilityBar, touch: touchLayout, panels, debug, hint };
+  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -187,8 +180,7 @@ class UiLayout {
   get isHost() { return !!this.dom.isHost(); }
 
   update() {
-    const gear = this.dom.gear();
-    this.layout = computeUiLayout({ w: window.innerWidth, h: window.innerHeight, insets: this._readSafeInsets(), touch: this.touchActive, host: this.isHost, belt: Gear.hasBelt(gear), sheath: Gear.hasSheath(gear) });
+    this.layout = computeUiLayout({ w: window.innerWidth, h: window.innerHeight, insets: this._readSafeInsets(), touch: this.touchActive, host: this.isHost });
     this._apply(this.layout);
   }
 
@@ -212,26 +204,21 @@ class UiLayout {
     bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
 
     const P = L.panels;
-    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
+    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
       el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
       el.style.setProperty('--slot', P.slot + 'px'); el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--pad', P.pad + 'px');
     }
-    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
-    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
+    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
+    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.menuBody.style.maxHeight = dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.confirmPanel.style.width = P.confirm.w + 'px';
     dom.mapPanel.style.width = P.map.w + 'px'; dom.mapBody.style.maxHeight = Math.max(80, P.map.h - P.header - 2 * P.pad - 6) + 'px';        // the tab row takes some of the room
 
     place(dom.health, L.health); place(dom.hunger, L.hunger); place(dom.thirst, L.thirst); place(dom.clock, L.clock);
-    dom.beltBar.style.display = L.belt ? '' : 'none';
-    if (L.belt) { dom.beltBar.style.left = L.belt.x + 'px'; dom.beltBar.style.top = L.belt.y + 'px'; dom.beltBar.style.setProperty('--slot', t.slot + 'px'); dom.beltBar.style.setProperty('--gap', t.gap + 'px'); dom.beltBar.style.setProperty('--pad', t.pad + 'px'); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
-    dom.swordSlot.style.display = L.sword ? '' : 'none';
-    if (L.sword) place(dom.swordSlot, L.sword);
+    if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
     dom.clock.style.fontSize = Math.round(11 * L.k) + 'px';
-    dom.abilityBar.classList.toggle('touch', !L.abilityBar);
-    if (L.abilityBar) { place(dom.abilityBar, L.abilityBar); dom.abilityBar.style.fontSize = Math.round(11 * L.k) + 'px'; }
     dom.debug.style.left = L.debug.x + 'px'; dom.debug.style.top = L.debug.y + 'px';
     if (dom.hint) {
       dom.hint.style.display = L.hint ? '' : 'none';
@@ -240,7 +227,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);

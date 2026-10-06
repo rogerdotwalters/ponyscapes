@@ -4,7 +4,7 @@ class InventoryUI {
   constructor({ panel, grid, closeButton, game }) {
     this.panel = panel; this.game = game; this.pickedIndex = null; this.slotElements = [];
     const hotbar = CONFIG.sim.inventory.hotbarSlots;
-    for (let i = 0; i < Math.min(game.inventory.size, CONFIG.sim.inventory.beltStart); i++) {
+    for (let i = 0; i < game.inventory.size; i++) {
       const el = SlotView.create(i, i < hotbar ? i + 1 : '');
       SlotView.onPress(el, () => this._onSlotPressed(i));
       grid.appendChild(el); this.slotElements.push(el);

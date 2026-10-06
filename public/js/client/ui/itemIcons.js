@@ -3,6 +3,12 @@
 const ItemIcons = (() => {
   const SIZE = 48, cache = {};
 
+  /** A drumstick: a plump piece of meat on a bone. */
+  const drumstick = (ctx, meat, light) => {
+    ctx.fillStyle = '#efe9da'; ctx.fillRect(20, 28, 5, 14); ctx.beginPath(); ctx.arc(19, 43, 3.4, 0, Math.PI * 2); ctx.arc(26, 43, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = meat; ctx.beginPath(); ctx.ellipse(24, 20, 13, 13, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(19, 15, 5, 3.4, -0.5, 0, Math.PI * 2); ctx.fill();
+  };
   const painters = {
     axe(ctx) {
       ctx.lineCap = 'round';
@@ -57,15 +63,6 @@ const ItemIcons = (() => {
       ctx.fillStyle = '#ff8a2a'; ctx.beginPath(); ctx.moveTo(15, 33); ctx.quadraticCurveTo(14, 16, 25, 6); ctx.quadraticCurveTo(26, 18, 35, 22); ctx.quadraticCurveTo(38, 32, 32, 35); ctx.closePath(); ctx.fill();
       ctx.fillStyle = '#ffd24a'; ctx.beginPath(); ctx.moveTo(20, 34); ctx.quadraticCurveTo(21, 22, 26, 18); ctx.quadraticCurveTo(31, 26, 29, 34); ctx.closePath(); ctx.fill();
     },
-    hide_cap(ctx) { ctx.fillStyle = '#9a6b3d'; ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(24, 28, 15, Math.PI, 0); ctx.lineTo(41, 33); ctx.lineTo(7, 33); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#7a5230'; ctx.fillRect(7, 30, 34, 4); },
-    hide_vest(ctx) { ctx.fillStyle = '#9a6b3d'; ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(12, 8); ctx.lineTo(20, 8); ctx.lineTo(24, 14); ctx.lineTo(28, 8); ctx.lineTo(36, 8); ctx.lineTo(42, 17); ctx.lineTo(36, 21); ctx.lineTo(36, 41); ctx.lineTo(12, 41); ctx.lineTo(12, 21); ctx.lineTo(6, 17); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(24, 14); ctx.lineTo(24, 41); ctx.stroke(); },
-    hide_leggings(ctx) { ctx.fillStyle = '#8a5a33'; ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(11, 7); ctx.lineTo(37, 7); ctx.lineTo(39, 42); ctx.lineTo(27, 42); ctx.lineTo(24, 20); ctx.lineTo(21, 42); ctx.lineTo(9, 42); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#5a3a20'; ctx.fillRect(11, 7, 26, 4); },
-    hide_boots(ctx) { ctx.fillStyle = '#8a5a33'; ctx.strokeStyle = '#4a2f1b'; ctx.lineWidth = 1.6; for (const dx of [0, 17]) { ctx.beginPath(); ctx.moveTo(8 + dx, 8); ctx.lineTo(18 + dx, 8); ctx.lineTo(18 + dx, 30); ctx.lineTo(28 + dx - 6, 36); ctx.lineTo(28 + dx - 6, 42); ctx.lineTo(7 + dx, 42); ctx.closePath(); ctx.fill(); ctx.stroke(); } },
-    hide_gloves(ctx) { ctx.fillStyle = '#9a6b3d'; ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(14, 42); ctx.lineTo(14, 22); ctx.lineTo(11, 12); ctx.lineTo(16, 10); ctx.lineTo(19, 18); ctx.lineTo(21, 7); ctx.lineTo(26, 7); ctx.lineTo(27, 18); ctx.lineTo(31, 9); ctx.lineTo(35, 11); ctx.lineTo(33, 24); ctx.lineTo(36, 22); ctx.lineTo(37, 28); ctx.lineTo(33, 42); ctx.closePath(); ctx.fill(); ctx.stroke(); },
-    wooden_shield(ctx) { ctx.fillStyle = '#a97a45'; ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(24, 25, 17, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.strokeStyle = 'rgba(70,40,15,.5)'; ctx.lineWidth = 1.5; for (const x of [16, 24, 32]) { ctx.beginPath(); ctx.moveTo(x, 9); ctx.lineTo(x, 41); ctx.stroke(); } ctx.fillStyle = '#c9ced6'; ctx.beginPath(); ctx.arc(24, 25, 5, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#6b727c'; ctx.lineWidth = 1.5; ctx.stroke(); },
-    tool_belt(ctx) { ctx.fillStyle = '#7a5230'; ctx.fillRect(4, 18, 40, 9); ctx.fillStyle = '#4a3624'; ctx.fillRect(4, 18, 40, 2.5); ctx.fillStyle = '#d9b45a'; ctx.fillRect(20, 17, 8, 11); ctx.fillStyle = '#8a5a33'; ctx.strokeStyle = '#4a3624'; ctx.lineWidth = 1.5; for (const x of [9, 33]) { ctx.beginPath(); ctx.rect(x, 27, 8, 11); ctx.fill(); ctx.stroke(); } },
-    scabbard(ctx) { ctx.strokeStyle = '#4a2f1b'; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(10, 40); ctx.lineTo(37, 10); ctx.stroke(); ctx.strokeStyle = '#8a5a33'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(10, 40); ctx.lineTo(37, 10); ctx.stroke(); ctx.strokeStyle = '#d9b45a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(34, 14); ctx.lineTo(38, 9); ctx.stroke(); },
-    sling(ctx) { ctx.strokeStyle = '#8a6a3d'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(8, 12); ctx.quadraticCurveTo(26, 22, 40, 40); ctx.stroke(); ctx.strokeStyle = '#d9b45a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(8, 12); ctx.quadraticCurveTo(26, 22, 40, 40); ctx.stroke(); ctx.fillStyle = '#5a3a20'; ctx.fillRect(16, 16, 12, 8); },
     wooden_sword(ctx) { swordIcon(ctx, '#d6b07a', '#f0d9ae'); },
     stone_sword(ctx) { swordIcon(ctx, '#9a9aa2', '#d2d2d8'); },
     apple(ctx) {
@@ -147,6 +144,11 @@ const ItemIcons = (() => {
       ctx.strokeStyle = '#a79672'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(25, 40); ctx.lineTo(25, 28); ctx.stroke();
     },
     rabbit_meat(ctx) { meatChunk(ctx, '#d9776b', '#f0b3a8', 0.8); },
+    chicken_meat(ctx) { drumstick(ctx, '#e8a79b', '#f4cfc6'); },
+    cooked_chicken(ctx) { drumstick(ctx, '#b8672d', '#d99a55'); },
+    egg(ctx) { ctx.fillStyle = '#f6efe0'; ctx.beginPath(); ctx.ellipse(24, 28, 11, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#c9b99a'; ctx.lineWidth = 1.8; ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.ellipse(19.5, 22, 3, 5, -0.4, 0, Math.PI * 2); ctx.fill(); },
+    fried_egg(ctx) { ctx.fillStyle = '#fbf8ef'; ctx.beginPath(); ctx.moveTo(8, 26); ctx.bezierCurveTo(6, 14, 20, 8, 28, 12); ctx.bezierCurveTo(40, 10, 44, 24, 38, 33); ctx.bezierCurveTo(32, 42, 12, 40, 8, 26); ctx.fill(); ctx.strokeStyle = '#d9d0b8'; ctx.lineWidth = 1.6; ctx.stroke(); ctx.fillStyle = '#f5b82e'; ctx.beginPath(); ctx.arc(24, 26, 7, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.beginPath(); ctx.arc(21.5, 23.5, 2, 0, Math.PI * 2); ctx.fill(); },
+    feather(ctx) { ctx.fillStyle = '#ece7dd'; ctx.beginPath(); ctx.moveTo(10, 40); ctx.bezierCurveTo(8, 22, 20, 8, 38, 6); ctx.bezierCurveTo(40, 22, 30, 36, 14, 38); ctx.closePath(); ctx.fill(); ctx.strokeStyle = '#b9b2a2'; ctx.lineWidth = 1.6; ctx.stroke(); ctx.beginPath(); ctx.moveTo(9, 42); ctx.quadraticCurveTo(24, 26, 37, 8); ctx.lineWidth = 2; ctx.strokeStyle = '#8f8878'; ctx.stroke(); ctx.strokeStyle = 'rgba(150,142,126,.7)'; ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i < 4; i++) { const t = 0.2 + i * 0.2, x = 9 + 28 * t, y = 42 - 34 * t; ctx.moveTo(x, y + 1); ctx.lineTo(x + 7, y + 6); } ctx.stroke(); },
     venison(ctx) { meatChunk(ctx, '#a8323a', '#d96b72', 1.1); },
     mutton(ctx) { meatChunk(ctx, '#c4585a', '#eba3a0', 1); },
     rope(ctx) {
@@ -304,40 +306,49 @@ const ItemIcons = (() => {
     ctx.fillStyle = fat; ctx.beginPath(); ctx.ellipse(-3, -2, 8, 4, -0.4, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#f3efe6'; ctx.beginPath(); ctx.arc(11, 4, 3.2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   }
+  /** Wardrobe items are drawn from their own data: the kind of crown / dress / cape and its colours. A null colour means "the colour you chose". */
+  function wardrobePainter(def) {
+    const look = def.look, slot = def.equip.slot, DEFAULT = { outfit: def.equip.body === 'prince' ? '#2f5fc0' : '#e0709a', trim: '#f2c14e' };
+    const col = look.color || DEFAULT.outfit, trim = look.trim || DEFAULT.trim, dark = c => shadeHex(c, 0.7), light = c => shadeHex(c, 1.25);
+    const outline = ctx => { ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1.6; ctx.stroke(); };
+    if (slot === 'crown') return ctx => {
+      const gem = look.gem;
+      ctx.fillStyle = look.color;
+      if (look.style === 'tiara') { ctx.beginPath(); ctx.moveTo(6, 32); ctx.quadraticCurveTo(24, 14, 42, 32); ctx.lineTo(42, 36); ctx.quadraticCurveTo(24, 20, 6, 36); ctx.closePath(); ctx.fill(); outline(ctx); for (const [x, y] of [[13, 25], [24, 18], [35, 25]]) { ctx.beginPath(); ctx.moveTo(x - 2.4, y + 3); ctx.lineTo(x, y - 6); ctx.lineTo(x + 2.4, y + 3); ctx.closePath(); ctx.fill(); outline(ctx); } }
+      else if (look.style === 'circlet') { ctx.lineWidth = 5; ctx.strokeStyle = look.color; ctx.beginPath(); ctx.ellipse(24, 30, 16, 6, 0, 0, Math.PI * 2); ctx.stroke(); for (const x of [10, 18, 30, 38]) { ctx.beginPath(); ctx.moveTo(x - 1.5, 27); ctx.lineTo(x + (x < 24 ? -3 : 3), 12); ctx.lineTo(x + 2, 26); ctx.closePath(); ctx.fill(); } }
+      else if (look.style === 'spiked') { ctx.beginPath(); ctx.moveTo(6, 36); ctx.lineTo(6, 22); ctx.lineTo(13, 8); ctx.lineTo(18, 24); ctx.lineTo(24, 4); ctx.lineTo(30, 24); ctx.lineTo(35, 8); ctx.lineTo(42, 22); ctx.lineTo(42, 36); ctx.closePath(); ctx.fill(); outline(ctx); }
+      else { ctx.beginPath(); ctx.moveTo(7, 36); ctx.lineTo(7, 18); ctx.lineTo(15, 26); ctx.lineTo(24, 10); ctx.lineTo(33, 26); ctx.lineTo(41, 18); ctx.lineTo(41, 36); ctx.closePath(); ctx.fill(); outline(ctx); ctx.fillStyle = dark(look.color); ctx.fillRect(7, 31, 34, 5); }
+      if (gem) { ctx.fillStyle = gem; ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(24, 30, 4.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(22, 28, 2, 2); }
+    };
+    if (slot === 'cape') return ctx => {
+      ctx.fillStyle = look.color; ctx.beginPath(); ctx.moveTo(14, 6); ctx.lineTo(34, 6); ctx.lineTo(43, 42); ctx.quadraticCurveTo(24, 36, 5, 42); ctx.closePath(); ctx.fill(); outline(ctx);
+      ctx.fillStyle = dark(look.color); ctx.beginPath(); ctx.moveTo(24, 8); ctx.lineTo(34, 6); ctx.lineTo(43, 42); ctx.quadraticCurveTo(34, 38, 28, 38); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = look.trim; if (look.style === 'fur' || look.style === 'royal') { ctx.fillRect(12, 4, 24, 7); for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(14 + i * 4.4, 11, 2.6, 0, Math.PI * 2); ctx.fill(); } }
+      else { ctx.fillRect(14, 5, 20, 4); }
+      if (look.style === 'star') for (const [x, y] of [[18, 20], [30, 26], [22, 34], [34, 14]]) { ctx.fillStyle = look.trim; ctx.fillRect(x - 1.5, y - 1.5, 3, 3); }
+      if (look.style === 'scaled') { ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { ctx.beginPath(); ctx.arc(14 + c * 7 + (r % 2) * 3.5, 16 + r * 6, 3.4, 0, Math.PI); ctx.stroke(); } }
+      ctx.fillStyle = '#f2c14e'; ctx.beginPath(); ctx.arc(24, 8, 2.6, 0, Math.PI * 2); ctx.fill();
+    };
+    const dress = def.equip.body === 'princess';                                                        // an outfit: a dress or garb
+    return ctx => {
+      ctx.fillStyle = col; ctx.beginPath();
+      if (dress) { ctx.moveTo(17, 6); ctx.lineTo(31, 6); ctx.lineTo(29, 17); ctx.lineTo(43, 43); ctx.lineTo(5, 43); ctx.lineTo(19, 17); ctx.closePath(); }
+      else { ctx.moveTo(10, 8); ctx.lineTo(18, 6); ctx.lineTo(24, 12); ctx.lineTo(30, 6); ctx.lineTo(38, 8); ctx.lineTo(41, 26); ctx.lineTo(35, 27); ctx.lineTo(35, 44); ctx.lineTo(13, 44); ctx.lineTo(13, 27); ctx.lineTo(7, 26); ctx.closePath(); }
+      ctx.fill(); outline(ctx);
+      ctx.fillStyle = trim; if (dress) { ctx.fillRect(19, 16, 10, 3); ctx.fillRect(5, 40, 38, 3.5); } else { ctx.fillRect(13, 24, 22, 3); ctx.fillRect(21, 7, 6, 5); if (look.style === 'doublet') for (const y of [30, 35, 40]) ctx.fillRect(23, y, 2.4, 2.4); }
+      if (look.style === 'scaled') { ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { ctx.beginPath(); ctx.arc(14 + c * 6 + (r % 2) * 3, 24 + r * 5, 3, 0, Math.PI); ctx.stroke(); } }
+    };
+  }
+  const shadeHex = (hex, k) => { const n = parseInt(hex.slice(1), 16), c = v => Math.max(0, Math.min(255, Math.round(v * k))); return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(c).map(v => v.toString(16).padStart(2, '0')).join(''); };
+
   const fallback = ctx => { ctx.fillStyle = '#9aa'; ctx.font = 'bold 28px Georgia'; ctx.textAlign = 'center'; ctx.fillText('?', 24, 34); };
 
-  /** A stockpile: a pallet with its resource heaped on it. */
-  function stockpileIcon(ctx, resource) {
-    ctx.fillStyle = '#7a5230'; ctx.fillRect(6, 34, 36, 6); ctx.fillStyle = '#5a3a20'; ctx.fillRect(9, 40, 5, 4); ctx.fillRect(34, 40, 5, 4); ctx.fillRect(21, 40, 6, 4);
-    if (resource === 'wood') for (const [x, y] of [[13, 29], [24, 29], [35, 29], [18, 21], [30, 21], [24, 13]]) { ctx.fillStyle = '#9a6b3d'; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d9b27a'; ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2); ctx.fill(); }
-    else if (resource === 'stone') for (const [x, y, r] of [[14, 29, 6], [26, 30, 7], [36, 29, 5.5], [20, 21, 6], [31, 21, 6], [25, 13, 5]]) { ctx.fillStyle = '#8d8d93'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#b4b4ba'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 2, r * 0.45, r * 0.3, 0, 0, Math.PI * 2); ctx.fill(); }
-    else for (const [x, y] of [[14, 29], [26, 29], [36, 29], [20, 21], [31, 21], [25, 13]]) { ctx.fillStyle = '#b8643c'; ctx.beginPath(); ctx.ellipse(x, y, 6, 4.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d98a5c'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 1.5, 2.6, 1.6, 0, 0, Math.PI * 2); ctx.fill(); }
-  }
-  painters.stockpile_wood = ctx => stockpileIcon(ctx, 'wood');
-  painters.stockpile_stone = ctx => stockpileIcon(ctx, 'stone');
-  painters.stockpile_clay = ctx => stockpileIcon(ctx, 'clay');
-
-  /** An item you created without an icon yet: a badge in its colour (or its rarity's) with its first letter. */
-  const badgePainter = def => ctx => {
-    const color = def.color || rarityOf(def.rarity).color;
-    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(24, 24, 18, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.font = 'bold 22px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText((def.name || '?')[0].toUpperCase(), 24, 25);
-  };
-
-  /** The procedural icon (ignores any image you gave the item). */
-  function proceduralUrl(itemId) {
-    const key = '\u0000' + itemId;
-    if (cache[key]) return cache[key];
+  function url(itemId) {
+    if (cache[itemId]) return cache[itemId];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : fallback);
     paint(canvas.getContext('2d'));
-    return (cache[key] = canvas.toDataURL());
+    return (cache[itemId] = canvas.toDataURL());
   }
-  /** The icon to show: your image if the item has one (editor.html), else the procedural one. */
-  function url(itemId) { return SpriteRegistry.itemIconSrc(itemId) || proceduralUrl(itemId); }
-
-  /** The icon as a loaded image, for drawing on the canvas (null until it has loaded). */
-  function image(itemId) { return SpriteRegistry.image(url(itemId)); }
-  return { url, proceduralUrl, image };
+  return { url };
 })();

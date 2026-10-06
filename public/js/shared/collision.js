@@ -56,6 +56,29 @@ function resolveCollisions(map, p, r) {
 }
 
 /** Read-only overlap test (used by path smoothing and tap targets). */
+/** In the air nothing on the ground stops you (trees, water, fences, houses): only a ring's barrier and a cave wall are solid. */
+const isFlightBlocked = (map, tx, ty) => map.tile(tx, ty) === TILE.CAVE_WALL || !!map.layers.rings.barrierAt(tx, ty);
+function resolveFlightCollisions(map, p, r) {
+  const push = { x: 0, y: 0 };
+  for (let iter = 0; iter < 4; iter++) {
+    let hit = false;
+    const x0 = Math.floor(p.x - r), x1 = Math.floor(p.x + r), y0 = Math.floor(p.y - r), y1 = Math.floor(p.y + r);
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) if (isFlightBlocked(map, tx, ty) && pushOutOfBox(p, r, tx, ty, tx + 1, ty + 1, push)) hit = true;
+    if (!hit) break;
+  }
+  const len = Math.hypot(push.x, push.y);
+  if (len > 1e-6) { const nx = push.x / len, ny = push.y / len, into = p.vx * nx + p.vy * ny; if (into < 0) { p.vx -= into * nx; p.vy -= into * ny; } }
+}
+/** The nearest spot (spiralling out from x, y) where a pony of radius r can stand: where a flight ends if it ends over water or trees. */
+function findLanding(map, x, y, r) {
+  if (!circleBlocked(map, x, y, r)) return { x, y };
+  for (let d = 0.5; d <= 14; d += 0.5) for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2, sx = x + Math.cos(a) * d, sy = y + Math.sin(a) * d;
+    if (!circleBlocked(map, sx, sy, r) && !map.layers.rings.barrierAt(Math.floor(sx), Math.floor(sy))) return { x: sx, y: sy };
+  }
+  return { x, y };
+}
+
 function circleBlocked(map, x, y, r) {
   const x0 = Math.floor(x - r), x1 = Math.floor(x + r), y0 = Math.floor(y - r), y1 = Math.floor(y + r);
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {

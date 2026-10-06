@@ -34,8 +34,7 @@ class TerrainGenerator {
     this.patchNoise = new PerlinNoise(this.seed + 606);
     this.rockNoise = new PerlinNoise(this.seed + 707);
     this.clayNoise = new PerlinNoise(this.seed + 808);
-    this.warpX = new PerlinNoise(this.seed + 909);
-    this.warpY = new PerlinNoise(this.seed + 1010);
+    this.layers = new WorldLayers(this, this.seed);                         // rings, biomes, (zones), dungeons: each its own class
   }
 
   /** Natural terrain height in roughly [-1, 1]; below seaLevel is water. */
@@ -54,6 +53,7 @@ class TerrainGenerator {
 
   /** Final ground type of a tile. */
   tile(tx, ty) {
+    if (DungeonSpace.contains(tx, ty)) return DungeonSpace.tileAt(tx, ty);              // cave interiors live in their own block of the map
     const forced = Village.tile(tx, ty);
     if (forced >= 0) return forced;
     const T = TERRAIN, e = this.elevation(tx, ty);
@@ -73,45 +73,21 @@ class TerrainGenerator {
   hasTree(tx, ty, tileType) {
     if (tileType !== TILE.GRASS || Village.blocksTrees(tx, ty)) return false;
     const T = TERRAIN;
-    const density = clamp(T.treeBase + 0.9 * Math.max(0, this.forestiness(tx, ty) * 0.9 + this.moisture(tx, ty) * 0.5 - 0.02), 0, T.treeMax);
+    const density = clamp(T.treeBase + 0.9 * Math.max(0, this.forestiness(tx, ty) * 0.9 + this.moisture(tx, ty) * 0.5 - 0.02) + TreeBoost[this.layers.biomes.at(tx, ty)], 0, T.treeMax);
     return hash3(this.seed, tx, ty, 1) < density;
   }
 
-  /** The far-off biomes (blossom, crystal, starlit, ember). The world is cut into jittered cells; some hold a round patch of one of them,
-   *  but only once the cell is far enough from the ORIGIN. Returns a biome id or null. Pure function of the seed. */
-  specialBiomeAt(tx, ty) {
-    const dist = AnimalLevels.distance(tx, ty);
-    if (dist < SpecialBiomes[0].minDistance - 55) return null;
-    const S = SPECIAL_BIOME_CELL, wx = tx + 45 * this.warpX.fractal(tx / 78, ty / 78, 2), wy = ty + 45 * this.warpY.fractal(tx / 78, ty / 78, 2);
-    const cx = Math.floor(wx / S), cy = Math.floor(wy / S);
-    if (hash3(this.seed, cx, cy, 90) >= SPECIAL_BIOME_CHANCE) return null;
-    const px = (cx + 0.25 + 0.5 * hash3(this.seed, cx, cy, 92)) * S, py = (cy + 0.25 + 0.5 * hash3(this.seed, cx, cy, 93)) * S;   // the patch's centre, which decides how far out it is
-    const patchDist = AnimalLevels.distance(px, py);
-    const kinds = SpecialBiomes.filter(k => patchDist >= k.minDistance);
-    if (!kinds.length) return null;
-    let roll = hash3(this.seed, cx, cy, 91) * kinds.reduce((n, k) => n + k.weight, 0), kind = kinds[0];
-    for (const k of kinds) { if ((roll -= k.weight) < 0) { kind = k; break; } }
-    const radius = S * (0.34 + 0.12 * hash3(this.seed, cx, cy, 94));
-    return Math.hypot(wx - px, wy - py) < radius ? kind.id : null;
-  }
-
-  /** Which biome a land tile belongs to: decides which berries grow there, which animals live there and what colour the ground is. */
+  /** Which biome a tile belongs to: decides which berries grow there, which ponies live there and what colour the ground is. Beaches and clay flats are
+   *  decided by the tile; everything else by the BIOME LAYER (rarity-weighted regions across the whole map). */
   biomeAt(tx, ty, tileType) {
     if (tileType === TILE.CLAY) return 'clay';
     if (tileType === TILE.SAND) return 'beach';
-    const special = this.specialBiomeAt(tx, ty);
-    if (special && (tileType === TILE.GRASS || tileType === TILE.DIRT)) return special;
-    if (tileType === TILE.DIRT) return 'dry';
-    const T = TERRAIN, moisture = this.moisture(tx, ty);
-    if (this.elevation(tx, ty) > T.rockLevel) return 'highland';
-    if (moisture > T.wetMoisture) return 'wetland';
-    if (this.forestiness(tx, ty) * 0.9 + moisture * 0.5 > T.forestScore) return 'forest';
-    return moisture < T.dryMoisture ? 'dry' : 'meadow';
+    return this.layers.biomes.at(tx, ty);
   }
 
   /** A bush on this tile? Returns { biome, berry } or null. The hash check is first so most tiles exit immediately. */
   bushAt(tx, ty, tileType) {
-    if (tileType === TILE.STONE || isWaterTile(tileType) || tileType === TILE.CLAY) return null;
+    if (tileType === TILE.STONE || isWaterTile(tileType) || tileType === TILE.CLAY || tileType >= TILE.CAVE) return null;
     const h = hash3(this.seed, tx, ty, 11);
     if (h >= MAX_BUSH_CHANCE || Village.blocksTrees(tx, ty)) return null;
     const biome = this.biomeAt(tx, ty, tileType);
@@ -124,7 +100,7 @@ class TerrainGenerator {
 
   /** A loose stone on this tile? Rocky ground is full of them. Returns true / false. */
   stoneAt(tx, ty, tileType) {
-    if (isWaterTile(tileType)) return false;
+    if (isWaterTile(tileType) || tileType >= TILE.CAVE) return false;
     const h = hash3(this.seed, tx, ty, 16);
     if (h >= MAX_STONE_CHANCE || Village.blocksTrees(tx, ty)) return false;
     return h < (tileType === TILE.STONE ? ROCKY_STONE_CHANCE : StoneChance[this.biomeAt(tx, ty, tileType)]);
@@ -139,45 +115,33 @@ class TerrainGenerator {
   }
 
   /** Does this tree bear apples? */
-  appleTreeAt(tx, ty) { return hash3(this.seed, tx, ty, 60) < APPLE_TREE_CHANCE && APPLE_BIOMES.includes(this.biomeAt(tx, ty, TILE.GRASS)); }
+  appleTreeAt(tx, ty) { const h = hash3(this.seed, tx, ty, 60); return h < 0.7 && h < AppleTreeChance[this.biomeAt(tx, ty, TILE.GRASS)]; }
   /** A mound of sand hiding a bottle (sand only), and a bottle floating in the shallows. */
   moundAt(tx, ty, tileType) { return tileType === TILE.SAND && hash3(this.seed, tx, ty, 61) < BURIED_BOTTLE_CHANCE && !Village.blocksTrees(tx, ty); }
   floatingBottleAt(tx, ty, tileType) { return tileType === TILE.SHALLOW && hash3(this.seed, tx, ty, 62) < FLOATING_BOTTLE_CHANCE; }
 
-  /** An item lying on this tile (from ItemSpawnTable: each item's rate per 1000 open tiles of its biome), or null. */
-  lootAt(tx, ty, tileType) {
-    if (isWaterTile(tileType) || Village.blocksTrees(tx, ty)) return null;
-    const h = hash3(this.seed, tx, ty, 70);
-    if (h >= MAX_LOOT_CHANCE) return null;
-    const table = ItemSpawnTable[this.biomeAt(tx, ty, tileType)];
-    if (!table) return null;
-    let roll = h * 1000;
-    for (const [item, rate] of table) if ((roll -= rate) < 0) return item;
-    return null;
-  }
-
   /** A diggable clay deposit on this tile? */
   clayAt(tx, ty, tileType) { return tileType === TILE.CLAY && hash3(this.seed, tx, ty, 24) < CLAY_DEPOSIT_CHANCE; }
 
-  /** The animals that live in this chunk: [{ type, x, y }]. Deterministic, so a chunk always holds the same herd. */
+  /** The animals that live in this chunk: [{ type, x, y, gene, variant, level, biome }]. Deterministic, so a chunk always holds the same herd.
+   *  WHAT lives here is decided by the RING (each creature's own data says which ring it belongs to and how common it is). */
   animalGroup(cx, cy, tileOf) {
-    if (hash3(this.seed, cx, cy, 21) >= FAUNA_CHANCE) return [];
+    if (DungeonSpace.contains(cx * CHUNK_SIZE, cy * CHUNK_SIZE) || hash3(this.seed, cx, cy, 21) >= FAUNA_CHANCE) return [];
     for (let attempt = 0; attempt < 10; attempt++) {
       const tx = cx * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 30 + attempt) * CHUNK_SIZE);
       const ty = cy * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 50 + attempt) * CHUNK_SIZE);
       const tile = tileOf(tx, ty);
       if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1) continue;   // not in the village, not on rock / water
-      const biome = this.biomeAt(tx, ty, tile), dist = AnimalLevels.distance(tx + 0.5, ty + 0.5);
-      const fauna = (BiomeFauna[biome] || []).filter(f => dist >= (AnimalDefs[f[0]].minDistance || 0));          // rarer, stronger species only live farther from the origin
+      const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolFor(this.layers.rings.at(tx + 0.5, ty + 0.5).index);
       if (!fauna.length) continue;
-      const total = fauna.reduce((n, f) => n + f[1], 0);
+      const total = fauna.reduce((n, f) => n + f.weight, 0);
       let roll = hash3(this.seed, cx, cy, 22) * total, chosen = fauna[0];
-      for (const f of fauna) { if ((roll -= f[1]) < 0) { chosen = f; break; } }
-      const [type, , [min, max]] = chosen, count = min + Math.floor(hash3(this.seed, cx, cy, 23) * (max - min + 1));
+      for (const f of fauna) { if ((roll -= f.weight) < 0) { chosen = f; break; } }
+      const type = chosen.id, [min, max] = chosen.group, count = min + Math.floor(hash3(this.seed, cx, cy, 23) * (max - min + 1));
       const variant = AnimalDefs[type].pony ? PonyLook.variantOf(biome) : 0;                                    // each biome has its own kind of pony
       return Array.from({ length: count }, (_, i) => {
         const x = tx + 0.5 + (hash3(this.seed, cx, cy, 60 + i) - 0.5) * 2.4, y = ty + 0.5 + (hash3(this.seed, cx, cy, 80 + i) - 0.5) * 2.4;
-        return { type, x, y, gene: Math.floor(hash3(this.seed, cx, cy, 100 + i) * 2147483647), variant, level: AnimalLevels.roll(type, x, y, hash3(this.seed, cx, cy, 120 + i)), biome };
+        return { type, x, y, gene: Math.floor(hash3(this.seed, cx, cy, 100 + i) * 2147483647), variant, level: AnimalLevels.roll(type, x, y, hash3(this.seed, cx, cy, 120 + i), this.layers), biome };
       });
     }
     return [];

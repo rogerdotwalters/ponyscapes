@@ -2,15 +2,14 @@
 /* CLIENT - the Menu: one big, labelled button for every section of the game, so nothing hides behind a tiny icon. */
 const MENU_SECTIONS = [
   { id: 'inventory', glyph: '\uD83C\uDF92', label: 'Inventory', sub: 'Your pack and tool bar', key: 'I' },
-  { id: 'crafting',  glyph: '\uD83D\uDD28', label: 'Crafting',  sub: 'Make tools, gear, buildings', key: 'Q' },
-  { id: 'gear',      glyph: '\uD83D\uDEE1', label: 'Gear',      sub: 'Armour, shield, sword, belt', key: 'G' },
+  { id: 'crafting',  glyph: '\uD83D\uDD28', label: 'Crafting',  sub: 'Make tools, outfits, buildings', key: 'Q' },
+  { id: 'gear',      glyph: '\uD83D\uDC51', label: 'Wardrobe',  sub: 'Crown, outfit and cape', key: 'G' },
   { id: 'skills',    glyph: '\uD83D\uDCD6', label: 'Journal',   sub: 'Skills and attributes', key: 'J' },
   { id: 'treasure',  glyph: '\uD83D\uDDFA', label: 'Treasure',  sub: 'Maps you have read', key: '' },
   { id: 'map',       glyph: '\uD83E\uDDED', label: 'Map',       sub: 'The land around you', key: 'M' },
   { id: 'ponies',    glyph: '\uD83D\uDC0E', label: 'Ponies',    sub: 'Pony Book and your herd', key: 'P' },
-  { id: 'town',      glyph: '\uD83C\uDFD8', label: 'Town',      sub: 'Stockpiles and upgrades', key: 'T' },
   { id: 'session',   glyph: '\uD83C\uDF10', label: 'Session',   sub: 'Room code, players, saving', key: '', needsSession: true },
-  { id: 'settings',  glyph: '\u2699',       label: 'Players',   sub: 'Host: hunger and thirst', key: '', hostOnly: true }
+  { id: 'settings',  glyph: '\u2699',       label: 'Settings',   sub: 'Host: hunger, thirst, testing', key: '', hostOnly: true }
 ];
 
 class MenuUI {

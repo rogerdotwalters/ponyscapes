@@ -7,7 +7,6 @@ class CraftingUI {
     this.rows = Object.values(RecipeDefs).map(recipe => this._createRow(recipe, list));
     closeButton.addEventListener('click', () => this.close());
     game.events.on('inventoryChanged', () => this.refresh());
-    game.events.on('stockpilesChanged', () => this.isOpen && this.refresh());
     this.refresh();
   }
 
@@ -37,15 +36,13 @@ class CraftingUI {
   }
 
   refresh() {
-    const inventory = this.game.inventory, stations = this.game.nearbyStations(), supply = this.game.nearbySupply();     // a crafting table pulls from the stockpiles linked to it
+    const inventory = this.game.inventory, stations = this.game.nearbyStations();
     for (const row of this.rows) {
       const { recipe } = row;
       recipe.ingredients.forEach((ing, i) => {
-        const have = CraftingSystem.available(inventory, ing.item, supply), stored = supply.count(ing.item);
+        const have = inventory.count(ing.item);
         row.ingredientChips[i].querySelector('b').textContent = `${have}/${ing.count}`;
         row.ingredientChips[i].classList.toggle('missing', have < ing.count);
-        row.ingredientChips[i].classList.toggle('stocked', stored > 0);
-        row.ingredientChips[i].title = `${ItemDefs[ing.item].name}: ${inventory.count(ing.item)} in your pack` + (stored ? `, ${stored} in the stockpiles` : '');
       });
       recipe.tools.forEach((tool, i) => {
         const has = inventory.has(tool, 1);
@@ -55,7 +52,7 @@ class CraftingUI {
       const stationOk = CraftingSystem.hasStation(recipe, stations);
       row.where.textContent = recipe.station ? (stationOk ? 'at the ' : 'needs a ') + StationNames[recipe.station] : '';
       row.where.classList.toggle('missing', !stationOk);
-      row.button.disabled = !CraftingSystem.canCraft(inventory, recipe, stations, supply);
+      row.button.disabled = !CraftingSystem.canCraft(inventory, recipe, stations);
     }
   }
 }

@@ -1,0 +1,3 @@
+'use strict';
+/* DATA - creature family: boar */
+Creatures.register({ id: 'boar', name: 'Wild Boar', ring: 1, weight: 2, group: [1, 2], levelBase: 7, hp: 12, radius: 0.35, wanderSpeed: 0.7, fleeSpeed: 2.4, fleeSeconds: 2, chaseSpeed: 3.4, behavior: 'territorial', hostile: true, hunt: 5, attack: { damage: 9, range: 1.1, cooldown: 1.4 }, detect: { idle: 2.5, sneak: 3.5, walk: 5, run: 8 }, drops: [{ item: 'mutton', min: 2, max: 3 }, { item: 'hide', min: 2, max: 2 }, { item: 'fang', min: 1, max: 2, chance: 0.6 }], sprite: { kind: 'boar', color: '#6b4a3a' }, aggro: 5 });

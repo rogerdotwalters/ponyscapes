@@ -8,21 +8,14 @@ const TerrainRenderer = (() => {
   const SAND = ['#dccb94', '#d4c18a', '#e2d29d'], CLAY = ['#b8734a', '#c27d52', '#ad6a44'];
   const WATER = ['#2c6b99', '#2f70a0', '#2a6794'], SHALLOW = ['rgba(98,181,214,.74)', 'rgba(104,186,217,.74)', 'rgba(92,175,209,.74)'];
 
-  /** Ground colours by biome: [grass x3, dirt x3]. Anything not listed uses the plain meadow colours. */
-  const GROUND = {
-    forest:   [['#4f8a42', '#57944a', '#497f3d'], ['#8e6e4a', '#977650', '#866646']],
-    wetland:  [['#4f9a6a', '#58a572', '#488d60'], ['#7d7a58', '#867f5d', '#757252']],
-    dry:      [['#a3a34f', '#adad57', '#9a9a47'], ['#b58b55', '#bf955e', '#ab8250']],
-    highland: [['#6f9462', '#789e6b', '#688a5b'], ['#8d7a63', '#96836b', '#847059']],
-    blossom:  [['#8fc47a', '#98cd83', '#86ba72'], ['#b49a78', '#bda282', '#aa9070']],
-    crystal:  [['#8fc2b8', '#9ccdc4', '#84b8ae'], ['#a9b6bd', '#b3c0c6', '#9fabb2']],
-    starlit:  [['#3f4f86', '#46598f', '#39487a'], ['#4a4468', '#524c72', '#423c5e']],
-    ember:    [['#6a4a40', '#745248', '#5f423a'], ['#7a4a35', '#85523b', '#6d422f']]
-  };
+  /** Ground colours and effects by biome come from the BIOME TABLE (js/data/biomes/): [grass x3, dirt x3]. A biome with ground: null uses the plain meadow colours. */
+  const GROUND = Object.fromEntries(Biomes.all().filter(b => b.ground).map(b => [b.id, [b.ground.grass, b.ground.dirt]]));
+  const EFFECT = Object.fromEntries(Biomes.all().filter(b => b.effect && BiomeEffects.has(b.effect)).map(b => [b.id, BiomeEffects.get(b.effect)]));
+  const CAVE_FLOOR = ['#2b2f3a', '#30343f', '#272b35'], CAVE_WALL = ['#15171e', '#181b22', '#12141a'];
 
   function draw(g, map, bounds, range, now) {
     const anyFloors = Object.keys(map.floors).length > 0;
-    const t = now / 1000, { minX, maxX, minY, maxY } = bounds;
+    const t = now / 1000, { minX, maxX, minY, maxY } = bounds, rings = map.layers && map.layers.rings;
     for (let ty = range.ty0; ty <= range.ty1; ty++) for (let tx = range.tx0; tx <= range.tx1; tx++) {
       const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H;
       if (cx < minX - TILE_HALF_W || cx > maxX + TILE_HALF_W || cy < minY - TILE_HALF_H || cy > maxY + TILE_HALF_H) continue;
@@ -34,7 +27,10 @@ const TerrainRenderer = (() => {
       else if (type === TILE.DIRT) drawDirt(g.ctx, tx, ty, cx, cy, variant, noise, map.biome(tx, ty));
       else if (type === TILE.SAND) drawSand(g.ctx, tx, ty, cx, cy, variant, noise);
       else if (type === TILE.CLAY) drawClay(g.ctx, tx, ty, cx, cy, variant, noise);
+      else if (type === TILE.CAVE) drawCave(g.ctx, variant, noise, cx, cy, t, tx, ty);
+      else if (type === TILE.CAVE_WALL) drawCaveWall(g.ctx, variant, noise, cx, cy);
       else drawStone(g.ctx, variant);
+      if (rings && rings.barrierAt(tx, ty)) drawBarrier(g.ctx, cx, cy, t, tx, ty);          // a sealed ring's magical wall
       if (anyFloors && map.floors[tileKey(tx, ty)]) StructureSprites.drawFloor(g.ctx, cx, cy);   // built floors sit on top of the ground
     }
   }
@@ -47,38 +43,38 @@ const TerrainRenderer = (() => {
   }
 
   function drawGrass(ctx, tx, ty, cx, cy, variant, noise, biome, t) {
-    const palette = GROUND[biome];
+    const palette = GROUND[biome], effect = EFFECT[biome];
     ctx.fillStyle = palette ? palette[0][variant] : GRASS[variant]; ctx.fill();
+    if (effect && effect.tint) effect.tint(ctx, tx, ty, t);
     const ox = (hash2(tx + 9, ty) - 0.5) * 30 * DETAIL, oy = (hash2(tx, ty + 9) - 0.5) * 12 * DETAIL;
-    if (palette && biomeDetail(ctx, biome, noise, cx + ox, cy + oy, tx, ty, t)) return;
+    if (effect && noise > effect.above) { effect.detail(ctx, cx + ox, cy + oy, noise, tx, ty, t); return; }
     if (noise <= 0.62) return;
     ctx.strokeStyle = 'rgba(30,70,30,.35)'; ctx.lineWidth = 1.2; ctx.beginPath();
     ctx.moveTo(cx + ox, cy + oy); ctx.lineTo(cx + ox - 2, cy + oy - 5);
     ctx.moveTo(cx + ox + 2, cy + oy); ctx.lineTo(cx + ox + 3, cy + oy - 5); ctx.stroke();
   }
 
-  /** The little things that make a far-off biome look like itself: petals, crystal glints, twinkling stars, glowing embers. */
-  function biomeDetail(ctx, biome, noise, x, y, tx, ty, t) {
-    if (biome === 'blossom' && noise > 0.5) {
-      for (let i = 0; i < 3; i++) { ctx.fillStyle = ['#ffb3d1', '#ffffff', '#ff8fbd'][(tx + ty + i) % 3]; ctx.beginPath(); ctx.arc(x + (i - 1) * 7 * DETAIL, y + ((i * 5) % 7 - 3) * DETAIL, 1.7, 0, Math.PI * 2); ctx.fill(); }
-      return true;
-    }
-    if (biome === 'crystal' && noise > 0.72) {
-      const tw = 0.55 + 0.45 * Math.sin(t * 2 + tx * 1.7 + ty); ctx.fillStyle = `rgba(235,252,255,${(0.5 + 0.5 * tw).toFixed(2)})`;
-      ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 2.4, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 2.4, y); ctx.closePath(); ctx.fill();
-      return true;
-    }
-    if (biome === 'starlit' && noise > 0.55) {
-      const tw = 0.5 + 0.5 * Math.sin(t * 1.6 + tx * 2.3 + ty * 1.1); ctx.fillStyle = `rgba(${noise > 0.8 ? '150,255,240' : '205,190,255'},${(0.25 + 0.7 * tw).toFixed(2)})`;
-      ctx.beginPath(); ctx.arc(x, y, 1.3 + tw * 1.1, 0, Math.PI * 2); ctx.fill();
-      return true;
-    }
-    if (biome === 'ember' && noise > 0.62) {
-      const fl = 0.5 + 0.5 * Math.sin(t * 5 + tx * 3.1 + ty * 1.7); ctx.fillStyle = `rgba(255,${120 + (fl * 90) | 0},40,${(0.35 + 0.55 * fl).toFixed(2)})`;
-      ctx.fillRect(x - 1.2, y - 1, 2.6, 2);
-      return true;
-    }
-    return false;
+  /** Cave floor: dark damp rock with the odd glint. */
+  function drawCave(ctx, variant, noise, cx, cy, t, tx, ty) {
+    ctx.fillStyle = CAVE_FLOOR[variant]; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1; ctx.stroke();
+    if (noise > 0.8) { const tw = 0.5 + 0.5 * Math.sin(t * 2 + tx * 3 + ty); ctx.fillStyle = `rgba(150,170,220,${(0.2 + 0.4 * tw).toFixed(2)})`; ctx.fillRect(cx + (noise - 0.9) * 80, cy - 1, 2, 2); }
+    else if (noise < 0.2) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(cx + (noise - 0.1) * 120, cy + 2, 6, 2); }
+  }
+  /** Cave rock: nearly black, with a faint lit rim so the passages read. */
+  function drawCaveWall(ctx, variant, noise, cx, cy) {
+    ctx.fillStyle = CAVE_WALL[variant]; ctx.fill();
+    ctx.strokeStyle = 'rgba(90,100,130,.22)'; ctx.lineWidth = 1.2; ctx.stroke();
+    if (noise > 0.55) { ctx.fillStyle = 'rgba(70,78,100,.35)'; ctx.fillRect(cx - 5 + (noise - 0.7) * 30, cy - 2, 7, 1.6); }
+  }
+  /** The ring barrier: a shimmering violet wall of light. */
+  function drawBarrier(ctx, cx, cy, t, tx, ty) {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + tx * 0.7 + ty * 0.9);
+    diamondPath(ctx, cx, cy); ctx.fillStyle = `rgba(130,80,230,${(0.35 + 0.25 * pulse).toFixed(2)})`; ctx.fill();
+    const h = 30 + 10 * pulse, grad = ctx.createLinearGradient(0, cy - h, 0, cy);
+    grad.addColorStop(0, 'rgba(190,150,255,0)'); grad.addColorStop(1, `rgba(170,120,255,${(0.45 + 0.3 * pulse).toFixed(2)})`);
+    ctx.fillStyle = grad; ctx.fillRect(cx - TILE_HALF_W * 0.55, cy - h, TILE_HALF_W * 1.1, h);
+    ctx.fillStyle = `rgba(255,255,255,${(0.25 + 0.4 * pulse).toFixed(2)})`; ctx.fillRect(cx - 1, cy - h * (0.4 + 0.5 * pulse), 2, 5);
   }
 
   function drawDirt(ctx, tx, ty, cx, cy, variant, noise, biome) {

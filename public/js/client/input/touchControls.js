@@ -73,9 +73,8 @@ class TouchControls {
 
   /* ---- buttons ---- */
   _bindButtons() {
-    const { btnRun, btnSneak, btnAct, btnRot, btnBoard, btnRelease, btnAbility } = this.dom;
+    const { btnRun, btnSneak, btnAct, btnRot, btnBoard, btnRelease } = this.dom;
     this._press(btnBoard, () => this.bus.emit('interact'));
-    if (btnAbility) this._press(btnAbility, () => this.bus.emit('ability', 0));      // the first ability that is ready
     if (btnRelease) this._press(btnRelease, () => this.bus.emit('release'));
     this._press(btnRot, () => this.bus.emit('rotateBuild'));
     this._press(btnRun, () => this.bus.emit('toggleRun'));

@@ -29,7 +29,7 @@ class HostAdapter extends LocalAdapter {
     const record = await this.store.getCharacter(this.world.id, key).catch(() => null);
     this.id = this.server.joinHuman(null, name, this.o.appearance);
     if (record && !SaveData.importCharacter(this.server, this.id, record.data)) throw new Error('Your saved character in this world could not be read.');
-    { const look = CharacterLook.sanitize(this.o.appearance); if (look) this.server.players[this.id].appearance = look; }
+    { const look = CharacterLook.sanitize(this.o.appearance); if (look) { this.server.players[this.id].appearance = look; this.server.fitWardrobe(this.id); } }
     this.keys[this.id] = key; this.known.add(key);
     try { for (const c of await this.store.listCharacters(this.world.id)) this.known.add(c.key); } catch (e) { /* the count is only a label */ }
     this._fillBots();
@@ -98,10 +98,11 @@ class HostAdapter extends LocalAdapter {
     const boats = {};
     for (const id in snap.boats) { const b = snap.boats[id]; if (Math.hypot(b.x - me.x, b.y - me.y) < 120) boats[id] = b; }
     const movedBoats = r.gates.boats.changed(D.quantize(boats)); if (movedBoats) out.boats = movedBoats;               // boats are only sent when one moves
+    const npcDelta = r.npcEnc.encode(D.quantize(snap.npcs)); if (Object.values(npcDelta).some(d => Object.keys(d).length)) out.npcs = npcDelta;      // the villagers: only the fields that changed, and only when something did
     const trees = r.gates.trees.changed(snap.trees); if (trees) out.trees = trees;
     const forage = r.gates.forage.changed(snap.forage); if (forage) out.forage = forage;
     for (const k of ['pets', 'book', 'varieties']) { const v = r.gates[k].changed(snap[k]); if (v) out[k] = v; }
-    for (const k of ['inventory', 'built', 'floors', 'stockpiles', 'progress', 'treasure', 'trade']) if (snap[k] !== undefined) out[k] = snap[k];
+    for (const k of ['inventory', 'built', 'floors', 'progress', 'treasure', 'trade', 'rings', 'settings', 'friends']) if (snap[k] !== undefined) out[k] = snap[k];
     return out;
   }
 
@@ -197,11 +198,11 @@ class HostAdapter extends LocalAdapter {
     if (record && !SaveData.importCharacter(this.server, id, record.data)) {   // never silently replace somebody's saved character with a blank one
       this.server.leaveHuman(id); return deny('damaged', 'Your saved character in this world could not be read. Ask the host to check the save.');
     }
-    { const look = CharacterLook.sanitize(msg.appearance); if (look) this.server.players[id].appearance = look; }          // their own character-screen choice
+    { const look = CharacterLook.sanitize(msg.appearance); if (look) { this.server.players[id].appearance = look; this.server.fitWardrobe(id); } }          // their own character-screen choice
     this.keys[id] = msg.key; this.known.add(msg.key);
-    Object.assign(r, { id, key: msg.key, name, ready: true, state: 'ready', animalEnc: new AnimalDeltaEncoder(), playerEnc: new PlayerDeltaEncoder() });
+    Object.assign(r, { id, key: msg.key, name, ready: true, state: 'ready', animalEnc: new AnimalDeltaEncoder(), playerEnc: new PlayerDeltaEncoder(), npcEnc: new PlayerDeltaEncoder() });
     const welcome = JSON.parse(JSON.stringify(SnapshotBuilder.welcomeFor(this.server, id)));
-    r.animalEnc.prime(welcome.animals);
+    r.animalEnc.prime(welcome.animals); r.npcEnc.encode(DeltaCodec.quantize(welcome.npcs));      // (the villagers in the welcome count as already sent)
     r.gates = { trees: new ChangeGate(), forage: new ChangeGate(), pets: new ChangeGate(), book: new ChangeGate(), varieties: new ChangeGate(), boats: new ChangeGate() };
     r.gates.trees.prime(welcome.trees); r.gates.forage.prime(welcome.forage); r.gates.boats.prime(DeltaCodec.quantize(welcome.boats));
     Object.assign(welcome, { t: 'welcome', you: { name, restored: !!record }, session: this._sessionPublic() });

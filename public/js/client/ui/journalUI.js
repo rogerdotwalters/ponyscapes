@@ -2,7 +2,7 @@
 /* CLIENT - the Journal.
  *   SKILLS tab: every skill with its level and progress, and under each one the attributes it trains "under the surface".
  *   TREASURE MAP tab: the mini map of the area around where a treasure map you read leads, with an X on the spot. */
-const SKILL_GLYPH = { woodcutting: '\u2692', foraging: '\u2740', fishing: '\u224B', hunting: '\u27B6', building: '\u2302', crafting: '\u270E', digging: '\u26CF', horsemanship: '\u265E' };
+const SKILL_GLYPH = { woodcutting: '\u2692', foraging: '\u2740', fishing: '\u224B', hunting: '\u27B6', building: '\u2302', crafting: '\u270E', digging: '\u26CF', horsemanship: '\u265E', friendship: '\u2665', animal_friendship: '\u2766' };
 const MINIMAP_RADIUS = 24, MINIMAP_TILE_PX = 4;
 const MINIMAP_COLORS = { [TILE.GRASS]: '#6aa84f', [TILE.DIRT]: '#a98258', [TILE.STONE]: '#a9a59c', [TILE.WATER]: '#2c6b99', [TILE.SAND]: '#dccb94', [TILE.CLAY]: '#b8734a', [TILE.SHALLOW]: '#7bc3dc' };
 const COMPASS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];      // world axes: +x east, +y south
@@ -11,11 +11,12 @@ class JournalUI {
   constructor({ panel, tabs, body, closeButton, game }) {
     this.panel = panel; this.tabs = tabs; this.body = body; this.game = game; this.tab = 'skills'; this.mapCache = {}; this.sinceRefresh = 0;
     closeButton.addEventListener('click', () => this.close());
-    tabs.innerHTML = '<button data-tab="skills">Skills</button><button data-tab="map">Treasure Maps</button>';
+    tabs.innerHTML = '<button data-tab="skills">Skills</button><button data-tab="friends">Friends</button><button data-tab="map">Treasure Maps</button>';
     tabs.addEventListener('click', e => { const t = e.target.closest('button'); if (t) this.show(t.dataset.tab); });
     game.events.on('progressChanged', () => this.isOpen && this.tab === 'skills' && this.refresh());
     game.events.on('treasureChanged', () => this.isOpen && this.refresh());
     game.events.on('levelup', () => this.isOpen && this.tab === 'skills' && this.refresh());
+    game.events.on('friendsChanged', () => this.isOpen && this.tab === 'friends' && this.refresh());
   }
 
   get isOpen() { return !this.panel.hidden; }
@@ -24,11 +25,37 @@ class JournalUI {
   show(tab) { this.tab = tab; this.refresh(); }
   openTab(tab) { this.tab = tab; this.open(); }
   /** The map tab keeps your marker moving while it is open. */
-  tick(frameMs) { if (this.isOpen && this.tab === 'map' && (this.sinceRefresh += frameMs) > 400) { this.sinceRefresh = 0; this._drawMapOverlay(); } }
+  tick(frameMs) {
+    if (!this.isOpen) return;
+    if (this.tab === 'map' && (this.sinceRefresh += frameMs) > 400) { this.sinceRefresh = 0; this._drawMapOverlay(); }
+    else if (this.tab === 'friends' && (this.sinceRefresh += frameMs) > 70) { this.sinceRefresh = 0; this._paintHearts(); }       // the metallic gleam and electric sparks move
+  }
 
   refresh() {
     this.tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === this.tab));
-    if (this.tab === 'skills') this._renderSkills(); else this._renderMap();
+    if (this.tab === 'skills') this._renderSkills(); else if (this.tab === 'friends') this._renderFriends(); else this._renderMap();
+  }
+
+  /* ---------------- friends ---------------- */
+  _renderFriends() {
+    const g = this.game, lv = g.local.lv || defaultLevels(), E = LobbyUI.escape;
+    const limit = (skill, who) => { const level = lv.s[skill] || 1, cap = Friendship.capFor(level), info = Friendship.info(cap), next = cap < Friendship.MAX_LEVEL ? ` &middot; <small>next colour at ${SkillDefs[skill].name} ${Friendship.skillFor(cap + 1)}</small>` : ' &middot; <small>the highest colour</small>';
+      return `<div class="flimit"><span class="sglyph">${SKILL_GLYPH[skill]}</span><b>${SkillDefs[skill].name} ${level}</b> lets you be <i style="color:${info.color}">${info.name}</i> friends with ${who}${next}</div>`; };
+    const row = (id, name, sub, bond) => `<div class="frow"><canvas class="fheart" data-id="${E(id)}" width="240" height="56"></canvas><div class="finfo"><b>${E(name)}</b><small>${sub || (bond ? Friendship.info(bond.level).name + ' friends' : 'not met yet')}</small></div></div>`;
+    const people = Object.values(g.npcs).map(n => { const def = Npcs.get(n.type); const b = g.friendOf(n.id); return row(n.id, n.name, (def ? def.role : '') + ' &middot; ' + (b ? Friendship.info(b.level).name + ' friends' : 'not met yet'), b); }).join('');
+    const animals = Object.keys(g.friends).filter(id => !g.npcs[id] && g.beingTypes[id]).map(id => { const d = AnimalDefs[g.beingTypes[id]], b = g.friendOf(id); return row(id, d ? d.name : 'Animal', b ? Friendship.info(b.level).name + ' friends' : '', b); }).join('');
+    this.body.innerHTML = `<div class="jhead">How close can you get? <small>the colour is set by your skills</small></div>${limit('friendship', 'people')}${limit('animal_friendship', 'animals')}` +
+      `<div class="jhead">People</div>${people || '<div class="gnone">Nobody in sight yet.</div>'}` +
+      `<div class="jhead">Animals</div>${animals || '<div class="gnone">Pet, feed or spend time with an animal to make a friend. Monsters cannot be befriended.</div>'}`;
+    this._paintHearts();
+  }
+  _paintHearts() {
+    const now = performance.now();
+    for (const canvas of this.body.querySelectorAll('canvas.fheart')) {
+      if (typeof canvas.getContext !== 'function') continue;
+      const ctx = canvas.getContext('2d'), bond = this.game.friendOf(canvas.dataset.id);
+      const k = 1.7; ctx.setTransform(2 * k, 0, 0, 2 * k, 0, 0); ctx.clearRect(0, 0, 120 / k, 28 / k); HeartMeter.draw(ctx, 31, 8.3, bond, now, { faint: !bond });      // (a bigger meter than the one over a head)
+    }
   }
 
   /* ---------------- skills ---------------- */
@@ -60,7 +87,7 @@ class JournalUI {
     }
     const entry = maps[Math.min(g.mapIndex, maps.length - 1)], size = (2 * MINIMAP_RADIUS + 1) * MINIMAP_TILE_PX;
     this.body.innerHTML = `<div class="mapwrap"><canvas id="miniMap" width="${size}" height="${size}"></canvas></div>` +
-      `<div class="mapinfo" id="mapInfo"></div>` +
+      `<div class="mapinfo" id="mapInfo">${entry.kind === 'dungeon' ? `<b>Cave in ${g.map.layers.rings.def(entry.ring).name}</b>: the guardian waits inside. Defeat it to open the next ring.` : ''}</div>` +
       `<div class="mapnav">${maps.length > 1 ? `<button id="mapNext">Next map (${g.mapIndex + 1}/${maps.length})</button>` : ''}</div>`;
     const next = this.body.querySelector('#mapNext');
     if (next) next.addEventListener('click', () => { g.mapIndex = (g.mapIndex + 1) % maps.length; this._renderMap(); });
@@ -70,8 +97,8 @@ class JournalUI {
   /** Terrain around the treasure, drawn once per map and cached (it uses the pure terrain function: no chunks are generated). */
   _terrainLayer(entry) {
     if (this.mapCache[entry.key]) return this.mapCache[entry.key];
-    const R = MINIMAP_RADIUS, px = MINIMAP_TILE_PX, size = (2 * R + 1) * px, layer = document.createElement('canvas');
-    layer.width = layer.height = size;
+    const R = Math.ceil(MINIMAP_RADIUS * 1.5) + 3, px = MINIMAP_TILE_PX, size = (2 * R + 1) * px, layer = document.createElement('canvas');      // (bigger than the view: it is turned 45 degrees)
+    layer.width = layer.height = size; layer.R = R;
     const ctx = layer.getContext('2d'), T = this.game.map.terrain;
     for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
       const tx = entry.tx + dx, ty = entry.ty + dy, tile = T.tile(tx, ty), x = (dx + R) * px, y = (dy + R) * px;
@@ -85,21 +112,32 @@ class JournalUI {
     const canvas = this.body.querySelector('#miniMap'), g = this.game, maps = g.treasureMaps;
     if (!canvas || !maps.length) return;
     const entry = maps[Math.min(g.mapIndex, maps.length - 1)], R = MINIMAP_RADIUS, px = MINIMAP_TILE_PX, size = canvas.width, ctx = canvas.getContext('2d');
-    ctx.drawImage(this._terrainLayer(entry), 0, 0);
+    const layer = this._terrainLayer(entry);
+    ctx.fillStyle = '#2c6b99'; ctx.fillRect(0, 0, size, size);
+    const K1 = 1.0, K2 = 0.5;                                                                  // the same 2:1 isometric projection as the world and the main map
+    ctx.save(); ctx.translate(size / 2, size / 2); ctx.transform(K1, K2, -K1, K2, 0, 0);
+    ctx.drawImage(layer, -(layer.R + 0.5) * px, -(layer.R + 0.5) * px); ctx.restore();
     ctx.strokeStyle = 'rgba(70,45,20,.9)'; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, size - 3, size - 3);
     const c = (R + 0.5) * px, pulse = 1 + 0.15 * Math.sin(performance.now() / 300);
-    ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 3.2; ctx.beginPath();                          // the X marks the spot
-    ctx.moveTo(c - 7 * pulse, c - 7 * pulse); ctx.lineTo(c + 7 * pulse, c + 7 * pulse); ctx.moveTo(c + 7 * pulse, c - 7 * pulse); ctx.lineTo(c - 7 * pulse, c + 7 * pulse); ctx.stroke();
-    const me = g.local, dx = me.x - (entry.tx + 0.5), dy = me.y - (entry.ty + 0.5), inside = Math.abs(dx) <= R && Math.abs(dy) <= R;
-    if (inside) { ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b3d73'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(c + dx * px, c + dy * px, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    if (entry.kind === 'dungeon') {                                                              // a cave scroll marks a cave mouth, not buried treasure
+      ctx.fillStyle = '#3a1f5a'; ctx.strokeStyle = '#e8d0ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(c, c, 9, Math.PI, 0); ctx.lineTo(c + 9, c + 7); ctx.lineTo(c - 9, c + 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#07070c'; ctx.beginPath(); ctx.arc(c, c + 2, 4, Math.PI, 0); ctx.lineTo(c + 4, c + 7); ctx.lineTo(c - 4, c + 7); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 3.2; ctx.beginPath();                          // the X marks the spot
+      ctx.moveTo(c - 7 * pulse, c - 7 * pulse); ctx.lineTo(c + 7 * pulse, c + 7 * pulse); ctx.moveTo(c + 7 * pulse, c - 7 * pulse); ctx.lineTo(c - 7 * pulse, c + 7 * pulse); ctx.stroke();
+    }
+
+    const me = g.local, dx = me.x - (entry.tx + 0.5), dy = me.y - (entry.ty + 0.5);
+    const sx = (dx - dy) * K1 * px, sy = (dx + dy) * K2 * px, inside = Math.abs(sx) <= size / 2 - 6 && Math.abs(sy) <= size / 2 - 6;     // you, as the screen sees it
+    if (inside) { ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b3d73'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(c + sx, c + sy, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
     else {                                                                                       // off the map: an arrow on the border pointing at you
-      const a = Math.atan2(dy, dx), r = size / 2 - 9, ex = size / 2 + Math.cos(a) * r, ey = size / 2 + Math.sin(a) * r;
+      const a = Math.atan2(sy, sx), r = size / 2 - 9, ex = size / 2 + Math.cos(a) * r, ey = size / 2 + Math.sin(a) * r;
       ctx.save(); ctx.translate(ex, ey); ctx.rotate(a); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b3d73'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, -6); ctx.lineTo(-2, 0); ctx.lineTo(-5, 6); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
     }
-    ctx.fillStyle = 'rgba(40,25,10,.85)'; ctx.font = 'bold 11px Georgia'; ctx.textAlign = 'center'; ctx.fillText('N', size / 2, 14);      // world north is up
-    const dist = Math.hypot(dx, dy), heading = COMPASS[(Math.round(Math.atan2(-dy, -dx) / (Math.PI / 4)) + 8) % 8];
+    MapUI.compass(ctx, size - 20, 20, K1, K2);                                                  // north is up-right
+    const dist = Math.hypot(dx, dy), heading = COMPASS[(Math.round(Math.atan2(-sy, -sx) / (Math.PI / 4)) + 8) % 8];      // north is UP ON SCREEN
     const info = this.body.querySelector('#mapInfo');
-    if (info) info.innerHTML = dist < 3 ? '<b>You are right on top of it!</b> Dig with the shovel.' : `The X is about <b>${Math.round(dist)}</b> tiles <b>${heading}</b> of you. The white dot is you.`;
+    if (info) info.innerHTML = entry.kind === 'dungeon' ? (dist < 3 ? '<b>You are at the cave mouth.</b> Press Use to go in.' : `The <b>cave</b> in <b>${g.map.layers.rings.def(entry.ring).name}</b> is about <b>${Math.round(dist)}</b> tiles <b>${heading}</b> of you. Its guardian waits inside.`) : dist < 3 ? '<b>You are right on top of it!</b> Dig with the shovel.' : `The X is about <b>${Math.round(dist)}</b> tiles <b>${heading}</b> of you. The white dot is you.`;
   }
 }

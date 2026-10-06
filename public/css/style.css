@@ -78,19 +78,16 @@ canvas{display:block}
 /* ---------- health bar, belt bar, emote + sword buttons ---------- */
 .vital.health .fill{background:#d65a5a}
 .vital.health.low .fill{background:#e0a23a}
-#beltBar{position:fixed;display:flex;gap:var(--gap,4px);z-index:4;padding:var(--pad,5px);background:rgba(15,28,43,.6);border:1.5px solid rgba(160,200,255,.5);border-radius:10px}
 .ubtn{position:fixed;z-index:4;padding:0;border-radius:50%;border:2px solid rgba(227,194,122,.75);background:rgba(15,28,43,.6);color:#f4e6c1;touch-action:none;display:flex;align-items:center;justify-content:center}
 .ubtn img{width:78%;height:78%;pointer-events:none}
 .ubtn .empty{opacity:.45;font-size:.5em}
-#swordSlot{border-radius:10px;border-color:rgba(160,200,255,.7)}
-#swordSlot.drawn{background:rgba(227,194,122,.7);box-shadow:0 0 0 2px rgba(255,224,138,.6)}
 #emoteWheel{position:fixed;inset:0;z-index:9;background:rgba(5,10,20,.35)}
 .ebubble{position:absolute;border-radius:50%;border:2px solid rgba(227,194,122,.85);background:rgba(250,246,232,.96);padding:0;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .ebubble.etrade{background:rgba(227,194,122,.95);color:#10202f;font-family:Georgia,serif;font-weight:700}
-#gearPanel,#ponyPanel,#townPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
-#gearPanel header,#ponyPanel header,#townPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
+#gearPanel,#ponyPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
+#gearPanel header,#ponyPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
 #gearClose,#tradeClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
-#gearBody,#ponyBody,#townBody,#tradeBody{overflow-y:auto;touch-action:pan-y}
+#gearBody,#ponyBody,#tradeBody{overflow-y:auto;touch-action:pan-y}
 .gsum{font-size:12px;margin-bottom:8px;color:#e9ddb8}
 .ggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
 .gslot{position:relative;height:52px;border-radius:8px;border:1.5px solid rgba(227,194,122,.35);background:rgba(10,18,28,.55);color:#bfb48e;font:11px Georgia,serif;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
@@ -332,45 +329,29 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 /* Done: pinned, but with room above it and only a soft shadow, so the last colour row is never dimmed or covered */
 #lobbyCreator #charDone{margin-top:16px;box-shadow:0 -8px 10px -3px rgba(10,18,28,.92)}
 
-/* ---- rarity, pony traits ---- */
-.slot.rare{border-color:var(--rarity);box-shadow:inset 0 0 8px var(--rarity)}
-.need.stocked b::after{content:' \2302';opacity:.7}
-.ptraits{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0}
-.prarity,.pbuff,.pability{font-size:10.5px;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.07)}
-.prarity{background:var(--c);color:#10202f;font-weight:700}
-.pability{border:1px solid var(--c)}
-.pability kbd{font:600 9px Georgia,serif;padding:0 3px;border-radius:3px;background:rgba(255,255,255,.18)}
+/* the Wardrobe panel: a live preview, the three worn slots, and what you could put on */
+.gpreview{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+#wardrobePreview{width:96px;height:122px;flex:none;border-radius:10px;background:radial-gradient(circle at 50% 40%,#4b7a58,#27483a);border:1.5px solid rgba(227,194,122,.45)}
+.gwho{color:#a9b6c4;font-size:11px}
+.grow small{display:block;color:#a9b6c4;font-size:10px}
+.grow em{color:#a9b6c4;font-size:11px;font-style:normal;opacity:.8}
+.ggrid{grid-template-columns:repeat(3,1fr)}
 
-/* ---- the ridden pony's abilities ---- */
-#abilityBar{position:fixed;z-index:4;display:flex;gap:6px;align-items:center;pointer-events:none;color:#f4e6c1;font-family:Georgia,serif}
-#abilityBar.touch{display:none}
-#abilityBar span{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9px;background:rgba(15,28,43,.82);border:1.5px solid var(--c)}
-#abilityBar span.cd{opacity:.55}
-#abilityBar kbd{font:700 10px Georgia,serif;padding:0 4px;border-radius:3px;background:rgba(255,255,255,.2)}
-.pbtn.ability{border-color:#ffb34a;background:rgba(80,45,10,.62);font-size:20px !important}
-.pbtn.ability.cd{opacity:.55}
+/* the pony ability button (Fly / Land / cooling down) */
+#btnFly{position:fixed;z-index:3;border-color:#9fd8ff;color:#e6f6ff;background:rgba(30,70,110,.7);font-weight:700}
+#btnFly.on{background:rgba(120,200,255,.75);color:#0b2236}
+#btnFly.cooling{opacity:.6;border-style:dashed}
 
-/* ---- the Town window ---- */
-#townBody .ttitle{font:600 13px Georgia,serif;margin:8px 0 4px;color:#ffe08a}
-#townBody .ttitle small{font-weight:400;color:#c9bb98;font-size:11px}
-.tcarry small{display:block;color:#c9bb98;font-size:11px;margin-top:3px}
-.tstacks{display:flex;gap:8px;flex-wrap:wrap}
-.tstacks span{padding:2px 8px;border-radius:8px;background:rgba(10,18,28,.55);font-size:12px}
-.tstacks span.full{color:#ffb38a;border:1px solid #ffb38a}
-.tcard{padding:6px 8px;margin-bottom:6px;border-radius:9px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.25)}
-.thead{display:flex;align-items:center;gap:8px;font-size:13px}
-.thead img{width:32px;height:32px}
-.tlv{font-size:11px;color:#ffe08a}
-.tsub{font-size:11px;color:#c9bb98}
-.tnext{font-size:12px;margin:4px 0}
-.tbar{position:relative;height:14px;border-radius:7px;background:rgba(255,255,255,.08);margin:5px 0;overflow:hidden}
-.tbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#8a5f32,#d9b27a)}
-.tbar span{position:relative;display:block;text-align:center;font-size:10px;line-height:14px}
-.titems{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
-.tchip,.ttake{display:inline-flex;align-items:center;gap:3px;font-size:12px;padding:1px 4px;border-radius:6px;background:rgba(255,255,255,.05)}
-.tchip.missing{color:#ff9a92}
-.tchip img,.ttake img{width:20px;height:20px}
-.ttake button,.tup{font:600 11px Georgia,serif;padding:2px 6px;border-radius:6px;border:1px solid rgba(227,194,122,.6);background:rgba(227,194,122,.15);color:#f4e6c1;cursor:pointer}
-.tup{margin-top:5px}
-.ttake button:disabled,.tup:disabled{opacity:.4;cursor:default}
-.tempty{font-size:12px;color:#c9bb98;padding:4px 0}
+/* Settings > Testing */
+.testBox{margin-top:12px;padding-top:8px;border-top:1px solid rgba(227,194,122,.3)}
+.chk{display:flex;gap:10px;align-items:flex-start;padding:8px 2px;cursor:pointer}
+.chk input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:#e3c27a}
+.chk b{display:block;font-weight:600}
+.chk small{display:block;color:#a9b6c4;font-size:11px;line-height:1.35}
+
+.pfly{color:#9fd8ff;font-size:11px;font-style:normal;margin-left:4px}
+
+/* Journal > Friends */
+.flimit{padding:5px 0;font-size:12px;line-height:1.4}.flimit .sglyph{margin-right:6px}.flimit small{color:#a9b6c4}
+.frow{display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(227,194,122,.12)}
+.frow canvas{width:120px;height:28px;flex:none}.frow .finfo{display:flex;flex-direction:column;min-width:0}.frow .finfo small{color:#a9b6c4;font-size:11px}

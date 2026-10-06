@@ -64,7 +64,7 @@ class TradeSystem {
   _execute(s) {
     const give = (from, to) => Object.entries(s.offers[from]);
     const trials = {};
-    for (const id of [s.a, s.b]) trials[id] = this.inventories[id].clone();
+    for (const id of [s.a, s.b]) trials[id] = Inventory.fromJSON(this.inventories[id].toJSON());
     let problem = '';
     for (const [from, to] of [[s.a, s.b], [s.b, s.a]]) {
       for (const [item, count] of give(from, to)) {

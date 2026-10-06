@@ -61,7 +61,7 @@ class LobbyUI {
     return CharacterLook.random();
   }
   _look() { return this.look.slice(); }
-  _describe() { const l = this.look; return `${CharacterPalette.bodies[l[0]]}, ${CharacterPalette.hairStyles[l[1]].toLowerCase()} ${CharacterPalette.hairColorNames[l[2]].toLowerCase()} hair`; }
+  _describe() { const l = this.look; return `${CharacterPalette.bodies[l[0]]}, ${CharacterPalette.hairStyleNames[l[0] === 1 ? 'princess' : 'prince'][l[1]].toLowerCase()} ${CharacterPalette.hairColorNames[l[2]].toLowerCase()} hair`; }
   _renderCard() {
     renderCharacterPortrait(this.$('#charMini'), this.look);
     this.$('#charCardName').textContent = RelayProtocol.cleanName(this.$('#lobbyName').value) || 'Unnamed';
@@ -83,6 +83,7 @@ class LobbyUI {
     const refresh = () => {
       const l = T.look;
       T.root.querySelectorAll('#bodySeg button').forEach((b, i) => b.classList.toggle('on', i === l[0]));
+      T.root.querySelectorAll('#hairChips button').forEach((b, i) => { b.textContent = P.hairStyleNames[l[0] === 1 ? 'princess' : 'prince'][i]; });          // each body has its own hair styles
       for (const [id, idx] of [['hairChips', 1], ['hairColors', 2], ['skinColors', 3], ['outfitColors', 4], ['trimColors', 5]]) T.root.querySelectorAll('#' + id + ' button').forEach((b, i) => b.classList.toggle('on', i === l[idx]));
     };
     const seg = this.$('#bodySeg'); seg.innerHTML = '';

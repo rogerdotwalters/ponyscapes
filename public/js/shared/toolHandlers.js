@@ -28,7 +28,7 @@ class TreeHarvestHandler {
 
   _harvest(id, key, tree) {
     this.emit({ type: 'fell', key, x: tree.x, y: tree.y, by: id });
-    const p = this.getPlayer(id), bonus = this.rng() < Skills.bonusYieldChance(p.lv, 'woodcutting') + luckChance(p) ? 1 : 0;     // a sharper (or luckier) woodcutter gets more logs
+    const lv = this.getPlayer(id).lv, bonus = this.rng() < Skills.bonusYieldChance(lv, 'woodcutting') ? 1 : 0;     // a sharper woodcutter gets more logs
     const wanted = this.trees.rollLogCount() + bonus;
     const gained = wanted - this.getInventory(id).add(TreeDef.dropItemId, wanted);
     if (gained > 0) {
@@ -61,10 +61,8 @@ class DemolishHandler {
       const tile = this.map.built[tileKey(target.tx, target.ty)] || {};
       if (SIDES.some(s => tile[s])) { this.emit({ type: 'notice', to: id, text: 'Remove the walls on this floor first' }); return; }
     }
-    if (def.stockpile && !Stockpiles.isEmpty(this.map, tileKey(target.tx, target.ty))) { this.emit({ type: 'notice', to: id, text: 'Empty the stockpile first (take its contents out in the Town window)' }); return; }
     if (!inventory.canAdd(def.refundItemId, 1)) { this.emit({ type: 'notice', to: id, text: 'Inventory full' }); return; }
     BuildSystem.remove(this.map, target.tx, target.ty, target.slot);
-    if (target.slot === 'c') { Stockpiles.forget(this.map, target.tx, target.ty); this.markStockChanged(); }   // its level (and empty pile) go with it
     inventory.add(def.refundItemId, 1);
     this.markBuiltChanged(target.slot === 'f' ? 'floors' : 'built'); this.markInventoryChanged(id);
     this.emit({ type: 'demolished', tx: target.tx, ty: target.ty, side: target.slot, by: id });
@@ -192,7 +190,7 @@ class LeashHandler {
     const inventory = this.getInventory(id), a = this.animals.animals[target.ref], p = this.getPlayer(id), def = AnimalDefs[a.type];
     if (!inventory.has('leash', 1)) return;
     const dist = Math.hypot(a.x - p.x, a.y - p.y), mine = a.owner === id;
-    const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv, p.buffs);
+    const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv);
     this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: landed, by: id });
     if (!landed) {
       this.animals.startle(target.ref, p);

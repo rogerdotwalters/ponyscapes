@@ -1,9 +1,5 @@
 'use strict';
-/* CLIENT - draws a player: shadow, facing arrow, body, held axe with swing animation, name tag.
- * The body faces one of four screen directions (SpriteRegistry.dirOf). With images for the body type (editor.html > Characters) those are
- * drawn; otherwise the procedural body below, which already turns (no face when walking away). Worn items with images of their own are
- * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
-const WORN_ORDER = ['back', 'legs', 'feet', 'chest', 'hands', 'belt', 'head', 'shield'];    // overlays are layered in this order
+/* CLIENT - draws a player: shadow, facing arrow, body, held axe with swing animation, name tag. */
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
 const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8 };
 const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
@@ -11,17 +7,18 @@ const SADDLE_HEIGHT = 15;                        // how far above the pony's foo
 class PlayerSprite {
   constructor(g) { this.g = g; this.walkPhase = {}; }
 
-  draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false, opts = {}) {
+  draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false) {
     const mounted = !!p.mount, riding = !!p.boat || mounted;
     if (mounted) { sy -= SADDLE_HEIGHT; rowPhase = now / 140; }                       // up in the saddle, arms swinging with the gait
     if (wading) this._drawRipples(sx, sy, now);
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
-    if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
-    this._drawBody(p, sx, sy, pose, riding, now, opts);
-    if (!riding) this._drawHeldItem(p, sx, pose);
+    if (!riding) { this._drawGroundMarkers(p, sx, sy, pose); this._drawLegs(p, sx, sy, pose); }
+    this._drawTorsoAndHead(p, sx, pose);
+    if (!p.boat) this._drawHeldItem(p, sx, pose);                                  // the rider swings the lasso / spear from the saddle too
     if (wading) { this.g.ellipse(sx, sy - 2, 12, 5.5, 'rgba(110,185,215,.55)'); }     // the water line over the lower legs
     this._drawNameTag(p, isMe, sx, pose);
     this._drawEmote(p, sx, pose);
+    return pose;
   }
 
   /** Expanding rings round the feet while wading. */
@@ -34,35 +31,10 @@ class PlayerSprite {
     }
   }
 
-  /** The body for the pose's direction: your images if the body type has them, else the procedural body. Then worn-item overlays. */
-  _drawBody(p, sx, sy, pose, riding, now, opts) {
-    const L = CharacterLook.describe(p.appearance), body = L.princess ? 'princess' : 'prince', moving = p.state !== 'idle';
-    const drawn = !opts.procedural && SpriteRegistry.drawCharacter(this.g.ctx, body, pose.dir, sx, sy - pose.crouch * 0.5, moving, now);
-    if (drawn) pose.headY = sy - drawn.h + 6;                                           // (the name tag and emote sit above the picture)
-    else if (pose.dir === 'up') this._drawUp(p, sx, sy, pose, riding);
-    else if (pose.dir === 'down') this._drawDown(p, sx, sy, pose, riding);
-    else this._drawSide(p, sx, sy, pose, riding);
-    if (!opts.procedural) this._drawWorn(p, sx, sy, pose, moving, now);
-  }
-  /** The procedural body. It turns with the facing by itself, so all four directions share it; _drawUp / _drawDown are the place
-   *  for dedicated back / front views (BOILERPLATE: they use the same body for now). */
-  _drawSide(p, sx, sy, pose, riding) { if (!riding) this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose); }
-  _drawUp(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
-  _drawDown(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
-
-  /** Worn items that have images: full-body overlays for the facing direction. */
-  _drawWorn(p, sx, sy, pose, moving, now) {
-    const gear = p.gear || {};
-    for (const slot of WORN_ORDER) {
-      const item = gear[slot], picked = item && SpriteRegistry.wornImage(item, pose.dir);
-      if (picked) SpriteRegistry.drawSheet(this.g.ctx, picked, ItemDefs[item].sprites.worn, sx, sy - pose.crouch * 0.5, moving, now);
-    }
-  }
-
   _computePose(p, id, sx, sy, now, riding, rowPhase) {
     const walk = this.walkPhase[id] || (this.walkPhase[id] = { phase: 0, lastX: p.x, lastY: p.y });
-    const moved = Math.hypot(p.x - walk.lastX, p.y - walk.lastY);
-    if (moved < 1) walk.phase += moved * 4.5 / TILE_SCALE;      // stride length stays constant in pixels
+    const dxw = p.x - walk.lastX, dyw = p.y - walk.lastY, moved = Math.hypot(dxw, dyw);
+    if (moved < 1) walk.phase += isoLength(dxw, dyw) * 4.5 / TILE_SCALE;      // stride length stays constant in PIXELS ON SCREEN, whichever way you walk
     walk.lastX = p.x; walk.lastY = p.y;
 
     const moving = p.state !== 'idle', run = p.state === 'run';
@@ -71,10 +43,8 @@ class PlayerSprite {
     const legSwing = riding ? Math.sin(rowPhase) * 5 : moving ? Math.sin(walk.phase) * (run ? 5 : 3.5) : 0;   // arms follow the oars
     const fx = Math.cos(p.facing), fy = Math.sin(p.facing);
     const [px, py] = IsoProjection.worldDeltaToScreen(fx, fy), len = Math.hypot(px, py) || 1;
-    const torsoTop = sy - 33 + crouch - bob, dir = SpriteRegistry.dirOf(p.facing);
-    const gear = Object.assign({}, p.gear || {});                                   // gear with its own worn images is not drawn procedurally
-    for (const slot of WORN_ORDER) if (gear[slot] && SpriteRegistry.wornImage(gear[slot], dir)) gear[slot] = '';
-    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, gear };
+    const torsoTop = sy - 33 + crouch - bob;
+    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy };
   }
 
   _drawGroundMarkers(p, sx, sy, pose) {
@@ -88,119 +58,190 @@ class PlayerSprite {
     ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1; ctx.stroke();
   }
 
+  /** What this character is wearing: the drawn "look" of the item in each wardrobe slot (or null). Nothing else is ever worn. */
+  _wardrobe(p) {
+    const gear = p.gear || {}, look = id => (id && ItemDefs[id] ? ItemDefs[id].look : null);
+    return { crown: look(gear.crown), outfit: look(gear.outfit), cape: look(gear.cape) };
+  }
+  /** The outfit's style and colours: its own, or the ones chosen on the character screen (a null colour means "yours"). */
+  _palette(L, outfit) { return { style: outfit ? outfit.style : 'plain', col: (outfit && outfit.color) || L.outfit, trim: (outfit && outfit.trim) || L.trim }; }
+
   _drawLegs(p, sx, sy, pose) {
-    const ctx = this.g.ctx, { crouch, legSwing, gear } = pose, L = CharacterLook.describe(p.appearance);
+    const ctx = this.g.ctx, { crouch, legSwing } = pose, L = CharacterLook.describe(p.appearance);
     const y1 = sy - 13 + crouch * 0.5 - Math.max(0, legSwing) * 0.5, y2 = sy - 13 + crouch * 0.5 - Math.max(0, -legSwing) * 0.5, h = 13 - crouch * 0.5;
-    ctx.fillStyle = gear.legs ? '#8a5a33' : L.princess ? L.skin : '#34343f';
+    ctx.fillStyle = L.princess ? L.skin : '#34343f';
     ctx.fillRect(sx - 6, y1, 5, h); ctx.fillRect(sx + 1, y2, 5, h);
-    if (gear.legs) { ctx.fillStyle = '#6b4727'; ctx.fillRect(sx - 6, y1 + 3, 5, 1.5); ctx.fillRect(sx + 1, y2 + 3, 5, 1.5); }
-    if (L.princess && !gear.feet) { ctx.fillStyle = L.trim; ctx.fillRect(sx - 6.5, y1 + h - 3, 6, 3.4); ctx.fillRect(sx + 0.5, y2 + h - 3, 6, 3.4); }       // slippers
-    if (gear.feet) { ctx.fillStyle = '#5a3a20'; ctx.fillRect(sx - 6.5, y1 + h - 4, 6, 4.5); ctx.fillRect(sx + 0.5, y2 + h - 4, 6, 4.5); }
+    if (L.princess) { ctx.fillStyle = L.trim; ctx.fillRect(sx - 6.5, y1 + h - 3, 6, 3.4); ctx.fillRect(sx + 0.5, y2 + h - 3, 6, 3.4); }       // slippers
   }
 
   _drawTorsoAndHead(p, sx, pose) {
     const g = this.g, ctx = g.ctx, { crouch, legSwing, torsoTop, headY, ux, uy } = pose, L = CharacterLook.describe(p.appearance), away = uy < -0.3;
-    if (!L.princess) g.polygon([sx - 9, torsoTop + 2, sx + 9, torsoTop + 2, sx + 12, torsoTop + 27 - crouch * 0.4, sx - 12, torsoTop + 27 - crouch * 0.4], g.shade(L.trim, 0.82));   // a prince's cape, behind him
+    const W = this._wardrobe(p), O = this._palette(L, W.outfit);
+    if (W.cape && !away) this._cape(sx, pose, W.cape, false);                           // a cape hangs behind you when you face the camera...
     if (!away) this._hairBack(p, sx, pose, L);                                          // long hair, a ponytail or a braid hangs BEHIND you when you face the camera...
-    g.roundRect(sx - 8.5, torsoTop, 17, 22 - crouch * 0.5, 4); ctx.fillStyle = L.outfit; ctx.fill();
+    g.roundRect(sx - 8.5, torsoTop, 17, 22 - crouch * 0.5, 4); ctx.fillStyle = O.col; ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(sx + 2, torsoTop + 2, 6, 18 - crouch * 0.5);
-    ctx.fillStyle = L.princess ? L.trim : '#4a3624'; ctx.fillRect(sx - 8.5, torsoTop + 13 - crouch * 0.3, 17, 3);                          // belt / sash
-    if (!L.princess) { ctx.fillStyle = '#f2c14e'; ctx.fillRect(sx - 2, torsoTop + 12.5 - crouch * 0.3, 4, 4); }                              // buckle
-    else {                                                                              // the skirt: from the waist down to the knees, with a trimmed hem
-      const waist = torsoTop + 15 - crouch * 0.3, hem = pose.sy - 6 + crouch * 0.4;
-      g.polygon([sx - 8.5, waist, sx + 8.5, waist, sx + 13, hem, sx - 13, hem], L.outfit);
-      g.polygon([sx + 1, waist, sx + 8.5, waist, sx + 13, hem, sx + 4, hem], 'rgba(0,0,0,.14)');
-      ctx.fillStyle = L.trim; ctx.fillRect(sx - 13, hem - 2, 26, 2.2);
-      ctx.strokeStyle = 'rgba(0,0,0,.16)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 3, waist + 1); ctx.lineTo(sx - 6, hem - 2); ctx.moveTo(sx + 3, waist + 1); ctx.lineTo(sx + 6, hem - 2); ctx.stroke();
-    }
-    const sleeve = g.shade(L.outfit, 0.8);
-    const gear = pose.gear, glove = gear.hands ? '#6b4727' : L.skin;
-    g.ellipse(sx - 10, torsoTop + 8 - legSwing * 0.4, 3.2, 3.2, glove); g.ellipse(sx + 10, torsoTop + 8 + legSwing * 0.4, 3.2, 3.2, glove);
+    this._outfit(sx, pose, L, O);                                                       // the cut of the dress or garb: sash, skirt, collar, buttons...
+    if (W.cape && away) this._cape(sx, pose, W.cape, true);                             // ...and drapes over your back when you face away
+    const sleeve = g.shade(O.col, 0.8);
+    g.ellipse(sx - 10, torsoTop + 8 - legSwing * 0.4, 3.2, 3.2, L.skin); g.ellipse(sx + 10, torsoTop + 8 + legSwing * 0.4, 3.2, 3.2, L.skin);
     g.ellipse(sx - 8.6, torsoTop + 6 - legSwing * 0.3, 2.2, 3.4, sleeve); g.ellipse(sx + 8.6, torsoTop + 6 + legSwing * 0.3, 2.2, 3.4, sleeve);
-    if (gear.chest) {                                                                   // hide vest over the shirt
-      g.roundRect(sx - 8.5, torsoTop, 17, 18 - crouch * 0.5, 4); ctx.fillStyle = '#9a6b3d'; ctx.fill();
-      ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx, torsoTop + 1); ctx.lineTo(sx, torsoTop + 17); ctx.stroke();
-    }
-    if (gear.belt) {                                                                    // tool belt with a pouch
-      ctx.fillStyle = '#4a3624'; ctx.fillRect(sx - 8.5, torsoTop + 13 - crouch * 0.3, 17, 3.5);
-      ctx.fillStyle = '#d9b45a'; ctx.fillRect(sx - 1.5, torsoTop + 13.5 - crouch * 0.3, 3, 2.5);
-      g.roundRect(sx + 3, torsoTop + 15 - crouch * 0.3, 6, 6, 1.5); ctx.fillStyle = '#6b4727'; ctx.fill();
-    }
-    if (gear.back) {                                                                    // scabbard / sling across the back, hilt at the shoulder when a sword is sheathed
-      ctx.strokeStyle = gear.back === 'sling' ? '#8a6a3d' : '#5a3a20'; ctx.lineWidth = gear.back === 'sling' ? 1.6 : 3; ctx.beginPath();
-      ctx.moveTo(sx + 7, torsoTop + 1); ctx.lineTo(sx - 8, torsoTop + 21 - crouch * 0.3); ctx.stroke();
-      if (gear.weapon && !p.drawn) { ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx + 7, torsoTop + 1); ctx.lineTo(sx + 10, torsoTop - 4); ctx.stroke(); ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sx + 5.5, torsoTop + 2); ctx.lineTo(sx + 9, torsoTop - 1); ctx.stroke(); }
-    }
+    if (W.cape && !away) this._capeCollar(sx, pose, W.cape);
     if (p.hurtT > 0) { g.roundRect(sx - 8.5, torsoTop, 17, 22 - crouch * 0.5, 4); ctx.fillStyle = `rgba(255,50,50,${Math.min(0.7, p.hurtT * 2).toFixed(2)})`; ctx.fill(); }
 
-    if (away) this._hairBack(p, sx, pose, L);                                           // ...and falls over your back when you face away
+    if (away) this._hairBack(p, sx, pose, L);
     g.ellipse(sx, headY, 6.8, 6.8, L.skin);
-    this._hairFront(p, sx, pose, L, gear);
+    this._hairFront(p, sx, pose, L);
     if (!away) {                                                                        // a face: two eyes, a little blush
       const ex = sx + ux * 3.4, ey = headY + 0.8 + uy * 1.2, spread = 2.1 * (1 - Math.abs(ux) * 0.55);
       ctx.fillStyle = '#2a1c14'; ctx.beginPath(); ctx.ellipse(ex - spread, ey, 1.05, 1.5, 0, 0, Math.PI * 2); ctx.ellipse(ex + spread, ey, 1.05, 1.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,120,120,.28)'; ctx.beginPath(); ctx.ellipse(ex - spread - 1.2, ey + 2.4, 1.5, 0.9, 0, 0, Math.PI * 2); ctx.ellipse(ex + spread + 1.2, ey + 2.4, 1.5, 0.9, 0, 0, Math.PI * 2); ctx.fill();
     }
-    if (!gear.head) this._crown(sx, headY, L);
-    if (gear.shield) {                                                                // a round wooden shield on the arm
-      const shx = sx + (ux >= 0 ? -12 : 12), shy = torsoTop + 11;
-      g.ellipse(shx, shy, 7, 7.5, '#a97a45'); g.ellipse(shx, shy, 7, 7.5, 'rgba(0,0,0,0)');
-      ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.ellipse(shx, shy, 7, 7.5, 0, 0, Math.PI * 2); ctx.stroke();
-      g.ellipse(shx, shy, 2.4, 2.6, '#c9ced6');
+    if (W.crown) this._crown(sx, headY, L, W.crown);
+  }
+
+  /** The cut of the outfit: the belt or sash, and the skirt (a dress) or the tunic's hem (prince garb), per style. */
+  _outfit(sx, pose, L, O) {
+    const g = this.g, ctx = g.ctx, { crouch, torsoTop } = pose, style = O.style, col = O.col, trim = O.trim, waist = torsoTop + 15 - crouch * 0.3, fold = 'rgba(0,0,0,.16)';
+    const belt = (color, buckle) => { ctx.fillStyle = color; ctx.fillRect(sx - 8.5, torsoTop + 13 - crouch * 0.3, 17, 3); if (buckle) { ctx.fillStyle = '#f2c14e'; ctx.fillRect(sx - 2, torsoTop + 12.5 - crouch * 0.3, 4, 4); } };
+    const skirt = (hem, hemHalf, color) => { g.polygon([sx - 8.5, waist, sx + 8.5, waist, sx + hemHalf, hem, sx - hemHalf, hem], color); g.polygon([sx + 1, waist, sx + 8.5, waist, sx + hemHalf, hem, sx + 4, hem], 'rgba(0,0,0,.14)'); };
+    const folds = (hem, spread) => { ctx.strokeStyle = fold; ctx.lineWidth = 1; ctx.beginPath(); for (const d of [-1, 1]) { ctx.moveTo(sx + d * 3, waist + 1); ctx.lineTo(sx + d * spread, hem - 2); } ctx.stroke(); };
+    const scales = (y0, y1, x0, x1) => { ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 0.9; for (let r = 0, y = y0; y < y1; r++, y += 4) for (let x = x0 + (r % 2) * 2.2; x < x1; x += 4.4) { ctx.beginPath(); ctx.arc(x, y, 2.1, 0, Math.PI); ctx.stroke(); } };
+    if (L.princess) {
+      const hemBase = pose.sy - 6 + crouch * 0.4;
+      if (style === 'sundress') {                                                        // light and short, a ruffle at the hem and a bow at the chest
+        const hem = pose.sy - 8 + crouch * 0.4; ctx.fillStyle = trim; ctx.fillRect(sx - 8.5, torsoTop + 13 - crouch * 0.3, 17, 2);
+        skirt(hem, 11.5, col); folds(hem, 5); for (let i = -2; i <= 2; i++) g.ellipse(sx + i * 4.6, hem - 0.5, 2.6, 2, trim);
+        g.ellipse(sx - 2, torsoTop + 3, 2.4, 1.8, trim); g.ellipse(sx + 2, torsoTop + 3, 2.4, 1.8, trim); g.ellipse(sx, torsoTop + 3, 1, 1, g.shade(trim, 0.7));
+      } else if (style === 'ball' || style === 'scaled') {                               // a wide gown to the floor, layered, with a trimmed hem
+        const hem = pose.sy - 2 + crouch * 0.4;
+        ctx.fillStyle = trim; ctx.fillRect(sx - 8.5, torsoTop + 13 - crouch * 0.3, 17, 3);
+        skirt(hem, 17, col); folds(hem, 8);
+        ctx.fillStyle = g.shade(col, 1.18); ctx.beginPath(); ctx.moveTo(sx - 12.5, waist + 9); ctx.quadraticCurveTo(sx, waist + 13, sx + 12.5, waist + 9); ctx.lineTo(sx + 13.4, waist + 11); ctx.quadraticCurveTo(sx, waist + 15.5, sx - 13.4, waist + 11); ctx.closePath(); ctx.fill();   // a flounce
+        ctx.fillStyle = trim; ctx.fillRect(sx - 17, hem - 2.6, 34, 2.8);
+        ctx.fillStyle = trim; ctx.fillRect(sx - 4.5, torsoTop + 0.5, 9, 1.8);            // the neckline
+        if (style === 'scaled') scales(waist + 3, hem - 3, sx - 14, sx + 14);
+        else for (let i = 0; i < 9; i++) { ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(sx - 13 + (i * 7) % 26, waist + 4 + ((i * 5) % 9), 1.6, 1.6); }     // sparkles
+      } else {                                                                           // plain: a sash and a simple skirt
+        ctx.fillStyle = trim; ctx.fillRect(sx - 8.5, torsoTop + 13 - crouch * 0.3, 17, 3);
+        skirt(hemBase, 13, col); ctx.fillStyle = trim; ctx.fillRect(sx - 13, hemBase - 2, 26, 2.2); folds(hemBase, 6);
+      }
+      return;
+    }
+    const knee = torsoTop + 27 - crouch * 0.4;                                           // ---- prince garb
+    if (style === 'tunic') {                                                              // a long tunic to the knees, gold at the collar and hem
+      g.polygon([sx - 8.5, waist - 1, sx + 8.5, waist - 1, sx + 10.5, knee, sx - 10.5, knee], col); g.polygon([sx + 1, waist, sx + 8.5, waist, sx + 10.5, knee, sx + 4, knee], 'rgba(0,0,0,.14)');
+      ctx.fillStyle = trim; ctx.fillRect(sx - 10.5, knee - 2.2, 21, 2.2); g.polygon([sx - 4.6, torsoTop, sx, torsoTop + 5.4, sx + 4.6, torsoTop], trim);
+      belt('#4a3624', true);
+    } else if (style === 'doublet') {                                                     // a fitted jacket: epaulettes, buttons, a flared skirt
+      g.polygon([sx - 8.5, waist - 1, sx + 8.5, waist - 1, sx + 11, torsoTop + 24 - crouch * 0.4, sx - 11, torsoTop + 24 - crouch * 0.4], col);
+      g.ellipse(sx - 8.6, torsoTop + 2.4, 3.6, 2.4, trim); g.ellipse(sx + 8.6, torsoTop + 2.4, 3.6, 2.4, trim);
+      ctx.fillStyle = trim; for (const y of [3.5, 7.5, 11.5]) ctx.fillRect(sx - 1, torsoTop + y, 2.2, 2.2);
+      ctx.fillStyle = trim; ctx.fillRect(sx - 11, torsoTop + 22.5 - crouch * 0.4, 22, 1.8); belt(g.shade(col, 0.6), false);
+    } else if (style === 'hunter') {                                                      // laced leather, a strap across the chest, a short skirt
+      g.polygon([sx - 8.5, waist - 1, sx + 8.5, waist - 1, sx + 10, torsoTop + 22 - crouch * 0.4, sx - 10, torsoTop + 22 - crouch * 0.4], g.shade(col, 0.92));
+      ctx.strokeStyle = trim; ctx.lineWidth = 1.3; ctx.beginPath(); for (let i = 0; i < 4; i++) { const y = torsoTop + 2 + i * 3; ctx.moveTo(sx - 3, y); ctx.lineTo(sx + 3, y + 3); ctx.moveTo(sx + 3, y); ctx.lineTo(sx - 3, y + 3); } ctx.stroke();
+      ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(sx - 8, torsoTop + 1); ctx.lineTo(sx + 8, torsoTop + 17); ctx.stroke(); belt('#3a2a1a', true);
+    } else {                                                                             // plain clothes: a belt with a buckle
+      belt('#4a3624', true);
     }
   }
 
-  /** Hair that hangs behind the shoulders: long, ponytail, braid. */
+  /** A cape: behind the body when you face the camera, over the back when you face away. */
+  _cape(sx, pose, look, front) {
+    const g = this.g, ctx = g.ctx, { torsoTop, crouch } = pose, col = look.color, trim = look.trim, hemY = torsoTop + 28 - crouch * 0.4, top = torsoTop + (front ? 1 : 2), half = front ? 9.5 : 9;
+    g.polygon([sx - half, top, sx + half, top, sx + 13, hemY, sx - 13, hemY], front ? col : g.shade(col, 0.78));
+    if (front) g.polygon([sx + 1, top, sx + half, top, sx + 13, hemY, sx + 4, hemY], 'rgba(0,0,0,.2)');
+    ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 3, top + 2); ctx.lineTo(sx - 5.5, hemY - 1); ctx.moveTo(sx + 3, top + 2); ctx.lineTo(sx + 5.5, hemY - 1); ctx.stroke();
+    if (look.style === 'royal') { ctx.fillStyle = trim; ctx.fillRect(sx - 13, hemY - 3, 26, 3); }
+    else if (look.style === 'fur') for (let i = 0; i < 6; i++) { g.ellipse(sx - 11 + i * 4.4, hemY - 0.5, 2.8, 2.4, trim); }
+    else if (look.style === 'scaled') { ctx.strokeStyle = 'rgba(255,255,255,.32)'; ctx.lineWidth = 0.9; for (let r = 0, y = top + 4; y < hemY - 1; r++, y += 4) for (let x = sx - 10 + (r % 2) * 2.2; x < sx + 11; x += 4.4) { ctx.beginPath(); ctx.arc(x, y, 2.1, 0, Math.PI); ctx.stroke(); } }
+    else if (look.style === 'star') for (const [dx, dy] of [[-6, 6], [3, 9], [-2, 15], [7, 19], [-8, 21]]) { ctx.fillStyle = trim; ctx.fillRect(sx + dx - 1, top + dy - 1, 2.2, 2.2); }
+    else { ctx.fillStyle = trim; ctx.fillRect(sx - 13, hemY - 2, 26, 2); }
+    if (front) { ctx.fillStyle = '#f2c14e'; ctx.fillRect(sx - 4, torsoTop + 1, 8, 2); g.ellipse(sx, torsoTop + 2, 2.2, 2.2, '#f2c14e'); }      // a gold clasp at the neck
+  }
+  /** What shows of a cape from the front: its collar across the shoulders and the clasp. */
+  _capeCollar(sx, pose, look) {
+    const g = this.g, ctx = g.ctx, { torsoTop } = pose;
+    if (look.style === 'royal' || look.style === 'fur') { for (let i = -2; i <= 2; i++) g.ellipse(sx + i * 3.6, torsoTop + 1.4, 2.8, 2.6, look.trim); }
+    else { ctx.fillStyle = g.shade(look.color, 0.8); ctx.fillRect(sx - 8.5, torsoTop, 17, 2); }
+    g.ellipse(sx, torsoTop + 2, 1.9, 1.9, '#f2c14e');
+  }
+
+  /** Hair that hangs behind the head and shoulders. */
   _hairBack(p, sx, pose, L) {
-    const g = this.g, ctx = g.ctx, { headY, torsoTop, ux } = pose, style = L.hairStyle, dark = g.shade(L.hair, 0.82), behind = -(Math.abs(ux) < 0.25 ? 0 : Math.sign(ux));
-    if (style === 1) {                                                                  // long: a curtain of hair down the back
-      g.polygon([sx - 8, headY - 1, sx + 8, headY - 1, sx + 9.5, torsoTop + 17, sx - 9.5, torsoTop + 17], dark);
-      ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 3, headY + 3); ctx.lineTo(sx - 4.5, torsoTop + 15); ctx.moveTo(sx + 3, headY + 3); ctx.lineTo(sx + 4.5, torsoTop + 15); ctx.stroke();
-    } else if (style === 2) {                                                           // ponytail: swings out from the back of the head
-      const tx = sx + behind * 7.5; g.ellipse(tx, headY - 1, 3.2, 3.2, L.hair); g.ellipse(tx + behind * 1.5, headY + 4, 3, 4.6, L.hair); g.ellipse(tx + behind * 2.2, headY + 10, 2.3, 4.4, dark);
-      g.ellipse(tx, headY - 1, 1.4, 1.4, L.trim);
-    } else if (style === 3) {                                                           // braid: linked segments over the shoulder
+    const g = this.g, ctx = g.ctx, { headY, torsoTop, ux } = pose, kind = L.hairKind, dark = g.shade(L.hair, 0.82), behind = -(Math.abs(ux) < 0.25 ? 0 : Math.sign(ux));
+    if (kind === 'long' || kind === 'medium') {                                          // a curtain down the back: to the waist (long) or just to the shoulders (shoulder-length)
+      const hem = kind === 'long' ? torsoTop + 17 : torsoTop + 5, half = kind === 'long' ? 9.5 : 8.6;
+      g.polygon([sx - 8, headY - 1, sx + 8, headY - 1, sx + half, hem, sx - half, hem], dark);
+      ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 3, headY + 3); ctx.lineTo(sx - 4.5, hem - 2); ctx.moveTo(sx + 3, headY + 3); ctx.lineTo(sx + 4.5, hem - 2); ctx.stroke();
+    } else if (kind === 'ponytail' || kind === 'tied') {                                  // swings out from the back of the head (facing the camera it shows at the side)
+      const side = behind || 1, tx = sx + side * 7.5, small = kind === 'tied' ? 0.72 : 1, low = kind === 'tied' ? 5 : 0;
+      g.ellipse(tx, headY - 2 + low, 3.4 * small, 3.4 * small, L.hair); g.ellipse(tx + side * 2, headY + 3 + low, 3.2 * small, 5 * small, L.hair); g.ellipse(tx + side * 3, headY + 10 * small + low, 2.4 * small, 4.6 * small, dark);
+      g.ellipse(tx, headY - 2 + low, 1.5, 1.5, kind === 'tied' ? '#3a2a1a' : L.trim);
+    } else if (kind === 'braid') {                                                        // linked segments over the shoulder
       const bx = sx + behind * 5.5 + (behind === 0 ? 5 : 0);
       for (let i = 0; i < 6; i++) g.ellipse(bx + (i % 2 ? 0.9 : -0.9), headY + 5 + i * 3.6, 2.5, 2.2, i % 2 ? L.hair : dark);
       g.ellipse(bx, headY + 5 + 6 * 3.6, 1.8, 1.8, L.trim);
     }
   }
 
-  /** Hair on the head itself: the cap, and what makes each style: tufts, curls, a bun. A hide cap (worn gear) replaces the cap but not the long hair. */
-  _hairFront(p, sx, pose, L, gear) {
-    const g = this.g, ctx = g.ctx, { headY, uy, ux } = pose, style = L.hairStyle, away = uy < -0.3, color = gear.head ? '#8a5a33' : L.hair;
-    if (style === 4 && !gear.head) for (let i = 0; i < 7; i++) { const a = (-175 + i * 28) * Math.PI / 180; g.ellipse(sx + Math.cos(a) * 7.2, headY - 0.5 + Math.sin(a) * 6.6, 3.6, 3.6, i % 2 ? L.hair : g.shade(L.hair, 0.88)); }    // curls
-    if (away) { g.ellipse(sx, headY, 7.2, 7.2, color); }                                // the back of the head is all hair
+  /** Hair on the head itself: the cap, and what makes each style different. */
+  _hairFront(p, sx, pose, L) {
+    const g = this.g, ctx = g.ctx, { headY, uy, ux, torsoTop } = pose, kind = L.hairKind, away = uy < -0.3, color = L.hair, light = g.shade(L.hair, 1.12), dark = g.shade(L.hair, 0.82);
+    if (kind === 'curly') for (let i = 0; i < 7; i++) { const a = (-175 + i * 28) * Math.PI / 180; g.ellipse(sx + Math.cos(a) * 7.2, headY - 0.5 + Math.sin(a) * 6.6, 3.6, 3.6, i % 2 ? L.hair : dark); }
+    if (kind === 'spiky') for (const [dx, h] of [[-6, 6], [-3, 9], [0, 11], [3, 9], [6, 6]]) g.polygon([sx + dx - 2.4, headY - 4.4, sx + dx * 1.15, headY - 4.4 - h, sx + dx + 2.4, headY - 4.4], dx % 2 ? light : L.hair);   // spikes standing up from the crown
+    if (away) { g.ellipse(sx, headY, 7.2, 7.2, color); }                                  // the back of the head is all hair
     else { ctx.beginPath(); ctx.arc(sx, headY - 0.5, 7.2, Math.PI, 0); ctx.closePath(); ctx.fillStyle = color; ctx.fill(); }
-    if (gear.head) { ctx.fillStyle = '#6b4727'; ctx.fillRect(sx - 7.2, headY - 1.5, 14.4, 2); return; }
-    if (!away) { g.ellipse(sx - 6.8, headY + 1.5, 1.7, 3, color); g.ellipse(sx + 6.8, headY + 1.5, 1.7, 3, color); }          // side locks
-    if (style === 5) { g.ellipse(sx - ux * 0.8, headY - 9.5, 3.9, 3.5, L.hair); g.ellipse(sx - ux * 0.8, headY - 9.5, 1.5, 1.4, L.trim); }   // bun
-    if (style === 0 && !away) { g.ellipse(sx - 5.5, headY - 2.6, 2.4, 2, L.hair); g.ellipse(sx + 5.5, headY - 2.6, 2.4, 2, L.hair); }       // short, tousled
+    if (!away) { g.ellipse(sx - 6.8, headY + 1.5, 1.7, 3, color); g.ellipse(sx + 6.8, headY + 1.5, 1.7, 3, color); }          // sideburns
+    if (!away && kind === 'short') { g.ellipse(sx - 1, headY - 5.4, 6, 2.6, light); g.ellipse(sx + 4.2, headY - 3.2, 2.4, 3, L.hair); g.ellipse(sx - 5.5, headY - 2.6, 2.4, 2, L.hair); g.ellipse(sx + 5.5, headY - 2.6, 2.4, 2, L.hair); }   // neat, with a side parting
+    if (!away && kind === 'swept') {                                                      // a swept-back quiff: volume on top, combed to one side
+      g.ellipse(sx + 1, headY - 8.2, 7.8, 3.6, light); g.ellipse(sx + 6, headY - 6, 4, 3.2, L.hair);
+      ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 5, headY - 8); ctx.quadraticCurveTo(sx, headY - 11, sx + 6, headY - 8); ctx.stroke();
+    }
+    if (!away && kind === 'tied') { g.ellipse(sx - 1, headY - 5, 6.4, 2.4, light); }     // scraped back from the forehead
+    if (!away && kind === 'medium') {                                                     // falls over the ears and down to the collar on both sides
+      for (const side of [-1, 1]) g.polygon([sx + side * 6, headY - 1, sx + side * 8.6, headY + 1, sx + side * 8.4, headY + 9, sx + side * 5.6, headY + 8], dark);
+      g.ellipse(sx - 2, headY - 5.4, 5, 2.2, light);
+    }
+    if (!away && kind === 'bob') {                                                        // chin-length, rounded under
+      for (const side of [-1, 1]) { g.ellipse(sx + side * 7, headY + 3.4, 3, 5.4, dark); g.ellipse(sx + side * 6.6, headY + 7, 2.6, 2, L.hair); }
+      g.ellipse(sx, headY - 5.2, 7, 2.6, light);
+    }
+    if (!away && kind === 'long') for (const side of [-1, 1]) g.polygon([sx + side * 6, headY + 1, sx + side * 9.8, headY + 3, sx + side * 10.4, torsoTop + 17, sx + side * 6.4, torsoTop + 17], dark);   // falls over both shoulders
+    if (!away && kind === 'braid') { const bx = sx - 8.5; for (let i = 0; i < 6; i++) g.ellipse(bx + (i % 2 ? 0.8 : -0.8), headY + 5 + i * 3.4, 2.5, 2.2, i % 2 ? L.hair : dark); g.ellipse(bx, headY + 5 + 6 * 3.4, 1.8, 1.8, L.trim); }
+    if (kind === 'bun') { const bx = sx + (Math.abs(ux) < 0.25 ? -7.6 : -Math.sign(ux) * 7.2), by = headY - 5.6; g.ellipse(bx, by, 4.6, 4.2, L.hair); g.ellipse(bx, by, 2, 1.8, g.shade(L.hair, 0.8)); g.ellipse(bx + 1, by - 3, 1.6, 1.4, L.trim); }
   }
 
-  /** A prince's crown / a princess's tiara (not worn with a cap). */
-  _crown(sx, headY, L) {
-    const g = this.g, ctx = g.ctx, gold = '#f2c14e', dark = '#c99722';
-    if (!L.princess) {
+  /** A crown, tiara, circlet or spiked crown, in the item's colour and gem. The "royal" style suits the body: a prince's crown or a princess's tiara. */
+  _crown(sx, headY, L, look) {
+    const g = this.g, ctx = g.ctx, gold = look.color, dark = g.shade(gold, 0.78), style = look.style === 'royal' ? (L.princess ? 'tiara' : 'crown') : look.style;
+    if (style === 'crown') {
       ctx.fillStyle = gold; ctx.fillRect(sx - 5.2, headY - 8.6, 10.4, 2.4);
       for (const dx of [-4.2, 0, 4.2]) g.polygon([sx + dx - 1.7, headY - 8.6, sx + dx, headY - (dx === 0 ? 13.4 : 12), sx + dx + 1.7, headY - 8.6], gold);
-      ctx.fillStyle = dark; ctx.fillRect(sx - 5.2, headY - 6.7, 10.4, 0.8); g.ellipse(sx, headY - 7.4, 1.1, 1.1, L.outfit);
-    } else {
+      ctx.fillStyle = dark; ctx.fillRect(sx - 5.2, headY - 6.7, 10.4, 0.8); g.ellipse(sx, headY - 7.4, 1.1, 1.1, look.gem || L.outfit);
+    } else if (style === 'tiara') {
       ctx.strokeStyle = gold; ctx.lineWidth = 1.7; ctx.beginPath(); ctx.arc(sx, headY - 0.5, 7.7, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
       for (const dx of [-3.6, 3.6]) g.polygon([sx + dx - 1, headY - 7.4, sx + dx, headY - 10.2, sx + dx + 1, headY - 7.4], gold);
-      g.polygon([sx - 1.6, headY - 7.9, sx, headY - 12, sx + 1.6, headY - 7.9], gold); g.ellipse(sx, headY - 8.9, 1.6, 1.8, L.trim);
+      g.polygon([sx - 1.6, headY - 7.9, sx, headY - 12, sx + 1.6, headY - 7.9], gold); g.ellipse(sx, headY - 8.9, 1.6, 1.8, look.gem || L.trim);
+    } else if (style === 'circlet') {                                                     // a thin band with small curved points
+      ctx.strokeStyle = gold; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(sx, headY - 0.5, 7.5, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      for (const dx of [-5.5, -2, 2, 5.5]) g.polygon([sx + dx - 0.9, headY - 6.8, sx + dx * 1.2, headY - 10, sx + dx + 0.9, headY - 6.8], gold);
+    } else {                                                                              // spiked: a tall, jagged crown
+      ctx.fillStyle = gold; ctx.fillRect(sx - 5.6, headY - 8, 11.2, 2.4);
+      for (const [dx, h] of [[-5, 6], [-2.5, 9], [0, 11.5], [2.5, 9], [5, 6]]) g.polygon([sx + dx - 1.4, headY - 8, sx + dx, headY - 8 - h, sx + dx + 1.4, headY - 8], gold);
+      ctx.fillStyle = dark; ctx.fillRect(sx - 5.6, headY - 6.2, 11.2, 0.8); if (look.gem) g.ellipse(sx, headY - 7, 1.3, 1.3, look.gem);
     }
   }
 
   /** Just the body, for the character screen's preview. */
-  drawPortrait(p, sx, sy, now, opts = {}) {
+  drawPortrait(p, sx, sy, now) {
     const pose = this._computePose(p, 'portrait', sx, sy, now, false, 0);
-    this._drawBody(p, sx, sy, pose, false, now, opts);
+    this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose);
   }
 
   /* ---- held item (axe) ---- */
   _drawHeldItem(p, sx, pose) {
-    if (this._drawHeldImage(p, sx, pose)) return;
     if (p.held === 'torch') { this._drawTorch(sx, pose); return; }
     const tool = ItemDB.getTool(p.held);
     if (!tool) return;
@@ -226,18 +267,6 @@ class PlayerSprite {
       else this._drawAxeHead(tipX, tipY, dirX, dirY, perpX, perpY);
     }
     ctx.lineCap = 'butt';
-  }
-
-  /** An item with a `held` image: grip at the image's bottom centre, turned to point where the tool points (and swinging with it). */
-  _drawHeldImage(p, sx, pose) {
-    const img = p.held && SpriteRegistry.itemImage(p.held, 'held');
-    if (!img) return false;
-    const ctx = this.g.ctx, { ux, uy, torsoTop } = pose, tool = ItemDB.getTool(p.held), side = ux >= 0 ? 1 : -1;
-    const angle = Math.atan2(uy, ux) + (tool ? this._axeOffset(p, tool) : SWING_CARRY_ANGLE) * side;
-    const h = (tool ? TOOL_LENGTH[tool.kind] || 17 : 14) + 10, w = h * img.naturalWidth / img.naturalHeight;
-    ctx.save(); ctx.translate(sx + ux * 7, torsoTop + 12 + uy * 3); ctx.rotate(angle + Math.PI / 2);
-    ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore();
-    return true;
   }
 
   _drawSwordBlade(hx, hy, tx, ty, dx, dy, px, py, item) {
@@ -320,12 +349,12 @@ class PlayerSprite {
 }
 
 /** Draws a character into a canvas (the lobby's preview). `facing` turns them: pi/4 faces the camera. */
-function renderCharacterPortrait(canvas, appearance, facing = Math.PI / 4, now = 0, opts = {}) {
+function renderCharacterPortrait(canvas, appearance, facing = Math.PI / 4, now = 0, gear = { crown: 'crown_simple' }) {
   const ctx = canvas.getContext('2d'), sprite = new PlayerSprite(new Gfx(ctx));
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
   const scale = canvas.height / 66;
   ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height - 9 * scale);
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2); ctx.fill();
-  sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear: opts.gear || {}, held: '', swingT: 0, hurtT: 0, drawn: false }, 0, 0, now, opts);
+  sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear, held: '', swingT: 0, hurtT: 0 }, 0, 0, now);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

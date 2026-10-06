@@ -22,10 +22,7 @@ const StructureDefs = Object.freeze({
   crafting_table: defineStructure('station', { name: 'Crafting Table', refundItemId: 'crafting_table' }),
   clay_furnace:   defineStructure('station', { name: 'Clay Furnace', refundItemId: 'clay_furnace' }),
   stable:         defineStructure('station', { name: 'Stable', refundItemId: 'stable' }),                                          // a roofed stall: a wild pony you lead here will take apples and settle
-  campfire:       defineStructure('station', { name: 'Campfire', refundItemId: 'campfire', light: true }),
-  stockpile_wood:  defineStructure('station', { name: 'Wood Stockpile', refundItemId: 'stockpile_wood', stockpile: 'wood' }),      // town storage: see stockpiles.js
-  stockpile_stone: defineStructure('station', { name: 'Stone Stockpile', refundItemId: 'stockpile_stone', stockpile: 'stone' }),
-  stockpile_clay:  defineStructure('station', { name: 'Clay Stockpile', refundItemId: 'stockpile_clay', stockpile: 'clay' })
+  campfire:       defineStructure('station', { name: 'Campfire', refundItemId: 'campfire', light: true })
 });
 
 const WALL_THICKNESS = 0.2;                                // fraction of a tile
@@ -214,16 +211,6 @@ const BuildSystem = {
       }
     }
     return best;
-  },
-
-  /** Every station within `range` of the player: [{ type, tx, ty, dist }]. */
-  stationTilesNear(map, p, range = STATION_RANGE) {
-    const found = [], span = Math.ceil(range) + 1, px = Math.floor(p.x), py = Math.floor(p.y);
-    for (let ty = py - span; ty <= py + span; ty++) for (let tx = px - span; tx <= px + span; tx++) {
-      const tile = map.built[tileKey(tx, ty)], dist = Math.hypot(tx + 0.5 - p.x, ty + 0.5 - p.y);
-      if (tile && tile.c && dist <= range) found.push({ type: tile.c, tx, ty, dist });
-    }
-    return found.sort((a, b) => a.dist - b.dist);
   },
 
   /** Which stations are within crafting range of the player? (a Set of structure ids) */
