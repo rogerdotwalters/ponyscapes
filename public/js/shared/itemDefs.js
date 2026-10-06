@@ -6,20 +6,52 @@ const makeMeat = (id, name, hunger) => Object.freeze({ id, name, maxStack: 10, k
 const placeableItem = (id, name, maxStack) => Object.freeze({ id, name, maxStack, kind: 'building', placeable: Object.freeze({ structure: id }) });   // what it builds is in StructureDefs
 const makeGear = (id, name, slot, defense, extra = {}) => Object.freeze(Object.assign({ id, name, maxStack: 1, kind: 'gear', equip: Object.freeze({ slot, defense }) }, extra));
 const makeSword = (id, name, damage, swingTime, reach) => Object.freeze({ id, name, maxStack: 1, kind: 'weapon', tool: Object.freeze({ kind: 'sword', damage, reach, swingTime, impactTime: swingTime * 0.5 }) });
-const makeMaterial = (id, name, maxStack) => Object.freeze({ id, name, maxStack, kind: 'material' });
+const makeMaterial = (id, name, maxStack, extra = {}) => Object.freeze(Object.assign({ id, name, maxStack, kind: 'material' }, extra));
 
-const ItemDefs = Object.freeze({
+/** Bulk resources. You carry only a few STACKS of each (Constitution + your ponies decide how many) and deliver the rest to a
+ *  stockpile in town, which crafting tables pull from. An item joins a resource with `resource: 'wood'`. */
+const ResourceTypes = Object.freeze({
+  wood:  Object.freeze({ id: 'wood',  name: 'Wood',  stockpile: 'stockpile_wood' }),
+  stone: Object.freeze({ id: 'stone', name: 'Stone', stockpile: 'stockpile_stone' }),
+  clay:  Object.freeze({ id: 'clay',  name: 'Clay',  stockpile: 'stockpile_clay' })
+});
+const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash']);
+const ItemEquipSlots = Object.freeze(['head', 'chest', 'legs', 'feet', 'hands', 'shield', 'belt', 'back']);
+
+/** Clean up one (possibly hand-edited) item definition. Built-ins keep what they build; new items cannot build structures. */
+function buildItemDef(d, id, isNew) {
+  const out = Object.assign({}, d), num = (v, lo, hi, fallback) => (Number.isFinite(+v) ? clamp(+v, lo, hi) : fallback);
+  delete out.base;
+  out.name = typeof d.name === 'string' && d.name.trim() ? d.name.trim().slice(0, 40) : id;
+  out.maxStack = Math.round(num(d.maxStack, 1, 999, 1));
+  out.rarity = RarityDefs[d.rarity] ? d.rarity : 'common';
+  if (d.resource !== undefined && !ResourceTypes[d.resource]) delete out.resource;
+  if (d.food) out.food = { hunger: num(d.food.hunger, 0, 100, 0), thirst: num(d.food.thirst, 0, 100, 0) };
+  if (d.tool) {
+    if (!ToolKinds.includes(d.tool.kind)) delete out.tool;
+    else {
+      const swingTime = num(d.tool.swingTime, 0.15, 3, 0.5);
+      out.tool = { kind: d.tool.kind, damage: num(d.tool.damage, 0, 999, 1), reach: num(d.tool.reach, 0.5, 8, 1), swingTime, impactTime: num(d.tool.impactTime, 0.05, swingTime, swingTime / 2) };
+    }
+  }
+  if (d.equip) { if (ItemEquipSlots.includes(d.equip.slot)) out.equip = { slot: d.equip.slot, defense: num(d.equip.defense, 0, 99, 0) }; else delete out.equip; }
+  if (isNew) delete out.placeable;
+  out.spawns = Array.isArray(d.spawns) ? d.spawns.filter(s => s && typeof s.biome === 'string' && +s.rate > 0).map(s => ({ biome: s.biome, rate: Math.min(50, +s.rate) })) : [];
+  return out;
+}
+
+const ItemDefs = ContentPack.mergeDefs('items', {
   axe: Object.freeze({
     id: 'axe', name: 'Axe', maxStack: 1,
     tool: Object.freeze({ kind: 'axe', damage: 1, reach: 1.0, swingTime: 0.5, impactTime: 0.25 })
   }),
-  log: Object.freeze({ id: 'log', name: 'Log', maxStack: 20 }),
-  plank: Object.freeze({ id: 'plank', name: 'Plank', maxStack: 40 }),
+  log: Object.freeze({ id: 'log', name: 'Log', maxStack: 20, resource: 'wood' }),
+  plank: Object.freeze({ id: 'plank', name: 'Plank', maxStack: 40, resource: 'wood' }),
   stone_hammer: Object.freeze({
     id: 'stone_hammer', name: 'Stone Hammer', maxStack: 1,
     tool: Object.freeze({ kind: 'hammer', damage: 1, reach: 1.0, swingTime: 0.5, impactTime: 0.25 })   // dismantles buildings; also a crafting tool
   }),
-  stone: makeMaterial('stone', 'Stone', 20),
+  stone: makeMaterial('stone', 'Stone', 20, { resource: 'stone' }),
   knife: Object.freeze({
     id: 'knife', name: 'Knife', maxStack: 1,
     tool: Object.freeze({ kind: 'knife', damage: 2, reach: 1.0, swingTime: 0.4, impactTime: 0.2 })   // hunts animals
@@ -28,7 +60,7 @@ const ItemDefs = Object.freeze({
   jug_water: Object.freeze({ id: 'jug_water', name: 'Jug of Water', maxStack: 5, kind: 'jug', drink: Object.freeze({ thirst: 35, returns: 'jug' }) }),
   hide: makeMaterial('hide', 'Hide', 20),
   wool: makeMaterial('wool', 'Wool', 20),
-  antler: makeMaterial('antler', 'Antler', 10),
+  antler: makeMaterial('antler', 'Antler', 10, { rarity: 'uncommon', spawns: [{ biome: 'forest', rate: 1.5 }, { biome: 'highland', rate: 1 }] }),   // shed antlers lie about in the woods
   rabbit_meat: makeMeat('rabbit_meat', 'Raw Rabbit', 9),
   venison: makeMeat('venison', 'Raw Venison', 16),
   mutton: makeMeat('mutton', 'Raw Mutton', 14),
@@ -46,10 +78,10 @@ const ItemDefs = Object.freeze({
   }),
   message_bottle: Object.freeze({ id: 'message_bottle', name: 'Message in a Bottle', maxStack: 5, kind: 'treasure', use: Object.freeze({ opens: 'treasure_map' }) }),
   treasure_map: Object.freeze({ id: 'treasure_map', name: 'Treasure Map', maxStack: 5, kind: 'treasure', use: Object.freeze({ reveals: true }) }),   // use it up to add a map to your journal
-  gold_coin: makeMaterial('gold_coin', 'Gold Coin', 999),
+  gold_coin: makeMaterial('gold_coin', 'Gold Coin', 999, { rarity: 'rare', spawns: [{ biome: 'beach', rate: 0.6 }, { biome: 'dry', rate: 0.3 }] }),   // the odd coin washed up or dropped long ago
   rope: makeMaterial('rope', 'Rope', 30),
-  clay: makeMaterial('clay', 'Clay', 20),
-  brick: makeMaterial('brick', 'Brick', 40),
+  clay: makeMaterial('clay', 'Clay', 20, { resource: 'clay' }),
+  brick: makeMaterial('brick', 'Brick', 40, { resource: 'stone' }),
   brick_form: Object.freeze({ id: 'brick_form', name: 'Brick Form', maxStack: 1, kind: 'tool-item' }),
   arrow: makeMaterial('arrow', 'Arrow', 30),
   bow: Object.freeze({ id: 'bow', name: 'Bow', maxStack: 1, tool: Object.freeze({ kind: 'bow', damage: 3, reach: 6, swingTime: 0.8, impactTime: 0.55 }) }),
@@ -85,11 +117,23 @@ const ItemDefs = Object.freeze({
   wood_floor: placeableItem('wood_floor', 'Wood Floor', 40),
   crafting_table: placeableItem('crafting_table', 'Crafting Table', 5),
   stable: placeableItem('stable', 'Stable', 3),
-  clay_furnace: placeableItem('clay_furnace', 'Clay Furnace', 5)
-});
+  clay_furnace: placeableItem('clay_furnace', 'Clay Furnace', 5),
+  stockpile_wood: placeableItem('stockpile_wood', 'Wood Stockpile', 3),
+  stockpile_stone: placeableItem('stockpile_stone', 'Stone Stockpile', 3),
+  stockpile_clay: placeableItem('stockpile_clay', 'Clay Stockpile', 3)
+}, buildItemDef);
+
+/** Items lying about in the world, per biome: [[itemId, rate per 1000 open tiles], ...] (from each item's `spawns`). */
+const ItemSpawnTable = (() => {
+  const table = {};
+  for (const def of Object.values(ItemDefs)) for (const s of def.spawns || []) (table[s.biome] = table[s.biome] || []).push([def.id, s.rate]);
+  return Object.freeze(table);
+})();
 
 const ItemDB = {
   get: id => ItemDefs[id] || null,
+  rarity: id => rarityOf(ItemDefs[id] && ItemDefs[id].rarity),
+  resource: id => (ItemDefs[id] && ItemDefs[id].resource) || null,
   maxStack: id => (ItemDefs[id] ? ItemDefs[id].maxStack : 1),
   getTool: id => (ItemDefs[id] && ItemDefs[id].tool) || null,
   getDrink: id => (ItemDefs[id] && ItemDefs[id].drink) || null,

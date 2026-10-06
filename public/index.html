@@ -70,7 +70,7 @@
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place wall (or hold the screen to aim, release to place) &middot; R: rotate &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board / drink &middot; hold E on food or water: consume &middot; X: draw / sheathe sword &middot; G: gear &middot; V: emotes &middot; Shift+1-6: belt bar &middot; crafting needs a table (build one first) &middot; 1-6 / wheel: toolbar &middot; I: bag &middot; Q: craft &middot; P: Pony Book (berries calm ponies, a leash ties them)</div>
+<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place wall (or hold the screen to aim, release to place) &middot; R: rotate &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board / drink &middot; hold E on food or water: consume &middot; X: draw / sheathe sword &middot; G: gear &middot; V: emotes &middot; T: town (stockpiles, upgrades) &middot; B / N: your pony's abilities while riding &middot; Shift+1-6: belt bar &middot; crafting needs a table (build one first) &middot; 1-6 / wheel: toolbar &middot; I: bag &middot; Q: craft &middot; P: Pony Book (berries calm ponies, a leash ties them)</div>
 <div id="portraitHint">Rotate your phone to landscape for the best view</div>
 
 <div id="toolbar"></div>
@@ -82,6 +82,7 @@
 <div id="hungerBar" class="vital"><div id="hungerFill" class="fill"></div><span id="hungerLabel" class="vlabel">Fed</span></div>
 <div id="thirstBar" class="vital water"><div id="thirstFill" class="fill"></div><span id="thirstLabel" class="vlabel">Hydrated</span></div>
 <div id="clock">&#9728; 09:00</div>
+<div id="abilityBar" hidden></div>
 <div id="inventoryPanel" hidden>
   <header><span>Inventory</span><button id="invClose" tabindex="-1">&#x2715;</button></header>
   <div id="invGrid"></div>
@@ -127,6 +128,10 @@
   <header><span>Pony Book</span><button id="ponyClose" tabindex="-1">&#x2715;</button></header>
   <div id="ponyBody" class="scrollable"></div>
 </div>
+<div id="townPanel" hidden>
+  <header><span>Town</span><button id="townClose" tabindex="-1">&#x2715;</button></header>
+  <div id="townBody" class="scrollable"></div>
+</div>
 <div id="tradePanel" hidden>
   <header><span>Trade</span><button id="tradeClose" tabindex="-1">&#x2715;</button></header>
   <div id="tradeBody" class="scrollable"></div>
@@ -138,6 +143,7 @@
   <button class="pbtn" id="btnRot" tabindex="-1" style="display:none">Rot</button>
   <button class="pbtn" id="btnBoard" tabindex="-1" style="display:none">Board</button>
   <button class="pbtn danger" id="btnRelease" tabindex="-1" style="display:none">Let go</button>
+  <button class="pbtn ability" id="btnAbility" tabindex="-1" style="display:none"></button>
   <button class="pbtn" id="btnRun" tabindex="-1">Run</button>
   <button class="pbtn" id="btnAct" tabindex="-1">Use</button>
 </div>
@@ -151,6 +157,10 @@
 <script src="js/shared/skills.js"></script>
 <script src="js/shared/characterDefs.js"></script>
 <script src="js/shared/noise.js"></script>
+<!-- your content (written by editor.html), merged over the built-in definitions -->
+<script src="js/content/customContent.js"></script>
+<script src="js/shared/contentPack.js"></script>
+<script src="js/shared/rarity.js"></script>
 <script src="js/shared/itemDefs.js"></script>
 <script src="js/shared/recipeDefs.js"></script>
 <script src="js/shared/resourceDefs.js"></script>
@@ -164,6 +174,7 @@
 <script src="js/shared/collision.js"></script>
 <script src="js/shared/boat.js"></script>
 <script src="js/shared/buildSystem.js"></script>
+<script src="js/shared/stockpiles.js"></script>
 <script src="js/shared/pathfinding.js"></script>
 <script src="js/shared/playerMovement.js"></script>
 <script src="js/shared/treeSystem.js"></script>
@@ -207,6 +218,7 @@
 <script src="js/client/render/terrainRenderer.js"></script>
 <script src="js/client/render/structureSprites.js"></script>
 <script src="js/client/render/propSprites.js"></script>
+<script src="js/client/render/spriteRegistry.js"></script>
 <script src="js/client/render/playerSprite.js"></script>
 <script src="js/client/render/boatSprite.js"></script>
 <script src="js/client/render/animalSprite.js"></script>
@@ -225,6 +237,7 @@
 <script src="js/client/ui/gearUI.js"></script>
 <script src="js/client/ui/ponyBookUI.js"></script>
 <script src="js/client/ui/tradeUI.js"></script>
+<script src="js/client/ui/townUI.js"></script>
 <script src="js/client/ui/emoteUI.js"></script>
 <script src="js/client/ui/journalUI.js"></script>
 <script src="js/client/ui/menuUI.js"></script>

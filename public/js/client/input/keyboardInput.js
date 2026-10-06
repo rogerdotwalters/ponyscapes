@@ -45,6 +45,9 @@ class KeyboardInput {
     if (code === 'KeyG') this.bus.emit('toggleGear');
     if (code === 'KeyP') this.bus.emit('togglePonies');
     if (code === 'KeyV') this.bus.emit('toggleEmotes');
+    if (code === 'KeyB') this.bus.emit('ability', 1);              // the ridden pony's first ability (rare ponies and better)
+    if (code === 'KeyN') this.bus.emit('ability', 2);              // ...and its second (legendary)
+    if (code === 'KeyT') this.bus.emit('toggleTown');              // stockpiles and building upgrades
     if (code === 'Escape') this.bus.emit('closePanels');
     const digit = /^Digit([1-9])$/.exec(code);
     if (digit) this.bus.emit('selectSlot', (shift ? CONFIG.sim.inventory.beltStart : 0) + Number(digit[1]) - 1);   // Shift+1..6 = the tool-belt bar

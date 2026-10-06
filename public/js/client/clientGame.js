@@ -28,7 +28,7 @@ class ClientGame {
     this.drawn = false;                                // is the sheathed sword out? (toggled with X / the sword slot)
     this.trade = null;                                 // the server's view of our trade window (null = no trade)
     this.gearKey = '';
-    this.actionWasDown = false; this.interactQueued = false;
+    this.actionWasDown = false; this.interactQueued = false; this.abilityQueued = 0;
     this.streamFrames = 0;
   }
 
@@ -37,12 +37,13 @@ class ClientGame {
     this.map = new World(welcome.mapSeed);                   // same seed as the server -> identical terrain, never sent
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
     this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeAnimals = welcome.animals || {};
-    if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory);
+    if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory, this.local.carryStacks);
     this.isHost = !!welcome.host;
     if (welcome.progress) this.progress = welcome.progress;
     if (welcome.treasure) this.treasureMaps = welcome.treasure;
     if (welcome.built) BuildSystem.replaceAll(this.map, welcome.built);
     if (welcome.floors) BuildSystem.replaceFloors(this.map, welcome.floors);
+    if (welcome.stockpiles) Stockpiles.replaceAll(this.map, welcome.stockpiles);
     applyTreeStates(this.map, welcome.trees || {});
     applyForageStates(this.map, welcome.forage || {});
     this.map.ensureAround(this.local.x, this.local.y, CLIENT_STREAM_RADIUS);
@@ -105,6 +106,23 @@ class ClientGame {
   offerTrade(item, count) { this.net.sendCommand({ type: 'tradeOffer', item, count }); }
   confirmTrade(value) { this.net.sendCommand({ type: 'tradeConfirm', value }); }
   nearbyStations() { return this.local ? BuildSystem.stationsNear(this.map, this.local) : new Set(); }
+  /** The stockpiles the stations you stand at can pull from (a StockSupply). */
+  nearbySupply() { return this.local ? Stockpiles.supplyFor(this.map, this.local) : new StockSupply(this.map, []); }
+
+  /* ---- the town: stockpiles and upgrades (decided by the server) ---- */
+  takeFromStockpile(tx, ty, item, count) { this.net.sendCommand({ type: 'stockTake', tx, ty, item, count }); }
+  upgradeBuilding(tx, ty) { this.net.sendCommand({ type: 'upgrade', tx, ty }); }
+
+  /* ---- pony abilities: B / N, or the ability button (fires the first one that is ready) ---- */
+  requestAbility(index) {
+    const L = this.local;
+    if (!L || !L.mount) { this.events.emit('notice', { to: this.myId, text: 'Ride a pony to use its abilities' }); return; }
+    if (index === 0) { const ready = (L.abilities || []).findIndex((a, i) => !(L.abilityCd[i] > 0)); index = ready >= 0 ? ready : 0; }
+    else index -= 1;
+    this.abilityQueued = index + 1;
+  }
+  /** What the ridden pony can do: [{ ability, cooldown }] (empty when not riding). */
+  abilityState() { const L = this.local; return L && L.mount ? (L.abilities || []).map((id, i) => ({ ability: AbilityDefs[id], cooldown: L.abilityCd[i] || 0 })).filter(a => a.ability) : []; }
 
   /** Host only: change how hunger / thirst work for one player slot ('p2'...). Either mode may be omitted. */
   setVitalModes(target, hungerMode, thirstMode) { this.net.sendCommand({ type: 'setVitals', target, hunger: hungerMode, thirst: thirstMode }); }
@@ -200,8 +218,8 @@ class ClientGame {
   /* ---- fixed tick: predict locally, then send the same input to the server ---- */
   predict(rawInput) {
     if (this.drawn && (!this.gear.weapon || this.riding)) this.drawn = false;               // nothing to hold out
-    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, drawn: this.drawn }));
-    this.interactQueued = false;
+    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, drawn: this.drawn, ability: this.abilityQueued }));
+    this.interactQueued = false; this.abilityQueued = 0;
     this.prevLocal = clonePlayer(this.local);
     this._stepLocal(this.local, this.localBoat, input);
     this._tickCosmeticSwing(input);
@@ -243,7 +261,9 @@ class ClientGame {
     applyForageStates(this.map, snapshot.forage || {});
     if (snapshot.built) { BuildSystem.replaceAll(this.map, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.map, snapshot.floors);
-    if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory); this.events.emit('inventoryChanged'); }
+    if (snapshot.stockpiles) { Stockpiles.replaceAll(this.map, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
+    if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
+    else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }
     if (snapshot.progress) { this.progress = snapshot.progress; this.events.emit('progressChanged'); }
     if (snapshot.treasure) { this.treasureMaps = snapshot.treasure; this.mapIndex = Math.min(this.mapIndex, Math.max(0, this.treasureMaps.length - 1)); this.events.emit('treasureChanged'); }
     if (snapshot.trade) { this.trade = snapshot.trade.state; this.events.emit('tradeChanged'); }

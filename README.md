@@ -56,3 +56,31 @@ src/relay*.js       the room's rules (shared with the browser; copied here by to
 public/             the game (built by tools/build.py; edit relay-config.js here)
 tools/build.py      copies the game source + relay modules into place
 ```
+
+## Your own content (editor.html)
+
+Open `/editor.html` next to the game. It has a slot for every item, creature (ponies and animals) and character body:
+
+* **Items**: name, stack size, rarity, resource type, food / tool / wearable stats, where they lie about (biome + rate per 1000 tiles), and pictures: icon, on the ground, in the hand, built, and worn (up / down / left / right).
+* **Creatures**: stats, lowest rarity, drops, spawns (biome, weight, group size) and four directional pictures (with walk-cycle frames). Ponies can have a picture set per biome variety.
+* **Characters**: the prince and princess bodies, four directions.
+
+Create, edit and delete your own entries; built-in ones can be changed (only the differences are saved) or reset. The draft lives in your browser;
+**Play-test draft** opens the game with it, and **Download customContent.js** gives you the file to put at `public/js/content/customContent.js`
+(pictures go in `public/assets/`, see `public/assets/README.md`). Anything without a picture keeps the game's procedural art.
+Up / down views fall back to the side views until you draw them (`_drawUp` / `_drawDown` in `js/client/render/` are the procedural hooks).
+
+## Rarity, buffs and abilities
+
+Every pony rolls a rarity at birth (`js/shared/rarity.js`): common (basic), uncommon (one buff), rare (a buff and an ability), epic, legendary.
+`Buff { id, name, type: movement | health | luck | friendship | carry, value, range, affectsOthers }` applies while the pony is ridden or
+leashed (affectsOthers buffs also reach other players within `range`). `Ability { trigger, cooldown, effects }` and `Effect { kind, value, radius, duration, shape, target }`
+define Flame Breath, Dash, Night Light and Frost Nova. Abilities fire while riding with **B / N** (or the ability button on touch screens).
+
+## Carrying, stockpiles and upgrades
+
+You carry only as many stacks of wood, stone and clay as your Constitution level, +1 per pony with you (and Pack Pony buffs). Build Wood / Stone / Clay
+Stockpiles at the crafting table, deliver to them with **F**, and manage them in the **Town** window (**T**). Crafting tables pull missing
+ingredients from linked stockpiles and store overflow there; buildings (stockpiles, crafting table, stable) upgrade with resources from nearby stockpiles.
+
+Note: `tools/build.py` rebuilds `public/` from a separate `../realm` source folder and deletes `public/` first. These features live in `public/`.

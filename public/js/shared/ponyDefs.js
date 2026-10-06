@@ -47,17 +47,23 @@ const PonyVariants = Object.freeze([
 const PonyVariantOfBiome = Object.freeze(Object.fromEntries(PonyVariants.map((v, i) => [v.biome, i])));
 
 const PonyLook = {
-  /** A gene number (and the variant of the biome it was born in) -> [coat, mane, mark, name, variant]. */
-  fromGene(gene, variant = 0) {
+  /** A gene number (and the variant of the biome it was born in) -> [coat, mane, mark, name, variant, rarity, traitSeed].
+   *  The rarity (an index into RarityOrder, never below `minRarity`) and the trait seed decide its buffs and abilities (PonyTraits). */
+  fromGene(gene, variant = 0, minRarity = 'common') {
     const rng = mulberry32(gene | 0), V = variant ? PonyVariants[variant] : null, P = PonyPalette;
     const coats = V ? V.coats.length : P.coats.length, manes = V ? V.manes.length : P.manes.length, marks = V ? V.marks.length : P.marks.length, names = V ? V.names.length : P.names.length;
-    return [Math.floor(rng() * coats), Math.floor(rng() * manes), Math.floor(rng() * marks), Math.floor(rng() * names), variant | 0];
+    const look = [Math.floor(rng() * coats), Math.floor(rng() * manes), Math.floor(rng() * marks), Math.floor(rng() * names), variant | 0];
+    look.push(PonyTraits.rollRarity(rng, minRarity), Math.floor(rng() * 65536));
+    return look;
   },
+  /** The same pony at another rarity (the starter pony of the testing version is made rare, so its abilities can be tried at once). */
+  withRarity(look, rarity) { const out = look.slice(); out[5] = Math.max(out[5] | 0, rarityOf(rarity).order); return out; },
   variantOf(biome) { return PonyVariantOfBiome[biome] || 0; },
   /** Indices -> things to draw. */
   describe(look) {
     const P = PonyPalette, l = look || [0, 0, 0, 0, 0], v = l[4] | 0, V = v ? PonyVariants[v] : null;
-    if (!V) return { coat: P.coats[l[0]], mane: P.manes[l[1]], mark: P.marks[l[2]], name: P.names[l[3]], variant: 0, variantName: 'Meadow', accessory: null, glow: null };
-    return { coat: V.coats[l[0]], mane: V.manes[l[1]], mark: V.marks[l[2]], name: V.names[l[3]], variant: v, variantName: V.name, accessory: V.accessory, glow: V.glow };
+    const rarity = RarityDefs[RarityOrder[clamp(l[5] | 0, 0, RarityOrder.length - 1)]];
+    if (!V) return { coat: P.coats[l[0]], mane: P.manes[l[1]], mark: P.marks[l[2]], name: P.names[l[3]], variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: null, glow: null, rarity };
+    return { coat: V.coats[l[0]], mane: V.manes[l[1]], mark: V.marks[l[2]], name: V.names[l[3]], variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory, glow: V.glow, rarity };
   }
 };

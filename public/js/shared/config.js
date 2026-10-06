@@ -21,6 +21,9 @@ const CONFIG = {
     slotColors: ['#e5534b', '#4f9bea', '#62c370', '#e9c24a'],
     inventory: { hotbarSlots: 6, totalSlots: 30, beltStart: 24, beltSlots: 6 },   // slots 24-29 are the TOOL BELT bar (usable only while a belt is worn)
     health: { max: 100, regenPerSecond: 0.35, respawnFraction: 0.5 },
+    /** Bulk resources (see stockpiles.js): stacks of EACH you may carry = base + Constitution level + perPony for every pony with you
+     *  (ridden or leashed, up to maxPonyBonus) + Pack Pony buffs. Everything else is delivered to stockpiles. */
+    carry: { limited: ['wood', 'stone', 'clay'], base: 0, perPony: 1, maxPonyBonus: 3, noticeSeconds: 4 },
     combat: { armorPerPoint: 0.02, shieldReduction: 0.2, maxReduction: 0.75 },   // damage reduction: 2% per armour point + 20% with a shield, capped
     // Animal levels rise with distance from the ORIGIN (the starting village): one level per `tilesPerLevel` tiles, on top of each species' own base level
     levels: { origin: { x: 20.5, y: 26.5 }, tilesPerLevel: 60, max: 99 },     // zones are wide: one level per 60 tiles

@@ -6,7 +6,7 @@
  * (Many functions still call their World parameter `map`; it is a World.) */
 const CHUNK_SHIFT = 4, CHUNK_SIZE = 1 << CHUNK_SHIFT, CHUNK_MASK = CHUNK_SIZE - 1, CHUNK_AREA = CHUNK_SIZE * CHUNK_SIZE;
 /** Does this prop stop movement? Felled trees, berry bushes and loose stones (you walk over them) do not. */
-const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle']);
+const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'loot']);
 const propBlocks = prop => prop.alive !== false && !NON_BLOCKING_PROPS.has(prop.t);
 
 const chunkKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
@@ -22,6 +22,8 @@ class World {
     this.treeStates = {};               // tileKey -> { hp, alive } for damaged / felled trees only
     this.forageStates = {};             // tileKey -> { ripe: false } for picked bushes / stones only
     this.treasureDug = {};              // site tileKey -> true once somebody has unearthed it
+    this.stockpiles = {};               // tileKey -> { items: { itemId: count } }   what the town's stockpiles hold (stockpiles.js)
+    this.buildingLevels = {};           // tileKey -> level, for upgraded buildings (absent = level 1)
     this.onChunkGenerated = null;       // hook: the server spawns boats here
     this.lastChunk = null;
   }
@@ -164,7 +166,11 @@ function addForageable(world, chunk, li, tx, ty) {
       t: 'stone', x: tx + 0.5 + (hash3(T.seed, tx, ty, 17) - 0.5) * 0.5, y: ty + 0.5 + (hash3(T.seed, tx, ty, 18) - 0.5) * 0.5,
       r: 0.12 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 19) * 4), drop: 'stone'
     };
-  } else return;
+  } else {
+    const item = T.lootAt(tx, ty, tile);                       // an item lying about (from the items' biome spawn rates)
+    if (!item) return;
+    prop = { t: 'loot', x: tx + 0.5 + (hash3(T.seed, tx, ty, 72) - 0.5) * 0.4, y: ty + 0.5 + (hash3(T.seed, tx, ty, 73) - 0.5) * 0.4, r: 0.12 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 74) * 4), drop: item };
+  }
   Object.assign(prop, { hp: 0, alive: true, ripe: true });
   addChunkProp(chunk, li, withSavedState(world, tx, ty, prop));
 }

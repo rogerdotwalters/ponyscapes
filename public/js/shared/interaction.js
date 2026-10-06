@@ -32,7 +32,7 @@ function findChest(map, p) {
   return null;
 }
 
-const FORAGE_VERB = { clay: 'Dig', mound: 'Dig up', flax: 'Harvest', apple_tree: 'Pick apples', bottle: 'Grab bottle' };
+const FORAGE_VERB = { clay: 'Dig', mound: 'Dig up', flax: 'Harvest', apple_tree: 'Pick apples', bottle: 'Grab bottle', loot: 'Pick up' };
 
 /** Anything on your rope that you could let go of. It has its OWN button (and key) so it can never be hit by accident while riding or feeding:
  *  { kind: 'release', label: 'Let go' | 'Untie', animal, dist, losesCatch } or null. Letting go of a caught wild pony LOSES it (it bolts), so that one needs confirming. */
@@ -63,6 +63,8 @@ const Interactions = {
     if (forage) primary.push({ kind: 'pick', label: FORAGE_VERB[forageKind(forage.prop)] || 'Pick', dist: forage.dist, forage });
     const chest = findChest(map, p);
     if (chest && !p.looted) primary.push({ kind: 'loot', label: 'Open', dist: chest.dist, chest });
+    const pile = Stockpiles.nearest(map, p);
+    if (pile && map.stockpiles[pile.key]) primary.push({ kind: 'stockpile', label: 'Deliver', dist: pile.dist + 0.3, pile });     // deliver the resource you carry
     const door = BuildSystem.findDoor(map, p);
     if (door) primary.push({ kind: 'door', label: StructureDefs[door.type].verb, dist: door.dist, door });
     const boat = BoatSystem.findBoardable(boats, p);

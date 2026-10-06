@@ -24,6 +24,14 @@ class PonyBookUI {
     if (sig !== this.lastSignature) this.refresh();
   }
 
+  /** Rarity badge, buffs and abilities of a pony. */
+  static traits(look, type) {
+    const t = PonyTraits.of(look, type), r = t.rarity;
+    const buffs = t.buffs.map(b => `<span class="pbuff" title="${b.description}${b.affectsOthers ? ` (and everyone within ${b.range} tiles)` : ''}">${b.name}: ${b.label}${b.affectsOthers ? ' \u25CE' : ''}</span>`);
+    const abilities = t.abilities.map((a, i) => `<span class="pability" style="--c:${a.color}" title="${a.description}${a.passive ? '' : ` (${a.cooldown}s)`}">${a.glyph} ${a.name}${a.passive ? '' : ` <kbd>${i ? 'N' : 'B'}</kbd>`}</span>`);
+    return `<div class="ptraits"><span class="prarity" style="--c:${r.color}">${r.name}</span>${buffs.join('')}${abilities.join('')}${!buffs.length && !abilities.length ? '<span class="pbuff">No special traits</span>' : ''}</div>`;
+  }
+
   static status(pet) {
     if (pet.gentling) {                                                          // a caught wild pony
       const g = pet.gentling, apples = `${g.have}/${g.need} apples`;
@@ -39,15 +47,16 @@ class PonyBookUI {
     this.lastRefresh = performance.now(); this.lastSignature = this._signature();
     const g = this.game, owned = g.pets.filter(p => !p.gentling).length;
     const kinds = g.book.map(k => {
-      const def = AnimalDefs[k.type], color = PONY_KIND_COLORS[k.type];
+      const def = AnimalDefs[k.type], color = PONY_KIND_COLORS[k.type] || rarityOf(def.rarity).color;
       return `<div class="pkind${k.seen ? ' got' : ''}" style="--c:${color}"><b>${k.seen ? '\u2713' : '?'}</b><span>${def.name}</span><i>${k.owned ? '\u00d7' + k.owned : ''}</i></div>`;
     }).join('');
     const order = g.pets.map((pet, i) => i).sort((a, b) => (!!g.pets[b].gentling - !!g.pets[a].gentling) || (!!g.pets[b].leashed - !!g.pets[a].leashed));   // ponies you are gentling first (they need you), then ones on a rope
     const cards = order.map(i => {
       const pet = g.pets[i], def = AnimalDefs[pet.type], name = pet.look ? PonyLook.describe(pet.look).name : def.name;
       const mystical = def.mystical ? '<em>mystical</em>' : '';
+      const traits = pet.look ? PonyBookUI.traits(pet.look, pet.type) : '';
       return `<div class="pcard"><canvas class="portrait" width="92" height="80" data-i="${i}"></canvas>` +
-        `<div class="pinfo"><div class="pname">${name} ${mystical}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${PonyLook.describe(pet.look).variantName} ${def.name}</div><div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
+        `<div class="pinfo"><div class="pname">${name} ${mystical}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}</div>${traits}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
     }).join('');
     const summary = `<div class="gsum">Collected ${g.book.filter(k => k.seen).length} of ${g.book.length} pony kinds &middot; ${owned} animal${owned === 1 ? '' : 's'} kept</div>`;
     const varieties = (g.varieties || []).map(v => {

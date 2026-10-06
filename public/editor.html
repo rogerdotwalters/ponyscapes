@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content Editor</title>
+<link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand"><b>Content Editor</b><span id="status"></span></div>
+  <nav id="tabs">
+    <button data-tab="items">Items</button>
+    <button data-tab="creatures">Creatures</button>
+    <button data-tab="characters">Characters</button>
+  </nav>
+  <div class="actions">
+    <button id="btnPlay" title="Opens the game (solo) using this draft">Play-test draft</button>
+    <button id="btnDownload" class="primary" title="Save this as js/content/customContent.js">Download customContent.js</button>
+    <label class="btn" title="Load a customContent.js (or .json) you saved before">Import&hellip;<input id="importFile" type="file" accept=".js,.json" hidden></label>
+    <button id="btnDiscard" title="Throw the draft away and start again from the content file">Discard draft</button>
+  </div>
+</header>
+<div id="banner" hidden></div>
+<main>
+  <aside id="sidebar">
+    <div class="sidetools"><input id="search" type="search" placeholder="Search" autocomplete="off" spellcheck="false"><button id="btnNew">+ New</button></div>
+    <div id="list"></div>
+  </aside>
+  <section id="detail"><div class="empty">Pick something on the left, or press <b>+ New</b>.</div></section>
+</main>
+<footer>
+  <span>Pictures: </span>
+  <label><input type="radio" name="pickMode" value="path" checked> refer to <code>assets/&hellip;</code> (copy the file into <code>public/assets/</code>)</label>
+  <label><input type="radio" name="pickMode" value="embed"> embed in the content file (no copying, bigger file)</label>
+  <span class="sep">&middot;</span><a href="assets/README.md" target="_blank">Picture sizes &amp; conventions</a>
+</footer>
+<dialog id="newDialog">
+  <form method="dialog">
+    <h3 id="newTitle">New</h3>
+    <label>Id <small>(lower case, letters, digits and _ ; used in recipes and saves, cannot change later)</small><input id="newId" required pattern="[a-z][a-z0-9_]{0,39}" autocomplete="off" spellcheck="false"></label>
+    <label>Name<input id="newName" autocomplete="off"></label>
+    <label>Start from<select id="newTemplate"></select></label>
+    <div id="newError" class="error"></div>
+    <menu><button value="cancel" formnovalidate>Cancel</button><button id="newCreate" value="ok" class="primary">Create</button></menu>
+  </form>
+</dialog>
+
+<!-- the game's own definitions and artwork (for the built-in values and previews) -->
+<script src="js/shared/config.js"></script>
+<script src="js/shared/mathUtils.js"></script>
+<script src="js/shared/time.js"></script>
+<script src="js/shared/tileTypes.js"></script>
+<script src="js/shared/skills.js"></script>
+<script src="js/shared/characterDefs.js"></script>
+<script src="js/content/customContent.js"></script>
+<script src="js/shared/contentPack.js"></script>
+<script src="js/shared/rarity.js"></script>
+<script src="js/shared/itemDefs.js"></script>
+<script src="js/shared/resourceDefs.js"></script>
+<script src="js/shared/ponyDefs.js"></script>
+<script src="js/shared/animalDefs.js"></script>
+<script src="js/shared/animalLevels.js"></script>
+<script src="js/shared/buildSystem.js"></script>
+<script src="js/client/render/isoProjection.js"></script>
+<script src="js/client/render/gfx.js"></script>
+<script src="js/client/render/spriteRegistry.js"></script>
+<script src="js/client/render/animalSprite.js"></script>
+<script src="js/client/render/playerSprite.js"></script>
+<script src="js/client/ui/itemIcons.js"></script>
+<script src="js/editor/editor.js"></script>
+</body>
+</html>

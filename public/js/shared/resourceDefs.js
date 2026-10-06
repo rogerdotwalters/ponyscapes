@@ -16,8 +16,11 @@ const ForageDefs = Object.freeze({
   clay:  Object.freeze({ yieldMin: 2, yieldMax: 3, regrowSeconds: 150 }),     // clay deposits in clay flats
   apple_tree: Object.freeze({ yieldMin: 2, yieldMax: 4, regrowSeconds: 150 }),  // an apple tree is a normal tree you can ALSO pick fruit from
   mound:  Object.freeze({ yieldMin: 1, yieldMax: 1, regrowSeconds: 1500, tool: 'shovel' }),   // a mound of sand with a bottle buried in it: needs a shovel
-  bottle: Object.freeze({ yieldMin: 1, yieldMax: 1, regrowSeconds: 1500 })     // a bottle bobbing in the shallows: wade out and pick it up
+  bottle: Object.freeze({ yieldMin: 1, yieldMax: 1, regrowSeconds: 1500 }),    // a bottle bobbing in the shallows: wade out and pick it up
+  loot:   Object.freeze({ yieldMin: 1, yieldMax: 1, regrowSeconds: 900 })      // an item lying about (an antler, a coin, anything you give `spawns`): another turns up later
 });
+/** At most this much of every tile may hold a lying item (all the items' rates in a biome together). */
+const MAX_LOOT_CHANCE = 0.05;
 /** What kind of forageable is this prop? (an apple tree is a 'tree' that forages as 'apple_tree') */
 const forageKind = prop => prop.forage || prop.t;
 const FORAGE_RANGE = 1.1;                                                     // tiles from the player to the thing

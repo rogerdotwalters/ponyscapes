@@ -29,8 +29,8 @@ function setupFullscreenButton(button) {
 }
 
 function collectLayoutDom(game) {
-  const dom = { isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), beltBar: $('beltBar'), btnEmote: $('btnEmote'), swordSlot: $('swordSlot'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), clock: $('clock') };
-  ['btnMenu', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnRun', 'btnBoard', 'btnRelease', 'btnRot', 'btnSneak'].forEach(id => { dom[id] = $(id); });
+  const dom = { isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), beltBar: $('beltBar'), btnEmote: $('btnEmote'), swordSlot: $('swordSlot'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), clock: $('clock') };
+  ['btnMenu', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnRun', 'btnBoard', 'btnRelease', 'btnRot', 'btnSneak', 'btnAbility'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
 
@@ -57,7 +57,7 @@ function launch(choice, query) {
     const keyboard = new KeyboardInput(bus);
     const touch = new TouchControls(bus, {
       root: $('touchUI'), zone: $('joyZone'), base: $('joyBase'), knob: $('joyKnob'),
-      btnRun: $('btnRun'), btnSneak: $('btnSneak'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease')
+      btnRun: $('btnRun'), btnSneak: $('btnSneak'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility')
     });
     const input = new InputController({ bus, keyboard, touch });
     const layout = new UiLayout({ dom: collectLayoutDom(game), touchControls: touch });
@@ -90,17 +90,19 @@ function launch(choice, query) {
     const confirmUI = new ConfirmUI({ panel: $('confirmPanel'), title: $('confirmTitle'), text: $('confirmText'), keepButton: $('confirmKeep'), goButton: $('confirmGo'), game, requestOpen: () => panels.open('confirm') });
     const menuUI = new MenuUI({ panel: $('menuPanel'), body: $('menuBody'), closeButton: $('menuClose'), game, onPick: section => openSection(section) });
     const ponyUI = new PonyBookUI({ panel: $('ponyPanel'), body: $('ponyBody'), closeButton: $('ponyClose'), game });
+    const townUI = new TownUI({ panel: $('townPanel'), body: $('townBody'), closeButton: $('townClose'), game });
     const tradeUI = new TradeUI({ panel: $('tradePanel'), body: $('tradeBody'), closeButton: $('tradeClose'), game, requestOpen: () => panels.open('trade') });
     const toasts = new Toasts($('toasts'));
+    if (ContentPack.source === 'draft') toasts.show('Playing your content editor draft (this browser only)', 'info', 6000);
     let sessionUI = null;
     if (game.session) sessionUI = new SessionUI({ panel: $('sessionPanel'), body: $('sessionBody'), closeButton: $('sessionClose'), badge: $('sessionBadge'), endOverlay: $('endOverlay'), adapter, toasts, confirm: confirmUI });
     const emoteUI = new EmoteWheelUI({ root: $('emoteWheel'), button: $('btnEmote'), game, onTrade: () => { const t = game.nearestTrader(); if (t) game.requestTrade(t); else game.events.emit('notice', { to: game.myId, text: 'Nobody within reach to trade with' }); panels.open('trade'); } });
-    panels.register('inventory', inventoryUI); panels.register('crafting', craftingUI); panels.register('settings', settingsUI); panels.register('gear', gearUI); panels.register('ponies', ponyUI); panels.register('journal', journalUI); panels.register('menu', menuUI); if (sessionUI) panels.register('session', sessionUI); panels.register('confirm', confirmUI); panels.register('map', mapUI); panels.register('trade', tradeUI);
+    panels.register('inventory', inventoryUI); panels.register('crafting', craftingUI); panels.register('settings', settingsUI); panels.register('gear', gearUI); panels.register('ponies', ponyUI); panels.register('journal', journalUI); panels.register('menu', menuUI); if (sessionUI) panels.register('session', sessionUI); panels.register('confirm', confirmUI); panels.register('map', mapUI); panels.register('trade', tradeUI); panels.register('town', townUI);
     /** The Menu: every section opens from here (and closes the menu). */
     function openSection(section) {
       if (section === 'skills') { panels.closeAll(); journalUI.openTab('skills'); return; }
       if (section === 'treasure') { panels.closeAll(); journalUI.openTab('map'); return; }
-      const names = { inventory: 'inventory', crafting: 'crafting', gear: 'gear', map: 'map', ponies: 'ponies', settings: 'settings', session: 'session' };
+      const names = { inventory: 'inventory', crafting: 'crafting', gear: 'gear', map: 'map', ponies: 'ponies', town: 'town', settings: 'settings', session: 'session' };
       if (names[section]) panels.open(names[section]);
     }
     const backdrop = $('panelBackdrop');                       // tap anywhere outside a window to close it
@@ -115,6 +117,8 @@ function launch(choice, query) {
     bus.on('togglePonies', () => panels.toggle('ponies'));
     bus.on('toggleJournal', () => panels.toggle('journal'));
     bus.on('toggleMap', () => panels.toggle('map'));
+    bus.on('toggleTown', () => panels.toggle('town'));
+    bus.on('ability', n => game.requestAbility(n));
     bus.on('release', () => game.requestRelease());               // its own button and key: never shared with Ride / Feed / Pick
     game.events.on('confirmRelease', e => confirmUI.ask(e));
     bus.on('toggleDrawn', () => game.toggleDrawn());
@@ -136,9 +140,22 @@ function launch(choice, query) {
     $('game').addEventListener('wheel', e => { e.preventDefault(); game.cycleSlot(Math.sign(e.deltaY)); }, { passive: false });
     setTimeout(() => { $('hint').style.opacity = '0'; }, 10000);
 
-    window.realm = { game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, emoteUI, layout };      // handy for console debugging
+    window.realm = { game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, emoteUI, layout };      // handy for console debugging
 
-    let rotateShown = null, interactShown = null, releaseShown = null;
+    let rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null;
+    /** The ridden pony's abilities: a strip above the vitals (desktop) and the ability button (touch), with cooldowns. */
+    const showAbilities = () => {
+      const list = game.abilityState(), text = list.map(a => `${a.ability.glyph} ${a.ability.name}${a.cooldown > 0 ? ' ' + Math.ceil(a.cooldown) + 's' : ''}`);
+      const key = text.join('|');
+      if (key === abilityShown) return;
+      abilityShown = key;
+      $('abilityBar').hidden = !list.length;
+      $('abilityBar').innerHTML = list.map((a, i) => `<span class="${a.cooldown > 0 ? 'cd' : 'ready'}" style="--c:${a.ability.color}"><kbd>${i ? 'N' : 'B'}</kbd>${text[i]}</span>`).join('');
+      const ready = list.find(a => !(a.cooldown > 0)) || list[0];
+      $('btnAbility').style.display = list.length ? '' : 'none';
+      $('btnAbility').textContent = ready ? ready.ability.glyph + (ready.cooldown > 0 ? ' ' + Math.ceil(ready.cooldown) : '') : '';
+      $('btnAbility').classList.toggle('cd', !!ready && ready.cooldown > 0);
+    };
 
     /* loop */
     new GameLoop({
@@ -152,7 +169,7 @@ function launch(choice, query) {
         healthBar.config.max = game.local.maxHp; journalUI.tick(frameMs); mapUI.tick(frameMs); if (sessionUI) sessionUI.tick(frameMs);
         const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health
         healthBar.update(game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); clockUI.update(game.hour());
-        craftingUI.tick(frameMs);
+        craftingUI.tick(frameMs); townUI.tick(frameMs); showAbilities();
         const showRotate = !!game.buildTarget;                       // context buttons only show when they do something
         if (showRotate !== rotateShown) { rotateShown = showRotate; $('btnRot').style.display = showRotate ? '' : 'none'; }
         const releaseHint = game.releaseHint();
