@@ -707,6 +707,8 @@ class GameServer {
     const type = animal.type, item = Object.keys(ItemDefs).find(k => ItemDefs[k].creature === type), inventory = this.inventories[id], w = Wants.of(type), name = AnimalDefs[type].name.toLowerCase();
     if (animal.delivered) { this._notice(id, `The ${name} is home with its mother`); return; }
     if (w && w.unlocks === 'pickup' && !animal.fed) { this._notice(id, `The ${name} squirms away: it wants ${ItemDefs[w.items[0]].name.toLowerCase()} first`); return; }   // (a lost cub: feed it a fish)
+    const wild = !animal.owner && !Wants.isQuestCreature(type) && AnimalLevels.tooWild(animal, this.players[id].lv);   // (your own pet, or a lost cub, always comes)
+    if (wild) { this._notice(id, wild); return; }
     if (!item || !inventory.canAdd(item, 1)) { this._notice(id, 'Inventory full'); return; }
     this.animals.pickup(animal.id);
     inventory.add(item, 1); this.inventoryRev[id]++;

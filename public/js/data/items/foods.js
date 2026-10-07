@@ -24,5 +24,9 @@ Foods.registerAll([
   { id: 'cooked_mutton', name: 'Roast Mutton', category: 'meat', maxStack: 10, hunger: 24, thirst: 0 },
   { id: 'cooked_fish', name: 'Grilled Fish', category: 'meat', maxStack: 10, hunger: 20, thirst: 0 },
   { id: 'bear_meat', name: 'Raw Bear Meat', category: 'meat', maxStack: 10, hunger: 20, thirst: 0, cooksInto: 'cooked_bear', recipe: { id: 'cook_bear', name: 'Roast Bear' } },
-  { id: 'cooked_bear', name: 'Roast Bear', category: 'meat', maxStack: 10, hunger: 34, thirst: 0 }
+  { id: 'cooked_bear', name: 'Roast Bear', category: 'meat', maxStack: 10, hunger: 34, thirst: 0 },
+  /* ---- the jungle's fruit: lying about under the canopy (spawns: rate per 1000 open jungle tiles) ---- */
+  { id: 'banana', name: 'Banana', category: 'fruit', maxStack: 30, hunger: 12, thirst: 2, color: '#f2d43a', spawns: [{ biome: 'jungle', rate: 6 }] },
+  { id: 'cocoa_pod', name: 'Cocoa Pod', category: 'fruit', maxStack: 30, hunger: 7, thirst: 1, color: '#b8642a', spawns: [{ biome: 'jungle', rate: 3 }] },
+  { id: 'sugar_cane', name: 'Sugar Cane', category: 'fruit', maxStack: 30, hunger: 4, thirst: 6, color: '#a9c95a', spawns: [{ biome: 'jungle', rate: 3 }] }   // chewed for its sweet juice
 ]);

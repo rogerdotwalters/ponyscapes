@@ -1,5 +1,5 @@
 'use strict';
-/* CLIENT - creature sprite: the dog family and cats. sprite.variant = 'dog' | 'fox' | 'wolf' | 'cat'. They differ in size, colours, ears, snout and tail. */
+/* CLIENT - creature sprite: the dog family and cats. sprite.variant = 'dog' | 'fox' | 'wolf' | 'cat' | 'panther'. They differ in size, colours, ears, snout and tail. */
 CreatureSprites.register({
   id: 'canine',
   draw(s, { phase, speed, now, sprite, seed, hunting }) {
@@ -8,7 +8,8 @@ CreatureSprites.register({
       dog:  { k: 1.0,  body: '#c49a62', belly: '#e4cfa6', leg: '#a9814d', ear: 'floppy', snout: 3.4, tail: 'up',   tip: null,       nose: '#2a1c14' },
       fox:  { k: 0.95, body: '#d9742b', belly: '#f6efe2', leg: '#3a2a22', ear: 'point',  snout: 4.4, tail: 'bush', tip: '#f6efe2',  nose: '#1a1410' },
       wolf: { k: 1.25, body: '#8b8f96', belly: '#c9ccd1', leg: '#6b6f76', ear: 'point',  snout: 4.8, tail: 'low',  tip: null,       nose: '#1a1410' },
-      cat:  { k: 0.72, body: '#9a9a9a', belly: '#e8e4dc', leg: '#808080', ear: 'point',  snout: 2,   tail: 'curl', tip: null,       nose: '#d98a8a' }
+      cat:  { k: 0.72, body: '#9a9a9a', belly: '#e8e4dc', leg: '#808080', ear: 'point',  snout: 2,   tail: 'curl', tip: null,       nose: '#d98a8a' },
+      panther: { k: 1.2, body: '#25222b', belly: '#34303b', leg: '#1d1a22', ear: 'point', snout: 2,  tail: 'curl', tip: null,       nose: '#4a4450' }
     }[v], k = P.k, bob = walk ? Math.abs(Math.sin(phase)) * 0.8 : Math.sin(now / 800 + seed) * 0.4;
     g.ellipse(0, 2.5, 13 * k, 4.4 * k, 'rgba(0,0,0,.25)');
     ctx.strokeStyle = P.leg; ctx.lineWidth = 2.6 * k; ctx.beginPath();                                       // four legs

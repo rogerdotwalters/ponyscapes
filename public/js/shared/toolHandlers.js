@@ -248,6 +248,13 @@ class LeashHandler {
       this.emit({ type: 'notice', to: id, text: `It slips right out of your ${ItemDefs[item].name}: catching a ${def.name} takes a ${better ? better.name : 'better lasso'} or better` });
       return;
     }
+    const wild = !mine && AnimalLevels.tooWild(a, p.lv);
+    if (wild) {                                                                         // above your level: it shrugs the loop off
+      this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id, item });
+      this.animals.startle(target.ref, p);
+      this.emit({ type: 'notice', to: id, text: wild });
+      return;
+    }
     const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv, p.buffs) + lasso.chance;
     this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: landed, by: id, item });
     if (!landed) {
