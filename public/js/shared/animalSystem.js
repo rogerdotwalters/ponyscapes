@@ -27,7 +27,7 @@ const AnimalSenses = {
 function lureFor(def, itemId, levels, buffs) {
   if (!def.lure || !ItemDB.getFood(itemId) || (def.lureItems && !def.lureItems.includes(itemId))) return null;      // (some only come for one thing: a lost cub for fish)
   const charm = Skills.trustFactor(levels) * (1 + ((buffs && buffs.friendship) || 0) / 100);     // Warm Heart ponies: animals trust you from farther
-  if (def.id === 'pony_earth' && itemId === 'apple') return { radius: LURE_RADIUS * 1.8 * charm, trust: TRUST_SECONDS * 2, approach: 2.2 };
+  if (def.id === 'pony_earth' && ItemDB.isApple(itemId)) return { radius: LURE_RADIUS * 1.8 * charm, trust: TRUST_SECONDS * 2, approach: 2.2 };
   return { radius: LURE_RADIUS * charm, trust: TRUST_SECONDS, approach: 1.5 };
 }
 

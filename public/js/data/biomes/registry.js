@@ -8,6 +8,7 @@
  *   ground   [grass x3, dirt x3] colours, or null for the plain meadow look        mapColor  its colour on the map
  *   effect   the little animated detail the renderer draws (a BiomeEffects id)      ponyVariant  which pony variety lives here
  *   bush / stone / flax   chance a free tile holds one      berries  [[itemId, weight]]     appleTrees  share of trees that bear apples
+ *   apples   (optional) which apples its apple trees bear, [[itemId, weight]]; default plain red apples
  *   treeBoost            extra tree density (jungle is thick, ice is bare)
  *   levels   [min, max] level of the wild creatures here IN THE HEARTLAND (ring 0). Farther rings step every biome up by as much as the
  *            ring's own band steps up (meadow 1-5 in the Heartland is 5-10 in the Wilds; jungle 3-8 is 7-13). See ZoneLayer.

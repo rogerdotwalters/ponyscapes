@@ -69,8 +69,9 @@ const PixelProps = (() => {
   const APPLES = { leafy: [[17, 36], [44, 39], [26, 26], [37, 18], [50, 30], [30, 41], [20, 24]], pine: [[20, 66], [42, 68], [27, 50], [37, 44], [31, 60], [33, 32]] };
 
   /** The trunk and crown canvases for one look. */
+  /** fruit: the colour of the apples among its leaves, or null. */
   function treeArt(variant, tint, fruit) {
-    const pine = variant % 2 === 1, m = 0.95 + (variant % 5) * 0.05, key = `${pine ? 'p' : 'l'}|${m}|${tint || ''}|${fruit ? 1 : 0}`;
+    const pine = variant % 2 === 1, m = 0.95 + (variant % 5) * 0.05, key = `${pine ? 'p' : 'l'}|${m}|${tint || ''}|${fruit || ''}`;
     if (cache.has(key)) return cache.get(key);
     const cw = Math.ceil(W * m), ch = Math.ceil(H * m), bark = BARK.map(c => tint && tint.includes('235,246,255') ? mix(c, '#dfe8ef', 0.35) : c);   // (snowy bark is a little frosted)
     const pal = (pine ? NEEDLE : LEAF).map(c => tinted(c, tint));
@@ -101,8 +102,9 @@ const PixelProps = (() => {
       litBlob(cc, LEAFY_CROWN, m, pal, { noise: 0.7, clumps: 0.035 });
     }
     if (fruit) for (const [ax, ay] of APPLES[pine ? 'pine' : 'leafy']) {           // apples among the leaves
-      const x = Math.round(ax * m), y = Math.round(ay * m), s = Math.max(2, Math.round(2 * m));
-      cc.fillStyle = '#c62828'; cc.fillRect(x, y, s, s); cc.fillStyle = '#ff6a5a'; cc.fillRect(x, y, 1, 1); cc.fillStyle = '#3b6b2a'; cc.fillRect(x + (s >> 1), y - 1, 1, 1);
+      const x = Math.round(ax * m), y = Math.round(ay * m), s = Math.max(3, Math.round(3 * m));
+      cc.fillStyle = shade(fruit, 0.5); cc.fillRect(x - 1, y - 1, s + 2, s + 2);                 // a dark rim, so even a green apple shows among the leaves
+      cc.fillStyle = fruit; cc.fillRect(x, y, s, s); cc.fillStyle = shade(fruit, 0.8); cc.fillRect(x + 1, y + s - 1, s - 1, 1); cc.fillStyle = light(fruit, 0.45); cc.fillRect(x, y, 1, 1); cc.fillStyle = '#3b6b2a'; cc.fillRect(x + (s >> 1), y - 1, 1, 1);
     }
     outline(tc, '#1e140c', cw, ch); outline(cc, '#14261a', cw, ch);
     const art = { trunk: T, crown: Cn, m, w: cw, h: ch };
@@ -112,7 +114,7 @@ const PixelProps = (() => {
 
   /** A standing tree at (sx, sy); the crown sways by shakeX (when chopped). fruit: an apple tree's forage state (apples while ripe). */
   function drawTree(ctx, sx, sy, variant, shakeX, fruit, biome, tint) {
-    const art = treeArt(variant, tint, !!(fruit && fruit.ripe)), u = PX, left = sx - AX * art.m * u, top = sy - GROUND * art.m * u;
+    const art = treeArt(variant, tint, fruit && fruit.ripe ? (ItemDefs[fruit.drop] && ItemDefs[fruit.drop].color) || '#d9382b' : null), u = PX, left = sx - AX * art.m * u, top = sy - GROUND * art.m * u;
     ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(sx + 5, sy + 3, 26 * art.m, 11 * art.m, 0, 0, Math.PI * 2); ctx.fill();
     ctx.save(); ctx.imageSmoothingEnabled = false;
     ctx.drawImage(art.trunk, left, top, art.w * u, art.h * u);
@@ -122,7 +124,7 @@ const PixelProps = (() => {
 
   /** A felled tree toppling: rotated about its foot by `angle` (radians, + to the right), fading out by `alpha` as it breaks into logs. */
   function drawFalling(ctx, sx, sy, variant, angle, alpha, tint) {
-    const art = treeArt(variant, tint, false), u = PX;
+    const art = treeArt(variant, tint, null), u = PX;
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alpha;
     ctx.translate(sx, sy - 2); ctx.rotate(angle);
     const left = -AX * art.m * u, top = -GROUND * art.m * u;

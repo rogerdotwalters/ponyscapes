@@ -692,9 +692,9 @@ class GameServer {
   /** Feed an apple to a pony you have caught. It only eats in a stable or a closed pen; enough apples and it settles in as your pet. */
   _feedPony(id, animal) {
     const p = this.players[id], inventory = this.inventories[id], def = AnimalDefs[animal.type];
-    if (p.held !== 'apple' || !inventory.has('apple', 1)) { this._notice(id, 'Hold an apple to feed it'); return; }
+    if (!ItemDB.isApple(p.held) || !inventory.has(p.held, 1)) { this._notice(id, 'Hold an apple to feed it'); return; }
     if (!Shelter.find(this.mapOf(animal), animal.x, animal.y)) { this._notice(id, 'It will not eat out here: lead it to a stable or a closed pen first'); return; }
-    inventory.remove('apple', 1); this.inventoryRev[id]++;
+    inventory.remove(p.held, 1); this.inventoryRev[id]++;
     const result = this.animals.feed(animal.id, id, Buildings.appleDiscountAt(this.mapOf(animal), animal.x, animal.y));
     this.progress.award(id, 'horsemanship', 12);
     this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need });

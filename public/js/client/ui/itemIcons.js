@@ -122,13 +122,12 @@ const ItemIcons = (() => {
     },
     wooden_sword(ctx) { swordIcon(ctx, '#d6b07a', '#f0d9ae'); },
     stone_sword(ctx) { swordIcon(ctx, '#9a9aa2', '#d2d2d8'); },
-    apple(ctx) {
-      const g = ctx.createRadialGradient(19, 22, 3, 24, 28, 17); g.addColorStop(0, '#ff7060'); g.addColorStop(1, '#b8231a');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(24, 15); ctx.bezierCurveTo(10, 8, 5, 28, 14, 38); ctx.bezierCurveTo(19, 44, 22, 41, 24, 41); ctx.bezierCurveTo(26, 41, 29, 44, 34, 38); ctx.bezierCurveTo(43, 28, 38, 8, 24, 15); ctx.fill();
-      ctx.strokeStyle = '#5b3f2a'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(24, 15); ctx.quadraticCurveTo(25, 9, 29, 6); ctx.stroke();
-      ctx.fillStyle = '#4a9a3c'; ctx.beginPath(); ctx.ellipse(31, 10, 7, 3.4, -0.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(16, 22, 2.6, 4.4, 0.5, 0, Math.PI * 2); ctx.fill();
-    },
+    apple: applePainter('#ff7060', '#b8231a'),
+    green_apple: applePainter('#b8e06a', '#4f8f2a'),
+    golden_apple: applePainter('#ffe58a', '#c99a1a', true),
+    pink_apple: applePainter('#ffb0c4', '#d0507a'),
+    crab_apple: applePainter('#e07a52', '#8a2e1a', false, 0.72),
+    russet_apple: applePainter('#d9a868', '#7a4a20'),
     shovel(ctx) {
       ctx.lineCap = 'round';
       ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.moveTo(34, 6); ctx.lineTo(22, 28); ctx.stroke();
@@ -374,6 +373,19 @@ const ItemIcons = (() => {
     },
     log(ctx) { PixelLogs.icon(ctx); }                                       // the pixel-art log (pixelProps.js)
   };
+  /** An apple in two tones (light, dark); a golden one glints; `size` shrinks a crab apple. */
+  function applePainter(lightC, darkC, glint = false, size = 1) {
+    return ctx => {
+      ctx.save(); ctx.translate(24, 26); ctx.scale(size, size); ctx.translate(-24, -26);
+      const g = ctx.createRadialGradient(19, 22, 3, 24, 28, 17); g.addColorStop(0, lightC); g.addColorStop(1, darkC);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(24, 15); ctx.bezierCurveTo(10, 8, 5, 28, 14, 38); ctx.bezierCurveTo(19, 44, 22, 41, 24, 41); ctx.bezierCurveTo(26, 41, 29, 44, 34, 38); ctx.bezierCurveTo(43, 28, 38, 8, 24, 15); ctx.fill();
+      ctx.strokeStyle = '#5b3f2a'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(24, 15); ctx.quadraticCurveTo(25, 9, 29, 6); ctx.stroke();
+      ctx.fillStyle = '#4a9a3c'; ctx.beginPath(); ctx.ellipse(31, 10, 7, 3.4, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(16, 22, 2.6, 4.4, 0.5, 0, Math.PI * 2); ctx.fill();
+      if (glint) { ctx.fillStyle = '#fffbe0'; for (const [x, y] of [[33, 24], [28, 34]]) { ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 1.2, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 1.2, y); ctx.closePath(); ctx.fill(); ctx.fillRect(x - 3, y - 0.6, 6, 1.2); } }
+      ctx.restore();
+    };
+  }
   /** A carried animal: its face, in its own colours (ears, a comb, a beak). */
   function critterPainter(o) {
     return ctx => {

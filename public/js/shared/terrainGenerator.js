@@ -116,6 +116,13 @@ class TerrainGenerator {
 
   /** Does this tree bear apples? */
   appleTreeAt(tx, ty) { const h = hash3(this.seed, tx, ty, 60); return h < 0.7 && h < AppleTreeChance[this.biomeAt(tx, ty, TILE.GRASS)]; }
+  /** Which apple an apple tree here bears (its biome's `apples` table; one kind per tree, always the same). */
+  appleKindAt(tx, ty) {
+    const table = BiomeApples[this.biomeAt(tx, ty, TILE.GRASS)] || [['apple', 1]], total = table.reduce((n, [, w]) => n + w, 0);
+    let roll = hash3(this.seed, tx, ty, 63) * total;
+    for (const [item, weight] of table) { if ((roll -= weight) < 0) return item; }
+    return table[0][0];
+  }
   /** A mound of sand hiding a bottle (sand only), and a bottle floating in the shallows. */
   moundAt(tx, ty, tileType) { return tileType === TILE.SAND && hash3(this.seed, tx, ty, 61) < BURIED_BOTTLE_CHANCE && !Village.blocksTrees(tx, ty); }
   floatingBottleAt(tx, ty, tileType) { return tileType === TILE.SHALLOW && hash3(this.seed, tx, ty, 62) < FLOATING_BOTTLE_CHANCE; }

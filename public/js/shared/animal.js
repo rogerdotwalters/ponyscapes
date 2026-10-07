@@ -13,9 +13,12 @@ class Animal extends Being {
   }
   get kind() { return 'animal'; }
   get def() { return AnimalDefs[this.type]; }
-  get tastes() { const d = this.def; return d.friend || (d.pony ? { likes: ['apple'], loves: [], dislikes: [] } : DEFAULT_ANIMAL_TASTES); }
+  get tastes() { return animalTastes(this.type); }
   get befriendable() { const d = this.def; return !!d && d.befriend !== false && !d.hostile && !d.boss; }
 }
 /** Can people make friends with this kind of animal? (usable on a client's plain state objects too) */
 const canBefriendAnimal = type => { const d = AnimalDefs[type]; return !!d && d.befriend !== false && !d.hostile && !d.boss; };
-const animalTastes = type => { const d = AnimalDefs[type]; return !d ? {} : d.friend || (d.pony ? { likes: ['apple'], loves: [], dislikes: [] } : DEFAULT_ANIMAL_TASTES); };
+/** Ponies like every kind of apple, and love a golden one. */
+let PONY_TASTES = null;
+const ponyTastes = () => PONY_TASTES || (PONY_TASTES = Object.freeze({ likes: Object.keys(ItemDefs).filter(id => ItemDB.isApple(id) && id !== 'golden_apple'), loves: ItemDefs.golden_apple ? ['golden_apple'] : [], dislikes: [] }));
+const animalTastes = type => { const d = AnimalDefs[type]; return !d ? {} : d.friend || (d.pony ? ponyTastes() : DEFAULT_ANIMAL_TASTES); };
