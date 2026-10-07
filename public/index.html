@@ -18,7 +18,7 @@
     <label class="lobbyField" id="nameField">Character name<input id="lobbyName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Player"></label>
     <div id="lobbyError" hidden role="alert"></div>
     <section id="lobbyMain" class="lobbyPane">
-      <div id="charCard"><canvas id="charMini" width="60" height="76"></canvas><div class="charInfo"><b id="charCardName"></b><span id="charCardDesc"></span></div><button id="charEdit" type="button">Edit character</button></div>
+      <div id="charCard"><canvas id="charMini" width="60" height="64"></canvas><div class="charInfo"><b id="charCardName"></b><span id="charCardDesc"></span></div><button id="charEdit" type="button">Edit character</button></div>
       <button id="lobbySolo" class="big">Play solo</button>
       <button id="lobbyHost" class="big">Host a game</button>
       <button id="lobbyJoin" class="big">Join a game</button>
@@ -27,7 +27,11 @@
     <section id="lobbyCreator" class="lobbyPane" hidden>
       <h2>Create your character</h2>
       <div class="creatorTop">
-        <canvas id="charPreview" width="140" height="176"></canvas>
+        <div class="charStage">
+          <canvas id="charPreview" width="168" height="200"></canvas>
+          <div class="stageCtl"><button id="charTurnL" type="button" aria-label="Turn left">&#9664;</button><button id="charWalk" type="button">Walk</button><button id="charTurnR" type="button" aria-label="Turn right">&#9654;</button></div>
+          <div class="charViews"><canvas width="60" height="88" data-view="down"></canvas><canvas width="60" height="88" data-view="left"></canvas><canvas width="60" height="88" data-view="up"></canvas></div>
+        </div>
         <div class="creatorSide"><div class="seg" id="bodySeg"></div><button id="charRandom" type="button" class="alt small">Surprise me</button></div>
       </div>
       <div class="optRow"><span>Hair style</span><div class="chips" id="hairChips"></div></div>
@@ -70,7 +74,7 @@
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
+<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; farming: a hoe tills grass or dirt, a watering can waters it each day, F with seeds plants (in their season), F at a ripe crop harvests &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
 <div id="portraitHint">Rotate your phone to landscape for the best view</div>
 
 <div id="toolbar"></div>
@@ -79,7 +83,8 @@
 <div id="healthBar" class="vital health"><div id="healthFill" class="fill"></div><span id="healthLabel" class="vlabel">Healthy</span></div>
 <div id="hungerBar" class="vital"><div id="hungerFill" class="fill"></div><span id="hungerLabel" class="vlabel">Fed</span></div>
 <div id="thirstBar" class="vital water"><div id="thirstFill" class="fill"></div><span id="thirstLabel" class="vlabel">Hydrated</span></div>
-<div id="clock">&#9728; 09:00</div>
+<div id="clock" hidden></div>
+<div id="seasonBar"><div class="sbClock"><canvas width="20" height="20"></canvas><span class="sbPhase"></span></div><div class="sbSeason"><div class="sbText"><span class="sbIcon"></span><b class="sbName"></b><span class="sbDay"></span></div><div class="sbTrack"><div class="sbFill"></div></div></div><div class="sbNews" hidden></div></div>
 <div id="abilityBar" hidden></div>
 <div id="inventoryPanel" hidden>
   <header><span>Inventory</span><button id="invClose" tabindex="-1">&#x2715;</button></header>
@@ -151,6 +156,7 @@
   <button class="pbtn danger" id="btnRelease" tabindex="-1" style="display:none">Let go</button>
   <button class="pbtn ability" id="btnAbility" tabindex="-1" style="display:none"></button>
   <button class="pbtn" id="btnLasso" tabindex="-1" title="Throw your lasso (L)">Lasso</button>
+  <button class="pbtn" id="btnDrop" tabindex="-1" title="Drop what is in your hand (X)">Drop</button>
   <button class="pbtn" id="btnRun" tabindex="-1">Run</button>
   <button class="pbtn" id="btnAct" tabindex="-1">Use</button>
 </div>
@@ -162,6 +168,7 @@
 <script src="js/content/gameSettings.js"></script>
 <script src="js/shared/gameSettings.js"></script>
 <script src="js/shared/time.js"></script>
+<script src="js/shared/seasons.js"></script>
 <script src="js/shared/tileTypes.js"></script>
 <script src="js/shared/skills.js"></script>
 <script src="js/shared/characterDefs.js"></script>
@@ -180,6 +187,7 @@
 <script src="js/data/items/placeables.js"></script>
 <script src="js/data/items/bags.js"></script>
 <script src="js/data/items/specials.js"></script>
+<script src="js/data/crops/crops.js"></script>
 <script src="js/data/biomes/registry.js"></script>
 <script src="js/data/biomes/normal.js"></script>
 <script src="js/data/biomes/forest.js"></script>
@@ -242,6 +250,8 @@
 <script src="js/data/buildings/veterinary.js"></script>
 <script src="js/data/buildings/general_store.js"></script>
 <script src="js/data/buildings/player_home.js"></script>
+<script src="js/data/buildings/storehouse.js"></script>
+<script src="js/data/buildings/vacant_home.js"></script>
 <script src="js/data/furniture/registry.js"></script>
 <script src="js/data/furniture/basic.js"></script>
 <script src="js/data/interiors/tiles.js"></script>
@@ -307,6 +317,8 @@
 <script src="js/shared/serverOwned.js"></script>
 <script src="js/shared/packSystem.js"></script>
 <script src="js/shared/shopSystem.js"></script>
+<script src="js/shared/homeCrafts.js"></script>
+<script src="js/shared/farming.js"></script>
 <!-- network -->
 <script src="js/shared/snapshotBuilder.js"></script>
 <script src="js/shared/deltaCodec.js"></script>
@@ -334,6 +346,11 @@
 <script src="js/client/render/interiorSprites.js"></script>
 <script src="js/client/render/propSprites.js"></script>
 <script src="js/client/render/spriteRegistry.js"></script>
+<script src="js/client/render/pixelCharacter.js"></script>
+<script src="js/client/render/pixelPony.js"></script>
+<script src="js/client/render/pixelCreatures.js"></script>
+<script src="js/client/render/pixelProps.js"></script>
+<script src="js/client/render/pixelTerrain.js"></script>
 <script src="js/client/render/playerSprite.js"></script>
 <script src="js/client/render/boatSprite.js"></script>
 <script src="js/client/render/creatures/registry.js"></script>

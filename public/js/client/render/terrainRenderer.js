@@ -1,5 +1,6 @@
 'use strict';
-/* CLIENT - flat ground tiles: grass, dirt, stone, animated water. */
+/* CLIENT - the ground: textured half-tile cells of grass, dirt, sand, clay, cobbles and cave rock (pixelGround.js; tilled soil where the farm is),
+ * and animated water. The season colours the grass. */
 const OCEAN_COLOR = '#2c6b99';
 const DETAIL = TILE_HALF_W / 32;          // ground detail was authored for 64px tiles
 
@@ -13,27 +14,50 @@ const TerrainRenderer = (() => {
   const EFFECT = Object.fromEntries(Biomes.all().filter(b => b.effect && BiomeEffects.has(b.effect)).map(b => [b.id, BiomeEffects.get(b.effect)]));
   const CAVE_FLOOR = ['#2b2f3a', '#30343f', '#272b35'], CAVE_WALL = ['#15171e', '#181b22', '#12141a'];
 
+  let season = 'spring', today = 0;
+  /** The renderer tells us the season (it colours the grass) and the day (watered soil is dark for the rest of it). */
+  function setDate(seasonId, day) { season = seasonId; today = day; }
+
+  /** The ground as 2 x 2 half-tile cells of pixel texture (pixelGround.js); a tilled cell is drawn as soil. */
+  function cells(ctx, kind, pal, tx, ty, farm, seasonal) {
+    for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
+      const cx = tx * 2 + sx, cy = ty * 2 + sy, wx = tx + 0.25 + sx * 0.5, wy = ty + 0.25 + sy * 0.5, plot = farm && farm[cx + ',' + cy];
+      const v = Math.floor(PixelTerrain.hash(cx, cy, 1) * 997);
+      const c = plot ? PixelTerrain.cell('soil', SOIL, v, season, plot.w === today) : PixelTerrain.cell(kind, pal, v, seasonal ? season : '');
+      PixelTerrain.draw(ctx, c, (wx - wy) * TILE_HALF_W, (wx + wy) * TILE_HALF_H);
+    }
+  }
+  const SOIL = ['#7a5233', '#83593a', '#704b2e'];
+
   function draw(g, map, bounds, range, now) {
-    const anyFloors = Object.keys(map.floors).length > 0;
+    const anyFloors = Object.keys(map.floors).length > 0, ctx = g.ctx, farm = map.farm && Object.keys(map.farm).length ? map.farm : null;
     const t = now / 1000, { minX, maxX, minY, maxY } = bounds, rings = map.layers && map.layers.rings;
+    const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
     for (let ty = range.ty0; ty <= range.ty1; ty++) for (let tx = range.tx0; tx <= range.tx1; tx++) {
       const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H;
       if (cx < minX - TILE_HALF_W || cx > maxX + TILE_HALF_W || cy < minY - TILE_HALF_H || cy > maxY + TILE_HALF_H) continue;
       const type = map.tile(tx, ty), noise = hash2(tx, ty), variant = (noise * 3) | 0;
-      diamondPath(g.ctx, cx, cy);
-      if (type === TILE.WATER) drawWater(g.ctx, map, tx, ty, cx, cy, variant, t);
-      else if (type === TILE.SHALLOW) drawShallow(g.ctx, map, tx, ty, cx, cy, variant, t);
-      else if (type === TILE.GRASS) drawGrass(g.ctx, tx, ty, cx, cy, variant, noise, map.biome(tx, ty), t);
-      else if (type === TILE.DIRT) drawDirt(g.ctx, tx, ty, cx, cy, variant, noise, map.biome(tx, ty));
-      else if (type === TILE.SAND) drawSand(g.ctx, tx, ty, cx, cy, variant, noise);
-      else if (type === TILE.CLAY) drawClay(g.ctx, tx, ty, cx, cy, variant, noise);
-      else if (type === TILE.CAVE) drawCave(g.ctx, variant, noise, cx, cy, t, tx, ty);
-      else if (type === TILE.CAVE_WALL) drawCaveWall(g.ctx, variant, noise, cx, cy);
-      else if (type >= INTERIOR_TILE_BASE) InteriorSprites.tile(g.ctx, type, cx, cy, tx, ty);       // a room's floor (or the dark outside it)
-      else drawStone(g.ctx, variant);
-      if (rings && rings.barrierAt(tx, ty)) drawBarrier(g.ctx, cx, cy, t, tx, ty);          // a sealed ring's magical wall
-      if (anyFloors && map.floors[tileKey(tx, ty)]) StructureSprites.drawFloor(g.ctx, cx, cy);   // built floors sit on top of the ground
+      diamondPath(ctx, cx, cy);
+      if (type === TILE.WATER) drawWater(ctx, map, tx, ty, cx, cy, variant, t);
+      else if (type === TILE.SHALLOW) drawShallow(ctx, map, tx, ty, cx, cy, variant, t);
+      else if (type === TILE.GRASS) {
+        const biome = map.biome(tx, ty), palette = GROUND[biome], effect = EFFECT[biome];
+        cells(ctx, 'grass', palette ? palette[0] : GRASS, tx, ty, farm, !palette);
+        diamondPath(ctx, cx, cy);
+        if (effect && effect.tint) effect.tint(ctx, tx, ty, t);
+        if (effect && noise > effect.above) effect.detail(ctx, cx + (hash2(tx + 9, ty) - 0.5) * 30 * DETAIL, cy + (hash2(tx, ty + 9) - 0.5) * 12 * DETAIL, noise, tx, ty, t);
+      }
+      else if (type === TILE.DIRT) { const palette = GROUND[map.biome(tx, ty)]; cells(ctx, 'dirt', palette ? palette[1] : DIRT, tx, ty, farm, false); }
+      else if (type === TILE.SAND) cells(ctx, 'sand', SAND, tx, ty, null, false);
+      else if (type === TILE.CLAY) cells(ctx, 'clay', CLAY, tx, ty, null, false);
+      else if (type === TILE.CAVE) cells(ctx, 'cave', CAVE_FLOOR, tx, ty, null, false);
+      else if (type === TILE.CAVE_WALL) cells(ctx, 'cave', CAVE_WALL, tx, ty, null, false);
+      else if (type >= INTERIOR_TILE_BASE) InteriorSprites.tile(ctx, type, cx, cy, tx, ty);       // a room's floor (or the dark outside it)
+      else cells(ctx, 'stone', STONE, tx, ty, null, false);
+      if (rings && rings.barrierAt(tx, ty)) drawBarrier(ctx, cx, cy, t, tx, ty);          // a sealed ring's magical wall
+      if (anyFloors && map.floors[tileKey(tx, ty)]) StructureSprites.drawFloor(ctx, cx, cy);   // built floors sit on top of the ground
     }
+    ctx.imageSmoothingEnabled = smooth;
   }
 
   /** Slightly oversized diamond so neighbouring tiles never show seams. */
@@ -43,31 +67,6 @@ const TerrainRenderer = (() => {
     ctx.lineTo(cx, cy + TILE_HALF_H + 0.5); ctx.lineTo(cx - TILE_HALF_W - 0.5, cy); ctx.closePath();
   }
 
-  function drawGrass(ctx, tx, ty, cx, cy, variant, noise, biome, t) {
-    const palette = GROUND[biome], effect = EFFECT[biome];
-    ctx.fillStyle = palette ? palette[0][variant] : GRASS[variant]; ctx.fill();
-    if (effect && effect.tint) effect.tint(ctx, tx, ty, t);
-    const ox = (hash2(tx + 9, ty) - 0.5) * 30 * DETAIL, oy = (hash2(tx, ty + 9) - 0.5) * 12 * DETAIL;
-    if (effect && noise > effect.above) { effect.detail(ctx, cx + ox, cy + oy, noise, tx, ty, t); return; }
-    if (noise <= 0.62) return;
-    ctx.strokeStyle = 'rgba(30,70,30,.35)'; ctx.lineWidth = 1.2; ctx.beginPath();
-    ctx.moveTo(cx + ox, cy + oy); ctx.lineTo(cx + ox - 2, cy + oy - 5);
-    ctx.moveTo(cx + ox + 2, cy + oy); ctx.lineTo(cx + ox + 3, cy + oy - 5); ctx.stroke();
-  }
-
-  /** Cave floor: dark damp rock with the odd glint. */
-  function drawCave(ctx, variant, noise, cx, cy, t, tx, ty) {
-    ctx.fillStyle = CAVE_FLOOR[variant]; ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1; ctx.stroke();
-    if (noise > 0.8) { const tw = 0.5 + 0.5 * Math.sin(t * 2 + tx * 3 + ty); ctx.fillStyle = `rgba(150,170,220,${(0.2 + 0.4 * tw).toFixed(2)})`; ctx.fillRect(cx + (noise - 0.9) * 80, cy - 1, 2, 2); }
-    else if (noise < 0.2) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(cx + (noise - 0.1) * 120, cy + 2, 6, 2); }
-  }
-  /** Cave rock: nearly black, with a faint lit rim so the passages read. */
-  function drawCaveWall(ctx, variant, noise, cx, cy) {
-    ctx.fillStyle = CAVE_WALL[variant]; ctx.fill();
-    ctx.strokeStyle = 'rgba(90,100,130,.22)'; ctx.lineWidth = 1.2; ctx.stroke();
-    if (noise > 0.55) { ctx.fillStyle = 'rgba(70,78,100,.35)'; ctx.fillRect(cx - 5 + (noise - 0.7) * 30, cy - 2, 7, 1.6); }
-  }
   /** The ring barrier: a shimmering violet wall of light. */
   function drawBarrier(ctx, cx, cy, t, tx, ty) {
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.4 + tx * 0.7 + ty * 0.9);
@@ -78,27 +77,9 @@ const TerrainRenderer = (() => {
     ctx.fillStyle = `rgba(255,255,255,${(0.25 + 0.4 * pulse).toFixed(2)})`; ctx.fillRect(cx - 1, cy - h * (0.4 + 0.5 * pulse), 2, 5);
   }
 
-  function drawDirt(ctx, tx, ty, cx, cy, variant, noise, biome) {
-    const palette = GROUND[biome];
-    ctx.fillStyle = palette ? palette[1][variant] : DIRT[variant]; ctx.fill();
-    if (noise > 0.6) { ctx.fillStyle = '#7d5d3b'; ctx.fillRect(cx + (noise - 0.8) * 60 * DETAIL, cy + (hash2(tx, ty + 3) - 0.5) * 12 * DETAIL, 2.5, 1.8); }
-  }
 
-  function drawSand(ctx, tx, ty, cx, cy, variant, noise) {
-    ctx.fillStyle = SAND[variant]; ctx.fill();
-    if (noise > 0.55) { ctx.fillStyle = 'rgba(150,125,70,.45)'; ctx.fillRect(cx + (noise - 0.78) * 70 * DETAIL, cy + (hash2(tx + 5, ty) - 0.5) * 14 * DETAIL, 2, 1.5); }
-  }
 
-  function drawClay(ctx, tx, ty, cx, cy, variant, noise) {
-    ctx.fillStyle = CLAY[variant]; ctx.fill();
-    if (noise > 0.4) { ctx.fillStyle = 'rgba(255,214,170,.28)'; ctx.fillRect(cx + (noise - 0.7) * 80 * DETAIL, cy + (hash2(tx + 3, ty) - 0.5) * 16 * DETAIL, 5 * DETAIL, 1.6); }   // wet sheen
-    if (noise < 0.25) { ctx.fillStyle = 'rgba(90,45,25,.3)'; ctx.fillRect(cx + (noise - 0.12) * 120 * DETAIL, cy + (hash2(tx, ty + 4) - 0.5) * 14 * DETAIL, 3, 2); }
-  }
 
-  function drawStone(ctx, variant) {
-    ctx.fillStyle = STONE[variant]; ctx.fill();
-    ctx.strokeStyle = 'rgba(40,40,40,.2)'; ctx.lineWidth = 1; ctx.stroke();
-  }
 
   function drawWater(ctx, map, tx, ty, cx, cy, variant, t) {
     ctx.fillStyle = WATER[variant]; ctx.fill();
@@ -132,5 +113,5 @@ const TerrainRenderer = (() => {
     ctx.stroke();
   }
 
-  return { draw };
+  return { draw, setDate };
 })();

@@ -52,6 +52,7 @@ class ClientGame {
     if (welcome.treasure) this.treasureMaps = welcome.treasure;
     if (welcome.built) BuildSystem.replaceAll(this.worldMap, welcome.built);
     if (welcome.floors) BuildSystem.replaceFloors(this.worldMap, welcome.floors);
+    if (welcome.farm) this.worldMap.farm = welcome.farm;
     if (welcome.stockpiles) Stockpiles.replaceAll(this.worldMap, welcome.stockpiles);
     applyTreeStates(this.worldMap, welcome.trees || {});
     applyForageStates(this.worldMap, welcome.forage || {});
@@ -84,6 +85,12 @@ class ClientGame {
   }
   moveSlot(from, to) { this.net.sendCommand({ type: 'moveSlot', from, to }); }   // server decides; we wait for the update
   /** Drop `count` from a pack slot onto the ground in front of you (anyone can pick it up), or destroy it for good. */
+  /** X / the Drop button: one of what is in your hand (all: the whole stack) goes on the ground in front of you. */
+  dropHeld(all = false) {
+    const s = this.inventory.getSlot(this.selectedSlot);
+    if (!s) { this.events.emit('notice', { to: this.myId, text: 'Nothing in your hand to drop' }); return; }
+    this.dropItem(this.selectedSlot, all ? s.count : 1);
+  }
   dropItem(slot, count, pack = false) { this.net.sendCommand({ type: 'drop', slot, count, pack: !!pack }); }
   destroyItem(slot, count, pack = false) { this.net.sendCommand({ type: 'destroy', slot, count, pack: !!pack }); }
   /** Move a stack between your bag and your pony's pack: { pack: bool, i } each end (to.i -1: wherever it fits). */
@@ -332,6 +339,7 @@ class ClientGame {
     applyForageStates(this.worldMap, snapshot.forage || {});
     if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
+    if (snapshot.farm) this.worldMap.farm = snapshot.farm;                          // the fields (farming.js)
     if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
     if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
     else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }

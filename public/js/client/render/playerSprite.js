@@ -5,10 +5,16 @@
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
-const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9 };
-/** Each lasso's rope and its shine (a lasso made in the editor uses its item colour). Shared with the item icons. */
-const LASSO_LOOKS = { leash: ['#8a6a3c', '#d8b66a'], lasso_silk: ['#cfc6e2', '#ffffff'], lasso_gold: ['#c9962a', '#ffe9a0'], lasso_star: ['#5f7fd0', '#e6f0ff'] };
-const lassoLook = id => LASSO_LOOKS[id] || [(ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', '#f0e0b0'];
+const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10, hoe: 22, water: 6 };
+/** Each lasso's look: rope, braid highlight, outline, the ring (honda) the loop runs through, its ribbon tails (none: a plain rope end)
+ *  and whether it is old and frayed (the starter). A lasso made in the editor uses its item colour. Shared with the item icons and the throw effect. */
+const LASSO_LOOKS = {
+  leash:      { rope: '#7a5a32', braid: '#a8844f', dark: '#3e2c16', honda: '#6e665a', tails: null, tip: '#c9a874', worn: true },
+  lasso_silk: { rope: '#cfc3e6', braid: '#ffffff', dark: '#5c4f7a', honda: '#c4ccd6', tails: ['#e8b8d8', '#ffffff'], tip: '#c4ccd6' },
+  lasso_gold: { rope: '#c9962a', braid: '#ffe9a0', dark: '#5e3f0a', honda: '#f2c94c', tails: ['#d8433a', '#f2c94c'], tip: '#fff1b8' },
+  lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
+};
+const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
 const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
@@ -43,6 +49,7 @@ class PlayerSprite {
     const L = CharacterLook.describe(p.appearance), body = L.princess ? 'princess' : 'prince', moving = p.state !== 'idle';
     const drawn = !opts.procedural && SpriteRegistry.drawCharacter(this.g.ctx, body, pose.dir, sx, sy - pose.crouch * 0.5, moving, now);
     if (drawn) pose.headY = sy - drawn.h + 6;                                           // (the name tag and emote sit above the picture)
+    else if (PIXEL_BODIES[body]) this._drawPixel(p, sx, sy, pose, riding, now, L);
     else if (pose.dir === 'up') this._drawUp(p, sx, sy, pose, riding);
     else if (pose.dir === 'down') this._drawDown(p, sx, sy, pose, riding);
     else this._drawSide(p, sx, sy, pose, riding);
@@ -53,6 +60,15 @@ class PlayerSprite {
   _drawSide(p, sx, sy, pose, riding) { if (!riding) this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose); }
   _drawUp(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
   _drawDown(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
+
+  /** The retro pixel-art body (pixelCharacter.js): it walks with the stride, breathes and blinks when idle, and sits lower when riding. */
+  _drawPixel(p, sx, sy, pose, riding, now, L) {
+    const moving = p.state !== 'idle' && !riding;
+    const at = PixelCharacter.draw(this.g.ctx, L, this._wardrobe(p, pose.gear), pose.dir, sx, sy, {
+      moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0,
+      crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: riding ? 11 : pose.crouch ? 2 : 0 });
+    pose.headY = at.headY; pose.torsoTop = at.torsoTop;
+  }
 
   /** Worn items that have images: full-body overlays for the facing direction. */
   _drawWorn(p, sx, sy, pose, moving, now) {
@@ -78,7 +94,7 @@ class PlayerSprite {
     const torsoTop = sy - 33 + crouch - bob, dir = SpriteRegistry.dirOf(p.facing);
     const gear = Object.assign({}, p.gear || {});                                   // gear with its own worn images is not drawn procedurally
     for (const slot of WORN_ORDER) if (gear[slot] && SpriteRegistry.wornImage(gear[slot], dir)) gear[slot] = '';
-    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, gear };
+    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, gear, phase: walk.phase };
   }
 
   _drawGroundMarkers(p, sx, sy, pose) {
@@ -291,6 +307,8 @@ class PlayerSprite {
     if (tool.kind === 'bow') this._drawBow(handX, handY, dirX, dirY, perpX, perpY);
     else if (tool.kind === 'leash') this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0, lassoLook(p.held));
     else if (tool.kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
+    else if (tool.kind === 'shears') this._drawShears(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0 ? Math.abs(Math.sin(p.swingT * 18)) : 0);
+    else if (tool.kind === 'water') this._drawWateringCan(handX, handY, side, p.swingT > 0);
     else {
       ctx.strokeStyle = tool.kind === 'rod' ? '#a07a45' : '#7a5230'; ctx.lineWidth = tool.kind === 'rod' ? 1.8 : 2.5;
       ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(tipX, tipY); ctx.stroke();
@@ -298,6 +316,7 @@ class PlayerSprite {
       else if (tool.kind === 'knife') this.g.polygon([handX + dirX * 4, handY + dirY * 4, tipX + dirX * 8, tipY + dirY * 8, handX + dirX * 4 + perpX * 4, handY + dirY * 4 + perpY * 4], '#d3d8df');
       else if (tool.kind === 'spear') this.g.polygon([tipX - dirX * 2 + perpX * 3, tipY - dirY * 2 + perpY * 3, tipX + dirX * 9, tipY + dirY * 9, tipX - dirX * 2 - perpX * 3, tipY - dirY * 2 - perpY * 3], '#c9ced6');
       else if (tool.kind === 'shovel') this._drawShovelHead(tipX, tipY, dirX, dirY, perpX, perpY);
+      else if (tool.kind === 'hoe') this.g.polygon([tipX - dirX * 1, tipY - dirY * 1, tipX + dirX * 2, tipY + dirY * 2, tipX + dirX * 2 + perpX * 7, tipY + dirY * 2 + perpY * 7, tipX - dirX * 2 + perpX * 6, tipY - dirY * 2 + perpY * 6], '#9aa2ad');
       else if (tool.kind === 'sword') this._drawSwordBlade(handX, handY, tipX, tipY, dirX, dirY, perpX, perpY, p.held);
       else if (tool.kind === 'rod') { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + dirX * 6, tipY + dirY * 6 + 12); ctx.stroke(); }
       else this._drawAxeHead(tipX, tipY, dirX, dirY, perpX, perpY);
@@ -355,15 +374,49 @@ class PlayerSprite {
     ctx.strokeStyle = 'rgba(240,240,230,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipA[0], tipA[1]); ctx.lineTo(tipB[0], tipB[1]); ctx.stroke();
   }
 
-  /** A coil of rope in the hand, with the loop swung out in front while throwing. */
+  /** A coil of braided rope in the hand, with the loop swung out in front while throwing (an old rope shows a frayed end). */
   _drawLassoInHand(x, y, dx, dy, px, py, throwing, look = LASSO_LOOKS.leash) {
+    const ctx = this.g.ctx, cx = x + dx * 4, cy = y + dy * 4 + 2;
+    ctx.strokeStyle = look.dark; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(cx, cy, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();      // outline, then the coil
+    ctx.strokeStyle = look.rope; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.ellipse(cx, cy, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = look.braid; ctx.lineWidth = 1.2; ctx.beginPath();                                                                      // the braid: little twists round the coil
+    for (let k = 0; k < 8; k++) { if (look.worn && k % 3 === 2) continue; const a = k / 8 * Math.PI * 2, ex = cx + Math.cos(a) * 6.5, ey = cy + Math.sin(a) * 5.2; ctx.moveTo(ex - 1, ey - 1); ctx.lineTo(ex + 1, ey + 1); }
+    ctx.stroke();
+    ctx.fillStyle = look.honda; ctx.beginPath(); ctx.arc(cx - 5, cy - 4, 1.8, 0, Math.PI * 2); ctx.fill();                                // the ring
+    const ex = x - px * 3, ey = y + 15;
+    ctx.strokeStyle = look.tails ? look.tails[0] : look.rope; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 6, y + 12, ex, ey); ctx.stroke();   // the loose end
+    if (look.tails) { ctx.strokeStyle = look.tails[1]; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 4, y + 13, ex + 2, ey + 1); ctx.stroke(); }
+    if (look.worn) { ctx.strokeStyle = look.braid; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - 2, ey + 2); ctx.moveTo(ex, ey); ctx.lineTo(ex + 1, ey + 3); ctx.moveTo(ex, ey); ctx.lineTo(ex + 2.5, ey + 1); ctx.stroke(); }
+    if (throwing) {
+      ctx.strokeStyle = look.dark; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = look.rope; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+  /** Shears: two blades pivoting at a rivet, with loop handles in the hand; they open and snap shut while snipping (open 0..1). */
+  _drawShears(x, y, dx, dy, px, py, open) {
+    const ctx = this.g.ctx, a = 0.12 + open * 0.38, piv = [x + dx * 3, y + dy * 3];
+    for (const s of [-1, 1]) {
+      const c = Math.cos(a * s), sn = Math.sin(a * s), bx = dx * c - dy * sn, by = dx * sn + dy * c;     // each blade turned a little off the line
+      ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(piv[0], piv[1]); ctx.lineTo(piv[0] + bx * 9, piv[1] + by * 9); ctx.stroke();
+      ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(piv[0] - bx * 3.2 + px * s * 1.6, piv[1] - by * 3.2 + py * s * 1.6, 1.8, 0, Math.PI * 2); ctx.stroke();   // the finger loops
+    }
+    ctx.fillStyle = '#4a4148'; ctx.fillRect(piv[0] - 0.8, piv[1] - 0.8, 1.6, 1.6);
+  }
+
+  /** A watering can held by its handle; tipped forward (pouring) while in use. */
+  _drawWateringCan(x, y, side, pouring) {
     const ctx = this.g.ctx;
-    ctx.strokeStyle = look[0]; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.ellipse(x + dx * 4, y + dy * 4 + 2, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();                 // the coil
-    ctx.strokeStyle = look[1]; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(x + dx * 4, y + dy * 4 + 2, 6.5, 5.2, 0, 0.5, Math.PI * 1.7); ctx.stroke();
-    ctx.strokeStyle = look[0]; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(x + dx * 2, y + dy * 2 + 3); ctx.quadraticCurveTo(x - px * 6, y + 12, x - px * 3, y + 15); ctx.stroke();   // the loose end
-    if (throwing) { ctx.strokeStyle = look[1]; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x + dx * 17, y + dy * 17 - 4, 9, 5.5, 0, 0, Math.PI * 2); ctx.stroke(); }
-  }  /** A grooming brush: a short wooden handle and a block of bristles (a soft brush has pale ones). */
+    ctx.save(); ctx.translate(x, y + 2); ctx.scale(side, 1); if (pouring) ctx.rotate(0.55);
+    ctx.fillStyle = '#6f9fc8'; ctx.strokeStyle = '#2c4a66'; ctx.lineWidth = 1;
+    ctx.fillRect(-4, 0, 8, 7); ctx.strokeRect(-4, 0, 8, 7);
+    ctx.beginPath(); ctx.moveTo(4, 5); ctx.lineTo(9, 0); ctx.stroke();                                // the spout
+    ctx.strokeStyle = '#41698f'; ctx.beginPath(); ctx.arc(0, 0, 3, Math.PI, 0); ctx.stroke();           // the handle
+    ctx.fillStyle = '#a9cdea'; ctx.fillRect(-3, 1, 1.5, 5);
+    if (pouring) { ctx.fillStyle = 'rgba(159,208,242,.9)'; for (let i = 0; i < 4; i++) ctx.fillRect(9 + i * 0.8, 1 + i * 2.2, 1.2, 1.4); }   // water falling
+    ctx.restore();
+  }
+
+  /** A grooming brush: a short wooden handle and a block of bristles (a soft brush has pale ones). */
   _drawBrush(x, y, dx, dy, px, py, itemId) {
     const ctx = this.g.ctx, tipX = x + dx * 9, tipY = y + dy * 9;
     ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tipX, tipY); ctx.stroke();
@@ -405,13 +458,26 @@ class PlayerSprite {
   }
 }
 
-/** Draws a character into a canvas (the lobby's preview). `facing` turns them: pi/4 faces the camera. */
+/** Draws a character into a canvas (the lobby's preview, the wardrobe, the character card). `facing` turns them: pi/4 faces the camera.
+ *  The pixel bodies are drawn crisp: a whole number of screen pixels per art pixel, lined up on the pixel grid. opts: { dir (overrides facing),
+ *  moving, phase (walk phase), crop (art rows to show from the top: a head-and-shoulders picture), procedural (skip image bodies) }. */
 function renderCharacterPortrait(canvas, appearance, facing = Math.PI / 4, now = 0, gear = { crown: 'crown_simple' }, opts = {}) {
-  const ctx = canvas.getContext('2d'), sprite = new PlayerSprite(new Gfx(ctx));
+  const ctx = canvas.getContext('2d'), L = CharacterLook.describe(appearance), body = L.princess ? 'princess' : 'prince';
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const scale = canvas.height / 66;
-  ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height - 9 * scale);
-  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2); ctx.fill();
-  sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear, held: '', swingT: 0, hurtT: 0 }, 0, 0, now, opts);
+  const images = !opts.procedural && ContentPack.character(body);
+  if (!PIXEL_BODIES[body] || (images && SpriteRegistry.pick(images, 'down'))) {                       // a body drawn in the editor (or the smooth one)
+    const sprite = new PlayerSprite(new Gfx(ctx)), scale = canvas.height / 66;
+    ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height - 9 * scale);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear, held: '', swingT: 0, hurtT: 0 }, 0, 0, now, opts);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); return;
+  }
+  const PC = PixelCharacter, rows = opts.crop || PC.H, n = Math.max(1, Math.floor(Math.min(canvas.width / (PC.W + 2), canvas.height / (rows + (opts.crop ? 0 : 3)))));
+  const k = n / PC.PX, cx = Math.round(canvas.width / 2 / n) * n, base = opts.crop ? rows * n + Math.round((canvas.height - rows * n) / 2) : canvas.height - 2 * n;
+  const dir = opts.dir || SpriteRegistry.dirOf(facing), look = id => (id && ItemDefs[id] ? ItemDefs[id].look : null), g = gear || {};
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  if (!opts.crop) { ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(cx / k, (base - n) / k, 11, 3.6, 0, 0, Math.PI * 2); ctx.fill(); }
+  const y = opts.crop ? (base + (PC.H - rows) * n) / k : base / k;                                       // (cropped: the feet go below the canvas)
+  PC.draw(ctx, L, { crown: look(g.crown), outfit: look(g.outfit), cape: look(g.cape) }, dir, cx / k, y, { moving: !!opts.moving, phase: opts.phase || 0, now, seed: 0.5, hurt: false });
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

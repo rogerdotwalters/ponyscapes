@@ -17,5 +17,9 @@ FurnitureDefs.registerAll([
   { id: 'lumber_rack', name: 'Lumber Rack', size: [2, 1], solid: true, height: 36, style: 'lumber', colors: { frame: '#6d4c2f', plank: '#d4a873' } },
   { id: 'exam_table', name: 'Exam Table', size: [2, 1], solid: true, height: 22, style: 'table', colors: { top: '#dfe8e6', leg: '#8a9a98', pad: '#7fb3b0' } },
   { id: 'medicine_cabinet', name: 'Medicine Cabinet', size: [1, 1], solid: true, height: 50, style: 'cabinet', colors: { wood: '#d6dcd8', front: '#eef2ef', knob: '#c0392b', cross: '#c0392b' } },
-  { id: 'hay_bale', name: 'Hay Bale', size: [1, 1], solid: true, height: 18, style: 'hay', colors: { hay: '#e0c46c', band: '#a8873a' } }
+  { id: 'hay_bale', name: 'Hay Bale', size: [1, 1], solid: true, height: 18, style: 'hay', colors: { hay: '#e0c46c', band: '#a8873a' } },
+  /* ---- home crafts (js/shared/homeCrafts.js): station = a crafting station you stand at; press = squeeze dye out of what you hold; store = a bin for one item ---- */
+  { id: 'loom', name: 'Loom', size: [2, 1], solid: true, height: 44, style: 'loom', station: 'loom', colors: { wood: '#8a5f33', light: '#b8875a', warp: '#efe8d6', cloth: '#d9cfb4' } },
+  { id: 'dye_press', name: 'Dye Press', size: [1, 1], solid: true, height: 34, style: 'press', press: true, colors: { wood: '#7a5233', light: '#a8763f', iron: '#5a5a66', tub: '#6d4c2f' } },
+  { id: 'wool_bin', name: 'Wool Bin', size: [2, 1], solid: true, height: 20, style: 'bin', store: { item: 'wool', capacity: 500 }, colors: { wood: '#9a6a3c', band: '#5b3e24', fill: '#f2efe6' } }
 ]);

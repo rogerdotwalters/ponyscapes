@@ -63,33 +63,48 @@ class LobbyUI {
   _look() { return this.look.slice(); }
   _describe() { const l = this.look; return `${CharacterPalette.bodies[l[0]]}, ${CharacterPalette.hairStyleNames[l[0] === 1 ? 'princess' : 'prince'][l[1]].toLowerCase()} ${CharacterPalette.hairColorNames[l[2]].toLowerCase()} hair`; }
   _renderCard() {
-    renderCharacterPortrait(this.$('#charMini'), this.look);
+    renderCharacterPortrait(this.$('#charMini'), this.look, 0, 1000, { crown: 'crown_simple' }, { dir: 'down', crop: 30 });
     this.$('#charCardName').textContent = RelayProtocol.cleanName(this.$('#lobbyName').value) || 'Unnamed';
     this.$('#charCardDesc').textContent = this._describe();
   }
 
-  /** The character screen: prince or princess, hair, and four colours, with a preview that turns so you can see every side. */
+  /** The character screen: prince or princess, six hair styles each, and four colours. A big pixel preview you can turn and set walking,
+   *  the three views beside it, and little pictures on the body and hair buttons, all in your colours as you choose them. */
   _showCreator(first = false) {
-    const P = CharacterPalette, T = this, canvas = this.$('#charPreview');
-    const row = (id, items, slot, kind) => {
+    const P = CharacterPalette, T = this, canvas = this.$('#charPreview'), DIRS = ['down', 'left', 'up', 'right'];
+    const thumb = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+    const swatches = (id, colors, slot, names) => {
       const el = this.$('#' + id); el.innerHTML = '';
-      items.forEach((item, i) => {
-        const b = document.createElement('button'); b.type = 'button'; b.dataset.i = i;
-        if (kind === 'swatch') { b.style.background = item; b.title = (P[slot + 'Names'] || [])[i] || ''; b.setAttribute('aria-label', b.title); } else b.textContent = item;
-        b.onclick = () => { T.look[{ hair: 1, hairColor: 2, skin: 3, outfit: 4, trim: 5 }[slot]] = i; refresh(); };
+      colors.forEach((color, i) => {
+        const b = document.createElement('button'); b.type = 'button'; b.style.setProperty('--sw', color); b.title = names[i] || ''; b.setAttribute('aria-label', b.title);
+        b.onclick = () => { T.look[slot] = i; refresh(); };
         el.appendChild(b);
       });
     };
-    const refresh = () => {
-      const l = T.look;
-      T.root.querySelectorAll('#bodySeg button').forEach((b, i) => b.classList.toggle('on', i === l[0]));
-      T.root.querySelectorAll('#hairChips button').forEach((b, i) => { b.textContent = P.hairStyleNames[l[0] === 1 ? 'princess' : 'prince'][i]; });          // each body has its own hair styles
-      for (const [id, idx] of [['hairChips', 1], ['hairColors', 2], ['skinColors', 3], ['outfitColors', 4], ['trimColors', 5]]) T.root.querySelectorAll('#' + id + ' button').forEach((b, i) => b.classList.toggle('on', i === l[idx]));
-    };
+    // body: two cards with a head-and-shoulders picture
     const seg = this.$('#bodySeg'); seg.innerHTML = '';
-    P.bodies.forEach((name, i) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = name; b.onclick = () => { T.look[0] = i; refresh(); }; seg.appendChild(b); });
-    row('hairChips', P.hairStyles, 'hair', 'chip'); row('hairColors', P.hairColors, 'hairColor', 'swatch'); row('skinColors', P.skins, 'skin', 'swatch'); row('outfitColors', P.outfits, 'outfit', 'swatch'); row('trimColors', P.trims, 'trim', 'swatch');
-    this.root.querySelectorAll('#hairColors button').forEach((b, i) => { b.title = P.hairColorNames[i]; });
+    P.bodies.forEach((name, i) => {
+      const b = document.createElement('button'); b.type = 'button'; b.appendChild(thumb(60, 44)); b.appendChild(document.createTextNode(name));
+      b.onclick = () => { T.look[0] = i; refresh(); }; seg.appendChild(b);
+    });
+    // hair: six chips, each with the head in that style
+    const chips = this.$('#hairChips'); chips.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const b = document.createElement('button'); b.type = 'button'; b.appendChild(thumb(60, 44)); const label = document.createElement('span'); b.appendChild(label);
+      b.onclick = () => { T.look[1] = i; refresh(); }; chips.appendChild(b);
+    }
+    swatches('hairColors', P.hairColors, 2, P.hairColorNames); swatches('skinColors', P.skins, 3, P.skinNames); swatches('outfitColors', P.outfits, 4, P.outfitNames); swatches('trimColors', P.trims, 5, P.trimNames);
+    const refresh = () => {
+      const l = T.look, kind = l[0] === 1 ? 'princess' : 'prince';
+      seg.querySelectorAll('button').forEach((b, i) => { b.classList.toggle('on', i === l[0]); const look = l.slice(); look[0] = i; if (i !== l[0]) look[1] = Math.min(look[1], 5); renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: 'down', crop: 22 }); });
+      chips.querySelectorAll('button').forEach((b, i) => { const look = l.slice(); look[1] = i; b.classList.toggle('on', i === l[1]); b.querySelector('span').textContent = P.hairStyleNames[kind][i]; renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: i === 2 && kind === 'princess' ? 'left' : 'down', crop: 22 }); });
+      for (const [id, idx] of [['hairColors', 2], ['skinColors', 3], ['outfitColors', 4], ['trimColors', 5]]) T.root.querySelectorAll('#' + id + ' button').forEach((b, i) => b.classList.toggle('on', i === l[idx]));
+      T.root.querySelectorAll('.charViews canvas').forEach(c => renderCharacterPortrait(c, l, 0, 1000, {}, { dir: c.dataset.view }));
+    };
+    this.dirIdx = 0; this.walking = true;
+    this.$('#charTurnL').onclick = () => { this.dirIdx = (this.dirIdx + 1) % 4; };
+    this.$('#charTurnR').onclick = () => { this.dirIdx = (this.dirIdx + 3) % 4; };
+    const walk = this.$('#charWalk'); walk.textContent = 'Stand'; walk.onclick = () => { this.walking = !this.walking; walk.textContent = this.walking ? 'Stand' : 'Walk'; };
     this.$('#charRandom').onclick = () => { this.look = CharacterLook.random(); refresh(); };
     this.$('#charDone').onclick = () => {
       const name = RelayProtocol.cleanName(this.$('#lobbyName').value);
@@ -99,7 +114,7 @@ class LobbyUI {
       if (this.query.has('join') && first) this._showJoin(this.query.get('join')); else this._pane('lobbyMain');
     };
     this._pane('lobbyCreator'); refresh();
-    const loop = now => { renderCharacterPortrait(canvas, this.look, Math.PI / 4 + Math.sin(now / 900) * 1.35, now); this.spin = requestAnimationFrame(loop); };
+    const loop = now => { renderCharacterPortrait(canvas, this.look, 0, now, { crown: 'crown_simple' }, { dir: DIRS[this.dirIdx], moving: this.walking, phase: now / 160 }); this.spin = requestAnimationFrame(loop); };
     this._stopSpin(); this.spin = requestAnimationFrame(loop);
   }
   _stopSpin() { if (this.spin) cancelAnimationFrame(this.spin); this.spin = null; }

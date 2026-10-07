@@ -303,37 +303,42 @@ canvas{display:block}
 
 /* ---------- character creation ---------- */
 #charCard{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.06);border:1.5px solid rgba(227,194,122,.4)}
-#charMini{width:48px;height:60px;flex:none}
+#charMini{width:60px;height:64px;flex:none;border-radius:6px;background:rgba(255,255,255,.06)}
 .charInfo{display:flex;flex-direction:column;min-width:0;margin-right:auto}
 .charInfo b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .charInfo span{font-size:11px;color:#b9c4d0}
 #charEdit{padding:7px 10px;border-radius:8px;border:1.5px solid rgba(227,194,122,.6);background:rgba(10,18,28,.6);color:#f4e6c1;font:600 12px Georgia,serif}
 .creatorTop{display:flex;gap:10px;align-items:center}
-#charPreview{width:132px;height:166px;flex:none;border-radius:12px;background:radial-gradient(circle at 50% 40%,#4b7a58,#27483a);border:1.5px solid rgba(227,194,122,.45)}
+#charPreview{width:168px;height:200px;flex:none;border-radius:6px;image-rendering:pixelated;background:linear-gradient(#3d6a4c 0 72%,#5b8a46 72% 100%);box-shadow:inset 0 0 0 2px #1a2a20,0 0 0 2px rgba(227,194,122,.55)}
+.charStage{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none}
+.stageCtl{display:flex;gap:4px}
+.stageCtl button{min-width:36px;padding:5px 8px;border-radius:4px;border:2px solid rgba(227,194,122,.55);background:rgba(10,18,28,.7);color:#f4e6c1;font:700 12px Georgia,serif}
+.charViews{display:flex;gap:2px}
+.charViews canvas{width:60px;height:88px;image-rendering:pixelated;border-radius:4px;background:rgba(255,255,255,.05)}
+#charMini,.seg canvas,.chips canvas{image-rendering:pixelated}
 .creatorSide{display:flex;flex-direction:column;gap:8px;flex:1}
 .seg{display:flex;flex-direction:column;gap:6px}
-.seg button{padding:11px 8px;border-radius:10px;border:1.5px solid rgba(227,194,122,.5);background:rgba(10,18,28,.6);color:#f4e6c1;font:700 15px Georgia,serif}
+.seg button{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:10px;border:1.5px solid rgba(227,194,122,.5);background:rgba(10,18,28,.6);color:#f4e6c1;font:700 15px Georgia,serif}
 .seg button.on{background:#e3c27a;color:#10202f;border-color:#ffe08a}
 .big.small,.alt.small{padding:8px;font-size:13px}
 .optRow{display:flex;flex-direction:column;gap:4px}
 .optRow>span{font-size:11px;color:#b9c4d0}
 .chips,.swatches{display:flex;flex-wrap:wrap;gap:6px}
-.chips button{padding:6px 10px;border-radius:14px;border:1.5px solid rgba(227,194,122,.45);background:rgba(10,18,28,.55);color:#f4e6c1;font:600 12px Georgia,serif}
+.chips button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 4px 5px;border-radius:6px;min-width:66px;border:1.5px solid rgba(227,194,122,.45);background:rgba(10,18,28,.55);color:#f4e6c1;font:600 12px Georgia,serif}
 .chips button.on{background:#e3c27a;color:#10202f}
-.swatches button{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.35);padding:0;position:relative}
-.swatches button.on{border-color:#fff;box-shadow:0 0 0 2px #e3c27a}
+.swatches button{width:30px;height:30px;border-radius:3px;border:2px solid #10161e;padding:0;position:relative;background:var(--sw);box-shadow:inset -3px -3px 0 rgba(0,0,0,.28),inset 3px 3px 0 rgba(255,255,255,.22)}
+.swatches button.on{border-color:#fff;box-shadow:inset -3px -3px 0 rgba(0,0,0,.28),inset 3px 3px 0 rgba(255,255,255,.22),0 0 0 2px #e3c27a}
 
 #charRandom{padding:9px;border-radius:10px;border:1.5px solid rgba(227,194,122,.5);background:rgba(10,18,28,.6);color:#f4e6c1;font:600 13px Georgia,serif}
 #lobbyCreator{gap:7px}
 #lobbyCreator .swatches button{width:27px;height:27px}
 
 @media (min-aspect-ratio:5/4){
-  .lobbyCard:has(#lobbyCreator:not([hidden])){width:min(720px,100%)}
-  #lobbyCreator{display:grid;grid-template-columns:170px 1fr;column-gap:16px;align-items:start}
+  .lobbyCard:has(#lobbyCreator:not([hidden])){width:min(780px,100%)}
+  #lobbyCreator{display:grid;grid-template-columns:200px 1fr;column-gap:16px;align-items:start}
   #lobbyCreator h2{grid-column:1/3}
   #lobbyCreator .creatorTop{grid-column:1;grid-row:2/9;flex-direction:column;align-items:stretch;position:sticky;top:0}
   #lobbyCreator .optRow,#lobbyCreator #charDone{grid-column:2}
-  #charPreview{width:150px;height:190px;align-self:center}
   .creatorSide{width:100%}
 }
 
@@ -440,3 +445,26 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .admJson{width:100%;box-sizing:border-box;background:#0f1c2b;color:#e8dcc0;border:1px solid rgba(227,194,122,.4);border-radius:6px;font:11px ui-monospace,monospace;padding:6px}
 .admMsg{font-size:12px;opacity:.85}
 @media (max-width:560px){.admSlide{grid-template-columns:1fr auto}.admSlide input[type=range],.admSlide input[type=number]{grid-column:1/-1;order:3}}
+
+/* the season bar: the season, its day, and a bar filling as it passes (seasonUI in vitalsUI.js) */
+#seasonBar{position:fixed;z-index:4;top:8px;left:50%;transform:translateX(-50%);width:min(440px,60vw);padding:5px 10px 7px;display:flex;align-items:center;gap:10px;border-radius:9px;
+  background:rgba(14,22,32,.72);border:1.5px solid rgba(227,194,122,.55);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+#seasonBar .sbText{display:flex;align-items:center;gap:6px;justify-content:center;white-space:nowrap}
+#seasonBar .sbName{color:var(--season,#7cc86a)}
+#seasonBar .sbDay{opacity:.85;font-weight:400}
+#seasonBar .sbTrack{position:relative;margin-top:4px;height:7px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+#seasonBar .sbFill{height:100%;width:0;background:var(--season,#7cc86a);border-radius:4px;transition:width .6s linear}
+#seasonBar .sbTrack::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(var(--dayw,5%) - 1px),rgba(0,0,0,.35) calc(var(--dayw,5%) - 1px) var(--dayw,5%))}
+#seasonBar .sbNews{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:4px 12px;border-radius:8px;
+  background:rgba(14,22,32,.85);color:var(--season,#7cc86a);font-size:14px;animation:sbNews 4s ease forwards}
+@keyframes sbNews{0%{opacity:0;transform:translate(-50%,-6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+#seasonBar .sbSeason{flex:1;min-width:0}
+#seasonBar .sbClock{display:flex;align-items:center;gap:6px;padding-right:10px;border-right:1px solid rgba(227,194,122,.35);white-space:nowrap}
+#seasonBar .sbClock canvas{width:34px;height:34px;image-rendering:pixelated;image-rendering:crisp-edges}
+#seasonBar .sbPhase{font-weight:700;color:#f6e3a6;min-width:4.5em}
+#seasonBar .sbClock[data-phase="night"] .sbPhase,#seasonBar .sbClock[data-phase="predawn"] .sbPhase{color:#b9cdf5}
+#seasonBar .sbClock[data-phase="evening"] .sbPhase{color:#f2a45a}
+#seasonBar .sbClock[data-phase="glow"] .sbPhase{color:#f07a6a}
+@media (max-width:620px){#seasonBar{width:min(300px,72vw);top:auto;bottom:auto;top:calc(var(--sbTop,52px))}#seasonBar .sbPhase{display:none}#seasonBar .sbClock{padding-right:6px}#seasonBar .sbClock canvas{width:26px;height:26px}#seasonBar .sbDay{display:none}}
+#clock[hidden]{display:none}

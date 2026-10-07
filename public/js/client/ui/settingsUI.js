@@ -18,6 +18,7 @@ class SettingsUI {
     this._createTesting();
     if (CONFIG.sim.vitals) { this.body.insertAdjacentHTML('beforeend', '<div class="gtitle">Players</div>'); for (let slot = 0; slot < CONFIG.sim.maxPlayers; slot++) this._createRow(slot); }
     this._createWorld();
+    this._createFarming();
     this._createTrees();
     this._createExport();
     game.events.on('settingsChanged', () => this.isOpen && this.refresh());
@@ -104,7 +105,7 @@ class SettingsUI {
     this.pending[k] = this.draft[k];
     const send = () => { this.sendTimer = null; const values = this.pending; this.pending = {}; this.game.setAdmin(values); };
     if (!dragging) { clearTimeout(this.sendTimer); send(); } else if (!this.sendTimer) this.sendTimer = setTimeout(send, 100);
-    this._refreshWorld(); this._refreshExport();
+    this._refreshWorld(); this._refreshFarming(); this._refreshExport();
   }
   _refreshWorld() {
     const d = this.draft;
@@ -114,6 +115,44 @@ class SettingsUI {
     o('dayShare').textContent = `${d.dayShare}% day · ${100 - d.dayShare}% night`;
     const dayMinutes = 24 * 60 / d.gameHoursPerRealHour;
     o('gameHoursPerRealHour').textContent = 'a day = ' + (dayMinutes >= 1 ? +dayMinutes.toFixed(1) + ' real min' : Math.round(dayMinutes * 60) + ' real s');
+  }
+
+  /* ---- seasons and farming: how long a season lasts, and how many days each crop takes to grow (changes right away) ---- */
+  _createFarming() {
+    const L = GameSettings.LIMITS, el = document.createElement('div'); el.className = 'admBox';
+    el.innerHTML = '<div class="gtitle">Seasons &amp; farming <small>(changes right away, for everyone)</small></div>' +
+      `<label class="admSlide"><span><b>Season length</b><small>In-game days in each season (spring, summer, autumn, winter). 20 = as built.</small></span><input type="number" data-k="seasonDays" min="${L.seasonDays[0]}" max="${L.seasonDays[1]}" step="1"><output data-o="seasonDays"></output></label>` +
+      '<details class="admBiome"><summary><b>Days to grow</b> <small>(watered days until each crop is ripe)</small></summary>' +
+      Crops.all().map(c => `<label class="admSlide"><span><b>${c.name}</b><small>${c.seasons.map(s => Seasons.byId(s).name).join(', ')} \u00B7 as built ${c.days}${c.regrow ? ', fruits again in ' + c.regrow : ''}</small></span><input type="number" min="1" max="120" step="1" data-crop="${c.id}"><output data-oc="${c.id}"></output></label>`).join('') +
+      '<div class="admRow"><button data-crops-reset>All as built</button></div></details>';
+    const season = el.querySelector('[data-k=seasonDays]');
+    season.addEventListener('change', () => this._setLive('seasonDays', Number(season.value), false));
+    season.addEventListener('keydown', e => e.stopPropagation());
+    for (const input of el.querySelectorAll('input[data-crop]')) {
+      input.addEventListener('change', () => this._setCrop(input.dataset.crop, Number(input.value)));
+      input.addEventListener('keydown', e => e.stopPropagation());
+    }
+    el.querySelector('[data-crops-reset]').addEventListener('click', () => { this.draft.crops = {}; this._sendCrops(); });
+    this.body.appendChild(el); this.farmBox = el;
+    this._refreshFarming();
+  }
+  _setCrop(id, days) {
+    const c = Crops.get(id); if (!c || !Number.isFinite(days)) return;
+    this.draft.crops = Object.assign({}, this.draft.crops || {});
+    if (Math.round(days) === c.days) delete this.draft.crops[id]; else this.draft.crops[id] = clamp(Math.round(days), 1, 120);
+    this._sendCrops();
+  }
+  _sendCrops() { GameSettings.saveOverride(this.draft); this.game.setAdmin({ crops: this.draft.crops }); this._refreshFarming(); this._refreshExport(); }
+  _refreshFarming() {
+    if (!this.farmBox) return;
+    const d = this.draft, season = this.farmBox.querySelector('[data-k=seasonDays]');
+    if (document.activeElement !== season) season.value = d.seasonDays;
+    this.farmBox.querySelector('[data-o=seasonDays]').textContent = 'a year = ' + (d.seasonDays * 4) + ' days';
+    for (const c of Crops.all()) {
+      const input = this.farmBox.querySelector(`[data-crop="${c.id}"]`), days = (d.crops || {})[c.id] || c.days;
+      if (document.activeElement !== input) input.value = days;
+      this.farmBox.querySelector(`[data-oc="${c.id}"]`).textContent = (d.crops || {})[c.id] ? days + ' days (changed)' : days + ' days';
+    }
   }
 
   /* ---- trees per biome (nested, folded away) ---- */
@@ -211,6 +250,7 @@ class SettingsUI {
       select.value = p ? p[vital + 'Mode'] : 'normal';
     }
     for (const k of GameSettings.LIVE) if (!(k in this.pending)) this.draft[k] = GameSettings.values[k];      // (the server's values win, unless we are mid-drag)
-    this._refreshWorld(); this._refreshTrees(); this._refreshExport();
+    this.draft.crops = Object.assign({}, GameSettings.values.crops || {});
+    this._refreshWorld(); this._refreshFarming(); this._refreshTrees(); this._refreshExport();
   }
 }

@@ -1,13 +1,19 @@
 'use strict';
 /* CLIENT - purely visual feedback driven by server events: wood chips, falling leaves, floating "+2 Log", tree shake. */
 const SHAKE_MS = 320, SHAKE_PIXELS = 5;
-const CHIP_COLORS = ['#c9a06a', '#8a5a33', '#b58a55'], LEAF_COLORS = ['#468a40', '#5ea24a', '#3f7a3a'], DUST_COLORS = ['#d8cfb8', '#b9ae92', '#e9e2d0'], GOLD_COLORS = ['#ffe08a', '#ffc94a', '#fff2c2'], HEART_COLORS = ['#ff7ab6', '#ffd1e8', '#ff9ec7', '#fff3b0'], FUR_COLORS = ['#e8dcc4', '#b79a72', '#8d6a45'], SPLASH_COLORS = ['#e8f6ff', '#9fd0f2', '#5aa6dc'];
+const CHIP_COLORS = ['#c9a06a', '#8a5a33', '#b58a55'], LEAF_COLORS = ['#468a40', '#5ea24a', '#3f7a3a'], DUST_COLORS = ['#d8cfb8', '#b9ae92', '#e9e2d0'], GOLD_COLORS = ['#ffe08a', '#ffc94a', '#fff2c2'], HEART_COLORS = ['#ff7ab6', '#ffd1e8', '#ff9ec7', '#fff3b0'], FUR_COLORS = ['#e8dcc4', '#b79a72', '#8d6a45'], SPLASH_COLORS = ['#e8f6ff', '#9fd0f2', '#5aa6dc'], WOOL_COLORS = ['#ffffff', '#f2efe6', '#e6e1d3'];
 
 class Effects {
   constructor(bus, game) {
     this.game = game; this.arrows = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {};
     game.events.on('chop', e => this._onChop(e));
     game.events.on('fell', e => this._onFell(e));
+    game.events.on('pressed', e => { const c = e.color || '#7b45c4'; this._burst(e.x, e.y, 12, [c, c, '#ffffff'], 14); });   // a splash of the dye's colour at the press
+    game.events.on('shear', e => { this._burst(e.x, e.y, 14, WOOL_COLORS, 16); this._float(Object.assign({ to: e.by }, e), 'Snip!'); });   // a puff of fluff; the tufts land a moment later
+    game.events.on('till', e => this._burst(e.x, e.y, 10, ['#7a5233', '#9c7048', '#5a3b22'], 10));              // clods fly from the hoe (farming.js)
+    game.events.on('watered', e => this._burst(e.x, e.y, 8, SPLASH_COLORS, 5));
+    game.events.on('planted', e => this._burst(e.x, e.y, 6, ['#5fae4e', '#8fd06e', '#7a5a33'], 8));
+    game.events.on('harvested', e => this._burst(e.x, e.y, 14, [e.color || '#e59a2e', '#5fae4e', '#fff2b0'], 16));
     game.events.on('gain', e => this._onGain(e));
     game.events.on('pick', e => this._burst(e.x, e.y, 9, e.prop === 'stone' ? DUST_COLORS : LEAF_COLORS, 12));
     game.events.on('eat', e => this._float(e, `Yum! +${e.hunger} hunger`));
@@ -34,7 +40,7 @@ class Effects {
     game.events.on('untied', e => this._float(e, 'Untied'));
     game.events.on('carried', e => { this._burst(e.x, e.y, 6, HEART_COLORS, 12); this._float(e, 'Picked up'); });
     game.events.on('released', e => { this._burst(e.x, e.y, 8, HEART_COLORS, 12); this._float(e, 'Released'); });
-    game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, age: 0 }));
+    game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, look: lassoLook(e.item), age: 0 }));
     game.events.on('caught', e => this._burst(e.x, e.y, 12, HEART_COLORS, 24));        // (the server's notice already says what to do next)
     game.events.on('fed', e => { this._burst(e.x, e.y, 10, HEART_COLORS, 26); this._float(e, `Apple ${e.have}/${e.need}`); });
     game.events.on('letGo', e => { this._burst(e.x, e.y, 8, DUST_COLORS, 12); this._float(e, 'It ran off'); });
@@ -83,7 +89,23 @@ class Effects {
   }
 
   _onChop(e) { this.shakeStart[e.key] = performance.now(); this._burst(e.x, e.y, 7, CHIP_COLORS, 34); }
-  _onFell(e) { this._burst(e.x, e.y, 20, LEAF_COLORS, 70); this._burst(e.x, e.y, 8, CHIP_COLORS, 14); }
+  /** A felled tree topples away from the woodcutter; when it lands: leaves, dust and chips where the crown hits, and it breaks into logs. */
+  _onFell(e) {
+    this.falls = this.falls || {};
+    this.falls[e.key] = { start: performance.now(), side: e.side || 1, x: e.x, y: e.y, landed: false };
+    this._burst(e.x, e.y, 8, CHIP_COLORS, 14);
+  }
+  /** Where a falling tree is: { angle, alpha }, or null once it has broken into logs. */
+  fall(key, now) {
+    const f = this.falls && this.falls[key]; if (!f) return null;
+    const t = (now - f.start) / (TreeDef.fallSeconds * 1000);
+    if (t >= 1 && !f.landed) {                                               // the crash
+      f.landed = true; const d = 1.4, wx = f.x + f.side / Math.SQRT2 * d, wy = f.y - f.side / Math.SQRT2 * d;
+      this._burst(wx, wy, 22, LEAF_COLORS, 40); this._burst(wx, wy, 12, DUST_COLORS, 10); this._burst(wx, wy, 10, CHIP_COLORS, 16);
+    }
+    if (t >= 1.35) { delete this.falls[key]; return null; }
+    return { angle: f.side * (Math.PI / 2 - 0.12) * Math.min(1, t) * Math.min(1, t), alpha: t < 1 ? 1 : 1 - (t - 1) / 0.35 };   // (gravity: slow at first, then fast)
+  }
   _onBuilt(e, demolished) { this._burst(e.tx + 0.5, e.ty + 0.5, demolished ? 12 : 9, demolished ? CHIP_COLORS : DUST_COLORS, 22); }
   _onGain(e) { const def = ItemDB.get(e.item); this._float(e, `+${e.count} ${def ? def.name : e.item}`); }
 
@@ -122,9 +144,11 @@ class Effects {
     this.ropes = this.ropes.filter(r => (r.age += dt) < 0.7);                                       // a thrown lasso: a rope flying out with a loop that closes on a catch
     for (const r of this.ropes) {
       const t = Math.min(1, r.age / 0.28), x = r.x0 + (r.x1 - r.x0) * t, y = r.y0 + (r.y1 - r.y0) * t - Math.sin(t * Math.PI) * 14;
-      ctx.strokeStyle = '#d8b66a'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(r.x0, r.y0); ctx.quadraticCurveTo((r.x0 + x) / 2, Math.min(r.y0, y) - 10 + (1 - t) * 10, x, y); ctx.stroke();
       const loop = r.hit && r.age > 0.28 ? Math.max(3, 11 - (r.age - 0.28) * 30) : 11;                 // the loop tightens round the neck
-      ctx.strokeStyle = r.hit ? '#f0d58a' : '#b9a06a'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.ellipse(x, y, loop, loop * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      for (const [color, w] of [[r.look.dark, 3.4], [r.hit ? r.look.braid : r.look.rope, 2]]) {          // the rope in its lasso's colours, outlined
+        ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(r.x0, r.y0); ctx.quadraticCurveTo((r.x0 + x) / 2, Math.min(r.y0, y) - 10 + (1 - t) * 10, x, y); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(x, y, loop, loop * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+      }
     }
     this.floaters = this.floaters.filter(f => (f.age += dt) < (f.style === 'levelup' ? 2.4 : 1.4));
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

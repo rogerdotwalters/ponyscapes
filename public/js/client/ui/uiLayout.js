@@ -33,13 +33,14 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const release = makeRect(sneak.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
   const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
   const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
-  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability, lasso]);
+  const drop = makeRect(lasso.x - g - small, ability.y, small, small);       // drop what is in your hand, beside the lasso
+  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability, lasso, drop]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, run: runRect, board, rot, sneak, release, ability, lasso, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, run: runRect, board, rot, sneak, release, ability, lasso, drop, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -91,13 +92,13 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   }
 
   /* ---- the vitals row (health | hunger | thirst | clock) ---- */
-  const vitalsH = Math.round(16 * k), clockW = Math.round(62 * k), barW4 = Math.floor((toolbar.w - clockW - 3 * gap) / 3);
+  const vitalsH = Math.round(16 * k), clockW = 0, barW4 = Math.floor((toolbar.w - 2 * gap) / 3);         // (the clock lives beside the season bar now: the bars share the row)
   const vitalsY = touch ? toolbar.y + toolbar.h + gap : toolbar.y - gap - vitalsH;
   const health = makeRect(toolbar.x, vitalsY, barW4, vitalsH);
   let hunger = makeRect(toolbar.x + (barW4 + gap), vitalsY, barW4, vitalsH);
   let thirst = makeRect(toolbar.x + 2 * (barW4 + gap), vitalsY, barW4, vitalsH);
-  if (!CONFIG.sim.vitals) { health.w = toolbar.w - clockW - gap; hunger = thirst = null; }       // hunger and thirst are off: health takes their room
-  const clock = makeRect(toolbar.x + 3 * (barW4 + gap), vitalsY, toolbar.w - 3 * (barW4 + gap), vitalsH);
+  if (!CONFIG.sim.vitals) { health.w = toolbar.w; hunger = thirst = null; }       // hunger and thirst are off: health takes their room
+  const clock = makeRect(toolbar.x + toolbar.w, vitalsY, clockW, vitalsH);
   let topUsed = (touch ? Math.max(vitalsY + vitalsH, systemBar.y + systemBar.h) : systemBar.y + systemBar.h) + m;   // y where free space starts
 
   /* ---- touch controls: both thumbs' controls must fit side by side, so they shrink on narrow screens ---- */
@@ -243,7 +244,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnDrop', T.drop]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);

@@ -169,8 +169,9 @@ const Stockpiles = {
     map.stockpiles = {};
     for (const [k, pile] of Object.entries(data.piles || {})) map.stockpiles[k] = { items: Object.assign({}, pile.items) };
     map.buildingLevels = Object.assign({}, data.levels || {});
+    map.roomStores = Object.assign({}, data.rooms || {});                         // the bins in rooms (homeCrafts.js)
   },
-  exportState: map => ({ piles: JSON.parse(JSON.stringify(map.stockpiles)), levels: Object.assign({}, map.buildingLevels) })
+  exportState: map => ({ piles: JSON.parse(JSON.stringify(map.stockpiles)), levels: Object.assign({}, map.buildingLevels), rooms: Object.assign({}, map.roomStores || {}) })
 };
 
 const Buildings = {

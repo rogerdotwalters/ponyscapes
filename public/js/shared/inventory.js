@@ -131,7 +131,7 @@ const Bags = {
  *  the starter pony's side pack the rest (TestKitPony: gameServer._giveStarterPony). Otherwise just an axe. */
 const TestKit = Object.freeze([
   ['axe', 1], ['stone_hammer', 1], ['knife', 1], ['shovel', 1], ['fishing_rod', 1],              // the tool belt (keys 1-5)
-  ['spear', 1], ['brush', 1]                                                                      // the starter backpack, with room to spare (the Rope Lasso waits in the lasso slot)
+  ['spear', 1], ['brush', 1], ['hoe', 1], ['watering_can', 1], ['seed_turnip', 10]                // the starter backpack (the Old Rope Lasso waits in the lasso slot)
 ]);
 const TestKitPony = Object.freeze([                                                               // the starter pony's side pack: all ten slots
   ['bow', 1], ['arrow', 20], ['torch', 3], ['jug', 1], ['plank', 30], ['rope', 8], ['string', 6], ['stone', 10], ['apple', 6], ['gold_coin', 25]   // (gold for a bigger bag)

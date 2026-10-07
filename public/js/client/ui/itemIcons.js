@@ -9,15 +9,54 @@ const ItemIcons = (() => {
     ctx.fillStyle = meat; ctx.beginPath(); ctx.ellipse(24, 20, 13, 13, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.6; ctx.stroke();
     ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(19, 15, 5, 3.4, -0.5, 0, Math.PI * 2); ctx.fill();
   };
-  /** A coiled lasso in its own colours (LASSO_LOOKS); better lassos sparkle. */
+  /** A braided rope along a path (pts: [x, y] samples): dark outline, the rope, then the twists of the braid.
+   *  An old rope (worn) has missing and rotten twists here and there. */
+  const braidedRope = (ctx, pts, look, width, worn) => {
+    const line = (color, w) => { ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); };
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    line(look.dark, width + 2.4); line(look.rope, width);
+    for (let i = 1; i < pts.length - 1; i += 2) {
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i + 1], [x, y] = pts[i], len = Math.hypot(x1 - x0, y1 - y0) || 1, tx = (x1 - x0) / len, ty = (y1 - y0) / len, h = width / 2 - 0.4;
+      if (worn && (i % 7 === 3 || i % 11 === 5)) continue;                                                // a twist worn away
+      ctx.strokeStyle = worn && i % 5 === 1 ? '#4a3a26' : look.braid; ctx.lineWidth = 1.5;               // ...or gone dark with age
+      ctx.beginPath(); ctx.moveTo(x - ty * h - tx * 1.4, y + tx * h - ty * 1.4); ctx.lineTo(x + ty * h + tx * 1.4, y - tx * h + ty * 1.4); ctx.stroke();
+    }
+  };
+  const curve = (n, f) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
+  const quad = (a, b, c) => t => [(1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * b[0] + t * t * c[0], (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * b[1] + t * t * c[1]];
+  /** A ribbon tail hanging from the ring, with a notched tip in the lasso's trim colour. */
+  const ribbon = (ctx, a, b, c, color, look) => {
+    const pts = curve(12, quad(a, b, c));
+    ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
+    for (const [col, w] of [[look.dark, 6.4], [color, 4.2]]) { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1; ctx.beginPath(); pts.slice(1, -3).forEach(([x, y], i) => (i ? ctx.lineTo(x - 1, y) : ctx.moveTo(x - 1, y))); ctx.stroke();
+    const [ex, ey] = c, [qx, qy] = pts[pts.length - 3], len = Math.hypot(ex - qx, ey - qy) || 1, tx = (ex - qx) / len, ty = (ey - qy) / len, nx = -ty, ny = tx;
+    ctx.fillStyle = look.tip; ctx.strokeStyle = look.dark; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(qx + nx * 3, qy + ny * 3); ctx.lineTo(ex + nx * 3 + tx * 2, ey + ny * 3 + ty * 2); ctx.lineTo(ex - tx * 1, ey - ty * 1); ctx.lineTo(ex - nx * 3 + tx * 2, ey - ny * 3 + ty * 2); ctx.lineTo(qx - nx * 3, qy - ny * 3); ctx.closePath(); ctx.fill(); ctx.stroke();
+  };
+  /** A lasso in its own colours (LASSO_LOOKS): a braided loop run through a ring, its end hanging down. The starter rope is old and frayed;
+   *  better lassos have ribbon tails and sparkle. */
   const lassoPainter = id => ctx => {
-    const [rope, shine] = lassoLook(id), tier = (ItemDB.getLasso(id) || { tier: 1 }).tier;
-    ctx.strokeStyle = rope; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(19, 18, 9, 0.4, Math.PI * 1.9); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(25, 26); ctx.bezierCurveTo(36, 30, 40, 38, 30, 42); ctx.stroke();
-    ctx.strokeStyle = shine; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(19, 18, 9, 0.4, Math.PI * 1.9); ctx.stroke();
-    ctx.fillStyle = '#b0b6bf'; ctx.beginPath(); ctx.arc(29, 42, 3.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = shine; for (let k = 1; k < tier; k++) { const x = 34 + (k % 2) * 6, y = 6 + k * 6; ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x + 1, y - 1); ctx.lineTo(x + 3, y); ctx.lineTo(x + 1, y + 1); ctx.lineTo(x, y + 3); ctx.lineTo(x - 1, y + 1); ctx.lineTo(x - 3, y); ctx.lineTo(x - 1, y - 1); ctx.closePath(); ctx.fill(); }
+    const look = lassoLook(id), tier = (ItemDB.getLasso(id) || { tier: 1 }).tier, worn = !!look.worn;
+    const cx = 29, cy = 27, r = 13, ringAt = -2.2, hx = cx + Math.cos(ringAt) * r, hy = cy + Math.sin(ringAt) * r;
+    if (look.tails) {                                                                                     // ribbon tails behind the loop
+      ribbon(ctx, [hx - 1, hy + 2], [hx - 11, hy + 9], [4, 39], look.tails[0], look);
+      ribbon(ctx, [hx + 1, hy + 3], [hx - 8, hy + 13], [11, 43], look.tails[1], look);
+    } else {                                                                                              // a plain rope end, frayed at the tip
+      braidedRope(ctx, curve(14, quad([hx - 1, hy + 2], [hx - 11, hy + 10], [6, 42])), look, 3.6, worn);
+      ctx.strokeStyle = look.tip; ctx.lineWidth = 1; ctx.lineCap = 'round'; ctx.beginPath();
+      for (const [fx, fy] of [[-3.5, 2], [-1.5, 4], [1, 4.5], [3, 2.5], [-4, -0.5]]) { ctx.moveTo(6, 42); ctx.lineTo(6 + fx, 42 + fy); }
+      ctx.stroke();
+    }
+    braidedRope(ctx, curve(40, t => { const a = ringAt + 0.25 + t * (Math.PI * 2 - 0.25); return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; }), look, 4.4, worn);
+    if (worn) {                                                                                           // a fraying strand sprung loose, and a thin, faded patch
+      ctx.strokeStyle = look.tip; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(38, 36); ctx.quadraticCurveTo(42, 38, 43, 42); ctx.moveTo(38.5, 35.5); ctx.lineTo(42, 34); ctx.stroke();
+      ctx.strokeStyle = 'rgba(214,190,150,.45)'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.arc(cx, cy, r, 2.2, 2.7); ctx.stroke();
+    }
+    ctx.lineWidth = 4.2; ctx.strokeStyle = look.dark; ctx.beginPath(); ctx.arc(hx, hy, 4.6, 0, Math.PI * 2); ctx.stroke();   // the ring (honda): tarnished iron on the old rope
+    ctx.lineWidth = 2.4; ctx.strokeStyle = look.honda; ctx.stroke();
+    ctx.lineWidth = 1; ctx.strokeStyle = worn ? 'rgba(160,150,135,.6)' : 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.arc(hx, hy, 4.6, 3.6, 4.6); ctx.stroke();
+    ctx.fillStyle = look.tip; for (let k = 1; k < tier; k++) { const x = 44 - (k % 2) * 3, y = -1 + k * 5; ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x + 1, y - 1); ctx.lineTo(x + 3, y); ctx.lineTo(x + 1, y + 1); ctx.lineTo(x, y + 3); ctx.lineTo(x - 1, y + 1); ctx.lineTo(x - 3, y); ctx.lineTo(x - 1, y - 1); ctx.closePath(); ctx.fill(); }
   };
   /** A grooming brush: wooden back, a row of bristles. */
   const brushPainter = bristles => ctx => {
@@ -150,11 +189,11 @@ const ItemIcons = (() => {
       ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.ellipse(22, 22, 9, 6, 0.4, 0, Math.PI * 2); ctx.fill();
     },
-    wool(ctx) {
-      for (const [x, y, r, c] of [[16, 28, 9, '#e6e1d3'], [30, 28, 9, '#e6e1d3'], [23, 22, 10, '#f2efe6'], [14, 20, 7, '#f7f4ec'], [32, 20, 7, '#f7f4ec'], [23, 33, 8, '#dcd6c6']]) {
-        ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-      }
-    },
+    wool(ctx) { PixelWool.icon(ctx); },                                     // pixel art (pixelProps.js)
+    shears(ctx) { PixelWool.shearsIcon(ctx); },
+    linen(ctx) { PixelCraftIcons.linen(ctx); },
+    hoe(ctx) { PixelCraftIcons.hoe(ctx); },
+    watering_can(ctx) { PixelCraftIcons.wateringCan(ctx); },
     antler(ctx) {
       ctx.strokeStyle = '#d9c9a6'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath();
       ctx.moveTo(24, 42); ctx.lineTo(24, 26); ctx.moveTo(24, 30); ctx.lineTo(12, 18); ctx.moveTo(24, 26); ctx.lineTo(34, 12);
@@ -286,15 +325,7 @@ const ItemIcons = (() => {
       ctx.beginPath(); ctx.moveTo(11, 36); ctx.lineTo(37, 16); ctx.moveTo(11, 26); ctx.lineTo(37, 26); ctx.stroke();
       ctx.fillStyle = '#e0b84a'; ctx.beginPath(); ctx.arc(34, 26, 1.8, 0, Math.PI * 2); ctx.fill();
     },
-    log(ctx) {
-      ctx.fillStyle = '#8a5a33'; ctx.fillRect(9, 17, 28, 16);
-      ctx.fillStyle = '#6f4626'; ctx.beginPath(); ctx.ellipse(37, 25, 5, 8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#c9a06a'; ctx.beginPath(); ctx.ellipse(9, 25, 5, 8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#8a5a33'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.ellipse(9, 25, 3, 5, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(9, 25, 1, 2, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.moveTo(15, 20); ctx.lineTo(33, 20); ctx.moveTo(15, 29); ctx.lineTo(33, 29); ctx.stroke();
-    }
+    log(ctx) { PixelLogs.icon(ctx); }                                       // the pixel-art log (pixelProps.js)
   };
   /** A small cluster of berries on a leaf, in the item's own colour. */
   function berryPainter(color) {
@@ -417,7 +448,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d'));
     return (cache[key] = canvas.toDataURL());
   }

@@ -234,6 +234,7 @@ const BuildSystem = {
       const tile = map.built[tileKey(tx, ty)];
       if (tile && tile.c && Math.hypot(tx + 0.5 - p.x, ty + 0.5 - p.y) <= range) found.add(tile.c);
     }
+    if (typeof HomeCrafts !== 'undefined') for (const st of HomeCrafts.stationsNear(map, p, range)) found.add(st);   // a loom (or any furniture station) in the room
     return found;
   }
 };
