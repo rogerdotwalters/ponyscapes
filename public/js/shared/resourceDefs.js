@@ -29,6 +29,9 @@ const FORAGE_RANGE = 1.1;                                                     //
 /* Everything below that varies by biome is READ FROM THE BIOME TABLE (js/data/biomes/): these are just the lookups the systems use. */
 const fromBiomes = field => Object.freeze(Object.fromEntries(Biomes.all().map(b => [b.id, b[field]])));
 const BiomeBerries = fromBiomes('berries');                     // [itemId, weight] per biome
+/** A biome's apple trees within this many tiles of a neighbour named in its `edgeApples` bear that neighbour's apple instead. */
+const EDGE_APPLE_RANGE = 8;
+const BiomeEdgeApples = Object.freeze(Object.fromEntries(Biomes.all().filter(b => b.edgeApples).map(b => [b.id, b.edgeApples])));
 const BiomeApples = Object.freeze(Object.fromEntries(Biomes.all().map(b => [b.id, b.apples && b.apples.length ? b.apples : [['apple', 1]]])));   // which apples its trees bear
 const BushChance = fromBiomes('bush'), StoneChance = fromBiomes('stone'), FlaxChance = fromBiomes('flax');
 const AppleTreeChance = fromBiomes('appleTrees'), TreeBoost = fromBiomes('treeBoost');

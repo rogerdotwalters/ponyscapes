@@ -128,6 +128,12 @@ const ItemIcons = (() => {
     pink_apple: applePainter('#ffb0c4', '#d0507a'),
     crab_apple: applePainter('#e07a52', '#8a2e1a', false, 0.72),
     russet_apple: applePainter('#d9a868', '#7a4a20'),
+    crystal_apple(ctx) {                                                       // a faceted, see-through apple of pale blue crystal
+      applePainter('#e8fbff', '#5fb8c8', true)(ctx);
+      ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.2; ctx.beginPath();
+      for (const [x0, y0, x1, y1] of [[24, 16, 18, 30], [24, 16, 31, 30], [18, 30, 24, 40], [31, 30, 24, 40], [12, 26, 18, 30], [36, 26, 31, 30]]) { ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); }
+      ctx.stroke();
+    },
     shovel(ctx) {
       ctx.lineCap = 'round';
       ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.moveTo(34, 6); ctx.lineTo(22, 28); ctx.stroke();

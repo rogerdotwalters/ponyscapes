@@ -116,8 +116,14 @@ class TerrainGenerator {
 
   /** Does this tree bear apples? */
   appleTreeAt(tx, ty) { const h = hash3(this.seed, tx, ty, 60); return h < 0.7 && h < AppleTreeChance[this.biomeAt(tx, ty, TILE.GRASS)]; }
-  /** Which apple an apple tree here bears (its biome's `apples` table; one kind per tree, always the same). */
+  /** Which apple an apple tree here bears: if its biome has `edgeApples` and one of those neighbours is within EDGE_APPLE_RANGE tiles, that
+   *  apple (an Orchard tree beside a Crystal Hollow bears crystal apples); else its biome's `apples` table. One kind per tree, always the same. */
   appleKindAt(tx, ty) {
+    const own = this.biomeAt(tx, ty, TILE.GRASS), edges = BiomeEdgeApples[own];
+    if (edges) for (let d = 2; d <= EDGE_APPLE_RANGE; d += 2) for (let k = 0; k < 8; k++) {
+      const b = this.layers.biomes.at(Math.round(tx + Math.cos(k * Math.PI / 4) * d), Math.round(ty + Math.sin(k * Math.PI / 4) * d));
+      if (edges[b]) return edges[b];
+    }
     const table = BiomeApples[this.biomeAt(tx, ty, TILE.GRASS)] || [['apple', 1]], total = table.reduce((n, [, w]) => n + w, 0);
     let roll = hash3(this.seed, tx, ty, 63) * total;
     for (const [item, weight] of table) { if ((roll -= weight) < 0) return item; }

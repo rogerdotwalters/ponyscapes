@@ -23,6 +23,7 @@ Foods.registerAll([
   { id: 'golden_apple', name: 'Golden Apple', category: 'fruit', maxStack: 30, hunger: 12, thirst: 3, color: '#f2c94c', apple: true, rarity: 'uncommon' },
   { id: 'pink_apple', name: 'Pink Lady Apple', category: 'fruit', maxStack: 30, hunger: 11, thirst: 3, color: '#f07fa0', apple: true, rarity: 'uncommon' },
   { id: 'crab_apple', name: 'Crab Apple', category: 'fruit', maxStack: 30, hunger: 6, thirst: 2, color: '#b5482e', apple: true },
+  { id: 'crystal_apple', name: 'Crystal Apple', category: 'fruit', maxStack: 30, hunger: 15, thirst: 6, color: '#9fe0e6', apple: true, rarity: 'epic' },   // grows only on Orchard apple trees where the Orchard meets a Crystal Hollow
   { id: 'russet_apple', name: 'Russet Apple', category: 'fruit', maxStack: 30, hunger: 11, thirst: 2, color: '#b07a3a', apple: true, rarity: 'rare' },
   { id: 'raw_fish', name: 'Raw Fish', category: 'meat', maxStack: 10, hunger: 9, thirst: 0, cooksInto: 'cooked_fish', recipe: { id: 'cook_fish', name: 'Grilled Fish' } },
   { id: 'cooked_rabbit', name: 'Roast Rabbit', category: 'meat', maxStack: 10, hunger: 17, thirst: 0 },
