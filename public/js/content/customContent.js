@@ -38,7 +38,8 @@ window.PONYSCAPES_CONTENT = {
     fishing_rod: { sprites: { icon: 'assets/items/fishing_rod_icon.png', held: 'assets/items/fishing_rod_held.png' } }
   },
   creatures: {
-    sheep: { sprites: { portrait: 'assets/creatures/sheep_portrait.jpg' } }
+    sheep: { sprites: { portrait: 'assets/creatures/sheep_portrait.jpg' } },
+    dog: { sprites: { portrait: 'assets/creatures/dog_portrait.jpg' } }
   },
   characters: {},
   settings: {}

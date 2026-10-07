@@ -261,6 +261,45 @@ const PixelCreatures = (() => {
   });
   function sprite_is(C, v) { return C.V === CANINE[v]; }
 
+  /* ---- DOG (as in its portrait): a long-coated golden dog, a feathered plume of a tail, a feathered chest, belly and legs, soft
+   *      floppy ears, a dark nose, a happy open mouth with a pink tongue, and a dark collar with a gold tag ---- */
+  PixelCreatures.register({
+    id: 'dog', W: 42, H: 32, ground: 30, anchor: 19, shadow: [13, 3.5],
+    palette: s => { const col = s.color || '#c8792f'; return { coat: tones(col), feather: light(col, 0.3), deep: shade(col, 0.7), ear: tones(shade(col, 0.74)), nose: '#24160f', tongue: '#e8899a', collar: '#3a2418', tag: '#f0c23a' }; },
+    paint(P, C, F) {
+      const G = 30, sw = F.swing, wag = F.moving ? [1, 0, -1, 0][F.i] : [0, 1, 0, -1][F.i], far = { b: shade(C.coat.b, 0.78), d: shade(C.coat.d, 0.8) };
+      const leg = (x, top, d, t, front) => {                                                             // a sturdy leg on a round paw, feathered at the back
+        P.leg(x, top, G, d, 0, 3, t, null); P.rect(x + d - (front ? 0 : 1), G, 4, 1, t.d); P.px(x + d + (front ? 3 : 2), G, t.b);
+        if (!front) for (let y = top + 1; y < G - 3; y += 2) P.px(x + Math.round(d * (y - top) / (G - top)) - 1, y, t.l || C.feather);
+      };
+      leg(14, 21, -sw * 2, far, false); leg(28, 21, sw * 2, far, true);                                   // far legs
+      P.at(0, F.bob, () => {
+        // the tail: a full plume swept back and down from the rump, its long feathers hanging beneath
+        P.shape([[9, 16, 2.6, 2.4], [6.5, 18 + wag * 0.5, 2.4, 2.6], [5, 21 + wag, 2.2, 2.6], [5.5, 24 + wag, 1.6, 1.8]], C.coat, { belly: C.feather, texture: false });
+        for (const [x, y] of [[4, 19], [3, 22], [3, 25], [6, 26]]) P.px(x, y + wag, C.feather);
+        P.shape([[20, 16, 9, 5], [12.5, 16, 4.5, 5], [27.5, 15.5, 5, 6]], C.coat, { belly: C.feather, grain: 17 });  // body, rump, deep chest
+        for (let x = 15; x < 28; x += 2) P.px(x, 22, C.feather);                                         // the feathered belly fringe
+        for (let x = 13; x < 28; x += 4) { P.px(x, 13, C.deep); P.px(x + 1, 14, C.deep); P.px(x + 2, 12, C.coat.l); }      // long-coat waves along the back
+        P.line(28, 13, 31, 8, C.coat.b, 6);                                                                // the neck, held up
+        for (let y = 15; y < 22; y += 2) { P.px(32 - (y > 18 ? 1 : 0), y, C.feather); P.px(31 - (y > 18 ? 1 : 0), y + 1, C.coat.l); }   // the feathered ruff down the chest
+      });
+      leg(12, 20, sw * 2, C.coat, false); leg(26, 20, -sw * 2, C.coat, true);                            // near legs
+      P.at(0, F.bob, () => P.shape([[13, 18, 4, 3.6]], C.coat, { texture: false }));                      // the haunch over the near hind leg
+      P.at(0, F.bob + (!F.moving && F.i === 3 ? 3 : 0), () => {                                          // (it sniffs the ground now and then)
+        const hx = 33, hy = 7;
+        P.shape([[hx, hy, 4.8, 4.4], [hx + 4.5, hy + 2, 3.2, 2.3]], C.coat, { texture: false });        // the broad, round head and muzzle
+        P.shape([[hx + 5, hy + 2.6, 2.2, 1.5]], tones(C.feather), { texture: false });                   // the paler muzzle
+        P.row(hy - 3, hx - 1, hx + 2, C.coat.l); P.row(hy - 4, hx, hx + 1, C.coat.l);                    // lit brow
+        P.shape([[hx - 3, hy + 1.5, 2, 4]], C.ear, { texture: false });                                   // a soft ear hanging down
+        P.eye(hx + 2, hy - 1, F, '#2a170c'); P.px(hx + 1, hy - 2, C.deep); P.px(hx + 2, hy - 2, C.deep);  // a dark eye under the brow
+        P.rect(hx + 7, hy + 1, 2, 2, C.nose);                                                              // the dark nose
+        if (F.hunting) { P.row(hy + 4, hx + 3, hx + 7, '#3a1010'); P.px(hx + 4, hy + 4, '#ffffff'); P.px(hx + 6, hy + 4, '#ffffff'); }   // a growl
+        else { P.row(hy + 4, hx + 4, hx + 7, C.deep); P.px(hx + 5, hy + 5, C.tongue); P.px(hx + 6, hy + 5, C.tongue); P.px(hx + 5, hy + 6, C.tongue); }   // a happy, panting smile
+        P.line(hx - 2, hy + 4, hx, hy + 7, C.collar, 2); P.px(hx, hy + 8, C.tag); P.px(hx + 1, hy + 8, C.tag);   // collar and gold tag
+      });
+    },
+  });
+
   /* ---- DEER (and the elk): long legs, a white tail, antlers on stags ---- */
   PixelCreatures.register({
     id: 'deer', W: 38, H: 44, ground: 42, anchor: 17, shadow: [14, 4],
