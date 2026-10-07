@@ -29,6 +29,7 @@ class World {
     this.buildingLevels = {};           // tileKey -> level, for upgraded buildings (absent = level 1)
     this.onChunkGenerated = null;       // hook: the server spawns boats here
     this.lastChunk = null;
+    this.stamp = 0;                     // a counter that ticks each ensureAround: chunk.seen = the last stamp a player was near it (for trim)
   }
 
   /* ---- chunks ---- */
@@ -53,14 +54,33 @@ class World {
 
   /** Generate every chunk within `radius` chunks of a world position (at most `budget` new ones). Returns how many were made. */
   ensureAround(x, y, radius, budget = Infinity) {
-    const ccx = Math.floor(x) >> CHUNK_SHIFT, ccy = Math.floor(y) >> CHUNK_SHIFT;
+    const ccx = Math.floor(x) >> CHUNK_SHIFT, ccy = Math.floor(y) >> CHUNK_SHIFT, stamp = ++this.stamp;
     let made = 0;
-    for (let r = 0; r <= radius && made < budget; r++)                // nearest ring first
-      for (let cy = ccy - r; cy <= ccy + r && made < budget; cy++) for (let cx = ccx - r; cx <= ccx + r && made < budget; cx++) {
-        if (Math.max(Math.abs(cx - ccx), Math.abs(cy - ccy)) !== r || this.chunks.has(chunkKey(cx, cy))) continue;
-        this.chunk(cx, cy); made++;
+    for (let r = 0; r <= radius; r++)                                 // nearest ring first
+      for (let cy = ccy - r; cy <= ccy + r; cy++) for (let cx = ccx - r; cx <= ccx + r; cx++) {
+        if (Math.max(Math.abs(cx - ccx), Math.abs(cy - ccy)) !== r) continue;
+        const have = this.chunks.get(chunkKey(cx, cy));
+        if (have) { have.seen = stamp; continue; }                    // (already here: just note that somebody is still near it)
+        if (made >= budget) continue;
+        this.chunk(cx, cy).seen = stamp; made++;
       }
     return made;
+  }
+
+  /** Keep recently visited land in memory: do nothing until there are more than `maxChunks` chunks, then forget the least recently seen ones
+   *  (down to 90% of the cap, so it is not a sweep every time) -- but never one within `protectRadius` chunks of a given {x,y} centre.
+   *  Chunks are small, so a big cap costs little and walking back over ground you crossed finds it still built. Returns how many were dropped. */
+  trim(centres, protectRadius, maxChunks) {
+    if (this.chunks.size <= maxChunks) return 0;
+    const near = centres.map(c => [Math.floor(c.x) >> CHUNK_SHIFT, Math.floor(c.y) >> CHUNK_SHIFT]), old = [];
+    for (const chunk of this.chunks.values()) {
+      if (!near.some(([cx, cy]) => Math.abs(chunk.cx - cx) <= protectRadius && Math.abs(chunk.cy - cy) <= protectRadius)) old.push(chunk);
+    }
+    old.sort((a, b) => (a.seen | 0) - (b.seen | 0));
+    const drop = Math.min(old.length, this.chunks.size - Math.floor(maxChunks * 0.9));
+    for (let i = 0; i < drop; i++) this.chunks.delete(chunkKey(old[i].cx, old[i].cy));
+    if (drop > 0) this.lastChunk = null;
+    return Math.max(0, drop);
   }
 
   /** Drop chunks farther than `keepRadius` chunks from every given {x,y} centre. Walls and tree states live on the World, so they survive. */
@@ -127,7 +147,7 @@ function generateChunk(world, cx, cy) {
     cx, cy,
     tiles: new Uint8Array(CHUNK_AREA), obj: new Uint8Array(CHUNK_AREA), solid: new Uint8Array(CHUNK_AREA),
     propIndex: new Int16Array(CHUNK_AREA).fill(-1), props: [], biomes: new Uint8Array(CHUNK_AREA).fill(255),     // biomes: filled in lazily, one byte per tile
-    renderItems: null, boatSpot: null, animals: []
+    renderItems: null, boatSpot: null, animals: [], seen: 0
   };
   const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
   const special = caveProps(world, cx, cy);                                                // the cave mouths and cave exits that stand in this chunk

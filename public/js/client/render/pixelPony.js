@@ -10,10 +10,19 @@ const PIXEL_PONIES_OFF = {};
 const PixelPony = (() => {
   const W = 52, H = 50, TOP = 8, CX = 26, GROUND = 40, PX = 1.25;   // (TOP: rows above the ears for raised wings and horns)
   const { css, shade, light, mix, tones, outline } = PixelCharacter.util;
-  const cache = new Map();
+  const cache = new LruCache(2000);
   const HOOF = { b: '#4a4148', l: '#7a6e74', d: '#2e282d' };
 
+  /** A pony's colours, worked out once per look (they used to be recomputed for every pony, every frame). A copy is returned: draw() sets
+   *  the frame's own fields (wings, flame frame...) on it. */
+  const palettes = new LruCache(500);
   function palette(look) {
+    const key = `${look.coat}|${look.mane.join()}|${look.mark}|${look.accessory}`;
+    let p = palettes.get(key);
+    if (!p) { p = makePalette(look); p.wing = tones(mix(look.coat, '#ffffff', 0.35)); palettes.set(key, p); }
+    return Object.assign({}, p);
+  }
+  function makePalette(look) {
     const coat = look.coat, m = look.mane;
     const manes = (m.length >= 3 ? m : [m[0], m[1] || light(m[0], 0.3), light(m[1] || m[0], 0.45)]).map(tones);   // (a rainbow mane has four)
     return {
@@ -417,7 +426,6 @@ const PixelPony = (() => {
     const C = palette(look), kind = anim.kind || {};
     C.wings = !!kind.wings; C.horn = !!kind.horn; C.flying = !!(kind.wings && anim.flying);
     C.wf = C.flying ? Math.floor(anim.now / 85) % 4 : 0;                                          // the wingbeat
-    C.wing = tones(mix(look.coat, '#ffffff', 0.35));
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 420 + anim.seed) % 4);
     const F = C.flying ? STAND[0] : anim.moving ? TROT[frame] : STAND[frame];
@@ -428,7 +436,7 @@ const PixelPony = (() => {
     const fxFrame = C.fx === 'flames' ? C.ff : C.fx === 'frost' || C.fx === 'stars' ? C.tw : 0;
     const key = `${look.coat}|${look.mane.join()}|${look.mark}|${C.fx}${fxFrame}|${C.wings ? 'w' + (C.flying ? C.wf : 'f') : ''}${C.horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
     let canvas = cache.get(key);
-    if (!canvas) { if (cache.size > 800) cache.clear(); canvas = render(C, view, F, blink); cache.set(key, canvas); }
+    if (!canvas) { canvas = render(C, view, F, blink); cache.set(key, canvas); }
     const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
     if (!anim.lift) { ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, view === 'right' ? 20 : 11, 6, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.save(); ctx.imageSmoothingEnabled = false;

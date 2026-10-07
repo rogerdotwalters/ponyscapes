@@ -22,7 +22,7 @@ const AutoTile = (() => {
   const N = 1, E = 2, S = 4, W = 8;                                                // edges
   const NE = 1, SE = 2, SW = 4, NW = 8;                                            // corners
   const hash = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + c * 2246822519) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
-  const masks = new Map();
+  const masks = new LruCache(4000);
 
   /** How deep the fringe reaches at position t (0..1) along one edge: f at both ends, jagged in steps between. */
   function depth(t, edge, variant, f = FRINGE) {
@@ -61,22 +61,25 @@ const AutoTile = (() => {
     };
     const grid = new Uint8Array(TW * TH);
     for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) { const [u, v] = uv(x, y); grid[y * TW + x] = inFringe(u, v) ? 2 : onTile(u, v) ? 1 : 0; }
-    const fill = document.createElement('canvas'), rim = document.createElement('canvas');
-    fill.width = rim.width = TW; fill.height = rim.height = TH;
-    const fc = fill.getContext('2d'), rc = rim.getContext('2d');
-    fc.fillStyle = rc.fillStyle = '#000';
+    const fillPx = new Uint32Array(TW * TH), rimPx = new Uint32Array(TW * TH), BLACK = 0xff000000;   // (written as pixels in one go: a fillRect per pixel was slow)
     for (let y = 0; y < TH; y++) for (let x = 0; x < TW; x++) {
       if (grid[y * TW + x] !== 2) continue;
-      fc.fillRect(x, y, 1, 1);
+      fillPx[y * TW + x] = BLACK;
       const out = (dx, dy) => { const xx = x + dx, yy = y + dy; return xx >= 0 && xx < TW && yy >= 0 && yy < TH && grid[yy * TW + xx] === 1; };
-      if (out(1, 0) || out(-1, 0) || out(0, 1) || out(0, -1)) rc.fillRect(x, y, 1, 1);   // the fringe's edge towards the tile's own ground
+      if (out(1, 0) || out(-1, 0) || out(0, 1) || out(0, -1)) rimPx[y * TW + x] = BLACK;   // the fringe's edge towards the tile's own ground
     }
-    m = { fill, rim };
-    if (masks.size > 3000) masks.clear();
+    m = { fill: pixelCanvas(fillPx), rim: pixelCanvas(rimPx) };
     masks.set(key, m);
     return m;
   }
 
+  /** A TW x TH canvas holding these pixels (0xAABBGGRR, little-endian as canvases are). */
+  function pixelCanvas(px) {
+    const c = document.createElement('canvas'); c.width = TW; c.height = TH;
+    const g = c.getContext('2d'), img = g.createImageData(TW, TH);
+    new Uint32Array(img.data.buffer).set(px); g.putImageData(img, 0, 0);
+    return c;
+  }
   const OFFS = [[0, -1, N], [1, 0, E], [0, 1, S], [-1, 0, W]];
   const DIAG = [[1, -1, NE, N, E], [1, 1, SE, S, E], [-1, 1, SW, S, W], [-1, -1, NW, N, W]];
   /** What spills into the tile at (tx, ty): [{ look, edges, corners }] lowest rank first (draw in this order). `here` is the tile's own ground
@@ -108,5 +111,5 @@ const AutoTile = (() => {
     return edges || corners ? { edges, corners } : null;
   }
 
-  return { RANKS, WATERY, CRISP, TW, TH, mask, spills, touching, variantOf };
+  return { RANKS, WATERY, CRISP, TW, TH, mask, pixelCanvas, spills, touching, variantOf };
 })();

@@ -1,7 +1,7 @@
 'use strict';
 /* CLIENT - loading. Three stages, so moving about never waits for something to be made:
  *   1. the PAGE: index.html shows the small loading screen (#loading) while the game's scripts arrive (they are `defer`red);
- *   2. the START (Loader.initial): before play steps in, the land around the character is built, the ground around them is painted
+ *   2. the START (Loader.initial): before play steps in, the art pack is fetched (artPack.js: ready-made ground, creatures, trees, crops), the land around the character is built, the ground around them is painted
  *      (TerrainRenderer's ground blocks), everything they hold, wear and carry has its pictures loaded, the village's buildings are painted
  *      (pixelBuildings.js: too slow to make while you walk), and the scene is drawn once so every sprite
  *      on screen is ready;
@@ -61,6 +61,8 @@ const Loader = (() => {
   /** Stage 2: everything needed before play steps in. */
   async function initial({ game, renderer }) {
     const steps = 4;
+    show('Unpacking the art...', 0); await nextFrame();
+    await ArtPack.load();                                                            // the ground, creatures, trees and crops, ready-made (a missing pack just means they are painted as they appear)
     show('Building the land around you...', 0); await nextFrame();
     game.map.ensureAround(game.local.x, game.local.y, CLIENT_STREAM_RADIUS + 1);
 

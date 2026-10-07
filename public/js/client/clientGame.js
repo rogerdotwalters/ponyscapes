@@ -1,7 +1,9 @@
 'use strict';
 /* CLIENT game state: prediction, reconciliation, interpolation, inventory mirror, building cursor, event relay.
  * It never draws and never touches the DOM. */
-const CLIENT_STREAM_RADIUS = 2, CLIENT_KEEP_RADIUS = 4, CHUNKS_PER_FRAME = 2;     // chunks around the player
+const CLIENT_STREAM_RADIUS = 2, CLIENT_KEEP_RADIUS = 4, CHUNKS_PER_FRAME = 2;     // chunks around the player (CLIENT_KEEP_RADIUS: never dropped)
+// Land you have seen stays built until the cap is passed (then the least recently seen goes): ~12 KB a chunk, so about 15 MB, or 6 on a small phone.
+const CLIENT_MAX_CHUNKS = (typeof navigator !== 'undefined' && navigator.deviceMemory && navigator.deviceMemory <= 4) ? 500 : 1200;
 
 class ClientGame {
   constructor(net) {
@@ -65,7 +67,7 @@ class ClientGame {
   /** Load chunks ahead of the player (a couple per frame, so nothing hitches) and forget the ones left far behind. */
   streamWorld() {
     this.map.ensureAround(this.local.x, this.local.y, CLIENT_STREAM_RADIUS, CHUNKS_PER_FRAME);
-    if (++this.streamFrames % 120 === 0) this.map.unloadFar([this.local], CLIENT_KEEP_RADIUS);
+    if (++this.streamFrames % 120 === 0) this.map.trim([this.local], CLIENT_KEEP_RADIUS, CLIENT_MAX_CHUNKS);
   }
   get riding() { return !!(this.local && (this.local.boat || this.local.mount)); }      // in a boat or on a pony: no tools, no building
 
