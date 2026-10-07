@@ -52,6 +52,7 @@ class ClientGame {
     if (welcome.treasure) this.treasureMaps = welcome.treasure;
     if (welcome.built) BuildSystem.replaceAll(this.worldMap, welcome.built);
     if (welcome.floors) BuildSystem.replaceFloors(this.worldMap, welcome.floors);
+    if (welcome.farm) this.worldMap.farm = welcome.farm;
     if (welcome.stockpiles) Stockpiles.replaceAll(this.worldMap, welcome.stockpiles);
     applyTreeStates(this.worldMap, welcome.trees || {});
     applyForageStates(this.worldMap, welcome.forage || {});
@@ -338,6 +339,7 @@ class ClientGame {
     applyForageStates(this.worldMap, snapshot.forage || {});
     if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
+    if (snapshot.farm) this.worldMap.farm = snapshot.farm;                          // the fields (farming.js)
     if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
     if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
     else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }

@@ -46,6 +46,7 @@ const SaveData = {
       built: JSON.parse(JSON.stringify(m.built)), floors: Object.assign({}, m.floors), treasureDug: Object.assign({}, m.treasureDug),
       treeStates: JSON.parse(JSON.stringify(m.treeStates)), forageStates: JSON.parse(JSON.stringify(m.forageStates)),
       stockpiles: Stockpiles.exportState(m),
+      farm: JSON.parse(JSON.stringify(m.farm || {})), farmDay: server.farmDay,      // the fields, and the last day they grew (farming.js)
       interiors: server.interiors.exportState(),                               // whose home is which room
       wants: server.wants.exportState(),                                       // bosses being appeased (lost cubs brought home)
       pets: server._exportOwnedPets(),                                         // every player's ponies and pets, by owner key (they wait in the world for them)
@@ -59,7 +60,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {}, rooms: {} }, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null, wants: data.wants && typeof data.wants === 'object' ? JSON.parse(JSON.stringify(data.wants)) : null };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {}, rooms: {} }, farm: {}, farmDay: Number.isInteger(data.farmDay) && data.farmDay >= 0 ? data.farmDay : undefined, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null, wants: data.wants && typeof data.wants === 'object' ? JSON.parse(JSON.stringify(data.wants)) : null };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -96,6 +97,12 @@ const SaveData = {
       if (keyOk(k) && Buildings.upgradeable(type)) out.stockpiles.levels[k] = SaveData._int(level, 1, BuildingUpgrades[type].length, 1);
     }
     for (const [k, tile] of Object.entries(out.built)) if (Stockpiles.isStockpile(tile.c) && !out.stockpiles.piles[k]) out.stockpiles.piles[k] = { items: {} };
+    for (const [k, f] of Object.entries(SaveData._plain(data.farm) ? data.farm : {})) {                // the fields: plots on half-tile cells
+      if (!/^-?\d{1,7},-?\d{1,7}$/.test(k) || !SaveData._plain(f) || Object.keys(out.farm).length >= 20000) continue;
+      const c = typeof f.c === 'string' && Crops.has(f.c) ? f.c : '';
+      out.farm[k] = { w: SaveData._int(f.w, -1, 2 ** 31, -1), c, d: c ? SaveData._int(f.d, 0, 999, 0) : 0, idle: SaveData._int(f.idle, 0, 99, 0) };
+      if (c && f.dead) out.farm[k].dead = true;
+    }
     for (const [k, n] of Object.entries(SaveData._plain(stock.rooms) ? stock.rooms : {})) if (/^room:[0-9:]{1,24}\|\d{1,3},\d{1,3}$/.test(k)) out.stockpiles.rooms[k] = SaveData._int(n, 0, 99999, 0);   // the bins in rooms
     for (const q of Array.isArray(data.pets) ? data.pets.slice(0, SaveData.MAX_PETS * 64) : []) {             // (older saves have none)
       const pet = SaveData._pet(q);
@@ -136,6 +143,7 @@ const SaveData = {
   },
   /** Step 3 (the server is built): everybody's ponies, waiting for their owners, and the items lying on the ground. */
   applyOwned(server, world) {
+    if (world.farmDay !== undefined) server.farmDay = world.farmDay;
     server._restoreOwnedPets(world.pets || []);
     for (const d of world.drops || []) server._dropOnGround(d.item, d.count, d.x, d.y, d.grid || '');
   },
@@ -144,6 +152,7 @@ const SaveData = {
   applyMapState(map, world) {
     const open = table => Object.fromEntries(Object.entries(table).filter(([key]) => !BuildingSites.at(keyTileX(key), keyTileY(key))));   // (an older save's walls where a building now stands)
     map.built = {}; BuildSystem.replaceAll(map, open(world.built));
+    map.farm = Object.assign({}, world.farm || {});
     BuildSystem.replaceFloors(map, open(world.floors));
     map.treasureDug = Object.assign({}, world.treasureDug);
     map.treeStates = JSON.parse(JSON.stringify(world.treeStates));

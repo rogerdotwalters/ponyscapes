@@ -440,3 +440,17 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .admJson{width:100%;box-sizing:border-box;background:#0f1c2b;color:#e8dcc0;border:1px solid rgba(227,194,122,.4);border-radius:6px;font:11px ui-monospace,monospace;padding:6px}
 .admMsg{font-size:12px;opacity:.85}
 @media (max-width:560px){.admSlide{grid-template-columns:1fr auto}.admSlide input[type=range],.admSlide input[type=number]{grid-column:1/-1;order:3}}
+
+/* the season bar: the season, its day, and a bar filling as it passes (seasonUI in vitalsUI.js) */
+#seasonBar{position:fixed;z-index:4;top:8px;left:50%;transform:translateX(-50%);width:min(340px,56vw);padding:5px 10px 7px;border-radius:9px;
+  background:rgba(14,22,32,.72);border:1.5px solid rgba(227,194,122,.55);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+#seasonBar .sbText{display:flex;align-items:center;gap:6px;justify-content:center;white-space:nowrap}
+#seasonBar .sbName{color:var(--season,#7cc86a)}
+#seasonBar .sbDay{opacity:.85;font-weight:400}
+#seasonBar .sbTrack{position:relative;margin-top:4px;height:7px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
+#seasonBar .sbFill{height:100%;width:0;background:var(--season,#7cc86a);border-radius:4px;transition:width .6s linear}
+#seasonBar .sbTrack::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(var(--dayw,5%) - 1px),rgba(0,0,0,.35) calc(var(--dayw,5%) - 1px) var(--dayw,5%))}
+#seasonBar .sbNews{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:4px 12px;border-radius:8px;
+  background:rgba(14,22,32,.85);color:var(--season,#7cc86a);font-size:14px;animation:sbNews 4s ease forwards}
+@keyframes sbNews{0%{opacity:0;transform:translate(-50%,-6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}

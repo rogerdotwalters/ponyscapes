@@ -75,6 +75,8 @@ class Renderer {
     const bounds = this.camera.bounds();
 
     const tiles = this.camera.visibleTiles();
+    const date = Seasons.at(this.game.clockTick);                                   // the season colours the grass and the trees; watered soil stays dark today
+    TerrainRenderer.setDate(date.season.id, date.day); PropSprites.seasonTint = date.season.treeTint;
     TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
     this._drawTapMarker(now);
     for (const item of this._sortedWorldItems(state, bounds, tiles)) this._drawItem(item, now);
@@ -133,6 +135,13 @@ class Renderer {
     if (target) items.push({ kind: 'ghost', depth: target.tx + target.ty + 1, target, gx: (target.tx - target.ty) * TILE_HALF_W, gy: (target.tx + target.ty + 1) * TILE_HALF_H });
     for (const id in state.animals) { const a = state.animals[id]; items.push({ kind: 'animal', depth: a.x + a.y - (a.rider ? 0.05 : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider
     for (const id in (state.npcs || {})) { const n = state.npcs[id]; items.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
+    const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
+    if (farm) for (const key in farm) {
+      const plot = farm[key]; if (!plot.c) continue;
+      const i = key.indexOf(','), wx = (+key.slice(0, i) + 0.5) / 2, wy = (+key.slice(i + 1) + 0.5) / 2, tx = Math.floor(wx), ty = Math.floor(wy);
+      if (tx < tiles.tx0 || tx > tiles.tx1 || ty < tiles.ty0 || ty > tiles.ty1) continue;
+      items.push({ kind: 'crop', depth: wx + wy - 0.1, gx: isoX(wx, wy), gy: isoY(wx, wy), plot });
+    }
     for (const id in (state.drops || {})) { const d = state.drops[id]; items.push({ kind: 'drop', depth: d.x + d.y - 0.3, gx: isoX(d.x, d.y), gy: isoY(d.x, d.y), drop: d }); }   // items dropped on the ground
     for (const id in state.boats) { const boat = state.boats[id]; items.push({ kind: 'boat', depth: boat.x + boat.y - 0.25, id, boat }); }   // under its rider
     for (const id in state.players) { const p = state.players[id]; items.push({ kind: 'player', depth: p.x + p.y + (p.lift || 0) * 4, id, p }); }
@@ -167,6 +176,7 @@ class Renderer {
       return;
     }
     if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
+    if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx, item.gy, item.plot);
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);
     if (item.kind === 'player') {
       const p = item.p, rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;

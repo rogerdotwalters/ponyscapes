@@ -259,5 +259,115 @@ const PixelCraftIcons = (() => {
       px(12, 9, '#c9a06a'); px(13, 9, '#c9a06a'); px(12, 13, '#c9a06a');                           // a twine tie
     }));
   }
-  return { dye, linen };
+  /* ---- farming: the hoe, the watering can, a seed packet, and each crop's produce ---- */
+  function hoe(g) {
+    put(g, grid(px => {
+      for (let i = 0; i < 17; i++) { px(4 + i, 20 - i, '#8a5f33'); px(5 + i, 20 - i, '#b07a46'); }       // the long handle
+      for (let y = 3; y <= 9; y++) for (let x = 15; x <= 21; x++) if (y - 3 <= (x - 15) * 0.6 + 2 && x - y > 9) px(x, y, '#9aa2ad');   // the blade
+      for (let x = 17; x <= 21; x++) px(x, 3, '#e4e8ee'); for (let y = 4; y <= 9; y++) px(21, y, '#6b727c');
+    }));
+  }
+  function wateringCan(g) {
+    put(g, grid(px => {
+      const tin = '#6f9fc8', lite = '#a9cdea', dark = '#41698f';
+      for (let y = 10; y <= 20; y++) for (let x = 5; x <= 15; x++) px(x, y, x === 5 ? lite : x >= 14 || y === 20 ? dark : (x === 7 && y < 18) ? lite : tin);   // the body
+      for (let x = 5; x <= 15; x++) px(x, 10, lite);
+      for (let i = 0; i < 7; i++) { px(15 + i, 17 - i, tin); px(15 + i, 18 - i, dark); }                // the spout
+      for (let y = 9; y <= 13; y++) { px(21, y, '#c8dcea'); px(22, y, dark); }                             // the rose
+      for (let a = 0; a < 12; a++) px(Math.round(10 + Math.cos(Math.PI + a / 11 * Math.PI) * 5), Math.round(10 + Math.sin(Math.PI + a / 11 * Math.PI) * 5), dark);   // the handle
+      px(23, 14, '#9fd0f2'); px(22, 16, '#9fd0f2'); px(23, 18, '#9fd0f2');                                   // drips
+    }));
+  }
+  function seeds(g, color) {
+    put(g, grid(px => {
+      for (let y = 4; y <= 21; y++) for (let x = 5; x <= 18; x++) px(x, y, y <= 6 ? '#bfa06a' : x === 5 ? '#f3e6c4' : x === 18 || y === 21 ? '#c4ad7c' : '#e8d6a6');   // a paper packet
+      for (let x = 5; x <= 18; x += 2) px(x, 4, '#8a6f45');                                                   // its folded, crimped top
+      for (let y = 9; y <= 16; y++) for (let x = 8; x <= 15; x++) { const d = Math.hypot(x - 11.5, y - 12.5); if (d <= 3.6) px(x, y, d > 2.6 ? shade(color, 0.7) : x < 11 && y < 12 ? light(color, 0.3) : color); }   // the crop on the front
+      px(11, 8, '#5fae4e'); px(12, 7, '#5fae4e'); px(12, 8, '#3f7a2e');
+      for (const [x, y] of [[8, 18], [11, 19], [14, 18], [16, 19]]) px(x, y, '#7a5a33');                    // seeds
+    }));
+  }
+  function produce(g, crop) {
+    const C = crop.colors, col = C.crop, lite = light(col, 0.3), dark = shade(col, 0.68), leaf = C.leaf, ldark = shade(leaf, 0.7);
+    const blob = (px, cx, cy, rx, ry) => { for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) { const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2; if (d <= 1) px(x, y, d > 0.7 && (x > cx || y > cy) ? dark : x < cx - rx * 0.2 && y < cy - ry * 0.2 ? lite : col); } };
+    put(g, grid(px => {
+      if (crop.look === 'root') {                                                                         // a root with its leafy top
+        blob(px, 12, 14, 6, 5.5); for (let y = 19; y <= 22; y++) px(12 + (y - 19) * 0.3 | 0, y, dark);
+        if (C.top) for (let x = 8; x <= 16; x++) px(x, 10 + Math.abs(x - 12) * 0.3 | 0, C.top);
+        for (const [dx, h] of [[-3, 6], [0, 8], [3, 6]]) for (let k = 0; k < h; k++) px(12 + dx + (dx * k / 8 | 0), 8 - k, k % 2 ? ldark : leaf);
+      } else if (crop.look === 'bush') {                                                                   // berries / fruit in a little cluster
+        for (const [cx, cy, r] of [[8, 14, 4], [15, 13, 4.5], [11, 18, 4]]) blob(px, cx, cy, r, r);
+        for (const [x, y] of [[8, 9], [15, 8], [11, 13], [12, 13]]) { px(x, y, leaf); px(x + 1, y, ldark); }
+        if (crop.id === 'strawberry') for (const [x, y] of [[7, 14], [9, 16], [14, 12], [16, 15], [11, 19]]) px(x, y, '#ffe9a8');
+      } else if (crop.look === 'stalk') {
+        if (crop.tall) { for (let y = 5; y <= 19; y++) for (let x = 9; x <= 14; x++) { const w = Math.abs(x - 11.5); if (w < 3 - Math.abs(y - 12) / 9) px(x, y, (x + y) % 2 ? col : x < 11 ? lite : dark); } for (let y = 12; y <= 21; y++) { px(8 - (21 - y) * 0.2 | 0, y, leaf); px(15 + (21 - y) * 0.2 | 0, y, ldark); } }   // a cob in its husk
+        else for (const dx of [-4, -1, 2, 5]) { for (let y = 10; y <= 21; y++) px(11 + dx + (y > 15 ? 0 : 0), y, y > 15 ? '#c9a35a' : '#a8843f'); for (let k = 0; k < 6; k++) px(11 + dx + (k % 2), 3 + k, k % 2 ? dark : col); }   // a sheaf of stalks
+        if (!crop.tall) for (let x = 6; x <= 17; x++) px(x, 15, '#7a5a33');                                     // tied
+      } else {                                                                                            // a big round fruit, ribbed
+        blob(px, 12, 14, 8.5, 6.5); for (const dx of [-4, 0, 4]) for (let y = 9; y <= 19; y++) if ((y + dx) % 1 === 0 && Math.abs(dx) * 1.2 + Math.abs(y - 14) < 8) px(12 + dx, y, dark);
+        for (let y = 5; y <= 8; y++) px(12, y, '#5a7a2a'); px(13, 5, '#5a7a2a'); px(14, 6, leaf);
+      }
+    }));
+  }
+  return { dye, linen, hoe, wateringCan, seeds, produce };
+})();
+
+/* ---- CROPS: a growing crop in a farm plot, by its look (root, bush, stalk, vine) and stage (0 sprout, 1 young, 2 grown / in flower, 3 ripe,
+ *      'dead' withered). Painted once per crop and stage, outlined, drawn with hard edges standing on its plot. ---- */
+const PixelCrops = (() => {
+  const { outline, shade, light } = PixelCharacter.util;
+  const PX = 1.25, cache = new Map();
+  function art(crop, stage) {
+    const key = crop.id + '|' + stage;
+    if (cache.has(key)) return cache.get(key);
+    const tall = crop.tall && stage !== 0, W = 22, H = tall ? 34 : 24, G = H - 2, X = 11;
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    const px = (x, y, col) => { if (x >= 0 && y >= 0 && x < W && y < H) { g.fillStyle = col; g.fillRect(Math.round(x), Math.round(y), 1, 1); } };
+    const line = (x0, y0, x1, y1, col) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2 || 1; for (let s = 0; s <= n; s++) px(x0 + (x1 - x0) * s / n, y0 + (y1 - y0) * s / n, col); };
+    const blob = (cx, cy, rx, ry, col, lit) => { for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) { const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2; if (d <= 1) px(x, y, lit && y < cy - ry * 0.3 && x < cx ? light(col, 0.25) : y > cy + ry * 0.4 ? shade(col, 0.78) : col); } };
+    const C = crop.colors, leaf = C.leaf, dark = shade(leaf, 0.72), lite = light(leaf, 0.25);
+    if (stage === 'dead') {                                                                    // withered: drooping brown stems
+      const brown = '#7a5a33'; line(X, G, X - 4, G - 6, brown); line(X, G, X + 3, G - 7, brown); line(X + 3, G - 7, X + 6, G - 5, '#5a4022'); line(X - 4, G - 6, X - 6, G - 3, '#5a4022'); line(X, G, X, G - 4, '#8a6a40');
+    } else if (stage === 0) {                                                                  // a sprout: two little leaves
+      line(X, G, X, G - 3, leaf); px(X - 1, G - 4, lite); px(X - 2, G - 4, leaf); px(X + 1, G - 4, leaf); px(X + 2, G - 5, lite);
+    } else if (crop.look === 'root') {
+      const n = stage === 1 ? 3 : 5, hgt = stage === 1 ? 6 : 10;
+      for (let i = 0; i < n; i++) { const a = -0.9 + i * 1.8 / (n - 1), tx = X + Math.sin(a) * hgt * 0.6, ty = G - hgt * Math.cos(a * 0.6); line(X, G - 1, tx, ty, i % 2 ? leaf : dark); px(tx, ty, lite); }
+      if (stage === 2 && C.flower) { px(X - 3, G - hgt, C.flower); px(X + 3, G - hgt + 1, C.flower); }
+      if (stage === 3) { blob(X, G - 1, 3.5, 2.5, C.crop, true); if (C.top) { px(X - 1, G - 3, C.top); px(X, G - 3, C.top); px(X + 1, G - 3, C.top); } }   // the root peeking out of the soil
+    } else if (crop.look === 'bush') {
+      const r = stage === 1 ? 4 : 6.5;
+      blob(X, G - r, r, r * 0.85, leaf, true);
+      for (let i = 0; i < 6; i++) px(X - r + 1 + (i * 5) % (r * 2 - 1), G - r * 1.6 + (i * 3) % (r * 1.4), dark);
+      if (stage === 2 && C.flower) for (const [dx, dy] of [[-3, -7], [2, -9], [4, -4], [-1, -4]]) px(X + dx, G + dy, C.flower);
+      if (stage === 3) for (const [dx, dy] of [[-4, -6], [1, -9], [4, -5], [-1, -3], [3, -10], [-3, -10]]) { px(X + dx, G + dy, C.crop); px(X + dx + 1, G + dy, C.crop); px(X + dx, G + dy + 1, shade(C.crop, 0.75)); px(X + dx, G + dy - 1, '#ffffff'); }
+    } else if (crop.look === 'stalk') {
+      const hgt = stage === 1 ? 9 : crop.tall ? 28 : 15;
+      for (const dx of [-3, 0, 3]) {
+        line(X + dx, G, X + dx + (dx > 0 ? 1 : dx < 0 ? -1 : 0), G - hgt + Math.abs(dx), dx ? dark : leaf);
+        for (let y = G - 3; y > G - hgt + 4; y -= 5) { px(X + dx + 1, y, lite); px(X + dx + 2, y - 1, leaf); px(X + dx - 1, y - 2, leaf); }   // leaves along it
+      }
+      const top = G - hgt;
+      if (stage === 2 && C.flower) for (const dx of [-3, 0, 3]) { px(X + dx, top + Math.abs(dx), C.flower); px(X + dx + 1, top + Math.abs(dx), C.flower); }
+      if (stage === 3) {
+        if (crop.tall) { for (let k = 0; k < 6; k++) { px(X + 2, G - 14 - k, C.crop); px(X + 3, G - 14 - k, shade(C.crop, 0.85)); } px(X + 4, G - 15, leaf); px(X, top, '#d9c98a'); px(X + 1, top - 1, '#d9c98a'); }   // a cob, and the tassel
+        else for (const dx of [-3, 0, 3]) for (let k = 0; k < 4; k++) { px(X + dx + (dx > 0 ? 1 : dx < 0 ? -1 : 0), top + Math.abs(dx) + k, k % 2 ? shade(C.crop, 0.85) : C.crop); }   // golden heads
+      }
+    } else {                                                                                   // vine: leaves along the ground and a big fruit
+      for (const [dx, dy] of [[-6, -2], [-2, -4], [3, -3], [7, -2]].slice(0, stage === 1 ? 2 : 4)) blob(X + dx, G + dy, 2.6, 2, leaf, true);
+      line(X - 8, G - 1, X + 8, G - 1, dark);
+      if (stage === 2 && C.flower) { px(X, G - 6, C.flower); px(X + 1, G - 6, C.flower); px(X, G - 5, C.flower); }
+      if (stage === 3) { blob(X + 1, G - 4, 5.5, 4.5, C.crop, true); for (const dx of [-2, 1, 4]) line(X + dx, G - 8, X + dx, G - 1, shade(C.crop, 0.8)); px(X + 1, G - 9, '#5a7a2a'); px(X + 1, G - 10, '#5a7a2a'); }   // ribs and a stem
+    }
+    outline(g, '#1a2412', W, H);
+    const out = { c, W, H, G, X };
+    cache.set(key, out); return out;
+  }
+  /** A crop standing on its plot at (sx, sy) (the plot's centre on screen). */
+  function draw(ctx, sx, sy, plot) {
+    const crop = Crops.get(plot.c); if (!crop) return;
+    const a = art(crop, Farming.stage(plot)), u = PX;
+    ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(a.c, sx - a.X * u, sy - (a.G + 1) * u + 2, a.W * u, a.H * u); ctx.restore();
+  }
+  return { draw };
 })();

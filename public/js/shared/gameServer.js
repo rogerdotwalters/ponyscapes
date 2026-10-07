@@ -171,12 +171,13 @@ class GameServer {
       mapSitesOf: id => this.treasureMaps[id],
       dropOnGround: (item, count, x, y, grid) => this._dropOnGround(item, count, x, y, grid),
       tick: () => this.tick,
+      till: (id, cx, cy) => this._till(id, cx, cy), water: (id, cx, cy) => this._water(id, cx, cy),
       later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
     const hunt = new HuntHandler(deps);
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
     deps.onTamed = (ownerId, animal) => this._remember(ownerId, animal);
-    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: new ShearHandler(deps) };
+    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: new ShearHandler(deps), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
   }
 
   /* ---- membership ---- */
@@ -560,6 +561,7 @@ class GameServer {
   /* ---- simulation ---- */
   step() {
     this.tick++;
+    this._farmDays();                                                                 // a new day: crops grow (farming.js)
     if (this.later.length) { const due = this.later.filter(l => l.at <= this.tick); if (due.length) { this.later = this.later.filter(l => l.at > this.tick); due.forEach(l => l.fn()); } }
     let focus = null;
     for (const id in this.inputQueues) {

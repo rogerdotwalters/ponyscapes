@@ -5,7 +5,7 @@
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
-const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10 };
+const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10, hoe: 22, water: 6 };
 /** Each lasso's look: rope, braid highlight, outline, the ring (honda) the loop runs through, its ribbon tails (none: a plain rope end)
  *  and whether it is old and frayed (the starter). A lasso made in the editor uses its item colour. Shared with the item icons and the throw effect. */
 const LASSO_LOOKS = {
@@ -308,6 +308,7 @@ class PlayerSprite {
     else if (tool.kind === 'leash') this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0, lassoLook(p.held));
     else if (tool.kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
     else if (tool.kind === 'shears') this._drawShears(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0 ? Math.abs(Math.sin(p.swingT * 18)) : 0);
+    else if (tool.kind === 'water') this._drawWateringCan(handX, handY, side, p.swingT > 0);
     else {
       ctx.strokeStyle = tool.kind === 'rod' ? '#a07a45' : '#7a5230'; ctx.lineWidth = tool.kind === 'rod' ? 1.8 : 2.5;
       ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(tipX, tipY); ctx.stroke();
@@ -315,6 +316,7 @@ class PlayerSprite {
       else if (tool.kind === 'knife') this.g.polygon([handX + dirX * 4, handY + dirY * 4, tipX + dirX * 8, tipY + dirY * 8, handX + dirX * 4 + perpX * 4, handY + dirY * 4 + perpY * 4], '#d3d8df');
       else if (tool.kind === 'spear') this.g.polygon([tipX - dirX * 2 + perpX * 3, tipY - dirY * 2 + perpY * 3, tipX + dirX * 9, tipY + dirY * 9, tipX - dirX * 2 - perpX * 3, tipY - dirY * 2 - perpY * 3], '#c9ced6');
       else if (tool.kind === 'shovel') this._drawShovelHead(tipX, tipY, dirX, dirY, perpX, perpY);
+      else if (tool.kind === 'hoe') this.g.polygon([tipX - dirX * 1, tipY - dirY * 1, tipX + dirX * 2, tipY + dirY * 2, tipX + dirX * 2 + perpX * 7, tipY + dirY * 2 + perpY * 7, tipX - dirX * 2 + perpX * 6, tipY - dirY * 2 + perpY * 6], '#9aa2ad');
       else if (tool.kind === 'sword') this._drawSwordBlade(handX, handY, tipX, tipY, dirX, dirY, perpX, perpY, p.held);
       else if (tool.kind === 'rod') { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + dirX * 6, tipY + dirY * 6 + 12); ctx.stroke(); }
       else this._drawAxeHead(tipX, tipY, dirX, dirY, perpX, perpY);
@@ -399,6 +401,19 @@ class PlayerSprite {
       ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(piv[0] - bx * 3.2 + px * s * 1.6, piv[1] - by * 3.2 + py * s * 1.6, 1.8, 0, Math.PI * 2); ctx.stroke();   // the finger loops
     }
     ctx.fillStyle = '#4a4148'; ctx.fillRect(piv[0] - 0.8, piv[1] - 0.8, 1.6, 1.6);
+  }
+
+  /** A watering can held by its handle; tipped forward (pouring) while in use. */
+  _drawWateringCan(x, y, side, pouring) {
+    const ctx = this.g.ctx;
+    ctx.save(); ctx.translate(x, y + 2); ctx.scale(side, 1); if (pouring) ctx.rotate(0.55);
+    ctx.fillStyle = '#6f9fc8'; ctx.strokeStyle = '#2c4a66'; ctx.lineWidth = 1;
+    ctx.fillRect(-4, 0, 8, 7); ctx.strokeRect(-4, 0, 8, 7);
+    ctx.beginPath(); ctx.moveTo(4, 5); ctx.lineTo(9, 0); ctx.stroke();                                // the spout
+    ctx.strokeStyle = '#41698f'; ctx.beginPath(); ctx.arc(0, 0, 3, Math.PI, 0); ctx.stroke();           // the handle
+    ctx.fillStyle = '#a9cdea'; ctx.fillRect(-3, 1, 1.5, 5);
+    if (pouring) { ctx.fillStyle = 'rgba(159,208,242,.9)'; for (let i = 0; i < 4; i++) ctx.fillRect(9 + i * 0.8, 1 + i * 2.2, 1.2, 1.4); }   // water falling
+    ctx.restore();
   }
 
   /** A grooming brush: a short wooden handle and a block of bristles (a soft brush has pale ones). */

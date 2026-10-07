@@ -192,6 +192,8 @@ const ItemIcons = (() => {
     wool(ctx) { PixelWool.icon(ctx); },                                     // pixel art (pixelProps.js)
     shears(ctx) { PixelWool.shearsIcon(ctx); },
     linen(ctx) { PixelCraftIcons.linen(ctx); },
+    hoe(ctx) { PixelCraftIcons.hoe(ctx); },
+    watering_can(ctx) { PixelCraftIcons.wateringCan(ctx); },
     antler(ctx) {
       ctx.strokeStyle = '#d9c9a6'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath();
       ctx.moveTo(24, 42); ctx.lineTo(24, 26); ctx.moveTo(24, 30); ctx.lineTo(12, 18); ctx.moveTo(24, 26); ctx.lineTo(34, 12);
@@ -446,7 +448,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d'));
     return (cache[key] = canvas.toDataURL());
   }
