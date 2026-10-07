@@ -36,9 +36,11 @@ const AutoTile = (() => {
   const OVER = 0.05;                                                               // the fringe reaches this far past the tile's edge: it covers the cells' overlap
   const nearTile = (u, v) => u >= -OVER && u <= 1 + OVER && v >= -OVER && v <= 1 + OVER;
 
-  /** { fill, rim }: canvases of the fringe for these edges / corners (variant: one of a few jag patterns; thin: a band half as deep). */
-  function mask(edges, corners, variant, thin = false) {
-    const key = edges * 16 + corners + 256 * variant + (thin ? 4096 : 0), f = thin ? FRINGE * 0.5 : FRINGE;
+  /** { fill, rim }: canvases of the fringe for these edges / corners (variant: one of a few jag patterns; scale: its depth, 1 = a full fringe,
+   *  true = half; the surf uses a few steps in between). */
+  function mask(edges, corners, variant, scale = 1) {
+    if (scale === true) scale = 0.5;
+    const step = Math.round(scale * 20), key = edges * 16 + corners + 256 * variant + 1024 * step, f = FRINGE * step / 20;
     let m = masks.get(key);
     if (m) return m;
     const inFringe = (u, v) => {

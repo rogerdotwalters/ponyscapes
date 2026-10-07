@@ -177,8 +177,10 @@ const TerrainRenderer = (() => {
       if (cx < minX - TILE_HALF_W || cx > maxX + TILE_HALF_W || cy < minY - TILE_HALF_H || cy > maxY + TILE_HALF_H) continue;
       const type = map.tile(tx, ty), noise = hash2(tx, ty), variant = (noise * 3) | 0, baked = blocked && inDrawn(drawn, cx, cy);
       if (type === TILE.WATER || type === TILE.SHALLOW) {                                  // water: baked with its shore; only the ripples move
-        if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, lookOf(map, tx, ty, type)); }
+        const here = lookOf(map, tx, ty, type);
+        if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, here); }
         ripples(ctx, type === TILE.SHALLOW, tx, ty, cx, cy, t);
+        surf(ctx, map, tx, ty, cx, cy, here, t);                                          // waves washing up the shore
       }
       else if (type >= INTERIOR_TILE_BASE) { diamondPath(ctx, cx, cy); InteriorSprites.tile(ctx, type, cx, cy, tx, ty); }   // a room's floor (or the dark outside it)
       else {
@@ -222,6 +224,55 @@ const TerrainRenderer = (() => {
 
 
 
+
+  /* ---- the SURF: on water beside land, waves wash up over the wet ground and draw back, a foam line at their edge (stepped, the retro way) ---- */
+  const SURF_STEPS = 7, SURF_REACH = 0.55, SURF_WATER = 'rgba(118,186,203,.86)', SURF_FOAM = '#f4fbfd';
+  const surfShape = new WeakMap(), surfArt = new Map();
+  /** Where land meets this water tile: { edges, corners, variant } (all the land around it together), or 0. Remembered per map. */
+  function shoreOf(map, tx, ty, here) {
+    let m = surfShape.get(map); if (!m) { m = new Map(); surfShape.set(map, m); }
+    const key = tileKey(tx, ty); let s = m.get(key);
+    if (s !== undefined) return s;
+    const list = AutoTile.spills(here, tx, ty, (x, y) => lookOf(map, x, y));
+    let edges = 0, corners = 0;
+    for (const sp of list || []) if (!watery(sp.look)) { edges |= sp.edges; corners |= sp.corners; }
+    s = edges || corners ? { edges, corners, variant: AutoTile.variantOf(tx, ty) } : 0;
+    if (m.size > 20000) m.clear();
+    m.set(key, s); return s;
+  }
+  /** One frame of the surf for a shore: water from the fringe's edge in to depth step k (0 = drawn right back), with its foam line. */
+  function surfFrame(s, k) {
+    const key = s.edges * 16 + s.corners + 256 * s.variant + 1024 * k;
+    let c = surfArt.get(key);
+    if (c) return c;
+    const full = AutoTile.mask(s.edges, s.corners, s.variant, 1), reach = AutoTile.mask(s.edges, s.corners, s.variant, 1 - SURF_REACH * k / (SURF_STEPS - 1));
+    c = document.createElement('canvas'); c.width = AutoTile.TW; c.height = AutoTile.TH;
+    const g = c.getContext('2d');
+    g.fillStyle = SURF_WATER; g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(full.fill, 0, 0);       // the water over the fringe ...
+    g.globalCompositeOperation = 'destination-out'; g.drawImage(reach.fill, 0, 0);     // ... up to where this wave reaches
+    g.globalCompositeOperation = 'source-over';
+    const depth = 1 - SURF_REACH * k / (SURF_STEPS - 1), wake = AutoTile.mask(s.edges, s.corners, s.variant, Math.min(1, depth + 0.16));
+    const foam = document.createElement('canvas'); foam.width = c.width; foam.height = c.height;
+    const f = foam.getContext('2d');
+    f.fillStyle = SURF_FOAM;                                                           // a dither of foam just behind the wave's edge ...
+    for (let y = 0; y < c.height; y++) for (let x = (y & 1); x < c.width; x += 2) f.fillRect(x, y, 1, 1);
+    f.globalCompositeOperation = 'destination-in'; f.drawImage(wake.fill, 0, 0);
+    f.globalCompositeOperation = 'destination-out'; f.drawImage(reach.fill, 0, 0);
+    f.globalCompositeOperation = 'source-over'; g.drawImage(foam, 0, 0);
+    f.clearRect(0, 0, c.width, c.height); f.fillRect(0, 0, c.width, c.height);         // ... and a solid line of it at the edge
+    f.globalCompositeOperation = 'destination-in'; f.drawImage(reach.rim, 0, 0);
+    g.drawImage(foam, 0, 0);
+    if (surfArt.size > 4000) surfArt.clear();
+    surfArt.set(key, c); return c;
+  }
+  /** The waves on one shore tile at time t: each wave washes in and draws back; neighbouring tiles lag a little, so the waves run along the coast. */
+  function surf(ctx, map, tx, ty, cx, cy, here, t) {
+    const s = shoreOf(map, tx, ty, here);
+    if (!s) return;
+    const w = (Math.sin(t * 1.1 - (tx + ty) * 0.35 + Math.sin(tx * 0.37 - ty * 0.21) * 0.8) + 1) / 2, k = Math.round(Math.pow(w, 1.6) * (SURF_STEPS - 1));
+    ctx.drawImage(surfFrame(s, k), cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
+  }
 
   /** The water's ripples: two short bright strokes that drift to and fro (live, over the baked water and its shore). */
   function ripples(ctx, shallow, tx, ty, cx, cy, t) {
