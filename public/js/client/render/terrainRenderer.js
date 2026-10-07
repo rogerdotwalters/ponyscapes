@@ -33,7 +33,8 @@ const TerrainRenderer = (() => {
    * and drawn as a few pictures instead of four cells per tile, every frame. Blocks load around what the camera sees (and a margin), one or two
    * a frame, nearest first, and the least recently seen are forgotten. Water, the biomes' animated details, tilled soil, ring barriers and
    * built floors stay live on top. A tile whose block is not baked yet is drawn the old way, so nothing ever waits for one. */
-  const BW = 8 * TILE_HALF_W, BH = 8 * TILE_HALF_H;                                  // a block: a screen-aligned rectangle of the ground, in world pixels
+  const BLOCK_TILES = 6;                                                             // a block's size, in tile widths
+  const BW = BLOCK_TILES * TILE_HALF_W, BH = BLOCK_TILES * TILE_HALF_H;              // a block: a screen-aligned rectangle of the ground, in world pixels
   const MARGIN = 2 * TILE_HALF_W;                                                    // blocks are loaded this far (world pixels) beyond the screen's edges
   const PAD = 1;                                                                     // each block is painted (and drawn) 1 pixel bigger all round: no seams
   const BAKE_MS = 4;                                                                 // a frame bakes one block, and another only while it has used less than this
@@ -142,7 +143,9 @@ const TerrainRenderer = (() => {
   }
   const shadeOf = l => l.dark;
   /** Paint one block: every tile whose ground reaches into it, in the same order as the live drawing (its tiles' chunks are made if needed). */
+  const bakeLog = [];                                                               // how long the last bakes took (ms): TerrainRenderer.stats()
   function bake(map, bx, by) {
+    const t0 = performance.now();
     const s = bakeScale, store = blocksOf(map), key = blockKey(bx, by), old = store.get(key);
     const x0 = bx * BW - PAD, y0 = by * BH - PAD, W = Math.ceil((BW + 2 * PAD) * s), H = Math.ceil((BH + 2 * PAD) * s);
     const canvas = old ? old.canvas : spare.pop() || document.createElement('canvas'), ctx = canvas.getContext('2d');
@@ -160,6 +163,7 @@ const TerrainRenderer = (() => {
     }
     for (let i = 0; i < inBlock.length; i += 3) blend(ctx, map, inBlock[i], inBlock[i + 1], lookOf(map, inBlock[i], inBlock[i + 1], inBlock[i + 2]));   // then the borders, over all of it
     store.delete(key); store.set(key, { canvas, x0, y0, season, scale: s });
+    bakeLog.push(performance.now() - t0); if (bakeLog.length > 200) bakeLog.shift();
   }
   const fresh = p => p && p.season === season && p.scale === bakeScale;
   /** Bake what is missing (or out of date) around a world-pixel rectangle (plus MARGIN), nearest its middle first: at most `budget`, and after
@@ -188,6 +192,7 @@ const TerrainRenderer = (() => {
     const t = now / 1000, { minX, maxX, minY, maxY } = bounds, rings = map.layers && map.layers.rings;
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
     const blocked = map.kind === 'world', store = blocked ? blocksOf(map) : null, drawn = new Set();
+    surfSpent = 0;                                                                                // (a fresh budget for making waves this frame)
     if (blocked) {
       load(map, bounds, 3, BAKE_MS);
       for (const [bx, by] of blocksIn(bounds)) {
@@ -264,9 +269,19 @@ const TerrainRenderer = (() => {
     s = edges || corners ? { edges, corners, variant: AutoTile.variantOf(tx, ty) } : 0;
     m.set(key, s); return s;
   }
+  /** A checkerboard of foam pixels, made once: the dither of foam just behind a wave's edge. */
+  let dither = null;
+  function foamDither() {
+    if (dither) return dither;
+    const TW = AutoTile.TW, TH = AutoTile.TH, px = new Uint32Array(TW * TH), [r, g, b] = [0xf4, 0xfb, 0xfd];   // (SURF_FOAM)
+    for (let y = 0; y < TH; y++) for (let x = (y & 1); x < TW; x += 2) px[y * TW + x] = (0xff << 24 | b << 16 | g << 8 | r) >>> 0;
+    return (dither = AutoTile.pixelCanvas(px));
+  }
+  let foamScratch = null;
+  const surfKey = (s, k) => s.edges * 16 + s.corners + 256 * s.variant + 1024 * k;
   /** One frame of the surf for a shore: water from the fringe's edge in to depth step k (0 = drawn right back), with its foam line. */
   function surfFrame(s, k) {
-    const key = s.edges * 16 + s.corners + 256 * s.variant + 1024 * k;
+    const key = surfKey(s, k);
     let c = surfArt.get(key);
     if (c) return c;
     const full = AutoTile.mask(s.edges, s.corners, s.variant, 1), reach = AutoTile.mask(s.edges, s.corners, s.variant, 1 - SURF_REACH * k / (SURF_STEPS - 1));
@@ -277,24 +292,53 @@ const TerrainRenderer = (() => {
     g.globalCompositeOperation = 'destination-out'; g.drawImage(reach.fill, 0, 0);     // ... up to where this wave reaches
     g.globalCompositeOperation = 'source-over';
     const depth = 1 - SURF_REACH * k / (SURF_STEPS - 1), wake = AutoTile.mask(s.edges, s.corners, s.variant, Math.min(1, depth + 0.16));
-    const foam = document.createElement('canvas'); foam.width = c.width; foam.height = c.height;
-    const f = foam.getContext('2d');
-    f.fillStyle = SURF_FOAM;                                                           // a dither of foam just behind the wave's edge ...
-    for (let y = 0; y < c.height; y++) for (let x = (y & 1); x < c.width; x += 2) f.fillRect(x, y, 1, 1);
+    if (!foamScratch) { foamScratch = document.createElement('canvas'); foamScratch.width = c.width; foamScratch.height = c.height; }
+    const foam = foamScratch, f = foam.getContext('2d');
+    f.globalCompositeOperation = 'source-over'; f.clearRect(0, 0, c.width, c.height);
+    f.drawImage(foamDither(), 0, 0);                                                   // a dither of foam just behind the wave's edge ...
     f.globalCompositeOperation = 'destination-in'; f.drawImage(wake.fill, 0, 0);
     f.globalCompositeOperation = 'destination-out'; f.drawImage(reach.fill, 0, 0);
     f.globalCompositeOperation = 'source-over'; g.drawImage(foam, 0, 0);
-    f.clearRect(0, 0, c.width, c.height); f.fillRect(0, 0, c.width, c.height);         // ... and a solid line of it at the edge
+    f.clearRect(0, 0, c.width, c.height); f.fillStyle = SURF_FOAM; f.fillRect(0, 0, c.width, c.height);   // ... and a solid line of it at the edge
     f.globalCompositeOperation = 'destination-in'; f.drawImage(reach.rim, 0, 0);
     g.drawImage(foam, 0, 0);
     surfArt.set(key, c); return c;
+  }
+
+  /* A new stretch of coast must not stall a frame making its waves: each frame may spend SURF_BUILD_MS making them; a wave not made yet shows
+   * its shore's nearest made step (or nothing for a moment), and the shore is queued so the browser makes all its steps when it is idle. */
+  const SURF_BUILD_MS = 2, surfQueue = new Map();
+  let surfSpent = 0, surfIdle = false;
+  const idleCall = typeof requestIdleCallback === 'function' ? cb => requestIdleCallback(cb, { timeout: 500 }) : cb => setTimeout(() => cb({ timeRemaining: () => 8 }), 50);
+  function queueShore(s) {
+    const id = s.edges * 16 + s.corners + 256 * s.variant;
+    if (!surfQueue.has(id)) surfQueue.set(id, s);
+    if (!surfIdle) { surfIdle = true; idleCall(buildQueued); }
+  }
+  function buildQueued(deadline) {
+    for (const [id, s] of surfQueue) {
+      for (let k = 0; k < SURF_STEPS; k++) { if (deadline.timeRemaining() < 3 && !deadline.didTimeout) { idleCall(buildQueued); return; } surfFrame(s, k); }
+      surfQueue.delete(id);
+      if (deadline.didTimeout) break;                                                   // (a busy browser: one shore per call)
+    }
+    if (surfQueue.size) idleCall(buildQueued); else surfIdle = false;
+  }
+  /** The frame to draw for step k, within this frame's budget: the step itself, or the nearest one already made, or null. */
+  function surfArtFor(s, k) {
+    const have = surfArt.get(surfKey(s, k));
+    if (have) return have;
+    if (surfSpent < SURF_BUILD_MS) { const t0 = performance.now(); const c = surfFrame(s, k); surfSpent += performance.now() - t0; queueShore(s); return c; }
+    queueShore(s);
+    for (let d = 1; d < SURF_STEPS; d++) for (const j of [k - d, k + d]) { if (j < 0 || j >= SURF_STEPS) continue; const c = surfArt.get(surfKey(s, j)); if (c) return c; }
+    return null;
   }
   /** The waves on one shore tile at time t: each wave washes in and draws back; neighbouring tiles lag a little, so the waves run along the coast. */
   function surf(ctx, map, tx, ty, cx, cy, here, t) {
     const s = shoreOf(map, tx, ty, here);
     if (!s) return;
     const w = (Math.sin(t * 1.1 - (tx + ty) * 0.35 + Math.sin(tx * 0.37 - ty * 0.21) * 0.8) + 1) / 2, k = Math.round(Math.pow(w, 1.6) * (SURF_STEPS - 1));
-    ctx.drawImage(surfFrame(s, k), cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
+    const art = surfArtFor(s, k);
+    if (art) ctx.drawImage(art, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
   }
 
   /** The water's ripples: two short bright strokes that drift to and fro (live, over the baked water and its shore). */
@@ -305,5 +349,5 @@ const TerrainRenderer = (() => {
     ctx.moveTo(cx + 3 * DETAIL - drift, cy + 4 * DETAIL); ctx.lineTo(cx + 12 * DETAIL - drift, cy + 4 * DETAIL); ctx.stroke();
   }
 
-  return { draw, setDate, setScale, load, warmJobs, lookOf, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6) }; } };
+  return { draw, setDate, setScale, load, warmJobs, lookOf, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6), bakeMs: bakeLog.slice() }; } };
 })();
