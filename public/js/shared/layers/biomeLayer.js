@@ -1,21 +1,39 @@
 'use strict';
 /* LAYER - biomes. Biomes are spread across the WHOLE map, not tied to distance: the world is cut into big jittered cells (like a cracked
  * mud flat), every tile belongs to its nearest cell centre, and each cell picks a biome by RARITY (common biomes fill most cells; crystal,
- * rainbow and candy are rare; magic is ultra rare). Slow noise bends the borders so regions are irregular. The village is always meadow. */
+ * rainbow and candy are rare; magic is ultra rare). Slow noise bends the borders so regions are irregular. The village is always meadow.
+ * A biome may also keep away from the village: its `from` (in rings, from the ring layer) is the nearest it appears; a region that reaches
+ * in past that line is another biome on the inner side, so the edge follows the ring's wobbly boundary.
+ * Rarity and `from` can be changed on the Admin page (GameSettings.biomeSpawn): like trees, from the next time a world is started. */
 class BiomeLayer {
-  constructor(seed) {
+  constructor(seed, rings) {
     this.id = 'biomes'; this.seed = seed | 0; this.warpX = new PerlinNoise(seed + 5001); this.warpY = new PerlinNoise(seed + 5002);
-    this.cell = CONFIG.world.biomeCell; this.pool = null; this.total = 0; this.cache = new Map();
+    this.cell = CONFIG.world.biomeCell; this.rings = rings || null; this.pool = null; this.settings = null; this.cache = new Map();
   }
+  /** Every placeable biome with its weight and its `from` (the Admin page's values over the data's). Rebuilt if the settings were replaced. */
   _pool() {
-    if (!this.pool) { this.pool = Biomes.where(b => !b.terrainOnly).map(b => ({ id: b.id, w: BIOME_RARITY[b.rarity] })); this.total = this.pool.reduce((n, b) => n + b.w, 0); }
+    const settings = GameSettings.values.biomes;
+    if (!this.pool || this.settings !== settings) {
+      this.settings = settings; this.cache.clear();
+      this.pool = Biomes.where(b => !b.terrainOnly).map(b => { const s = GameSettings.biomeSpawn(b); return { id: b.id, w: BIOME_RARITY[s.rarity] || 0, from: s.from }; });
+    }
     return this.pool;
   }
-  /** The biome a cell holds (the same for everyone, forever). */
+  /** Where a cell's centre lies (its jittered middle). */
+  centre(cx, cy) { const S = this.cell; return [(cx + 0.15 + 0.7 * hash3(this.seed, cx, cy, 72)) * S, (cy + 0.15 + 0.7 * hash3(this.seed, cx, cy, 73)) * S]; }
+  /** Rings out from the village (2.5 = halfway through ring 2), from the ring layer's wobbly distance. */
+  ringPos(x, y) { return this.rings ? Math.max(0, this.rings.effectiveRadius(x, y)) / this.rings.width : Infinity; }
+  /** Pick by rarity among `open` with the roll `h`. */
+  _pick(open, h) {
+    let roll = h * open.reduce((n, b) => n + b.w, 0);
+    for (const b of open) { if ((roll -= b.w) < 0) return b; }
+    return open[0] || { id: 'normal', from: 0 };
+  }
+  /** The biome a cell holds (the same for everyone, forever): picked by rarity among the biomes allowed at its centre. */
   cellBiome(cx, cy) {
-    const key = cx * 100003 + cy, hit = this.cache.get(key); if (hit) return hit;
-    const pool = this._pool(); let roll = hash3(this.seed, cx, cy, 71) * this.total, chosen = pool[0].id;
-    for (const b of pool) { if ((roll -= b.w) < 0) { chosen = b.id; break; } }
+    const pool = this._pool(), key = cx * 100003 + cy, hit = this.cache.get(key); if (hit) return hit;
+    const [x, y] = this.centre(cx, cy), pos = this.ringPos(x, y);
+    const chosen = this._pick(pool.filter(b => b.w > 0 && b.from <= pos), hash3(this.seed, cx, cy, 71));
     if (this.cache.size > 4000) this.cache.clear();
     this.cache.set(key, chosen); return chosen;
   }
@@ -28,10 +46,14 @@ class BiomeLayer {
     let best = Infinity, bx = cx0, by = cy0;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const cx = cx0 + dx, cy = cy0 + dy;
-      const px = (cx + 0.15 + 0.7 * hash3(this.seed, cx, cy, 72)) * S, py = (cy + 0.15 + 0.7 * hash3(this.seed, cx, cy, 73)) * S;
+      const [px, py] = this.centre(cx, cy);
       const d = (wx - px) * (wx - px) + (wy - py) * (wy - py);
       if (d < best) { best = d; bx = cx; by = cy; }
     }
-    return this.cellBiome(bx, by);
+    const chosen = this.cellBiome(bx, by);
+    if (!chosen.from) return chosen.id;
+    const pos = this.ringPos(tx, ty);                                       // a region reaching in past where its biome may start: that inner part
+    if (pos >= chosen.from) return chosen.id;                               // is another biome (allowed there), so the line follows the ring
+    return this._pick(this._pool().filter(b => b.w > 0 && b.from <= pos), hash3(this.seed, bx, by, 74)).id;
   }
 }

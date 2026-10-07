@@ -427,7 +427,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 /* the Admin page */
 .adminLock p{font-size:13px;opacity:.85;margin:4px 0 10px}
 .admRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
-.admRow input,.admSlide input[type=number]{background:#16283a;color:#f4e6c1;border:1px solid rgba(227,194,122,.6);border-radius:6px;padding:6px 8px;font:14px Georgia,serif;width:110px}
+.admRow input,.admSlide input[type=number],.admSlide select{background:#16283a;color:#f4e6c1;border:1px solid rgba(227,194,122,.6);border-radius:6px;padding:6px 8px;font:14px Georgia,serif;width:110px}
 .adminBody button,.adminLock button{background:transparent;color:#f4e6c1;border:1.5px solid rgba(227,194,122,.6);border-radius:6px;padding:5px 10px;font:13px Georgia,serif;touch-action:manipulation}
 .adminBody button.primary{background:rgba(227,194,122,.85);color:#1b2433}
 .admErr{color:#ffb4a6;font-size:13px;min-height:16px}

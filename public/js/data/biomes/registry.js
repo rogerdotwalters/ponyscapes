@@ -3,6 +3,8 @@
  * pony book all read this table, so adding a biome means adding a file (and one <script> line), nothing else.
  *
  *   rarity   how often the biome layer picks it for a region of the map: common / uncommon / rare / ultra (see BIOME_RARITY)
+ *   from     (optional) the nearest to the village it appears, in rings: the ring's number plus how far through it (0.7 = the outer edge of
+ *            the Heartland, 2.5 = halfway through the Deepwood); from there on outward it can turn up anywhere. Default 0 (everywhere)
  *   ground   [grass x3, dirt x3] colours, or null for the plain meadow look        mapColor  its colour on the map
  *   effect   the little animated detail the renderer draws (a BiomeEffects id)      ponyVariant  which pony variety lives here
  *   bush / stone / flax   chance a free tile holds one      berries  [[itemId, weight]]     appleTrees  share of trees that bear apples
