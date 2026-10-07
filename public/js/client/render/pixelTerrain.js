@@ -6,7 +6,7 @@
 const PixelTerrain = (() => {
   const { css, shade, light, mix } = PixelCharacter.util;
   const AW = 40, AH = 20, BLEED = 1, VARIANTS = 6;                 // a cell's art size (it is drawn TILE_HALF_W x TILE_HALF_H), and the overlap that hides seams
-  const cache = new LruCache(4000);
+  const cache = new PackedCache(4000, 'terrain');
   const hash = (x, y, s) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
   const BAYER = [0, 0.5, 0.75, 0.25];
 

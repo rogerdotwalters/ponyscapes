@@ -20,7 +20,8 @@ const PixelBuildings = (() => {
   const HWa = TILE_HALF_W / ART, HHa = TILE_HALF_H / ART, LEN = Math.hypot(HWa, HHa);   // a tile's half width / height in art pixels; a tile's edge length
   const F = 46, U = 36, J = 0.14, O = 0.2;                                     // ground floor and upper floor heights (art px); jetty and roof overhang (tiles)
   const OUTLINE = '#1c140e';
-  const cache = new Map();
+  const cache = new PackedCache(600, 'building');                              // the pictures (art pack: artPack.js); a building's spec is rebuilt, never stored
+  const specs = new Map();                                                       // art key -> { canvas, minX, minY, spec }
   /** (tx, ty) -> the ground's look there (TerrainRenderer.lookOf on the overworld), set by the renderer; null until then (no ground effects). */
   let groundAt = null;
   function useGround(fn) { if (fn !== groundAt) { groundAt = fn; } }
@@ -310,10 +311,26 @@ const PixelBuildings = (() => {
   }
 
   /** The finished picture of a building: { canvas, minX, minY } in art pixels relative to its north-west ground corner. */
+  const siteKeys = new Map();                                                    // site.index -> { at: the ground function it was keyed for, key, S }
   function art(site) {
-    const key = site.index + '|' + JSON.stringify(site.def.exterior || {}) + (groundAt ? '|g' : '');   // (made again once the ground is known)
-    if (cache.has(key)) return cache.get(key);
-    const S = specOf(site), M = 6;
+    let k = siteKeys.get(site.index);
+    if (!k || k.at !== groundAt) {                                               // (once per building, and again when the ground becomes known)
+      const S = specOf(site);
+      const ground = groundAt ? '|g' + [...Array(S.w).keys()].map(x => S.groundS(x) || '-').join() + '/' + [...Array(S.h).keys()].map(y => S.groundE(y) || '-').join() : '';   // (the ground at the foot of its walls is part of the picture)
+      k = { at: groundAt, key: site.index + '|' + JSON.stringify(site.def.exterior || {}) + ground, S };
+      siteKeys.set(site.index, k);
+    }
+    let pic = cache.get(k.key);                                                  // ready-made, or painted now
+    let out = specs.get(k.key);
+    if (out && pic && out.pic === pic) return out;
+    if (!pic) { pic = paintArt(site, k.S); cache.set(k.key, pic); }
+    out = { canvas: pic.canvas, minX: pic.minX, minY: pic.minY, spec: k.S, pic };
+    specs.set(k.key, out);
+    return out;
+  }
+  /** Paint a building's picture: { canvas, minX, minY } (the slow part: a ray cast for every pixel). */
+  function paintArt(site, S) {
+    const M = 6;
     const minX = Math.floor(-(S.h + J + 2 * O) * HWa) - M, maxX = Math.ceil((S.w + J + 2 * O) * HWa) + M;
     const minY = Math.floor(-2 * O * HHa - (S.E + S.R + 30)) - M, maxY = Math.ceil((S.w + S.h + 2 * J + 2 * O) * HHa) + M;
     const canvas = document.createElement('canvas'); canvas.width = maxX - minX; canvas.height = maxY - minY;
@@ -335,9 +352,7 @@ const PixelBuildings = (() => {
     const P = (x, y, z) => [(x - y) * HWa - minX, (x + y) * HHa - z - minY];
     tufts(g, x => P(x, S.h + 0.04, 0), 'x', S.groundS, S.w, 1); tufts(g, y => P(S.w + 0.04, y, 0), 'y', S.groundE, S.h, 2);   // grass at the foot of the walls
     props(S, g, P);
-    const out = { canvas, minX, minY, spec: S };
-    cache.set(key, out);
-    return out;
+    return { canvas, minX, minY };
   }
 
   /* ---- the village's walls and watchtowers: one tile each, the same stone, cast the same way ---- */
@@ -435,5 +450,5 @@ const PixelBuildings = (() => {
   /** How tall the ground floor is in world pixels (the name banner floats above the door). */
   const groundFloorHeight = () => F * ART;
 
-  return { art, drawTile, drawPiece, signAt, groundFloorHeight, useGround, ART };
+  return { art, pieceArt, drawTile, drawPiece, signAt, groundFloorHeight, useGround, ART };
 })();

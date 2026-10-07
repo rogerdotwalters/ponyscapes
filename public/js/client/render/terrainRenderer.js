@@ -180,11 +180,21 @@ const TerrainRenderer = (() => {
     if (store.size > keepBlocks) for (const [k, p] of store) { store.delete(k); if (spare.length < 6) spare.push(p.canvas); if (store.size <= keepBlocks) break; }
     return todo.length - done;
   }
+  /** Every ground cell picture the game can ask PixelTerrain for: [{ kind, pal, season, wet }] (the meadow's grass in all four seasons; a biome's
+   *  own grass and dirt in none), each at all its variants. The warm-up jobs and the art pack's exporter both walk this list, so it must cover
+   *  every PixelTerrain.cell call this file makes (cells(): the ground's looks, the curb's pale stones, tilled soil). */
+  function cellSets() {
+    const sets = [], add = (kind, pal, season = '', wet = false) => sets.push({ kind, pal, season, wet });
+    for (const season of Seasons.LIST.map(x => x.id)) add('grass', GRASS, season);
+    for (const [kind, pal] of [['dirt', DIRT], ['sand', SAND], ['clay', CLAY], ['stone', STONE], ['water', WATER], ['shallow', SHALLOW], ['cave', CAVE_FLOOR], ['cave', CAVE_WALL], ['stone', CURB]]) add(kind, pal);
+    for (const [, [grass, dirt]] of Object.entries(GROUND)) { add('grass', grass); add('dirt', dirt); }
+    add('soil', SOIL, '', false); add('soil', SOIL, '', true);
+    return sets;
+  }
   /** Jobs that make every biome's ground cells (all their varieties) for this season, so new ground never has to (the loader runs them while you play). */
   function warmJobs(seasonId) {
-    const sets = [['grass', GRASS, seasonId], ['dirt', DIRT, ''], ['sand', SAND, ''], ['clay', CLAY, ''], ['stone', STONE, ''], ['water', WATER, ''], ['shallow', SHALLOW, '']];
-    for (const [, [grass, dirt]] of Object.entries(GROUND)) sets.push(['grass', grass, ''], ['dirt', dirt, '']);
-    return sets.map(([kind, pal, s]) => () => { for (let v = 0; v < 6; v++) PixelTerrain.cell(kind, pal, v, s); });   // one small job per ground
+    const sets = cellSets().filter(x => x.kind !== 'grass' || x.season === seasonId || x.season === '');
+    return sets.map(({ kind, pal, season, wet }) => () => { for (let v = 0; v < 6; v++) PixelTerrain.cell(kind, pal, v, season, wet); });   // one small job per ground
   }
 
   function draw(g, map, bounds, range, now) {
@@ -349,5 +359,5 @@ const TerrainRenderer = (() => {
     ctx.moveTo(cx + 3 * DETAIL - drift, cy + 4 * DETAIL); ctx.lineTo(cx + 12 * DETAIL - drift, cy + 4 * DETAIL); ctx.stroke();
   }
 
-  return { draw, setDate, setScale, load, warmJobs, lookOf, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6), bakeMs: bakeLog.slice() }; } };
+  return { draw, setDate, setScale, load, warmJobs, cellSets, lookOf, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6), bakeMs: bakeLog.slice() }; } };
 })();

@@ -5,7 +5,7 @@
  * tree breaks into logs on the ground (drawn by PixelLogs). Everything is outlined and drawn with hard edges. */
 const PixelProps = (() => {
   const { hex, css, shade, light, mix, outline } = PixelCharacter.util;
-  const PX = 1.25, cache = new Map();
+  const PX = 1.25, cache = new PackedCache(3000, 'prop');
   const W = 64, H = 88, GROUND = 85, AX = 32;                                // the tree's art box, the row its roots stand on, the column over its tile
   const BAYER = [0, 0.5, 0.75, 0.25];                                         // 2x2 ordered dither
   const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
@@ -173,7 +173,7 @@ const PixelProps = (() => {
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(c, sx - 11 * u, sy - 14 * u, 22 * u, 16 * u); ctx.restore();
   }
 
-  return { drawTree, drawSapling, drawFalling, drawStump, tinted };
+  return { drawTree, drawSapling, drawFalling, drawStump, tinted, treeArt, stumpArt };
 })();
 
 /* ---- LOGS: a cut log lying on the ground (and the log's icon) ---- */
@@ -337,7 +337,7 @@ const PixelCraftIcons = (() => {
  *      'dead' withered). Painted once per crop and stage, outlined, drawn with hard edges standing on its plot. ---- */
 const PixelCrops = (() => {
   const { outline, shade, light } = PixelCharacter.util;
-  const PX = 1.25, cache = new Map();
+  const PX = 1.25, cache = new PackedCache(1000, 'crop');
   function art(crop, stage) {
     const key = crop.id + '|' + stage;
     if (cache.has(key)) return cache.get(key);
@@ -390,5 +390,5 @@ const PixelCrops = (() => {
     const a = art(crop, Farming.stage(plot)), u = PX;
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(a.c, sx - a.X * u, sy - (a.G + 1) * u + 2, a.W * u, a.H * u); ctx.restore();
   }
-  return { draw };
+  return { draw, art };
 })();
