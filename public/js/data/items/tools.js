@@ -7,6 +7,8 @@ Tools.registerAll([
   { id: 'shovel', name: 'Shovel', tool: { kind: 'shovel', damage: 0, reach: 1.1, swingTime: 0.7, impactTime: 0.4 } },
   /* ---- shears: Use beside a sheep (any creature with `shear` in its data) and its wool pops off onto the ground; it grows back in a while ---- */
   { id: 'shears', name: 'Shears', price: [['gold_coin', 4]], craft: [['stone', 2], ['string', 1], ['plank', 1]], tool: { kind: 'shears', damage: 0, reach: 1.5, swingTime: 0.55, impactTime: 0.3 } },
+  /* ---- the sickle: mows the grass in a three-tile swath in front of you; cut grass gives hay (grass.js). Knives, swords and shears cut a tile ---- */
+  { id: 'sickle', name: 'Sickle', price: [['gold_coin', 3]], craft: [['stone', 1], ['plank', 1]], tool: { kind: 'sickle', damage: 0, reach: 1.1, swingTime: 0.45, impactTime: 0.22 } },
   /* ---- farming (farming.js): a hoe tills the ground (a half tile in front of you), a watering can waters what grows there ---- */
   { id: 'hoe', name: 'Hoe', price: [['gold_coin', 3]], craft: [['plank', 2], ['stone', 1]], tool: { kind: 'hoe', damage: 0, reach: 1, swingTime: 0.5, impactTime: 0.3 } },
   { id: 'watering_can', name: 'Watering Can', price: [['gold_coin', 3]], craft: [['plank', 3], ['string', 1]], tool: { kind: 'water', damage: 0, reach: 1, swingTime: 0.6, impactTime: 0.35 } },

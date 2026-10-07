@@ -16,7 +16,10 @@
  *   stealthCap             0-90      the most those two together can take off an animal's senses, %; 60 = as built
  *   crops                  { "<crop id>": days it takes to grow } for any crop you want faster or slower than its own (js/data/crops/crops.js)
  *   trees                  per biome: { "<biome>": { "amount": % of the normal tree density (100 = as built), "max": highest tree cover, % of grass tiles } }
- *                          Trees are decided when a world's land is made, so they change from the next time a world is started or continued. */
+ *                          Trees are decided when a world's land is made, so they change from the next time a world is started or continued.
+ *   biomes                 per biome: { "<biome>": { "rarity": "common" | "uncommon" | "rare" | "ultra" | "never", "from": 0-5 } }
+ *                          from: the nearest to the village it appears, in rings (0.7 = the outer edge of the Heartland, 2.5 = halfway through
+ *                          the Deepwood). Leave a biome out to use its own (js/data/biomes/). Like trees, from the next world start. */
 window.PONYSCAPES_SETTINGS = {
   "globalSpeed": 100,
   "dayShare": 54,
@@ -29,5 +32,6 @@ window.PONYSCAPES_SETTINGS = {
   "stealthFriend": 15,
   "stealthCap": 60,
   "crops": {},
-  "trees": {}
+  "trees": {},
+  "biomes": {}
 };

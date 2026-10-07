@@ -116,6 +116,23 @@ class TerrainGenerator {
 
   /** Does this tree bear apples? */
   appleTreeAt(tx, ty) { const h = hash3(this.seed, tx, ty, 60); return h < 0.7 && h < AppleTreeChance[this.biomeAt(tx, ty, TILE.GRASS)]; }
+  /** Which apple an apple tree here bears: if its biome has `edgeApples` and one of those neighbours is within EDGE_APPLE_RANGE tiles, a
+   *  roll against that apple's chance (now and then an Orchard tree beside a Crystal Hollow bears crystal apples); else its biome's `apples`
+   *  table. One kind per tree, always the same. */
+  appleKindAt(tx, ty) {
+    const own = this.biomeAt(tx, ty, TILE.GRASS), edges = BiomeEdgeApples[own];
+    if (edges) {
+      const h = hash3(this.seed, tx, ty, 64), rare = Object.values(edges).reduce((m, [, chance]) => Math.max(m, chance), 0);
+      if (h < rare) for (let d = 2; d <= EDGE_APPLE_RANGE; d += 2) for (let k = 0; k < 8; k++) {             // (the roll first: most trees never look)
+        const b = this.layers.biomes.at(Math.round(tx + Math.cos(k * Math.PI / 4) * d), Math.round(ty + Math.sin(k * Math.PI / 4) * d));
+        if (edges[b] && h < edges[b][1]) return edges[b][0];
+      }
+    }
+    const table = BiomeApples[this.biomeAt(tx, ty, TILE.GRASS)] || [['apple', 1]], total = table.reduce((n, [, w]) => n + w, 0);
+    let roll = hash3(this.seed, tx, ty, 63) * total;
+    for (const [item, weight] of table) { if ((roll -= weight) < 0) return item; }
+    return table[0][0];
+  }
   /** A mound of sand hiding a bottle (sand only), and a bottle floating in the shallows. */
   moundAt(tx, ty, tileType) { return tileType === TILE.SAND && hash3(this.seed, tx, ty, 61) < BURIED_BOTTLE_CHANCE && !Village.blocksTrees(tx, ty); }
   floatingBottleAt(tx, ty, tileType) { return tileType === TILE.SHALLOW && hash3(this.seed, tx, ty, 62) < FLOATING_BOTTLE_CHANCE; }

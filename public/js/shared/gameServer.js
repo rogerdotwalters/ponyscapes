@@ -4,6 +4,7 @@
 /** Which skill a forageable trains. */
 const ForageSkill = { bush: 'foraging', flax: 'foraging', apple_tree: 'foraging', bottle: 'foraging', stone: 'digging', clay: 'digging', mound: 'digging' };
 const SERVER_STREAM_RADIUS = 2, SERVER_KEEP_RADIUS = 6, BOAT_SYNC_RADIUS = 90;     // chunks / chunks / tiles
+const SERVER_CHUNKS_PER_TICK = 2;                                                    // new chunks (beyond the nearest 3 x 3) made per player per tick
 
 /** The server's event list. Each event remembers the grid it happened on (GameServer.eventGrid at the time), so a puff of dust in a cave is only
  *  shown to the people in that cave. Events with no position, or addressed to one player, go wherever they are meant to. */
@@ -174,10 +175,10 @@ class GameServer {
       till: (id, cx, cy) => this._till(id, cx, cy), water: (id, cx, cy) => this._water(id, cx, cy),
       later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
-    const hunt = new HuntHandler(deps);
+    const hunt = new HuntHandler(deps), grass = new GrassCutHandler(Object.assign({}, deps, { cutGrass: (id, tiles) => this._cutGrass(id, tiles) }));
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
     deps.onTamed = (ownerId, animal) => this._remember(ownerId, animal);
-    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: new ShearHandler(deps), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
+    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: withGrass(hunt, grass), spear: hunt, sword: withGrass(hunt, grass), sickle: grass, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: withGrass(new ShearHandler(deps), grass), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
   }
 
   /* ---- membership ---- */
@@ -602,7 +603,10 @@ class GameServer {
 
   _streamWorld() {
     const humans = this._humans();
-    for (const p of humans) this.mapOf(p).ensureAround(p.x, p.y, SERVER_STREAM_RADIUS);
+    for (const p of humans) {                                                          // the chunk you stand in and its neighbours at once (walls, water); the
+      const map = this.mapOf(p);                                                      // rest of the ring a couple of chunks a tick, nearest first, so
+      map.ensureAround(p.x, p.y, 1); map.ensureAround(p.x, p.y, SERVER_STREAM_RADIUS, SERVER_CHUNKS_PER_TICK);   // crossing a chunk edge never stalls a tick
+    }
     if (this.tick % 150 !== 0) return;
     const everyone = Object.values(this.players);
     for (const id of this.grids.ids()) {                                               // each grid keeps what its own people are near; an empty instance is forgotten
@@ -688,9 +692,9 @@ class GameServer {
   /** Feed an apple to a pony you have caught. It only eats in a stable or a closed pen; enough apples and it settles in as your pet. */
   _feedPony(id, animal) {
     const p = this.players[id], inventory = this.inventories[id], def = AnimalDefs[animal.type];
-    if (p.held !== 'apple' || !inventory.has('apple', 1)) { this._notice(id, 'Hold an apple to feed it'); return; }
+    if (!ItemDB.isApple(p.held) || !inventory.has(p.held, 1)) { this._notice(id, 'Hold an apple to feed it'); return; }
     if (!Shelter.find(this.mapOf(animal), animal.x, animal.y)) { this._notice(id, 'It will not eat out here: lead it to a stable or a closed pen first'); return; }
-    inventory.remove('apple', 1); this.inventoryRev[id]++;
+    inventory.remove(p.held, 1); this.inventoryRev[id]++;
     const result = this.animals.feed(animal.id, id, Buildings.appleDiscountAt(this.mapOf(animal), animal.x, animal.y));
     this.progress.award(id, 'horsemanship', 12);
     this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need });
@@ -707,6 +711,8 @@ class GameServer {
     const type = animal.type, item = Object.keys(ItemDefs).find(k => ItemDefs[k].creature === type), inventory = this.inventories[id], w = Wants.of(type), name = AnimalDefs[type].name.toLowerCase();
     if (animal.delivered) { this._notice(id, `The ${name} is home with its mother`); return; }
     if (w && w.unlocks === 'pickup' && !animal.fed) { this._notice(id, `The ${name} squirms away: it wants ${ItemDefs[w.items[0]].name.toLowerCase()} first`); return; }   // (a lost cub: feed it a fish)
+    const wild = !animal.owner && !Wants.isQuestCreature(type) && AnimalLevels.tooWild(animal, this.players[id].lv);   // (your own pet, or a lost cub, always comes)
+    if (wild) { this._notice(id, wild); return; }
     if (!item || !inventory.canAdd(item, 1)) { this._notice(id, 'Inventory full'); return; }
     this.animals.pickup(animal.id);
     inventory.add(item, 1); this.inventoryRev[id]++;

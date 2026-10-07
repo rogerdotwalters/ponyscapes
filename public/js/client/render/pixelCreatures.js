@@ -220,6 +220,7 @@ const PixelCreatures = (() => {
     fox:  { k: 0.95, body: '#d9742b', belly: '#f6efe2', leg: '#3a2a22', ear: 'point',  snout: 4, tail: 'bush', tip: '#f6efe2', nose: '#1a1410' },
     wolf: { k: 1.2,  body: '#8b8f96', belly: '#c9ccd1', leg: '#6b6f76', ear: 'point',  snout: 4, tail: 'low',  tip: null,      nose: '#1a1410' },
     cat:  { k: 0.75, body: '#9a9a9a', belly: '#e8e4dc', leg: '#808080', ear: 'point',  snout: 1, tail: 'curl', tip: null,      nose: '#d98a8a' },
+    panther: { k: 1.2, body: '#25222b', belly: '#34303b', leg: '#1d1a22', ear: 'point', snout: 1, tail: 'curl', tip: null,     nose: '#4a4450', eye: '#f2d43a' },
   };
   PixelCreatures.register({
     id: 'canine', W: 34, H: 26, ground: 24, anchor: 15, shadow: [11, 3.5],
@@ -244,7 +245,7 @@ const PixelCreatures = (() => {
         P.px(28 + V.snout, 8, V.nose); if (F.hunting && V.snout > 2) { P.px(29, 11, '#ffffff'); P.px(31, 11, '#ffffff'); }   // bared teeth
         if (V.ear === 'floppy') { P.rect(22, 6, 2, 5, shade(C.body.b, 0.7)); }
         else { P.line(23, 5, 23, 1, C.body.b, 2); P.line(25, 5, 26, 1, C.body.b, 2); P.px(23, 3, '#e8b3b3'); }
-        P.eye(26, 7, F);
+        P.eye(26, 7, F, V.eye);
         if (V.ear === 'point' && sprite_is(C, 'cat')) { P.px(30, 9, '#ffffff'); P.px(31, 8, '#ffffff'); P.px(31, 10, '#ffffff'); }   // whiskers
       });
     },
@@ -390,6 +391,18 @@ const PixelCreatures = (() => {
         for (const x of [8, 12]) { P.rect(x, 7, 3, 3, '#f6e7b4'); if (blink) P.row(8, x, x + 2, '#6e5639'); else P.px(x + 1, 8, F.hunting ? '#ff3030' : '#2a1c14'); }
         P.px(11, 10, '#e0a030'); P.px(11, 11, '#c08020');
         P.rect(9, 23, 2, 1, legC); P.rect(12, 23, 2, 1, legC);
+        return;
+      }
+      if (v === 'toucan') {                                                                                 // perched upright: black, a white bib and a huge orange bill
+        const b = tones('#1e1e24'), hop = F.moving && F.i % 2 ? -1 : 0;
+        P.line(10, 20 + hop, 10 + sw, 24, '#5a6ab0'); P.line(12, 20 + hop, 12 - sw, 24, '#5a6ab0');
+        P.at(0, hop, () => {
+          P.line(7, 18, 4, 23, b.d, 2);                                                                     // tail
+          P.shape([[10, 15, 4.5, 6]], b); P.shape([[12, 13, 2.4, 2.6]], tones('#f6f0dc'), { texture: false });
+          P.shape([[11, 8, 3.6, 3.4]], b, { texture: false });
+          P.rect(14, 6, 6, 3, '#f28c1a'); P.rect(15, 8, 4, 1, '#e0402a'); P.px(20, 7, '#1a1a1a'); P.px(14, 6, '#4fb06a');   // the bill
+          P.px(12, 7, F.hunting ? '#ff3030' : '#6ad0e0'); P.px(13, 7, '#1a1a1a');                             // eye
+        });
         return;
       }
       const duck = v === 'duck', body = tones(duck ? '#8b6b3e' : '#f4f0e6'), wing = tones(duck ? '#6f5430' : '#e2dac7');
@@ -569,6 +582,72 @@ const PixelCreatures = (() => {
         P.shape([[end[0], end[1], 3, 3.5]], tones('#6a4a28'), { texture: false });
         P.px(end[0] - 1, end[1] - 1, '#8a6a40');
       });
+    },
+  });
+})();
+
+/* ---- THE JUNGLE: monkey, lemur, snake ---- */
+(() => {
+  const { tones, shade, light } = PixelCreatures.util;
+
+  /* ---- MONKEY: knuckle-walks, a long curling tail, a pale face ---- */
+  PixelCreatures.register({
+    id: 'monkey', W: 32, H: 28, ground: 26, anchor: 15, shadow: [9, 3],
+    palette: s => ({ fur: tones(s.color || '#7a5233'), face: tones('#e2c49a') }),
+    paint(P, C, F) {
+      const sw = F.swing, far = { b: shade(C.fur.b, 0.75), d: shade(C.fur.d, 0.75) }, curl = [0, 1, 0, -1][F.i];
+      for (const [x, d] of [[10, -sw], [20, sw]]) P.leg(x, 17, 26, d * 2, 0, 2, far);
+      P.at(0, F.bob, () => {
+        P.line(8, 14, 3, 10, C.fur.b, 2); P.line(3, 10, 3 + curl, 4, C.fur.b, 2); P.line(3 + curl, 4, 6 + curl, 3, C.fur.b, 2);   // the tail
+        P.shape([[15, 14, 7, 4.5], [20, 13, 3.6, 4]], C.fur);
+      });
+      for (const [x, d] of [[8, sw], [22, -sw]]) P.leg(x, 17, 26, d * 2, 0, 2, C.fur, shade(C.fur.d, 0.6));
+      P.at(0, F.bob + (!F.moving && F.i === 3 ? -1 : 0), () => {
+        P.shape([[24, 9, 4.2, 4]], C.fur, { texture: false });
+        P.shape([[26, 10, 2.6, 2.6]], C.face, { texture: false }); P.px(28, 11, '#3a2418');                   // face, nose
+        P.px(20, 8, C.face.d); P.px(20, 9, C.face.d);                                                        // ear
+        P.eye(26, 9, F);
+      });
+    },
+  });
+
+  /* ---- LEMUR: grey, a black-and-white ringed tail held up in a curve, a masked face with orange eyes ---- */
+  PixelCreatures.register({
+    id: 'lemur', W: 30, H: 30, ground: 28, anchor: 14, shadow: [8, 2.5],
+    palette: s => ({ fur: tones(s.color || '#9a9a9e'), face: '#f2f0ea', mask: '#2a2a30' }),
+    paint(P, C, F) {
+      const sw = F.swing, sway = [0, 1, 0, -1][F.i];
+      for (const [x, d] of [[10, -sw], [18, sw]]) P.leg(x, 21, 28, d * 2, 0, 2, { b: shade(C.fur.b, 0.75), d: shade(C.fur.d, 0.75) });
+      P.at(0, F.bob, () => {
+        const tail = [[7, 18], [4, 14], [3, 9], [4 + sway, 5], [7 + sway, 2], [10 + sway, 1]];
+        tail.forEach(([x, y], i) => { if (i) P.line(tail[i - 1][0], tail[i - 1][1], x, y, i % 2 ? '#1e1e22' : '#f2f0ea', 2); });   // the ringed tail
+        P.shape([[13, 18, 6, 3.8]], C.fur);
+      });
+      for (const [x, d] of [[8, sw], [17, -sw]]) P.leg(x, 21, 28, d * 2, 0, 2, C.fur, shade(C.fur.d, 0.6));
+      P.at(0, F.bob, () => {
+        P.shape([[21, 14, 3.4, 3], [24, 15, 2, 1.6]], tones(C.face), { texture: false });                    // the pale, foxy face
+        P.px(19, 11, C.mask); P.px(20, 10, C.mask);                                                          // ear
+        P.px(22, 13, C.mask); P.px(23, 14, C.mask); P.px(26, 15, C.mask);                                    // the mask, the nose
+        if (F.hunting) P.px(22, 14, '#ff3030'); else P.px(22, 14, '#f2a33a');                                // orange eye
+      });
+    },
+  });
+
+  /* ---- SNAKE: a long S that slithers (the curve travels down its body), a flicking tongue ---- */
+  PixelCreatures.register({
+    id: 'snake', W: 40, H: 14, ground: 12, anchor: 18, shadow: [14, 2], tick: F => (F.moving ? 110 : 280), ticks: 8,
+    palette: s => ({ body: tones(s.color || '#4f8a2a'), belly: light(s.color || '#4f8a2a', 0.35), mark: shade(s.color || '#4f8a2a', 0.55) }),
+    paint(P, C, F) {
+      const N = 14, wave = F.moving || F.hunting ? 1 : 0.4, seg = i => [3 + i * 2.3, 9 - Math.round(Math.sin(F.t * Math.PI / 4 + i * 0.75) * 2 * wave) - (i === N - 1 && F.hunting ? 3 : 0)];
+      for (let i = 0; i < N; i++) {
+        const [x, y] = seg(i), r = 0.8 + 0.9 * Math.min(1, i / 5);                                           // thin at the tail, full from the middle on
+        P.shape([[x, y, r, r]], C.body, { texture: false, belly: C.belly });
+        if (i % 3 === 1) P.px(x, y - 1, C.mark);                                                            // the pattern on its back
+      }
+      const [hx, hy] = seg(N - 1);
+      P.shape([[hx + 2, hy, 2.2, 1.8]], C.body, { texture: false });
+      P.eye(hx + 2, hy - 1, F, '#f2d43a');
+      if (F.t % 4 < 2 || F.hunting) { P.px(hx + 5, hy + 1, '#d93a2f'); P.px(hx + 6, hy + 1, '#d93a2f'); P.px(hx + 7, hy, '#d93a2f'); P.px(hx + 7, hy + 2, '#d93a2f'); }   // the tongue
     },
   });
 })();

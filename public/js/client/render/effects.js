@@ -10,6 +10,7 @@ class Effects {
     game.events.on('fell', e => this._onFell(e));
     game.events.on('pressed', e => { const c = e.color || '#7b45c4'; this._burst(e.x, e.y, 12, [c, c, '#ffffff'], 14); });   // a splash of the dye's colour at the press
     game.events.on('shear', e => { this._burst(e.x, e.y, 14, WOOL_COLORS, 16); this._float(Object.assign({ to: e.by }, e), 'Snip!'); });   // a puff of fluff; the tufts land a moment later
+    game.events.on('grassCut', e => this._burst(e.x, e.y, 4 + e.level * 4, ['#5f9a3c', '#7fb24f', '#d9c48a', '#3f6a2c'], 6 + e.level * 4));   // clippings fly (grass.js)
     game.events.on('till', e => this._burst(e.x, e.y, 10, ['#7a5233', '#9c7048', '#5a3b22'], 10));              // clods fly from the hoe (farming.js)
     game.events.on('watered', e => this._burst(e.x, e.y, 8, SPLASH_COLORS, 5));
     game.events.on('planted', e => this._burst(e.x, e.y, 6, ['#5fae4e', '#8fd06e', '#7a5a33'], 8));

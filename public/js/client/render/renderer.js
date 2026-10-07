@@ -77,7 +77,11 @@ class Renderer {
     const tiles = this.camera.visibleTiles();
     const date = Seasons.at(this.game.clockTick);                                   // the season colours the grass and the trees; watered soil stays dark today
     TerrainRenderer.setDate(date.season.id, date.day); PropSprites.seasonTint = date.season.treeTint;
-    TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
+    if (!this.groundLook || this.groundMap !== this.game.worldMap) { this.groundMap = this.game.worldMap; this.groundLook = (x, y) => TerrainRenderer.lookOf(this.groundMap, x, y); PixelBuildings.useGround(this.groundLook); }   // buildings meet the ground they stand on
+    TerrainRenderer.setScale(this.camera.scale); TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
+    const movers = [];                                                              // whoever pushes the grass aside (grassRenderer.js)
+    for (const group of [state.players, state.animals, state.npcs]) for (const id in (group || {})) { const m = group[id]; if (m && !m.boat && !m.flying) movers.push(m); }
+    this.nearGrass = GrassRenderer.draw(this.ctx, this.game.map, bounds, tiles, this.game.clockTick, now, movers);
     this._drawTapMarker(now);
     for (const item of this._sortedWorldItems(state, bounds, tiles)) this._drawItem(item, now);
     if (!indoors) this._drawBuildingNames(me);
@@ -105,7 +109,7 @@ class Renderer {
     for (const site of BuildingSites.list) {
       const f = BuildingSites.doorFront(site);
       if (Math.hypot(f.x - me.x, f.y - me.y) > 14) continue;
-      const x = isoX(site.doorX + 0.5, site.doorY + 1), y = isoY(site.doorX + 0.5, site.doorY + 1) - CONFIG.view.houseH - 34;
+      const x = isoX(site.doorX + 0.5, site.doorY + 1), y = isoY(site.doorX + 0.5, site.doorY + 1) - PixelBuildings.groundFloorHeight() - 50;   // (over the door, below the eaves)
       ctx.font = '600 12px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const w = ctx.measureText(site.def.name).width + 16;
       this.g.roundRect(x - w / 2, y - 10, w, 20, 8); ctx.fillStyle = 'rgba(20,28,40,.78)'; ctx.fill();
@@ -135,9 +139,17 @@ class Renderer {
     if (target) items.push({ kind: 'ghost', depth: target.tx + target.ty + 1, target, gx: (target.tx - target.ty) * TILE_HALF_W, gy: (target.tx + target.ty + 1) * TILE_HALF_H });
     for (const id in state.animals) { const a = state.animals[id]; items.push({ kind: 'animal', depth: a.x + a.y - (a.rider ? 0.05 : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider
     for (const id in (state.npcs || {})) { const n = state.npcs[id]; items.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
+    for (const gr of this.nearGrass || []) items.push({ kind: 'grass', depth: gr.depth, draw: gr.draw });   // the grass around people's feet
     const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
     if (farm) for (const key in farm) {
-      const plot = farm[key]; if (!plot.c) continue;
+      const plot = farm[key];
+      if (Groves.isKey(key)) {                                                       // a sapling growing (groves.js); a grown one is a tree prop
+        if (plot.g) continue;
+        const [tx, ty] = Groves.tileOf(key); if (tx < tiles.tx0 || tx > tiles.tx1 || ty < tiles.ty0 || ty > tiles.ty1) continue;
+        items.push({ kind: 'sapling', depth: tx + ty + 0.9, gx: isoX(tx + 0.5, ty + 0.5), gy: isoY(tx + 0.5, ty + 0.5), plot, tx, ty });
+        continue;
+      }
+      if (!plot.c) continue;
       const i = key.indexOf(','), wx = (+key.slice(0, i) + 0.5) / 2, wy = (+key.slice(i + 1) + 0.5) / 2, tx = Math.floor(wx), ty = Math.floor(wy);
       if (tx < tiles.tx0 || tx > tiles.tx1 || ty < tiles.ty0 || ty > tiles.ty1) continue;
       items.push({ kind: 'crop', depth: wx + wy - 0.1, gx: isoX(wx, wy), gy: isoY(wx, wy), plot });
@@ -149,6 +161,7 @@ class Renderer {
   }
 
   _drawItem(item, now) {
+    if (item.kind === 'grass') { const sm = this.ctx.imageSmoothingEnabled; this.ctx.imageSmoothingEnabled = false; item.draw(); this.ctx.imageSmoothingEnabled = sm; return; }
     const g = this.g;
     if (item.kind === 'structure') return StructureSprites.draw(g, item, item.gx, item.gy);
     if (item.kind === 'built') return StructureSprites.drawBuiltChunk(g, item);
@@ -177,6 +190,7 @@ class Renderer {
     }
     if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
     if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx, item.gy, item.plot);
+    if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx, item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);
     if (item.kind === 'player') {
       const p = item.p, rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;

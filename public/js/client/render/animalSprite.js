@@ -60,6 +60,7 @@ class AnimalSprite {
   _drawSide(animal, st, speed, now, seed) {
     const ctx = this.g.ctx, def = AnimalDefs[animal.type], spec = def.sprite || {}, scale = spec.scale || 1;
     const impl = CreatureSprites.get(spec.kind || (def.pony ? 'pony' : 'sheep')) || CreatureSprites.get('sheep');
+    if (!impl) return;                                                    // (the smooth drawings load a moment after the game starts: Loader)
     ctx.save(); ctx.scale(st.flip * scale, scale);
     impl.draw(this, { animal, def, sprite: spec, phase: st.phase, speed, now, seed, hunting: animal.state === 'chase' });
     ctx.restore();

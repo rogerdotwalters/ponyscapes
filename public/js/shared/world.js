@@ -148,11 +148,12 @@ function generateChunk(world, cx, cy) {
       t: 'tree', x: tx + 0.5 + (hash3(T.seed, tx, ty, 2) - 0.5) * 0.3, y: ty + 0.5 + (hash3(T.seed, tx, ty, 3) - 0.5) * 0.3,
       r: 0.33 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 4) * 8), hp: TreeDef.maxHp, alive: true
     };
-    if (T.appleTreeAt(tx, ty)) Object.assign(tree, { forage: 'apple_tree', drop: 'apple', ripe: true });      // fruit you can pick; the tree can still be chopped
+    if (T.appleTreeAt(tx, ty)) Object.assign(tree, { forage: 'apple_tree', drop: T.appleKindAt ? T.appleKindAt(tx, ty) : 'apple', ripe: true });   // fruit you can pick (the biome's kinds of apple); the tree can still be chopped
     addChunkProp(chunk, li, withSavedState(world, tx, ty, tree));
   }
   const tileOf = (tx, ty) => (tx >= x0 && tx < x0 + CHUNK_SIZE && ty >= y0 && ty < y0 + CHUNK_SIZE)
     ? chunk.tiles[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] : T.tile(tx, ty);
+  if (typeof Groves !== 'undefined') Groves.intoChunk(world, chunk);                         // the trees players planted and grew here
   if (chunk.tiles.includes(TILE.WATER) || chunk.tiles.includes(TILE.SHALLOW)) chunk.boatSpot = T.boatSpot(cx, cy, tileOf);
   chunk.animals = T.animalGroup(cx, cy, tileOf);
   return chunk;

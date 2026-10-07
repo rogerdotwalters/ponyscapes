@@ -24,10 +24,10 @@ const ResourceTypes = Object.freeze({
   stone: Object.freeze({ id: 'stone', name: 'Stone', stockpile: 'stockpile_stone' }),
   clay:  Object.freeze({ id: 'clay',  name: 'Clay',  stockpile: 'stockpile_clay' })
 });
-const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash', 'brush', 'shears', 'hoe', 'water']);
+const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash', 'brush', 'shears', 'hoe', 'water', 'sickle']);
 const ItemEquipSlots = Object.freeze(['crown', 'outfit', 'cape']);                     // the wardrobe slots (equipment.js)
 /** Fields any table entry may carry through to its item: rarity, resource type, where it lies about, a crafting recipe, your pictures. */
-const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites', 'lasso', 'groom', 'price', 'color', 'dye'];
+const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites', 'lasso', 'groom', 'price', 'color', 'dye', 'apple'];
 
 const ItemRegistry = new Registry('items', { required: ['name', 'maxStack'] });
 for (const [table, make] of ITEM_MAKERS) for (const entry of table.all()) {
@@ -82,6 +82,8 @@ const ItemSpawnTable = (() => {
 
 const ItemDB = {
   get: id => ItemDefs[id] || null,
+  /** Any kind of apple (red, green, golden ...): ponies love them all and settle on any of them. */
+  isApple: id => !!(ItemDefs[id] && ItemDefs[id].apple),
   rarity: id => rarityOf(ItemDefs[id] && ItemDefs[id].rarity),
   resource: id => (ItemDefs[id] && ItemDefs[id].resource) || null,
   maxStack: id => (ItemDefs[id] ? ItemDefs[id].maxStack : 1),

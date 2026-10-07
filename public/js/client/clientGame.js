@@ -339,7 +339,7 @@ class ClientGame {
     applyForageStates(this.worldMap, snapshot.forage || {});
     if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
-    if (snapshot.farm) this.worldMap.farm = snapshot.farm;                          // the fields (farming.js)
+    if (snapshot.farm) { this.worldMap.farm = snapshot.farm; Groves.sync(this.worldMap); }      // (a sapling that has grown stands as a tree)                          // the fields (farming.js)
     if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
     if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
     else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }

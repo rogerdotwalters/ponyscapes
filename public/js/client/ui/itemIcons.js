@@ -122,12 +122,17 @@ const ItemIcons = (() => {
     },
     wooden_sword(ctx) { swordIcon(ctx, '#d6b07a', '#f0d9ae'); },
     stone_sword(ctx) { swordIcon(ctx, '#9a9aa2', '#d2d2d8'); },
-    apple(ctx) {
-      const g = ctx.createRadialGradient(19, 22, 3, 24, 28, 17); g.addColorStop(0, '#ff7060'); g.addColorStop(1, '#b8231a');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(24, 15); ctx.bezierCurveTo(10, 8, 5, 28, 14, 38); ctx.bezierCurveTo(19, 44, 22, 41, 24, 41); ctx.bezierCurveTo(26, 41, 29, 44, 34, 38); ctx.bezierCurveTo(43, 28, 38, 8, 24, 15); ctx.fill();
-      ctx.strokeStyle = '#5b3f2a'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(24, 15); ctx.quadraticCurveTo(25, 9, 29, 6); ctx.stroke();
-      ctx.fillStyle = '#4a9a3c'; ctx.beginPath(); ctx.ellipse(31, 10, 7, 3.4, -0.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(16, 22, 2.6, 4.4, 0.5, 0, Math.PI * 2); ctx.fill();
+    apple: applePainter('#ff7060', '#b8231a'),
+    green_apple: applePainter('#b8e06a', '#4f8f2a'),
+    golden_apple: applePainter('#ffe58a', '#c99a1a', true),
+    pink_apple: applePainter('#ffb0c4', '#d0507a'),
+    crab_apple: applePainter('#e07a52', '#8a2e1a', false, 0.72),
+    russet_apple: applePainter('#d9a868', '#7a4a20'),
+    crystal_apple(ctx) {                                                       // a faceted, see-through apple of pale blue crystal
+      applePainter('#e8fbff', '#5fb8c8', true)(ctx);
+      ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 1.2; ctx.beginPath();
+      for (const [x0, y0, x1, y1] of [[24, 16, 18, 30], [24, 16, 31, 30], [18, 30, 24, 40], [31, 30, 24, 40], [12, 26, 18, 30], [36, 26, 31, 30]]) { ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); }
+      ctx.stroke();
     },
     shovel(ctx) {
       ctx.lineCap = 'round';
@@ -313,6 +318,65 @@ const ItemIcons = (() => {
       ctx.fillStyle = '#241a14'; ctx.beginPath(); ctx.arc(19, 28, 1.6, 0, Math.PI * 2); ctx.arc(29, 28, 1.6, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#d98a8a'; ctx.beginPath(); ctx.arc(24, 32, 1.8, 0, Math.PI * 2); ctx.fill();
     },
+    hay(ctx) {                                                                     // a tied bundle of hay
+      for (let i = 0; i < 26; i++) {
+        const x = 10 + (i * 7) % 28, lean = ((i * 13) % 7 - 3) * 0.9;
+        ctx.strokeStyle = ['#d9b45a', '#efd27a', '#b8923a'][i % 3]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, 42); ctx.quadraticCurveTo(x + lean, 26, x + lean * 2, 8 + (i % 4) * 2); ctx.stroke();
+      }
+      ctx.fillStyle = '#8a5a32'; ctx.fillRect(9, 26, 30, 4); ctx.fillStyle = '#a8763f'; ctx.fillRect(9, 26, 30, 1.5);
+    },
+    sickle(ctx) {                                                                  // a wooden grip and a crescent blade
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(10, 42); ctx.lineTo(20, 30); ctx.stroke();
+      ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(28, 18, 13, Math.PI * 0.75, Math.PI * 2.05); ctx.stroke();
+      ctx.strokeStyle = '#eef2f7'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(28, 18, 11, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    },
+    captured_cat: critterPainter({ fur: '#9a9a9a', face: '#e8e4dc', ears: 'point', nose: '#d98a8a' }),
+    captured_lemur: critterPainter({ fur: '#9a9a9e', face: '#f2f0ea', ears: 'round', nose: '#1a1410', mask: '#2a2a30', eye: '#f2a33a' }),
+    captured_chicken: critterPainter({ fur: '#f4f0e6', face: '#f4f0e6', ears: 'comb', beak: '#f0a830' }),
+    captured_duck: critterPainter({ fur: '#2f6b4b', face: '#2f6b4b', ears: 'none', beak: '#f2c230' }),
+    captured_toucan: critterPainter({ fur: '#1e1e24', face: '#f6f0dc', ears: 'none', beak: '#f28c1a', bigBeak: true }),
+    banana(ctx) {
+      for (const [dx, rot] of [[-6, -0.35], [0, 0], [6, 0.35]]) {
+        ctx.save(); ctx.translate(24 + dx, 26); ctx.rotate(rot);
+        ctx.fillStyle = '#f2d43a'; ctx.strokeStyle = '#a8861a'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-2, -16); ctx.quadraticCurveTo(10, -2, 2, 16); ctx.quadraticCurveTo(4, 0, -5, -14); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#4a3a1a'; ctx.fillRect(-4, -18, 3, 3); ctx.fillRect(1, 15, 2, 2); ctx.restore();
+      }
+    },
+    cocoa_pod(ctx) {
+      const g = ctx.createLinearGradient(12, 8, 36, 42); g.addColorStop(0, '#e08a3a'); g.addColorStop(1, '#8a4318');
+      ctx.fillStyle = g; ctx.strokeStyle = '#5a2a10'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(24, 26, 10, 17, 0.35, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(70,30,10,.55)'; ctx.lineWidth = 1.2;
+      for (const k of [-5, 0, 5]) { ctx.beginPath(); ctx.ellipse(24 + k * 0.9, 26 - k * 0.3, 2 + Math.abs(k) * 0.4, 15, 0.35, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.strokeStyle = '#4f7a2a'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(29, 10); ctx.lineTo(33, 5); ctx.stroke();
+    },
+    sugar_cane(ctx) {
+      for (const [x, tilt] of [[17, -0.18], [27, 0.12]]) {
+        ctx.save(); ctx.translate(x, 26); ctx.rotate(tilt);
+        ctx.fillStyle = '#a9c95a'; ctx.strokeStyle = '#5f7f2a'; ctx.lineWidth = 1.3; ctx.fillRect(-3, -19, 6, 38); ctx.strokeRect(-3, -19, 6, 38);
+        ctx.fillStyle = '#7a9a3a'; for (const y of [-11, -1, 9]) ctx.fillRect(-4, y, 8, 2.2);
+        ctx.restore();
+      }
+      ctx.fillStyle = '#5fae4e'; ctx.beginPath(); ctx.ellipse(31, 8, 9, 2.4, -0.6, 0, Math.PI * 2); ctx.fill();
+    },
+    coffee_beans(ctx) {
+      for (const [x, y, r] of [[16, 30, 0.4], [28, 33, -0.5], [22, 20, 0.9], [33, 22, 0.1], [12, 19, -0.3]]) {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(r);
+        ctx.fillStyle = '#6b3e22'; ctx.strokeStyle = '#3a1f10'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(0, 0, 6, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = '#2a1408'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, -6); ctx.quadraticCurveTo(2, 0, 0, 6); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(-3, -4, 1.6, 3); ctx.restore();
+      }
+    },
+    bamboo(ctx) {
+      ctx.save(); ctx.translate(24, 24); ctx.rotate(-0.6);
+      for (const [y, c] of [[-7, '#9cc25a'], [3, '#86ad48']]) {
+        ctx.fillStyle = c; ctx.strokeStyle = '#4f6f22'; ctx.lineWidth = 1.3; ctx.fillRect(-19, y, 38, 8); ctx.strokeRect(-19, y, 38, 8);
+        ctx.fillStyle = '#5f8a2a'; for (const x of [-8, 6]) ctx.fillRect(x, y - 1, 2.4, 10);
+      }
+      ctx.restore();
+      ctx.fillStyle = '#6fbf4a'; ctx.beginPath(); ctx.ellipse(36, 12, 7, 2.2, -1.0, 0, Math.PI * 2); ctx.fill();
+    },
     wood_fence(ctx) {
       ctx.fillStyle = '#c4975a'; ctx.strokeStyle = '#6b4727'; ctx.lineWidth = 1.5;
       for (const x of [8, 22, 36]) { ctx.fillRect(x, 12, 5, 28); ctx.strokeRect(x, 12, 5, 28); }
@@ -327,6 +391,52 @@ const ItemIcons = (() => {
     },
     log(ctx) { PixelLogs.icon(ctx); }                                       // the pixel-art log (pixelProps.js)
   };
+  /** A sapling ready to plant: a little tree of its kind on a wrapped root ball. */
+  function saplingPainter(def) {
+    const pine = TreeSpecies.get(def.sapling) && TreeSpecies.get(def.sapling).look === 'pine', leaf = def.color || '#5f9c4a', dark = shadeHex(leaf, 0.7);
+    return ctx => {
+      ctx.fillStyle = '#a8794a'; ctx.beginPath(); ctx.ellipse(24, 38, 10, 6.5, 0, 0, Math.PI * 2); ctx.fill();              // the root ball, in sacking
+      ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(15, 37); ctx.lineTo(33, 37); ctx.moveTo(24, 32); ctx.lineTo(24, 44); ctx.stroke();
+      ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(24, 33); ctx.lineTo(24, 18); ctx.stroke();  // the stem
+      ctx.fillStyle = leaf;
+      ctx.strokeStyle = 'rgba(20,30,15,.75)'; ctx.lineWidth = 2;                                                         // outlined, so it reads on any background
+      const shape = () => { ctx.beginPath(); if (pine) for (const [y, w] of [[6, 5], [12, 8], [18, 11]]) { ctx.moveTo(24, y); ctx.lineTo(24 + w, y + 9); ctx.lineTo(24 - w, y + 9); ctx.closePath(); } else for (const [x, y, r] of [[18, 17, 7], [30, 16, 7], [24, 10, 8], [24, 20, 6]]) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); } };
+      shape(); ctx.stroke(); ctx.fillStyle = leaf; shape(); ctx.fill();
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(pine ? 21 : 29, pine ? 24 : 20, 3, 0, Math.PI * 2); ctx.fill();
+      if (def.sapling === 'apple') { ctx.fillStyle = '#d9382b'; for (const [x, y] of [[19, 19], [29, 13]]) { ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill(); } }
+    };
+  }
+  /** An apple in two tones (light, dark); a golden one glints; `size` shrinks a crab apple. */
+  function applePainter(lightC, darkC, glint = false, size = 1) {
+    return ctx => {
+      ctx.save(); ctx.translate(24, 26); ctx.scale(size, size); ctx.translate(-24, -26);
+      const g = ctx.createRadialGradient(19, 22, 3, 24, 28, 17); g.addColorStop(0, lightC); g.addColorStop(1, darkC);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(24, 15); ctx.bezierCurveTo(10, 8, 5, 28, 14, 38); ctx.bezierCurveTo(19, 44, 22, 41, 24, 41); ctx.bezierCurveTo(26, 41, 29, 44, 34, 38); ctx.bezierCurveTo(43, 28, 38, 8, 24, 15); ctx.fill();
+      ctx.strokeStyle = '#5b3f2a'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(24, 15); ctx.quadraticCurveTo(25, 9, 29, 6); ctx.stroke();
+      ctx.fillStyle = '#4a9a3c'; ctx.beginPath(); ctx.ellipse(31, 10, 7, 3.4, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(16, 22, 2.6, 4.4, 0.5, 0, Math.PI * 2); ctx.fill();
+      if (glint) { ctx.fillStyle = '#fffbe0'; for (const [x, y] of [[33, 24], [28, 34]]) { ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(x + 1.2, y); ctx.lineTo(x, y + 4); ctx.lineTo(x - 1.2, y); ctx.closePath(); ctx.fill(); ctx.fillRect(x - 3, y - 0.6, 6, 1.2); } }
+      ctx.restore();
+    };
+  }
+  /** A carried animal: its face, in its own colours (ears, a comb, a beak). */
+  function critterPainter(o) {
+    return ctx => {
+      const ear = (x, y, r) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
+      ctx.fillStyle = o.fur;
+      if (o.ears === 'point') for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(24 + s * 14, 20); ctx.lineTo(24 + s * 12, 5); ctx.lineTo(24 + s * 4, 14); ctx.closePath(); ctx.fill(); }
+      else if (o.ears === 'round') { ear(11, 15, 6); ear(37, 15, 6); }
+      else if (o.ears === 'comb') { ctx.fillStyle = '#d93a2f'; ear(20, 9, 4); ear(25, 7, 4.4); ear(30, 9, 4); }
+      ctx.fillStyle = o.fur; ctx.beginPath(); ctx.arc(24, 27, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = o.face; ctx.beginPath(); ctx.ellipse(24, 32, 9, 7, 0, 0, Math.PI * 2); ctx.fill();
+      if (o.mask) { ctx.fillStyle = o.mask; ear(18, 24, 4.6); ear(30, 24, 4.6); }
+      ctx.fillStyle = o.eye || '#241a14'; ear(18, 24, 2.3); ear(30, 24, 2.3);
+      if (o.eye) { ctx.fillStyle = '#1a1410'; ear(18, 24, 1.1); ear(30, 24, 1.1); }
+      if (o.beak) { ctx.fillStyle = o.beak; ctx.beginPath(); if (o.bigBeak) { ctx.moveTo(19, 29); ctx.quadraticCurveTo(44, 26, 46, 38); ctx.quadraticCurveTo(34, 34, 19, 35); } else { ctx.moveTo(19, 30); ctx.lineTo(24, 39); ctx.lineTo(29, 30); } ctx.closePath(); ctx.fill(); }
+      else { ctx.fillStyle = o.nose; ctx.beginPath(); ctx.ellipse(24, 31, 2.4, 1.8, 0, 0, Math.PI * 2); ctx.fill(); }
+    };
+  }
   /** A small cluster of berries on a leaf, in the item's own colour. */
   function berryPainter(color) {
     return ctx => {
@@ -448,7 +558,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def && def.sapling ? saplingPainter(def) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d'));
     return (cache[key] = canvas.toDataURL());
   }

@@ -6,8 +6,8 @@ const StructureSprites = (() => {
 
   function draw(g, item, cx, cy) {
     if (item.o >= INTERIOR_OBJ_BASE) InteriorSprites.wall(g, item.o, cx, cy, item);          // a room's wall (low ones at the front)
-    else if (item.o === OBJ.WALL) drawWall(g, cx, cy);
-    else if (item.o === OBJ.TOWER) drawTower(g, cx, cy);
+    else if (item.o === OBJ.WALL) drawWall(g, cx, cy, item);
+    else if (item.o === OBJ.TOWER) drawTower(g, cx, cy, item);
     else drawHouse(g, item, cx, cy);
   }
 
@@ -24,17 +24,10 @@ const StructureSprites = (() => {
     ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Bx, By); ctx.lineTo(Bx, By - height); ctx.stroke();
   }
 
-  function drawWall(g, cx, cy) { drawBox(g, cx, cy, V.wallH, '#b4aea0', '#8f897c', '#6f6a5f', 13.5); }
+  function drawWall(g, cx, cy, item) { PixelBuildings.drawPiece(g.ctx, 'wall', cx, cy, item && item.tx, item && item.ty); }                    // crenellated fieldstone (pixelBuildings.js)
 
-  function drawTower(g, cx, cy) {
-    const ctx = g.ctx, height = V.towerH;
-    drawBox(g, cx, cy, height, '#b9b3a5', '#8d877a', '#6a655b', 20);
-    const baseY = cy - height, apexY = baseY - 60;
-    g.polygon([cx - TILE_HALF_W - 3, baseY, cx, baseY + TILE_HALF_H + 2, cx, apexY], '#9a4437');
-    g.polygon([cx, baseY + TILE_HALF_H + 2, cx + TILE_HALF_W + 3, baseY, cx, apexY], '#74332a');
-    ctx.strokeStyle = '#3b2a1c'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, apexY); ctx.lineTo(cx, apexY - 14); ctx.stroke();
-    g.polygon([cx, apexY - 14, cx + 10, apexY - 11, cx, apexY - 8], '#d9b45a');
-  }
+  function drawTower(g, cx, cy, item) { PixelBuildings.drawPiece(g.ctx, 'tower', cx, cy, item && item.tx, item && item.ty); }                  // a stone watchtower with a pointed roof
+
 
   /** One tile of a building (BuildingSites): drawn in its own colours, the door tile with a sign. A building with its own picture
    *  (sprites.exterior) draws that once, at its front corner, and nothing on its other tiles. */
@@ -46,6 +39,14 @@ const StructureSprites = (() => {
       if (item.tx !== site.x1 || item.ty !== site.y1) return;
       const left = isoX(site.x0, site.y1 + 1), right = isoX(site.x1 + 1, site.y0), w = right - left, h = w * img.naturalHeight / img.naturalWidth;
       ctx.drawImage(img, left, isoY(site.x1 + 1, site.y1 + 1) - h, w, h);
+      return;
+    }
+    if (site) {                                                                     // the pixel-art building (pixelBuildings.js), a slice per front tile
+      if (PixelBuildings.drawTile(ctx, site, item.tx, item.ty) && hasDoor) {
+        const s = PixelBuildings.signAt(site), b = PixelBuildings.ART;                // the building's picture on its hanging sign
+        ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#2a1c10';
+        ctx.fillText(site.def.glyph || site.def.name[0], s.x + 5 * b, s.y + 8 * b);
+      }
       return;
     }
     drawBox(g, cx, cy, height, ext.roof, ext.wall, ext.side, 0);

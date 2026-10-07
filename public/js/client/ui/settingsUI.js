@@ -5,6 +5,7 @@
  *   Players      hunger and thirst per player (only when vitals are switched on)
  *   World        one movement speed for everything (1-100, 100 = as built), the day / night split, how fast in-game time runs
  *   Animals      how far animals notice you (their senses, sharper with level; your Dexterity and Animal Friendship), how fast they flee
+ *   Biomes       per biome: how common it is and the nearest to the village it appears (in rings); used from the next world start
  *   Trees        per biome: how many (% of normal) and the most there can be (% of grass tiles); used from the next world start
  *   Export       the values as JSON for js/content/gameSettings.js (download, copy, or paste some back in)
  * Changes are kept in this browser (GameSettings) until they are exported into the game folder. */
@@ -21,6 +22,7 @@ class SettingsUI {
     this._createWorld();
     this._createFarming();
     this._createAnimals();
+    this._createBiomes();
     this._createTrees();
     this._createExport();
     game.events.on('settingsChanged', () => this.isOpen && this.refresh());
@@ -197,6 +199,54 @@ class SettingsUI {
     }
   }
 
+  /* ---- biomes: how common, and how far out they start (nested, folded away) ---- */
+  /** "The Heartland, 70% of the way out" for a `from` in rings. */
+  static ringSpot(from, short) {
+    if (!(from > 0)) return 'everywhere';
+    const index = Math.min(Rings.size - 1, Math.floor(from)), ring = Rings.all().find(r => r.index === index), pct = Math.round((from - index) * 100), name = ring ? ring.name : 'ring ' + index;
+    return short ? name.replace(/^The /, '') + ' ' + pct + '%' : 'from ' + name + (pct ? `, ${pct}% of the way out` : '');
+  }
+  _createBiomes() {
+    const el = document.createElement('details'); el.className = 'admBox admTrees';
+    const rarities = GameSettings.BIOME_RARITIES.map(r => `<option value="${r}">${r[0].toUpperCase() + r.slice(1)}</option>`).join('');
+    el.innerHTML = '<summary><b>Biomes</b> <small>(used from the next time a world is started or continued)</small></summary>' +
+      '<p class="admNote">Rarity: how often a region of the map is this biome (Never = not at all). Starts: the nearest to the village it appears, in rings ' +
+      '(0.7 = the outer edge of the Heartland, 2.5 = halfway through the Deepwood); from there outward it can turn up anywhere. The village is always meadow. New land only.</p>' +
+      this._biomes().map(id => `<details class="admBiome" data-bb="${id}"><summary>${Biomes.get(id).name}<small data-bsum="${id}"></small></summary>` +
+        `<label class="admSlide"><span><b>Rarity</b></span><select data-bb="${id}" data-f="rarity">${rarities}</select><output></output></label>` +
+        `<label class="admSlide"><span><b>Starts</b></span><input type="range" min="0" max="${Rings.size}" step="0.05" data-bb="${id}" data-f="from"><output data-bo="${id}"></output></label>` +
+        `<div class="admRow"><button data-breset="${id}">As built</button></div></details>`).join('') +
+      '<div class="admPending" hidden>Biome changes are saved: they apply when you next start or continue a world.</div>';
+    for (const input of el.querySelectorAll('[data-bb][data-f]')) {
+      input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => this._setBiome(input.dataset.bb, input.dataset.f, input.dataset.f === 'from' ? Number(input.value) : input.value));
+      input.addEventListener('keydown', e => e.stopPropagation());
+    }
+    for (const b of el.querySelectorAll('[data-breset]')) b.addEventListener('click', () => { delete this.draft.biomes[b.dataset.breset]; this._saveBiomes(); });
+    this.body.appendChild(el); this.biomesBox = el;
+  }
+  _setBiome(id, field, value) {
+    const def = Biomes.get(id), b = Object.assign({}, (this.draft.biomes || {})[id] || {});
+    const asBuilt = field === 'rarity' ? value === def.rarity : Math.abs(value - (def.from || 0)) < 1e-6;
+    if (asBuilt) delete b[field]; else b[field] = value;
+    this.draft.biomes = this.draft.biomes || {};
+    if (Object.keys(b).length) this.draft.biomes[id] = b; else delete this.draft.biomes[id];
+    this._saveBiomes();
+  }
+  _saveBiomes() { this.draft.biomes = GameSettings.sanitizeBiomes(this.draft.biomes); GameSettings.saveOverride(this.draft); this._refreshBiomes(); this._refreshExport(); }
+  _refreshBiomes() {
+    if (!this.biomesBox) return;
+    const changed = this.draft.biomes || {};
+    for (const id of this._biomes()) {
+      const def = Biomes.get(id), s = Object.assign({ rarity: def.rarity, from: def.from || 0 }, changed[id] || {}), box = this.biomesBox.querySelector(`details[data-bb="${id}"]`);
+      box.querySelector('[data-f=rarity]').value = s.rarity;
+      const range = box.querySelector('[data-f=from]'); if (document.activeElement !== range) range.value = s.from;
+      box.querySelector(`[data-bo="${id}"]`).textContent = SettingsUI.ringSpot(s.from, true);
+      box.querySelector(`[data-bsum="${id}"]`).textContent = ` ${s.rarity} · ${SettingsUI.ringSpot(s.from)}` + (changed[id] ? ' (changed)' : '');
+      box.classList.toggle('changed', !!changed[id]);
+    }
+    this.biomesBox.querySelector('.admPending').hidden = JSON.stringify(changed) === JSON.stringify(GameSettings.values.biomes || {});
+  }
+
   /* ---- trees per biome (nested, folded away) ---- */
   _biomes() { return Biomes.ids().filter(id => !Biomes.get(id).terrainOnly); }
   _createTrees() {
@@ -265,7 +315,7 @@ class SettingsUI {
     });
     this.body.appendChild(el); this.exportBox = el;
   }
-  /** Take a whole set of values: the live ones go to the server now, the trees wait for the next world. */
+  /** Take a whole set of values: the live ones go to the server now, the trees and biomes wait for the next world. */
   _replace(values, fromFile) {
     this.draft = values;
     if (!fromFile) GameSettings.saveOverride(values);
@@ -293,6 +343,6 @@ class SettingsUI {
     }
     for (const k of GameSettings.LIVE) if (!(k in this.pending)) this.draft[k] = GameSettings.values[k];      // (the server's values win, unless we are mid-drag)
     this.draft.crops = Object.assign({}, GameSettings.values.crops || {});
-    this._refreshWorld(); this._refreshFarming(); this._refreshAnimals(); this._refreshTrees(); this._refreshExport();
+    this._refreshWorld(); this._refreshFarming(); this._refreshAnimals(); this._refreshBiomes(); this._refreshTrees(); this._refreshExport();
   }
 }

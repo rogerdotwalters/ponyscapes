@@ -23,6 +23,7 @@ function buildCreatureDef(d, id) {
     if (d[k] !== undefined) out[k] = num(d[k], lo, hi, d[k]);
   }
   out.ring = Math.round(num(d.ring, 0, Math.max(0, Rings.size - 1), 0));
+  if (d.everyRing !== undefined) out.everyRing = !!d.everyRing;
   const min = Math.max(1, Math.round(num(d.group && d.group[0], 1, 20, 1))); out.group = [min, Math.max(min, Math.round(num(d.group && d.group[1], 1, 20, min)))];
   if (Array.isArray(d.biomes)) out.biomes = d.biomes.filter(b => Biomes.has(b)); else delete out.biomes;
   if (!Array.isArray(d.drops)) out.drops = [];
@@ -35,12 +36,16 @@ const AnimalDefs = ContentPack.mergeDefs('creatures', Object.fromEntries([
   ...Creatures.all().map(c => [c.id, freezeDef(Object.assign({}, CREATURE_DEFAULTS, c))])
 ]), buildCreatureDef);
 
-/** What lives where: the creatures' own `ring` / `weight` / `group` (and optional `biomes`) fields, grouped by ring (cached). */
+/** What lives where: the creatures' own `ring` / `weight` / `group` (and optional `biomes`) fields, grouped by ring (cached).
+ *  `everyRing: true` puts a creature in every ring (a biome's own wildlife: its level still comes from the ring and biome it is born in). */
 const Fauna = {
   pools: {},
-  poolFor(ring) { return Fauna.pools[ring] || (Fauna.pools[ring] = Object.values(AnimalDefs).filter(d => d.ring === ring && d.weight > 0).map(d => ({ id: d.id, weight: d.weight, group: d.group, biomes: d.biomes || null }))); },
-  /** The ring's pool, without the creatures that keep to other biomes. */
-  poolAt(ring, biome) { return Fauna.poolFor(ring).filter(f => !f.biomes || !f.biomes.length || f.biomes.includes(biome)); },
+  poolFor(ring) { return Fauna.pools[ring] || (Fauna.pools[ring] = Object.values(AnimalDefs).filter(d => (d.ring === ring || d.everyRing) && d.weight > 0).map(d => ({ id: d.id, weight: d.weight, group: d.group, biomes: d.biomes || null, pony: !!d.pony }))); },
+  /** The ring's pool, without the creatures that keep to other biomes. A biome with `ownFauna` keeps only its own creatures (and its ponies). */
+  poolAt(ring, biome) {
+    const own = !!(Biomes.get(biome) || {}).ownFauna;
+    return Fauna.poolFor(ring).filter(f => (f.biomes && f.biomes.length ? f.biomes.includes(biome) : !own || f.pony));
+  },
   bossOf(ring) { return Object.values(AnimalDefs).find(d => d.boss && d.bossRing === ring) || null; }
 };
 const FAUNA_CHANCE = 0.5;                       // chance that a chunk holds an animal group

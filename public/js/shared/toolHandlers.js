@@ -41,6 +41,8 @@ class TreeHarvestHandler {
         if (isWaterTile(this.map.tile(Math.floor(x), Math.floor(y)))) { x = tree.x + (i - 1) * 0.35; y = tree.y + 0.55; }   // (never into the water)
         this.dropOnGround(TreeDef.dropItemId, 1, x, y, '');
       }
+      const species = TreeSpecies.get(TreeSpecies.of(tree)), [lo, hi] = species.saplings || [1, 1], n = lo + Math.floor(this.rng() * (hi - lo + 1));
+      if (n > 0) this.dropOnGround('sapling_' + species.id, n, tree.x - uy * 0.35, tree.y + ux * 0.35, '');      // every tree leaves saplings of its kind (data/trees/trees.js)
     });
   }
 }
@@ -246,6 +248,13 @@ class LeashHandler {
       this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id, item });
       this.animals.startle(target.ref, p);
       this.emit({ type: 'notice', to: id, text: `It slips right out of your ${ItemDefs[item].name}: catching a ${def.name} takes a ${better ? better.name : 'better lasso'} or better` });
+      return;
+    }
+    const wild = !mine && AnimalLevels.tooWild(a, p.lv);
+    if (wild) {                                                                         // above your level: it shrugs the loop off
+      this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id, item });
+      this.animals.startle(target.ref, p);
+      this.emit({ type: 'notice', to: id, text: wild });
       return;
     }
     const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv, p.buffs) + lasso.chance;

@@ -5,8 +5,8 @@
 class WorldLayers {
   constructor(terrain, seed) {
     this.rings = new RingLayer(seed);
-    this.biomes = new BiomeLayer(seed);
-    this.zones = CONFIG.world.zones ? new ZoneLayer(this.rings) : null;
+    this.biomes = new BiomeLayer(seed, this.rings);
+    this.zones = CONFIG.world.zones ? new ZoneLayer(this.rings, this.biomes) : null;
     this.dungeons = new DungeonLayer(terrain, this.rings);
   }
 }
