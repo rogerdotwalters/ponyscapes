@@ -2,7 +2,8 @@
 /* CLIENT - loading. Three stages, so moving about never waits for something to be made:
  *   1. the PAGE: index.html shows the small loading screen (#loading) while the game's scripts arrive (they are `defer`red);
  *   2. the START (Loader.initial): before play steps in, the land around the character is built, the ground around them is painted
- *      (TerrainRenderer's ground blocks), everything they hold, wear and carry has its pictures loaded, and the scene is drawn once so every sprite
+ *      (TerrainRenderer's ground blocks), everything they hold, wear and carry has its pictures loaded, the village's buildings are painted
+ *      (pixelBuildings.js: too slow to make while you walk), and the scene is drawn once so every sprite
  *      on screen is ready;
  *   3. PLAYING (Loader.background): everything else is loaded in small slices when the browser is idle: every other item's picture, your own
  *      artwork (editor.html), each creature's frames, the ground of every biome, the ground a little farther out, and the late scripts
@@ -79,6 +80,11 @@ const Loader = (() => {
     let loaded = 0;
     await Promise.all(pics.map(src => picture(src).then(() => { loaded++; show('Unpacking your things...', (2 + loaded / pics.length) / steps); })));
 
+    show('Raising the village...', 2.6 / steps); await nextFrame();                       // the buildings, walls and towers: each painted once (pixelBuildings.js)
+    PixelBuildings.drawPiece(scratch(), 'wall', 0, 0); PixelBuildings.drawPiece(scratch(), 'tower', 0, 0);
+    const sites = BuildingSites.list;
+    for (let i = 0; i < sites.length; i++) { PixelBuildings.art(sites[i]); show('Raising the village...', (2.6 + 0.4 * (i + 1) / sites.length) / steps); await nextFrame(); }
+
     show('Waking everyone up...', 3 / steps); await nextFrame();
     for (let i = 0; i < 3; i++) { renderer.render(game.getRenderState(1), 16, performance.now() + i * 120); await nextFrame(); }   // every sprite on screen is now drawn once
     show('Ready', 1); await nextFrame();
@@ -100,18 +106,15 @@ const Loader = (() => {
     for (const def of Object.values(AnimalDefs)) {
       jobs.push(() => Promise.all(setPictures(def.sprites).map(src => picture(src))));
       const kind = def.sprite && def.sprite.kind;
-      if (!def.pony && kind && PixelCreatures.has(kind)) jobs.push(() => {                                // each walk and idle frame, painted once
-        const ctx = scratch();
-        for (let i = 0; i < 4; i++) {
-          PixelCreatures.draw(ctx, def.sprite, 80, 120, 1, { moving: true, phase: i * Math.PI / 2 + 0.1, now: 0, seed: 0, hunting: false });
-          PixelCreatures.draw(ctx, def.sprite, 80, 120, 1, { moving: false, phase: 0, now: i * 450, seed: 0, hunting: false });
-        }
-      });
+      if (!def.pony && kind && PixelCreatures.has(kind)) for (let i = 0; i < 4; i++) for (const moving of [true, false]) {   // each walk and idle frame, painted once: one frame a job, and only
+        const job = () => PixelCreatures.draw(scratch(), def.sprite, 80, 120, 1, { moving, phase: moving ? i * Math.PI / 2 + 0.1 : 0, now: moving ? 0 : i * 450, seed: 0, hunting: false });
+        job.heavy = true; jobs.push(job);                                                                 // when the browser is truly idle (a dragon's frame takes a while)
+      }
     }
     let i = 0;
     const run = async deadline => {
-      let first = deadline.didTimeout;                                                       // a busy browser is never idle: still do one job per slice
-      while (i < jobs.length && (first || deadline.timeRemaining() > 4)) {
+      let first = deadline.didTimeout;                                                       // a busy browser is never idle: still do one light job per slice
+      while (i < jobs.length && (first ? !jobs[i].heavy : deadline.timeRemaining() > (jobs[i].heavy ? 12 : 4))) {
         first = false;
         const out = jobs[i++]();
         if (out && typeof out.then === 'function') { await out; break; }                    // (waited for the network: give the frame back)
