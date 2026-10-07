@@ -30,6 +30,8 @@ class World {
     this.onChunkGenerated = null;       // hook: the server spawns boats here
     this.lastChunk = null;
     this.stamp = 0;                     // a counter that ticks each ensureAround: chunk.seen = the last stamp a player was near it (for trim)
+    this.pins = new Set();              // chunkKeys that trim() never drops (the homes: see pinHomes)
+    this.homesPinned = false;
   }
 
   /* ---- chunks ---- */
@@ -67,13 +69,30 @@ class World {
     return made;
   }
 
+  /** Never drop the chunks that cover tiles x0..x1, y0..y1 (once they are loaded). */
+  pinRect(x0, y0, x1, y1) {
+    for (let cy = Math.floor(y0) >> CHUNK_SHIFT; cy <= Math.floor(y1) >> CHUNK_SHIFT; cy++) for (let cx = Math.floor(x0) >> CHUNK_SHIFT; cx <= Math.floor(x1) >> CHUNK_SHIFT; cx++) this.pins.add(chunkKey(cx, cy));
+  }
+  /** The homes are few, so their land is never given up: every building site in the village (your home, the shared buildings, the vacant homes),
+   *  with a tile or two round each for its doorstep, and the ground each villager lives and roams on. (Anything a player builds is protected
+   *  too: see trim().) */
+  pinHomes() {
+    this.homesPinned = true;
+    if (typeof BuildingSites !== 'undefined') for (const site of BuildingSites.list) this.pinRect(site.x0 - 2, site.y0 - 2, site.x1 + 2, site.y1 + 3);
+    if (typeof Npcs !== 'undefined') for (const def of Npcs.all()) this.pinRect(def.home.x - (def.radius || 0), def.home.y - (def.radius || 0), def.home.x + (def.radius || 0), def.home.y + (def.radius || 0));
+  }
+
   /** Keep recently visited land in memory: do nothing until there are more than `maxChunks` chunks, then forget the least recently seen ones
-   *  (down to 90% of the cap, so it is not a sweep every time) -- but never one within `protectRadius` chunks of a given {x,y} centre.
+   *  (down to 90% of the cap, so it is not a sweep every time) -- but never one within `protectRadius` chunks of a given {x,y} centre, nor a pinned
+   *  one (the homes: pinHomes), nor one holding something a player built (walls, floors, stockpiles: they stay drawn and ready).
    *  Chunks are small, so a big cap costs little and walking back over ground you crossed finds it still built. Returns how many were dropped. */
   trim(centres, protectRadius, maxChunks) {
     if (this.chunks.size <= maxChunks) return 0;
-    const near = centres.map(c => [Math.floor(c.x) >> CHUNK_SHIFT, Math.floor(c.y) >> CHUNK_SHIFT]), old = [];
-    for (const chunk of this.chunks.values()) {
+    if (!this.homesPinned && this.kind === 'world') this.pinHomes();
+    const near = centres.map(c => [Math.floor(c.x) >> CHUNK_SHIFT, Math.floor(c.y) >> CHUNK_SHIFT]), old = [], built = new Set();
+    for (const table of [this.built, this.floors, this.stockpiles]) for (const key in table) built.add(chunkKey(keyTileX(key) >> CHUNK_SHIFT, keyTileY(key) >> CHUNK_SHIFT));
+    for (const [key, chunk] of this.chunks) {
+      if (this.pins.has(key) || built.has(key)) continue;
       if (!near.some(([cx, cy]) => Math.abs(chunk.cx - cx) <= protectRadius && Math.abs(chunk.cy - cy) <= protectRadius)) old.push(chunk);
     }
     old.sort((a, b) => (a.seen | 0) - (b.seen | 0));
