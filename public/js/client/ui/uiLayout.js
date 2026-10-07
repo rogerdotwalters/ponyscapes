@@ -7,7 +7,7 @@
  *
  *   touch layout            ┌ toolbar (beside the system buttons, or on its own row if the screen is narrow) ┐ [Craft Bag ⛶ DBG]
  *                           │  panels (inventory / crafting) open in the free space between the two thumbs  │
- *                           └ left thumb: floating joystick      right thumb: [Sneak Rot Board] / [Run Use] ┘
+ *                           └ left thumb: floating joystick      right thumb: [Let go Rot Board] / [Bag Use] ┘
  */
 const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
@@ -23,24 +23,23 @@ const unionRect = rects => {
 
 /** The two thumb clusters: joystick (left) and action buttons (right), sized by scale `k`. */
 function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
-  const use = Math.round(84 * k), run = Math.round(66 * k), small = Math.round(50 * k), g = Math.round(8 * k);
+  const use = Math.round(84 * k), bagSize = Math.round(66 * k), small = Math.round(50 * k), g = Math.round(8 * k);
   const useRect = makeRect(right - use, bottom - use, use, use);
-  const runRect = makeRect(useRect.x - g - run, bottom - run, run, run);
+  const bag = makeRect(useRect.x - g - bagSize, bottom - bagSize, bagSize, bagSize);   // the backpack, where Run used to be (everyone always moves at full speed)
   const rowY = useRect.y - g - small;                          // second row, above Use
   const board = makeRect(right - small, rowY, small, small);
   const rot = makeRect(board.x - g - small, rowY, small, small);
-  const sneak = makeRect(rot.x - g - small, rowY, small, small);
-  const release = makeRect(sneak.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
+  const release = makeRect(rot.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
   const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
   const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
   const drop = makeRect(lasso.x - g - small, ability.y, small, small);       // drop what is in your hand, beside the lasso
-  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability, lasso, drop]);
+  const cluster = unionRect([useRect, bag, board, rot, release, ability, lasso, drop]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, run: runRect, board, rot, sneak, release, ability, lasso, drop, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, bag, board, rot, release, ability, lasso, drop, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -256,7 +255,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnDrop', T.drop]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnBag', T.bag], ['btnBoard', T.board], ['btnRot', T.rot], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnDrop', T.drop]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);

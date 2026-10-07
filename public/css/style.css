@@ -482,3 +482,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
   #lobbyCreator .optRow{gap:2px}
   #lobbyCreator .chips button{min-width:58px}
 }
+/* the Bag button (bottom right, beside Use): the backpack's own icon over its label */
+#btnBag{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1}
+#btnBag .bagIcon{width:52%;height:52%;background:center/contain no-repeat;image-rendering:pixelated}
+#btnBag span:last-child{font-size:.8em}

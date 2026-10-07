@@ -1,7 +1,7 @@
 'use strict';
-/* CLIENT - on-screen joystick + Run / Sneak / Use buttons. Multi-touch via pointer events. */
+/* CLIENT - on-screen joystick + Bag / Use buttons (and the rest of the right-thumb cluster). Multi-touch via pointer events. */
 class TouchControls {
-  /** @param {EventBus} bus  @param {{root, zone, base, knob, btnRun, btnSneak, btnAct}} dom */
+  /** @param {EventBus} bus  @param {{root, zone, base, knob, btnBag, btnAct}} dom */
   constructor(bus, dom) {
     this.bus = bus; this.dom = dom;
     this.joystick = { active: false, dx: 0, dy: 0, magnitude: 0 };   // dx,dy: unit vector in SCREEN space
@@ -11,8 +11,6 @@ class TouchControls {
 
     this._bindJoystick();
     this._bindButtons();
-    bus.on('runChanged', on => dom.btnRun.classList.toggle('on', on));
-    bus.on('sneakChanged', on => dom.btnSneak.classList.toggle('on', on));
 
     if (matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent)) this.show();
     window.addEventListener('touchstart', () => { if (this.dom.root.hidden) this.show(); }, { passive: true, once: true });
@@ -73,15 +71,14 @@ class TouchControls {
 
   /* ---- buttons ---- */
   _bindButtons() {
-    const { btnRun, btnSneak, btnAct, btnRot, btnBoard, btnRelease, btnAbility, btnLasso, btnDrop } = this.dom;
+    const { btnBag, btnAct, btnRot, btnBoard, btnRelease, btnAbility, btnLasso, btnDrop } = this.dom;
     this._press(btnBoard, () => this.bus.emit('interact'));
     if (btnAbility) this._press(btnAbility, () => this.bus.emit('ponyPower', 0));      // the first rarity ability that is ready
     if (btnLasso) this._press(btnLasso, () => this.bus.emit('throwLasso'));
     if (btnDrop) this._press(btnDrop, () => this.bus.emit('dropHeld', false));
     if (btnRelease) this._press(btnRelease, () => this.bus.emit('release'));
     this._press(btnRot, () => this.bus.emit('rotateBuild'));
-    this._press(btnRun, () => this.bus.emit('toggleRun'));
-    this._press(btnSneak, () => this.bus.emit('toggleSneak'));
+    if (btnBag) this._press(btnBag, () => this.bus.emit('toggleInventory'));            // the backpack, one tap away
     this._press(btnAct, () => { this.actionHeld = true; btnAct.classList.add('down'); }, () => { this.actionHeld = false; btnAct.classList.remove('down'); });
   }
   _press(el, onDown, onUp) {

@@ -45,6 +45,7 @@ class JournalUI {
     const people = Object.values(g.npcs).map(n => { const def = Npcs.get(n.type); const b = g.friendOf(n.id); return row(n.id, n.name, (def ? def.role : '') + ' &middot; ' + (b ? Friendship.info(b.level).name + ' friends' : 'not met yet'), b); }).join('');
     const animals = Object.keys(g.friends).filter(id => !g.npcs[id] && g.beingTypes[id]).map(id => { const d = AnimalDefs[g.beingTypes[id]], b = g.friendOf(id); return row(id, d ? d.name : 'Animal', b ? Friendship.info(b.level).name + ' friends' : '', b); }).join('');
     this.body.innerHTML = `<div class="jhead">How close can you get? <small>the colour is set by your skills</small></div>${limit('friendship', 'people')}${limit('animal_friendship', 'animals')}` +
+      `<div class="flimit"><span class="sglyph">\u2766</span><b>Getting close</b> animals notice you <i>${Math.round(AnimalSenses.stealth(lv) * 100)}% later</i> &middot; <small>from Dexterity ${lv.a.dexterity || 1} and Animal Friendship ${lv.s.animal_friendship || 1}; higher-level animals have sharper senses</small></div>` +
       `<div class="jhead">People</div>${people || '<div class="gnone">Nobody in sight yet.</div>'}` +
       `<div class="jhead">Animals</div>${animals || '<div class="gnone">Pet, feed or spend time with an animal to make a friend. Monsters cannot be befriended.</div>'}`;
     this._paintHearts();

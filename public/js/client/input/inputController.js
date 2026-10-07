@@ -1,45 +1,39 @@
 'use strict';
 /* CLIENT - merges keyboard, joystick and click-to-move into ONE input object per tick:
- *   { moveX, moveY, run, sneak, action, seq }   (moveX/Y are WORLD axes; slot is added by ClientGame)
+ *   { moveX, moveY, action, seq }   (moveX/Y are WORLD axes; slot is added by ClientGame). There is no run or sneak: every push is full speed.
  * Movement is camera-relative: W / stick-up always means "up on the screen". */
 class InputController {
   constructor({ bus, keyboard, touch }) {
     this.keyboard = keyboard; this.touch = touch; this.bus = bus;
-    this.runToggled = false; this.sneakToggled = false; this.nav = null;
-    this.last = { moveX: 0, moveY: 0, run: false, sneak: false, action: false, seq: 0 };
-    bus.on('toggleRun', () => { this.runToggled = !this.runToggled; bus.emit('runChanged', this.runToggled); });
-    bus.on('toggleSneak', () => { this.sneakToggled = !this.sneakToggled; bus.emit('sneakChanged', this.sneakToggled); });
+    this.nav = null;
+    this.last = { moveX: 0, moveY: 0, action: false, seq: 0 };
   }
 
   setPath(points) { this.nav = points && points.length ? makeNav(points) : null; }
   hasPath() { return !!this.nav; }
 
   sample(seq, me, dt) {
-    let moveX = 0, moveY = 0, sprint = false;
+    let moveX = 0, moveY = 0;
     const intent = this._readScreenIntent();
     if (intent) {
       [moveX, moveY] = this._toWorld(intent);
-      sprint = intent.sprint; this.nav = null;                  // manual input cancels click-to-move
+      this.nav = null;                                          // manual input cancels click-to-move
     } else if (this.nav) {
       const step = steerAlongPath(this.nav, me.x, me.y, dt);
       if (step.done) this.nav = null; else { moveX = step.moveX; moveY = step.moveY; }
     }
-    const run = sprint || this.keyboard.runHeld || this.runToggled;
     const action = this.keyboard.actionHeld || this.touch.actionHeld;
-    return (this.last = { moveX, moveY, run, sneak: this.sneakToggled, action, seq });
+    return (this.last = { moveX, moveY, action, seq });
   }
 
-  /** Screen-space intent { x, y, sprint } with length 0..1, or null when idle. */
+  /** Screen-space direction { x, y } (length 1: the stick only steers, every push is full speed), or null when idle. */
   _readScreenIntent() {
     const stick = this.touch.joystick, cfg = CONFIG.input;
     if (stick.active && stick.magnitude > cfg.deadzone) {
-      const pushed = (stick.magnitude - cfg.deadzone) / (1 - cfg.deadzone);
-      const sprint = pushed >= cfg.runThreshold;
-      const strength = sprint ? 1 : pushed / cfg.runThreshold;      // analog walking, full push = run
-      return { x: stick.dx * strength, y: stick.dy * strength, sprint };
+      return { x: stick.dx, y: stick.dy };
     }
     const key = this.keyboard.moveAxis;
-    if (key.x || key.y) return { x: key.x, y: key.y, sprint: false };
+    if (key.x || key.y) return { x: key.x, y: key.y };
     return null;
   }
 

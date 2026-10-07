@@ -86,7 +86,7 @@ class PlayerSprite {
     walk.lastX = p.x; walk.lastY = p.y;
 
     const moving = p.state !== 'idle', run = p.state === 'run';
-    const crouch = riding ? 12 : p.state === 'sneak' ? 6 : 0;                       // seated in the boat
+    const crouch = riding ? 12 : 0;                                                  // seated in the boat
     const bob = riding ? 0 : moving ? Math.abs(Math.sin(walk.phase)) * (run ? 3 : 1.8) : Math.sin(now / 500 + p.slot) * 0.6;
     const legSwing = riding ? Math.sin(rowPhase) * 5 : moving ? Math.sin(walk.phase) * (run ? 5 : 3.5) : 0;   // arms follow the oars
     const fx = Math.cos(p.facing), fy = Math.sin(p.facing);

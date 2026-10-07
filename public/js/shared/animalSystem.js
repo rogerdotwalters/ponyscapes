@@ -5,7 +5,22 @@
  * GRIDS: every animal lives on one grid (a.grid: '' the overworld, or an instance such as a cave). It only sees, chases and is reached by players
  * on the same grid, and moves through that grid's World (deps.mapOf). */
 const ANIMAL_ACCEL = 14, ANIMAL_TURN_RATE = 8, HURT_SPEED_FACTOR = 0.75;
-const STEALTH_KEY = { idle: 'idle', sneak: 'sneak', walk: 'walk', run: 'run', row: 'walk' };
+/** SENSES: how far an animal notices a player. Everyone always moves at full speed (there is no sneaking), so it is the ANIMAL and the PLAYER
+ *  that decide it: an animal's own senses (its kind's `detect`: standing still or moving) grow with its level, and a player's Dexterity and
+ *  Animal Friendship let them get closer before it notices. All of it is tuned on the Admin page (GameSettings). */
+const AnimalSenses = {
+  /** The animal's senses: 1 at level 1, a little sharper every level. */
+  sharpness: level => (GameSettings.values.animalSense / 100) * (1 + GameSettings.values.senseLevelScale / 100 * Math.max(0, (level || 1) - 1)),
+  /** How much of an animal's senses a player's skills take away: 0 (none) up to the cap. */
+  stealth(lv) {
+    const V = GameSettings.values, dex = Skills._a(lv, 'dexterity') - 1, friend = Skills._s(lv, 'animal_friendship') - 1;
+    return Math.min(V.stealthCap / 100, (dex * V.stealthDex + friend * V.stealthFriend) / 1000);
+  },
+  /** How far (tiles) this animal notices this player. */
+  range(a, def, h) { return def.detect[h.state === 'idle' ? 'idle' : 'walk'] * AnimalSenses.sharpness(a.level) * (1 - AnimalSenses.stealth(h.lv)); },
+  /** How fast a fleeing animal runs (ponies use their kind's level curve instead). */
+  flee: (def, level) => def.fleeSpeed * (1 + GameSettings.values.fleeLevelScale / 100 * Math.max(0, (level || 1) - 1))
+};
 
 /** How an animal reacts to food in a player's hand: { radius, trust, approach } or null. Earth ponies ADORE apples:
  *  they notice them from much farther away, trust you for longer and trot up faster. Charisma widens everyone's trust. */

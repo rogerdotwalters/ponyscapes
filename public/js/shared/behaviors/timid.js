@@ -1,5 +1,5 @@
 'use strict';
-/* BEHAVIOUR - timid: wander, come to food held out in a calm hand, bolt from anyone who notices you. Rabbits, deer, sheep, elk, wild ponies. */
+/* BEHAVIOUR - timid: wander, come to food held out, bolt from anyone it notices (AnimalSenses: its level against your Dexterity and Animal Friendship). Rabbits, deer, sheep, elk, wild ponies. */
 Behaviors.register({
   id: 'timid',
   think(sys, a, def, humans, dt) {
@@ -8,13 +8,13 @@ Behaviors.register({
     for (const h of humans) {
       const d = Math.hypot(h.x - a.x, h.y - a.y);
       const lure = lureFor(def, h.held, h.lv, h.buffs);
-      if (lure && h.state !== 'run' && d < lure.radius) {                                      // food in a calm hand: come closer
+      if (lure && d < lure.radius) {                                                          // food held out: come closer
         if (d < luredDist) { lured = h; luredDist = d; luredBy = lure; }
         continue;
       }
-      if (a.isFriendOf(h.id) && h.state !== 'run') continue;                                 // a friend (one whole heart or more) does not make it bolt
-      if (trusting && h.state !== 'run') continue;
-      const notice = def.detect[STEALTH_KEY[h.state] || 'walk'];
+      if (a.isFriendOf(h.id)) continue;                                                       // a friend (one whole heart or more) does not make it bolt
+      if (trusting) continue;
+      const notice = AnimalSenses.range(a, def, h);                                         // its senses (by level) against your Dexterity and Animal Friendship
       if (d < notice && d < threatDist) { threat = h; threatDist = d; }
     }
     if (threat) { a.state = 'flee'; a.fleeT = def.fleeSeconds; a.fx = a.x - threat.x; a.fy = a.y - threat.y; a.trustT = 0; }
@@ -27,7 +27,7 @@ Behaviors.register({
     else if (a.state === 'flee' && (a.fleeT -= dt) <= 0) { a.state = 'idle'; a.timer = 1 + sys.rng() * 2; a.hurt = false; }
     else if (a.state === 'lured') { a.state = 'idle'; a.timer = 1.5; }
 
-    const flee = def.pony ? PonySpeed.flee(a.type, a.level) : def.fleeSpeed;            // a wild pony runs at its kind's speed for its level: outrun it to catch it
+    const flee = def.pony ? PonySpeed.flee(a.type, a.level) : AnimalSenses.flee(def, a.level);            // a wild pony runs at its kind's speed for its level: outrun it to catch it
     if (a.state === 'flee') { sys._steerAlong(a, a.fx, a.fy, flee * (a.hurt ? HURT_SPEED_FACTOR : 1)); return; }
     sys._wander(a, def, dt);
   }

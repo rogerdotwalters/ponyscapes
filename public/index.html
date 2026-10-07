@@ -74,7 +74,7 @@
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; Shift run &middot; C sneak &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; farming: a hoe tills grass or dirt, a watering can waters it each day, F with seeds plants (in their season), F at a ripe crop harvests &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
+<div id="hint">WASD move (screen-relative) &middot; always full speed (Dexterity and Animal Friendship let you get closer to animals) &middot; hold E / Space: use tool &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; farming: a hoe tills grass or dirt, a watering can waters it each day, F with seeds plants (in their season), F at a ripe crop harvests &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
 <div id="portraitHint">Rotate your phone to landscape for the best view</div>
 
 <div id="toolbar"></div>
@@ -150,14 +150,13 @@
 
 <div id="touchUI" hidden>
   <div id="joyZone"><div id="joyBase"><div id="joyKnob"></div></div></div>
-  <button class="pbtn" id="btnSneak" tabindex="-1">Sneak</button>
   <button class="pbtn" id="btnRot" tabindex="-1" style="display:none">Rot</button>
   <button class="pbtn" id="btnBoard" tabindex="-1" style="display:none">Board</button>
   <button class="pbtn danger" id="btnRelease" tabindex="-1" style="display:none">Let go</button>
   <button class="pbtn ability" id="btnAbility" tabindex="-1" style="display:none"></button>
   <button class="pbtn" id="btnLasso" tabindex="-1" title="Throw your lasso (L)">Lasso</button>
   <button class="pbtn" id="btnDrop" tabindex="-1" title="Drop what is in your hand (X)">Drop</button>
-  <button class="pbtn" id="btnRun" tabindex="-1">Run</button>
+  <button class="pbtn" id="btnBag" tabindex="-1" title="Your bag (I)"><span class="bagIcon" aria-hidden="true"></span><span>Bag</span></button>
   <button class="pbtn" id="btnAct" tabindex="-1">Use</button>
 </div>
 

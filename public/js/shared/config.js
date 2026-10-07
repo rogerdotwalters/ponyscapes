@@ -79,7 +79,7 @@ const CONFIG = {
     fakeJitterMs: 0,
     bots: 2
   },
-  input: { joyRadius: 60, deadzone: 0.15, runThreshold: 0.85 }
+  input: { joyRadius: 60, deadzone: 0.15 }
 };
 
 const TICK_DT = 1 / CONFIG.sim.tickRate;

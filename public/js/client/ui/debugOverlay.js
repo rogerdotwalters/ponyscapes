@@ -17,7 +17,7 @@ class DebugOverlay {
       `server tick ${g.serverTick}   client seq ${g.seq}\n` +
       `pos  ${p.x.toFixed(2)}, ${p.y.toFixed(2)}   v ${Math.hypot(p.vx, p.vy).toFixed(2)} t/s\n` +
       `face ${(p.facing * 180 / Math.PI).toFixed(0)}deg  state ${p.state}\n` +
-      `input ${i.moveX.toFixed(2)}, ${i.moveY.toFixed(2)}  run ${+i.run} sneak ${+i.sneak} act ${+i.action}\n` +
+      `input ${i.moveX.toFixed(2)}, ${i.moveY.toFixed(2)}  act ${+i.action}\n` +
       `tile ${Math.floor(p.x)}, ${Math.floor(p.y)}   chunks loaded ${g.map.chunks.size}\n` +
       `hunger ${p.hunger.toFixed(0)}  thirst ${p.thirst.toFixed(0)}  time ${DayCycle.format(g.hour())}\n` +
       `held ${g.heldItemId() || '-'}  logs ${g.inventory.count('log')}\n` +

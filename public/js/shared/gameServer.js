@@ -800,7 +800,7 @@ class GameServer {
     a.x = p.x; a.y = p.y; a.vx = p.vx; a.vy = p.vy; a.facing = p.facing; a.state = Math.hypot(p.vx, p.vy) > 0.2 ? 'ride' : 'idle';
     this.vitals.consumeHeld(id, p, inventory, input, TICK_DT);
     if (a.state === 'ride') {                                      // a little Horsemanship XP for every few seconds in the saddle
-      this.rideAcc[id] = (this.rideAcc[id] || 0) + TICK_DT * (input.run ? 2 : 1);
+      this.rideAcc[id] = (this.rideAcc[id] || 0) + TICK_DT * 2;
       if (this.rideAcc[id] >= 4) { this.rideAcc[id] = 0; this.progress.award(id, 'horsemanship', 6); }
     }
   }

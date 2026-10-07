@@ -61,7 +61,7 @@ class ShearHandler {
       if (!best || d < best.d) best = { a, d };
     }
     if (!best) {
-      this.emit({ type: 'notice', to: p.id, text: shorn ? `That ${AnimalDefs[shorn.type].name.toLowerCase()} is already shorn: its wool grows back in a while` : 'Stand beside a sheep to shear it (sneak up, or lure it with food)' });
+      this.emit({ type: 'notice', to: p.id, text: shorn ? `That ${AnimalDefs[shorn.type].name.toLowerCase()} is already shorn: its wool grows back in a while` : 'Stand beside a sheep to shear it (lure it with food, or get close: Dexterity and Animal Friendship help)' });
       return null;
     }
     return { ref: best.a.id, x: best.a.x, y: best.a.y };
