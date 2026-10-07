@@ -7,7 +7,7 @@
 const PIXEL_BODIES = { princess: true, prince: true };
 const PixelCharacter = (() => {
   const W = 28, H = 40, TOP = 2, CX = 14, PX = 1.3, PixelCharacter_W = W, PixelCharacter_H = H;   // (TOP: rows above the head kept for tall crowns)                  // art size, centre column, and how many world pixels one art pixel covers
-  const cache = new Map();
+  const cache = new LruCache(1500);
 
   /* ---- colour helpers ---- */
   const hex = c => {                                                                        // '#rrggbb' or 'rgb(r,g,b)' -> [r, g, b]
@@ -16,7 +16,7 @@ const PixelCharacter = (() => {
   };
   const css = ([r, g, b]) => `rgb(${Math.max(0, Math.min(255, r | 0))},${Math.max(0, Math.min(255, g | 0))},${Math.max(0, Math.min(255, b | 0))})`;
   /** Colour maths runs for every pixel creature and character on every frame, so each answer is remembered (a few hundred colours in all). */
-  const memo = fn => { const seen = new Map(); return (...a) => { const k = a.join('|'); let v = seen.get(k); if (v === undefined) { if (seen.size > 4000) seen.clear(); v = fn(...a); seen.set(k, v); } return v; }; };
+  const memo = fn => { const seen = new LruCache(8000); return (...a) => { const k = a.join('|'); let v = seen.get(k); if (v === undefined) { v = fn(...a); seen.set(k, v); } return v; }; };
   const shade = memo((c, f) => css(hex(c).map(v => v * f)));
   const light = memo((c, f) => css(hex(c).map(v => v + (255 - v) * f)));
   const mix = memo((a, b, t) => { const A = hex(a), B = hex(b); return css(A.map((v, i) => v + (B[i] - v) * t)); });
@@ -504,7 +504,7 @@ const PixelCharacter = (() => {
     const view = dir === 'right' ? 'left' : dir, hurt = !!anim.hurt;
     const key = `${JSON.stringify(L)}|${JSON.stringify(wardrobe)}|${view}|${anim.moving ? 'w' : 'i'}${frame}|${blink ? 1 : 0}|${hurt ? 1 : 0}`;
     let canvas = cache.get(key);
-    if (!canvas) { if (cache.size > 600) cache.clear(); canvas = render(C, view, F, blink, hurt); cache.set(key, canvas); }
+    if (!canvas) { canvas = render(C, view, F, blink, hurt); cache.set(key, canvas); }
     const cut = Math.max(0, anim.cut | 0), w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
     ctx.save(); ctx.imageSmoothingEnabled = false;
     if (dir === 'right') { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.drawImage(canvas, 0, 0, W, H - cut, -w / 2, top, w, h); }

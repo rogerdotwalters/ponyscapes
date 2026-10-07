@@ -9,7 +9,7 @@ const GrassRenderer = (() => {
   const { shade, light, mix } = PixelCharacter.util;
   const PX = 1.25, W = 30, H = 26, BASE = 22, CX = 15, BEND = 4, NEAR = 1.4;
   const BLADES = [0, 5, 8, 12], HEIGHT = [[0, 0], [3, 6], [6, 11], [11, 19]], SPREAD = [0, 10, 16, 22];
-  const cache = new Map();
+  const cache = new LruCache(8000);
   const hash = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + c * 2246822519) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
 
   /** The grass colours at a tile: [shadow, body, lit, tip], from its biome's ground and, for the meadow's own grass, the season. */
@@ -36,7 +36,6 @@ const GrassRenderer = (() => {
         g.fillRect(x, y, 1, 1);
       }
     }
-    if (cache.size > 6000) cache.clear();
     cache.set(key, c); return c;
   }
 

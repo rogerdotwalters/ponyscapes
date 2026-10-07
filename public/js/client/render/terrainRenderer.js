@@ -39,6 +39,8 @@ const TerrainRenderer = (() => {
   const BAKE_MS = 4;                                                                 // a frame bakes one block, and another only while it has used less than this
   const spare = [];                                                                  // canvases of forgotten blocks, reused (making a canvas is slow)
   const blockStore = new WeakMap();                                                 // map -> Map(key -> { canvas, x0, y0, season, scale })
+  // Ground you have passed stays painted until the blocks use more than this (a small phone gets less): walking back finds it ready, nothing is re-baked.
+  const BLOCK_BYTES = ((typeof navigator !== 'undefined' && navigator.deviceMemory && navigator.deviceMemory <= 4) ? 40 : 128) * 1e6;
   let bakeScale = 1, keepBlocks = 0;
   /** The renderer passes the camera's scale: blocks are baked at it (to 1.5x at most, to keep their memory small). */
   function setScale(s) { bakeScale = clamp(Math.round(s * 2) / 2, 1, 1.5); }
@@ -169,7 +171,8 @@ const TerrainRenderer = (() => {
     todo.sort((u, v) => u[0] - v[0]);
     const t0 = performance.now(); let done = 0;
     while (done < todo.length && done < budget && (done === 0 || performance.now() - t0 < ms)) { bake(map, todo[done][1], todo[done][2]); done++; }
-    keepBlocks = Math.max(keepBlocks, Math.ceil(want.length * 1.3));
+    const blockBytes = (BW + 2 * PAD) * (BH + 2 * PAD) * bakeScale * bakeScale * 4;
+    keepBlocks = Math.max(Math.ceil(want.length * 2), Math.floor(BLOCK_BYTES / blockBytes));
     if (store.size > keepBlocks) for (const [k, p] of store) { store.delete(k); if (spare.length < 6) spare.push(p.canvas); if (store.size <= keepBlocks) break; }
     return todo.length - done;
   }
@@ -249,17 +252,16 @@ const TerrainRenderer = (() => {
 
   /* ---- the SURF: on water beside land, waves wash up over the wet ground and draw back, a foam line at their edge (stepped, the retro way) ---- */
   const SURF_STEPS = 7, SURF_REACH = 0.55, SURF_WATER = 'rgba(118,186,203,.86)', SURF_FOAM = '#f4fbfd';
-  const surfShape = new WeakMap(), surfArt = new Map();
+  const surfShape = new WeakMap(), surfArt = new LruCache(6000);
   /** Where land meets this water tile: { edges, corners, variant } (all the land around it together), or 0. Remembered per map. */
   function shoreOf(map, tx, ty, here) {
-    let m = surfShape.get(map); if (!m) { m = new Map(); surfShape.set(map, m); }
+    let m = surfShape.get(map); if (!m) { m = new LruCache(60000); surfShape.set(map, m); }
     const key = tileKey(tx, ty); let s = m.get(key);
     if (s !== undefined) return s;
     const list = AutoTile.spills(here, tx, ty, (x, y) => lookOf(map, x, y));
     let edges = 0, corners = 0;
     for (const sp of list || []) if (!watery(sp.look)) { edges |= sp.edges; corners |= sp.corners; }
     s = edges || corners ? { edges, corners, variant: AutoTile.variantOf(tx, ty) } : 0;
-    if (m.size > 20000) m.clear();
     m.set(key, s); return s;
   }
   /** One frame of the surf for a shore: water from the fringe's edge in to depth step k (0 = drawn right back), with its foam line. */
@@ -285,7 +287,6 @@ const TerrainRenderer = (() => {
     f.clearRect(0, 0, c.width, c.height); f.fillRect(0, 0, c.width, c.height);         // ... and a solid line of it at the edge
     f.globalCompositeOperation = 'destination-in'; f.drawImage(reach.rim, 0, 0);
     g.drawImage(foam, 0, 0);
-    if (surfArt.size > 4000) surfArt.clear();
     surfArt.set(key, c); return c;
   }
   /** The waves on one shore tile at time t: each wave washes in and draws back; neighbouring tiles lag a little, so the waves run along the coast. */

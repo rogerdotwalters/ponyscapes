@@ -4,6 +4,7 @@
 /** Which skill a forageable trains. */
 const ForageSkill = { bush: 'foraging', flax: 'foraging', apple_tree: 'foraging', bottle: 'foraging', stone: 'digging', clay: 'digging', mound: 'digging' };
 const SERVER_STREAM_RADIUS = 2, SERVER_KEEP_RADIUS = 6, BOAT_SYNC_RADIUS = 90;     // chunks / chunks / tiles
+const SERVER_MAX_CHUNKS = 1500;                                                       // chunks a grid keeps before the least recently seen are forgotten
 const SERVER_CHUNKS_PER_TICK = 2;                                                    // new chunks (beyond the nearest 3 x 3) made per player per tick
 
 /** The server's event list. Each event remembers the grid it happened on (GameServer.eventGrid at the time), so a puff of dust in a cave is only
@@ -598,7 +599,7 @@ class GameServer {
     this._streamWorld();
   }
 
-  /** Keep the chunks around every player generated; forget chunks nobody is near (walls / tree states are kept on the World). */
+  /** Keep the chunks around every player generated; forget the least recently seen chunks once there are too many (walls / tree states are kept on the World). */
   _humans() { return Object.keys(this.inputQueues).map(id => this.players[id]); }
 
   _streamWorld() {
@@ -611,7 +612,7 @@ class GameServer {
     const everyone = Object.values(this.players);
     for (const id of this.grids.ids()) {                                               // each grid keeps what its own people are near; an empty instance is forgotten
       const here = everyone.filter(p => gridOf(p) === id);
-      if (id && !here.length) this.grids.drop(id); else this.grids.get(id).unloadFar(here, SERVER_KEEP_RADIUS);
+      if (id && !here.length) this.grids.drop(id); else this.grids.get(id).trim(here, SERVER_KEEP_RADIUS, SERVER_MAX_CHUNKS);
     }
   }
 

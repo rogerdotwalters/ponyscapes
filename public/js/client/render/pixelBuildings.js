@@ -290,14 +290,13 @@ const PixelBuildings = (() => {
   }
 
   /** A colour ('#rrggbb', 'rgb()' or 'rgba()') as [r, g, b, alpha 0-255] (remembered). */
-  const rgbaSeen = new Map();
+  const rgbaSeen = new LruCache(8000);
   function rgba(c) {
     let v = rgbaSeen.get(c);
     if (v) return v;
     const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(c);
     if (m) v = [+m[1], +m[2], +m[3], m[4] === undefined ? 255 : Math.round(+m[4] * 255)];
     else { const n = parseInt(c.slice(1), 16); v = [n >> 16, (n >> 8) & 255, n & 255, 255]; }
-    if (rgbaSeen.size > 5000) rgbaSeen.clear();
     rgbaSeen.set(c, v); return v;
   }
   /** Grass tufts against the foot of a wall where grass meets it: blades of a few pixels, leaning a little. */

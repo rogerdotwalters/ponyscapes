@@ -8,7 +8,7 @@
  * and t (a time-based frame, for wings and wriggles). A kind with no painter here keeps its smooth drawing (creatures/*.js). */
 const PixelCreatures = (() => {
   const { shade, light, mix, tones, outline } = PixelCharacter.util;
-  const PX = 1.25, cache = new Map(), kinds = {};
+  const PX = 1.25, cache = new LruCache(4000), kinds = {};
   const OUTLINE = '#1c130e', RED = '#ff3a2a';
 
   /** The painter works in ART coordinates, but paints at the creature's real size (m = its scale): outlines, bodies, lines and wings
@@ -106,7 +106,6 @@ const PixelCreatures = (() => {
     const key = `${sprite.kind}|${sprite.variant || ''}|${sprite.color || ''}|${sprite.antlers || ''}|${m}|${anim.extra || ''}|${F.i}${F.moving ? 'm' : 's'}${F.t}${F.hunting ? 'h' : ''}`;
     let canvas = cache.get(key);
     if (!canvas) {
-      if (cache.size > 1500) cache.clear();
       canvas = document.createElement('canvas'); canvas.width = Math.ceil(k.W * m); canvas.height = Math.ceil(k.H * m);
       const c2 = canvas.getContext('2d'); k.paint(painter(c2, m), C, F, c2); outline(c2, C.outline || OUTLINE, canvas.width, canvas.height);
       cache.set(key, canvas);

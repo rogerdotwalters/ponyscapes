@@ -10,7 +10,7 @@ const PIXEL_PONIES_OFF = {};
 const PixelPony = (() => {
   const W = 52, H = 50, TOP = 8, CX = 26, GROUND = 40, PX = 1.25;   // (TOP: rows above the ears for raised wings and horns)
   const { css, shade, light, mix, tones, outline } = PixelCharacter.util;
-  const cache = new Map();
+  const cache = new LruCache(2000);
   const HOOF = { b: '#4a4148', l: '#7a6e74', d: '#2e282d' };
 
   function palette(look) {
@@ -428,7 +428,7 @@ const PixelPony = (() => {
     const fxFrame = C.fx === 'flames' ? C.ff : C.fx === 'frost' || C.fx === 'stars' ? C.tw : 0;
     const key = `${look.coat}|${look.mane.join()}|${look.mark}|${C.fx}${fxFrame}|${C.wings ? 'w' + (C.flying ? C.wf : 'f') : ''}${C.horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
     let canvas = cache.get(key);
-    if (!canvas) { if (cache.size > 800) cache.clear(); canvas = render(C, view, F, blink); cache.set(key, canvas); }
+    if (!canvas) { canvas = render(C, view, F, blink); cache.set(key, canvas); }
     const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
     if (!anim.lift) { ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, view === 'right' ? 20 : 11, 6, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.save(); ctx.imageSmoothingEnabled = false;

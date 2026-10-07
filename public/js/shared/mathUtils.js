@@ -3,6 +3,25 @@
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 
+/** A Map that holds at most `max` entries and forgets the LEAST recently used one when full (get / set both count as use). Shared art caches
+ *  use it instead of `clear()`-at-a-size-cap, which threw every picture away at once and made them all again (a hitch, then a pile of rework). */
+class LruCache {
+  constructor(max) { this.max = max; this.map = new Map(); }
+  get size() { return this.map.size; }
+  has(key) { return this.map.has(key); }
+  get(key) {
+    const v = this.map.get(key);
+    if (v !== undefined) { this.map.delete(key); this.map.set(key, v); }
+    return v;
+  }
+  set(key, value) {
+    this.map.delete(key); this.map.set(key, value);
+    if (this.map.size > this.max) this.map.delete(this.map.keys().next().value);
+    return this;
+  }
+  clear() { this.map.clear(); }
+}
+
 function wrapAngle(a) {
   while (a > Math.PI) a -= 2 * Math.PI;
   while (a < -Math.PI) a += 2 * Math.PI;

@@ -22,7 +22,7 @@ const AutoTile = (() => {
   const N = 1, E = 2, S = 4, W = 8;                                                // edges
   const NE = 1, SE = 2, SW = 4, NW = 8;                                            // corners
   const hash = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + c * 2246822519) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
-  const masks = new Map();
+  const masks = new LruCache(4000);
 
   /** How deep the fringe reaches at position t (0..1) along one edge: f at both ends, jagged in steps between. */
   function depth(t, edge, variant, f = FRINGE) {
@@ -72,7 +72,6 @@ const AutoTile = (() => {
       if (out(1, 0) || out(-1, 0) || out(0, 1) || out(0, -1)) rc.fillRect(x, y, 1, 1);   // the fringe's edge towards the tile's own ground
     }
     m = { fill, rim };
-    if (masks.size > 3000) masks.clear();
     masks.set(key, m);
     return m;
   }
