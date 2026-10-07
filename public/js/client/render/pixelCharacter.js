@@ -3,8 +3,8 @@
  * colours (hair, skin, outfit, trim from the character screen; crown, dress and cape from the wardrobe), given a dark outline, cached, and
  * drawn scaled up with hard edges. Views: 'down' (facing the camera), 'up' (the back), 'left' ('right' is the mirror).
  * Animations: 'walk' (4 frames, stepped by the distance walked), 'idle' (a slow breath, and a blink now and then).
- * PIXEL_BODIES says which bodies use it (the princess for now; the prince keeps the older smooth drawing). */
-const PIXEL_BODIES = { princess: true, prince: false };
+ * PIXEL_BODIES says which bodies use it (both: the princess in her dresses, the prince in tunic, trousers and boots). */
+const PIXEL_BODIES = { princess: true, prince: true };
 const PixelCharacter = (() => {
   const W = 28, H = 40, TOP = 2, CX = 14, PX = 1.3, PixelCharacter_W = W, PixelCharacter_H = H;   // (TOP: rows above the head kept for tall crowns)                  // art size, centre column, and how many world pixels one art pixel covers
   const cache = new Map();
@@ -26,8 +26,9 @@ const PixelCharacter = (() => {
     const outfit = W8.outfit, style = outfit ? outfit.style : 'plain';
     const skirt = (outfit && outfit.color) || L.outfit, trim = (outfit && outfit.trim) || L.trim;
     return {
-      style, hairKind: L.hairKind,
-      hair: tones(L.hair), skin: { b: L.skin, d: shade(L.skin, 0.82), blush: mix(L.skin, '#e26a6a', 0.35) },
+      style, hairKind: L.hairKind, prince: !L.princess,
+      tunic: tones(style === 'hunter' ? shade(skirt, 0.92) : skirt), trousers: tones(L.princess ? '#3b3542' : mix(skirt, '#2a2632', 0.72)), boot: tones('#5a3a22'), belt: tones(style === 'hunter' ? '#3a2a1a' : style === 'doublet' ? shade(skirt, 0.55) : '#4a3624'),
+      hair: tones(L.hair), skin: { b: L.skin, d: shade(L.skin, 0.82), blush: mix(L.skin, '#e26a6a', L.princess ? 0.35 : 0.16) },
       eye: '#2a1a12', mouth: shade(L.skin, 0.62),
       blouse: style === 'plain' ? tones('#7a5236') : tones(skirt),                  // the plain dress: a brown blouse, a cream apron, a skirt in your colour
       lace: tones('#efe3c4'), apron: tones('#e6d9b6'), skirt: tones(skirt), trim: tones(trim),
@@ -230,6 +231,146 @@ const PixelCharacter = (() => {
     });
   }
 
+
+  /* =====================================================================================================================
+   * THE PRINCE: a tunic (or doublet, or hunter's leathers) over trousers and boots, belted, with his own six hair styles.
+   * Same head and face as the princess, the same frame rows (head 6-15, body 16-23, legs below), so crowns, capes and tools line up.
+   * ===================================================================================================================== */
+  const HEM = { plain: 26, tunic: 30, doublet: 27, hunter: 26 };
+  /** Two legs in trousers and boots, seen from the front or back; each foot steps by [dx, dy]. */
+  function legsFront(P, C, F) {
+    const leg = (x, [dx, dy], far) => {
+      const t = C.trousers, b = C.boot;
+      for (let y = 25; y <= 33 + dy; y++) { P.rect(x + dx, y, 3, 1, far ? t.d : t.b); P.px(x + dx + (far ? 2 : 0), y, far ? t.d : t.l); }
+      P.rect(x + dx, 33 + dy, 3, 3, b.b); P.row(33 + dy, x + dx, x + dx + 2, b.l); P.px(x + dx + 2, 34 + dy, b.d);
+      P.row(36 + dy, x + dx - (x < CX ? 1 : 0), x + dx + 2 + (x < CX ? 0 : 1), b.d);                         // the sole, toes turned out
+    };
+    leg(CX - 4, F.fl, false); leg(CX + 1, F.fr, true);
+  }
+  /** The tunic's skirt below the belt (front or back). */
+  function tunicSkirt(P, C, F) {
+    const t = C.tunic, hem = HEM[C.style] || 26;
+    for (let y = 24; y <= hem; y++) { const half = 5 + Math.round((y - 24) * (C.style === 'tunic' ? 0.34 : 0.5)), sway = y > hem - 2 ? F.hem : 0; P.at(sway, 0, () => P.shaded(y, half, t)); }
+    for (let y = 25; y < hem; y++) if (y % 2) P.px(CX - 2 + (y > hem - 2 ? F.hem : 0), y, t.d);                // a fold
+    const edge = C.style === 'plain' ? t.d : C.trim.b, half = 5 + Math.round((hem - 24) * (C.style === 'tunic' ? 0.34 : 0.5));
+    P.at(F.hem, 0, () => P.sym(hem, half, edge));
+    if (C.style === 'tunic') for (let y = 24; y < hem; y++) P.px(CX - 1, y, C.trim.b);                     // a gold band down the front
+  }
+  /** Body, belt, sleeves and hands from the front (back: true from behind). */
+  function princeTorso(P, C, F, back) {
+    const t = C.tunic, S = C.style;
+    P.sym(16, 4, t.b); for (let y = 17; y <= 23; y++) P.shaded(y, 5, t);
+    for (const [x, d, dark] of back ? [[CX - 7, F.ar, true], [CX + 5, F.al, true]] : [[CX - 7, F.al, false], [CX + 5, F.ar, true]]) {
+      P.rect(x, 17, 2, 7, dark ? t.d : t.b); P.px(x, 17, t.l);
+      P.rect(x, 23 + Math.max(0, d), 2, 1, S === 'plain' ? t.d : C.trim.b);                                   // the cuff
+      P.rect(x, 24 + d, 2, 2, back ? C.skin.d : C.skin.b); if (!back) P.px(x + (dark ? 1 : 0), 25 + d, C.skin.d);
+    }
+    if (S === 'doublet') { P.rect(CX - 7, 16, 3, 2, C.trim.b); P.rect(CX + 4, 16, 3, 2, C.trim.b); P.px(CX - 7, 16, C.trim.l); }   // epaulettes
+    if (!back) {
+      if (S === 'doublet') { for (const y of [18, 20, 22]) P.px(CX - 1, y, C.trim.b); for (let y = 17; y <= 23; y++) P.px(CX, y, t.d); }
+      else if (S === 'hunter') { for (let k = 0; k < 7; k++) { P.px(CX - 4 + k + (k > 3 ? 1 : 0), 17 + k, C.trim.b); } for (let y = 17; y <= 21; y += 2) { P.px(CX - 1, y, t.l); P.px(CX, y + 1, t.l); } }   // a strap across, lacing
+      else { P.px(CX - 2, 16, S === 'tunic' ? C.trim.b : t.d); P.px(CX + 1, 16, S === 'tunic' ? C.trim.b : t.d); P.px(CX - 1, 17, C.skin.d); P.px(CX, 17, C.skin.d); }   // a V neck (gold-edged on the royal tunic)
+      if (S === 'plain') { P.px(CX - 4, 19, C.trim.b); P.px(CX + 3, 19, C.trim.b); }                        // a little trim on the chest
+    }
+    P.sym(24, 5, C.belt.b); P.row(24, CX - 5, CX - 4, C.belt.l);                                             // the belt, and its buckle
+    if (!back && S !== 'doublet') { P.rect(CX - 1, 24, 2, 1, '#f2c14e'); }
+    if (C.cape && !back && (C.cape.style === 'royal' || C.cape.style === 'fur')) { for (let x = -5; x < 5; x++) P.px(CX + x, 16, (x & 1) ? C.cape.trim.b : C.cape.trim.l); }
+    if (C.cape && !back) { P.px(CX - 1, 17, '#f2c14e'); P.px(CX, 17, '#f2c14e'); }
+  }
+  function frontPrince(P, C, F, blink) {
+    P.at(0, F.bob, () => { capeBehind(P, C, F); princeHairBack(P, C, F, 'down'); });
+    legsFront(P, C, F);
+    P.at(0, F.bob, () => {
+      tunicSkirt(P, C, F); princeTorso(P, C, F, false);
+      headFront(P, C, blink); princeHairFront(P, C, F, 'down'); crown(P, C, 'down');
+    });
+  }
+  function backPrince(P, C, F) {
+    legsFront(P, C, { fl: F.fr, fr: F.fl });
+    P.at(0, F.bob, () => {
+      tunicSkirt(P, C, F); princeTorso(P, C, F, true); capeOver(P, C, F);
+      const k = C.hairKind, end = k === 'medium' ? 16 : k === 'curly' ? 13 : 12;
+      for (let y = 6; y <= 15; y++) P.sym(y, y < 14 ? 6 : y === 14 ? 5 : 4, C.skin.d);                     // the back of the head and the neck
+      for (let y = 2; y <= end; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < end ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);
+      P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
+      princeHairBack(P, C, F, 'up'); princeHairTop(P, C, 'up');
+      crown(P, C, 'up');
+    });
+  }
+  function sidePrince(P, C, F) {
+    const S = F.side, t = C.tunic, tr = C.trousers, b = C.boot;
+    P.at(0, F.bob, () => { capeSide(P, C, F); princeHairBack(P, C, F, 'left'); });
+    const leg = (stride, far) => {                                                                         // a leg swinging from the hip
+      for (let y = 25; y <= 33; y++) { const x = CX - 1 + Math.round(stride * (y - 25) / 9); P.rect(x, y, 3, 1, far ? tr.d : tr.b); if (!far) P.px(x, y, tr.l); }
+      const fx = CX - 1 + stride; P.rect(fx, 33, 3, 3, far ? b.d : b.b); if (!far) P.row(33, fx, fx + 2, b.l); P.row(36, fx - 1, fx + 2, b.d);   // the boot, toe forward (left)
+    };
+    leg(S.far, true); leg(S.near, false);
+    P.at(0, F.bob, () => {
+      const hem = HEM[C.style] || 26;
+      for (let y = 24; y <= hem; y++) { const w = 4 + Math.round((y - 24) * 0.4), sw = y > hem - 2 ? Math.sign(S.near) : 0; P.row(y, CX - w + sw, CX + w + sw, t.b); P.px(CX - w + sw, y, t.l); P.px(CX + w + sw, y, t.d); }
+      P.row(hem, CX - 4 - Math.round((hem - 24) * 0.4), CX + 4 + Math.round((hem - 24) * 0.4), C.style === 'plain' ? t.d : C.trim.b);
+      P.row(16, CX - 2, CX + 1, t.b); for (let y = 17; y <= 23; y++) { P.row(y, CX - 4, CX + 3, t.b); P.px(CX + 3, y, t.d); P.px(CX - 4, y, t.l); }
+      if (C.style === 'doublet') { P.rect(CX - 1, 16, 3, 2, C.trim.b); P.px(CX - 4, 19, C.trim.b); P.px(CX - 4, 21, C.trim.b); }
+      if (C.style === 'hunter') for (let k = 0; k < 7; k++) P.px(CX - 3 + k, 17 + k, C.trim.b);
+      if (C.style === 'tunic') P.row(16, CX - 3, CX - 1, C.trim.b);
+      P.row(24, CX - 4, CX + 3, C.belt.b); if (C.style !== 'doublet') P.px(CX - 4, 24, '#f2c14e');
+      const ax = CX - 1 + Math.round(S.arm / 2), hand = CX - 1 + S.arm;                                     // the near arm, swinging
+      P.rect(ax, 17, 2, 5, t.l); P.px(ax + 1, 18, t.b); P.rect(Math.round((ax + hand) / 2), 21, 2, 2, t.b);
+      P.rect(Math.round((ax + hand) / 2), 23, 2, 1, C.style === 'plain' ? t.d : C.trim.b); P.rect(hand, 24, 2, 2, C.skin.b);
+      const s = C.skin;                                                                                    // the head in profile, facing left
+      P.row(16, CX - 1, CX + 1, s.d);
+      for (let y = 5; y <= 15; y++) { const x0 = y < 14 ? CX - 6 : y === 14 ? CX - 5 : CX - 4; P.row(y, x0, CX + 4, s.b); }
+      P.px(CX - 7, 11, s.b);
+      P.rect(CX - 5, 9, 2, 3, C.eye); P.px(CX - 5, 9, '#ffffff'); P.row(8, CX - 5, CX - 3, C.hair.d);
+      P.px(CX - 6, 13, C.mouth);
+      princeHairFront(P, C, F, 'left'); crown(P, C, 'left');
+    });
+  }
+
+  /* ---- the prince's hair: short, swept, spiky, medium (to the shoulders), tied (a short tail), curly ---- */
+  function princeHairBack(P, C, F, view) {
+    const h = C.hair, k = C.hairKind;
+    if (k === 'medium' && view === 'down') for (let y = 4; y <= 17; y++) P.sym(y, y < 5 ? 7 : 8, (y + 2) % 4 ? h.b : h.d);
+    if (k === 'medium' && view === 'left') for (let y = 4; y <= 17; y++) P.row(y, CX, CX + 7, (y + 2) % 4 ? h.b : h.d);
+    if (k === 'curly' && view !== 'up') for (let y = 2; y <= 12; y++) { const half = y < 3 ? 6 : 8 + ((y >> 1) & 1); if (view === 'left') P.row(y, CX - 2, CX + half - 1, y % 3 ? h.b : h.d); else P.sym(y, half, y % 3 ? h.b : h.d); }
+    if (k === 'tied' && view !== 'down') {                                                                // a short tail at the nape, tied with a band (hidden behind the head from the front)
+      const tx = view === 'up' ? CX - 1 : CX + 6;
+      for (let y = 11; y <= 17; y++) P.rect(tx + (view === 'up' ? 0 : (y > 14 ? 1 : 0)) + (y > 15 ? F.sway : 0), y, 2, 1, y % 3 ? h.b : h.d);
+      P.rect(tx, 11, 2, 1, '#3a2a1a');
+    }
+  }
+  /** Spikes, a quiff or curls on top of the head (all views). */
+  function princeHairTop(P, C, view) {
+    const h = C.hair, k = C.hairKind;
+    if (k === 'spiky') for (const [x, tall] of view === 'left' ? [[-5, 1], [-2, 2], [1, 2], [4, 1]] : [[-6, 1], [-3, 2], [0, 3], [3, 2], [5, 1]]) for (let j = 1; j <= tall + 1; j++) { P.px(CX + x - (view === 'left' ? 0 : 0), 2 - j, j === tall + 1 ? h.l : h.b); P.px(CX + x + 1, 2 - j + 1, h.d); }
+    if (k === 'swept') { const x0 = view === 'left' ? CX - 7 : CX - 5; P.row(1, x0, x0 + 8, h.b); P.row(0, x0 + 1, x0 + 6, h.b); P.row(0, x0 + 2, x0 + 4, h.l); P.row(1, x0, x0 + 2, h.l); }
+    if (k === 'curly') for (let x = -7; x <= 6; x += 2) { P.px(CX + x, 1, h.b); P.px(CX + x + 1, 1, h.d); }
+  }
+  function princeHairFront(P, C, F, view) {
+    const h = C.hair, k = C.hairKind;
+    if (view === 'left') {
+      for (let y = 2; y <= 7; y++) P.row(y, CX - (y < 3 ? 3 : y < 4 ? 5 : k === 'swept' || k === 'tied' ? 5 : 6), CX + (y < 3 ? 3 : 6), h.b);
+      P.row(2, CX - 2, CX + 1, h.l); P.row(3, CX - 4, CX - 1, h.l);
+      const ear = k === 'medium' ? 15 : k === 'curly' ? 12 : 10;
+      for (let y = 8; y <= ear; y++) P.row(y, CX + (k === 'short' || k === 'tied' || k === 'swept' ? 1 : 0), CX + 6, (y + 1) % 4 ? h.b : h.d);
+      if (k === 'short' || k === 'spiky') { P.px(CX - 6, 8, h.b); P.px(CX - 2, 8, h.d); }
+      if (k === 'curly') for (let y = 4; y <= 12; y += 2) P.px(CX + 7, y, h.b);
+      P.px(CX + 1, 10, h.d); P.px(CX + 1, 11, h.d);                                                        // a sideburn
+      princeHairTop(P, C, 'left');
+      return;
+    }
+    P.sym(2, 4, h.b); P.sym(3, 6, h.b); P.sym(4, 7, h.b); P.sym(5, 7, h.b); P.row(2, CX - 2, CX + 1, h.l); P.row(3, CX - 4, CX - 1, h.l);
+    if (k === 'swept' || k === 'tied') { P.sym(6, 6, h.b); P.row(6, CX - 5, CX - 1, h.l); P.px(CX - 6, 7, h.b); P.px(CX + 5, 7, h.b); }   // combed back: the brow clear
+    else if (k === 'spiky') { P.sym(6, 6, h.b); for (const x of [-6, -4, -1, 2, 4]) P.px(CX + x, 7, h.b); P.px(CX - 3, 8, h.b); P.px(CX + 3, 8, h.b); }
+    else if (k === 'curly') { P.sym(6, 7, h.b); for (let x = -7; x <= 6; x += 2) P.px(CX + x, 7, h.b); P.px(CX - 3, 6, h.d); P.px(CX + 2, 6, h.d); }
+    else { P.sym(6, 6, h.b); for (const x of [-6, -5, -4, -1, 0, 3, 4, 5]) P.px(CX + x, 7, h.b); P.px(CX - 3, 6, h.d); P.px(CX + 1, 6, h.d); }   // short / medium: a fringe with a side parting
+    const ear = k === 'medium' ? 15 : k === 'curly' ? 12 : 10;
+    for (const [x0, x1] of [[CX - 8, CX - 6], [CX + 5, CX + 7]]) for (let y = 5; y <= ear; y++) P.row(y, x0 + (y > 9 && k !== 'medium' && k !== 'curly' ? 1 : 0), x1 - (y > 9 && k !== 'medium' && k !== 'curly' ? 1 : 0), (y + x0) % 4 ? h.b : h.d);
+    if (k === 'medium') for (const x of [CX - 8, CX + 6]) P.rect(x, 15, 2, 2, h.d);
+    if (k === 'curly') for (let y = 5; y <= 12; y += 2) { P.px(CX - 9, y, h.b); P.px(CX + 8, y, h.b); }
+    princeHairTop(P, C, 'down');
+  }
+
   /* ---- capes ---- */
   function capeBehind(P, C, F) {
     const k = C.cape; if (!k) return;
@@ -340,7 +481,7 @@ const PixelCharacter = (() => {
   function render(C, dir, F, blink, hurt) {
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d'), P = painter(ctx);
-    P.at(0, TOP, () => { if (dir === 'up') back(P, C, F); else if (dir === 'down') front(P, C, F, blink); else side(P, C, F); });
+    P.at(0, TOP, () => { if (C.prince) { if (dir === 'up') backPrince(P, C, F); else if (dir === 'down') frontPrince(P, C, F, blink); else sidePrince(P, C, F); } else if (dir === 'up') back(P, C, F); else if (dir === 'down') front(P, C, F, blink); else side(P, C, F); });
     outline(ctx, C.outline);
     if (hurt) { ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(255,40,40,.55)'; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over'; }
     return canvas;

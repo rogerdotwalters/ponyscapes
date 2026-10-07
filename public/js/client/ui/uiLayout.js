@@ -92,13 +92,13 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   }
 
   /* ---- the vitals row (health | hunger | thirst | clock) ---- */
-  const vitalsH = Math.round(16 * k), clockW = Math.round(62 * k), barW4 = Math.floor((toolbar.w - clockW - 3 * gap) / 3);
+  const vitalsH = Math.round(16 * k), clockW = 0, barW4 = Math.floor((toolbar.w - 2 * gap) / 3);         // (the clock lives beside the season bar now: the bars share the row)
   const vitalsY = touch ? toolbar.y + toolbar.h + gap : toolbar.y - gap - vitalsH;
   const health = makeRect(toolbar.x, vitalsY, barW4, vitalsH);
   let hunger = makeRect(toolbar.x + (barW4 + gap), vitalsY, barW4, vitalsH);
   let thirst = makeRect(toolbar.x + 2 * (barW4 + gap), vitalsY, barW4, vitalsH);
-  if (!CONFIG.sim.vitals) { health.w = toolbar.w - clockW - gap; hunger = thirst = null; }       // hunger and thirst are off: health takes their room
-  const clock = makeRect(toolbar.x + 3 * (barW4 + gap), vitalsY, toolbar.w - 3 * (barW4 + gap), vitalsH);
+  if (!CONFIG.sim.vitals) { health.w = toolbar.w; hunger = thirst = null; }       // hunger and thirst are off: health takes their room
+  const clock = makeRect(toolbar.x + toolbar.w, vitalsY, clockW, vitalsH);
   let topUsed = (touch ? Math.max(vitalsY + vitalsH, systemBar.y + systemBar.h) : systemBar.y + systemBar.h) + m;   // y where free space starts
 
   /* ---- touch controls: both thumbs' controls must fit side by side, so they shrink on narrow screens ---- */

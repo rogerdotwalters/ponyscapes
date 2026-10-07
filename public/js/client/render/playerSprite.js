@@ -458,13 +458,26 @@ class PlayerSprite {
   }
 }
 
-/** Draws a character into a canvas (the lobby's preview). `facing` turns them: pi/4 faces the camera. */
+/** Draws a character into a canvas (the lobby's preview, the wardrobe, the character card). `facing` turns them: pi/4 faces the camera.
+ *  The pixel bodies are drawn crisp: a whole number of screen pixels per art pixel, lined up on the pixel grid. opts: { dir (overrides facing),
+ *  moving, phase (walk phase), crop (art rows to show from the top: a head-and-shoulders picture), procedural (skip image bodies) }. */
 function renderCharacterPortrait(canvas, appearance, facing = Math.PI / 4, now = 0, gear = { crown: 'crown_simple' }, opts = {}) {
-  const ctx = canvas.getContext('2d'), sprite = new PlayerSprite(new Gfx(ctx));
+  const ctx = canvas.getContext('2d'), L = CharacterLook.describe(appearance), body = L.princess ? 'princess' : 'prince';
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const scale = canvas.height / 66;
-  ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height - 9 * scale);
-  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2); ctx.fill();
-  sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear, held: '', swingT: 0, hurtT: 0 }, 0, 0, now, opts);
+  const images = !opts.procedural && ContentPack.character(body);
+  if (!PIXEL_BODIES[body] || (images && SpriteRegistry.pick(images, 'down'))) {                       // a body drawn in the editor (or the smooth one)
+    const sprite = new PlayerSprite(new Gfx(ctx)), scale = canvas.height / 66;
+    ctx.setTransform(scale, 0, 0, scale, canvas.width / 2, canvas.height - 9 * scale);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 13, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+    sprite.drawPortrait({ x: 0, y: 0, vx: 0, vy: 0, facing, state: 'idle', slot: 0, color: '#888', appearance, gear, held: '', swingT: 0, hurtT: 0 }, 0, 0, now, opts);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); return;
+  }
+  const PC = PixelCharacter, rows = opts.crop || PC.H, n = Math.max(1, Math.floor(Math.min(canvas.width / (PC.W + 2), canvas.height / (rows + (opts.crop ? 0 : 3)))));
+  const k = n / PC.PX, cx = Math.round(canvas.width / 2 / n) * n, base = opts.crop ? rows * n + Math.round((canvas.height - rows * n) / 2) : canvas.height - 2 * n;
+  const dir = opts.dir || SpriteRegistry.dirOf(facing), look = id => (id && ItemDefs[id] ? ItemDefs[id].look : null), g = gear || {};
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  if (!opts.crop) { ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(cx / k, (base - n) / k, 11, 3.6, 0, 0, Math.PI * 2); ctx.fill(); }
+  const y = opts.crop ? (base + (PC.H - rows) * n) / k : base / k;                                       // (cropped: the feet go below the canvas)
+  PC.draw(ctx, L, { crown: look(g.crown), outfit: look(g.outfit), cape: look(g.cape) }, dir, cx / k, y, { moving: !!opts.moving, phase: opts.phase || 0, now, seed: 0.5, hurt: false });
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

@@ -18,7 +18,7 @@
     <label class="lobbyField" id="nameField">Character name<input id="lobbyName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Player"></label>
     <div id="lobbyError" hidden role="alert"></div>
     <section id="lobbyMain" class="lobbyPane">
-      <div id="charCard"><canvas id="charMini" width="60" height="76"></canvas><div class="charInfo"><b id="charCardName"></b><span id="charCardDesc"></span></div><button id="charEdit" type="button">Edit character</button></div>
+      <div id="charCard"><canvas id="charMini" width="60" height="64"></canvas><div class="charInfo"><b id="charCardName"></b><span id="charCardDesc"></span></div><button id="charEdit" type="button">Edit character</button></div>
       <button id="lobbySolo" class="big">Play solo</button>
       <button id="lobbyHost" class="big">Host a game</button>
       <button id="lobbyJoin" class="big">Join a game</button>
@@ -27,7 +27,11 @@
     <section id="lobbyCreator" class="lobbyPane" hidden>
       <h2>Create your character</h2>
       <div class="creatorTop">
-        <canvas id="charPreview" width="140" height="176"></canvas>
+        <div class="charStage">
+          <canvas id="charPreview" width="168" height="200"></canvas>
+          <div class="stageCtl"><button id="charTurnL" type="button" aria-label="Turn left">&#9664;</button><button id="charWalk" type="button">Walk</button><button id="charTurnR" type="button" aria-label="Turn right">&#9654;</button></div>
+          <div class="charViews"><canvas width="60" height="88" data-view="down"></canvas><canvas width="60" height="88" data-view="left"></canvas><canvas width="60" height="88" data-view="up"></canvas></div>
+        </div>
         <div class="creatorSide"><div class="seg" id="bodySeg"></div><button id="charRandom" type="button" class="alt small">Surprise me</button></div>
       </div>
       <div class="optRow"><span>Hair style</span><div class="chips" id="hairChips"></div></div>
@@ -79,8 +83,8 @@
 <div id="healthBar" class="vital health"><div id="healthFill" class="fill"></div><span id="healthLabel" class="vlabel">Healthy</span></div>
 <div id="hungerBar" class="vital"><div id="hungerFill" class="fill"></div><span id="hungerLabel" class="vlabel">Fed</span></div>
 <div id="thirstBar" class="vital water"><div id="thirstFill" class="fill"></div><span id="thirstLabel" class="vlabel">Hydrated</span></div>
-<div id="clock">&#9728; 09:00</div>
-<div id="seasonBar"><div class="sbText"><span class="sbIcon"></span><b class="sbName"></b><span class="sbDay"></span></div><div class="sbTrack"><div class="sbFill"></div></div><div class="sbNews" hidden></div></div>
+<div id="clock" hidden></div>
+<div id="seasonBar"><div class="sbClock"><canvas width="20" height="20"></canvas><span class="sbPhase"></span></div><div class="sbSeason"><div class="sbText"><span class="sbIcon"></span><b class="sbName"></b><span class="sbDay"></span></div><div class="sbTrack"><div class="sbFill"></div></div></div><div class="sbNews" hidden></div></div>
 <div id="abilityBar" hidden></div>
 <div id="inventoryPanel" hidden>
   <header><span>Inventory</span><button id="invClose" tabindex="-1">&#x2715;</button></header>
