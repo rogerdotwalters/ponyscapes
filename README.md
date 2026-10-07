@@ -10,25 +10,32 @@
 
 ## Deploy to Cloudflare Pages (about 10 minutes)
 
-You need a free Cloudflare account and Node 18+. Two pieces go up: the **relay Worker** (multiplayer rooms, a Durable Object; Pages cannot host those itself)
-and the **Pages site** (the game). The site's `/ws` function hands each WebSocket to the relay, so players only ever use the Pages address.
+You need a free Cloudflare account. Two pieces go up: the **Pages site** (the game) and the **relay Worker** (multiplayer rooms, a Durable Object;
+Pages cannot host those itself). The site publishes on its own: solo and offline play work straight away, and multiplayer switches on once the
+relay is deployed and the site is pointed at it. The site's `/ws` function hands each WebSocket to the relay, so players only ever use the Pages address.
+
+**From the terminal** (Node 18+):
 
 ```bash
 npm install
 npx wrangler login          # opens a browser once
-npm run deploy:relay        # 1. the relay Worker "realm-relay" (do this first: the site binds to it)
-npm run deploy:pages        # 2. the game on Pages, project "realm" (wrangler asks to create it the first time)
+npm run deploy:relay        # 1. the relay Worker "realm-relay": note the address it prints, e.g. https://realm-relay.YOUR-NAME.workers.dev
+#   2. put that address in wrangler.toml:  RELAY_URL = "https://realm-relay.YOUR-NAME.workers.dev"
+npm run deploy:pages        # 3. the game on Pages, project "realm" (wrangler asks to create it the first time)
 ```
 
-Or both at once: `npm run deploy`. Open the address wrangler prints (e.g. `https://realm.pages.dev`), press **Host a game**, and share the code or link.
-Check the relay binding at `https://realm.pages.dev/health` (`"relay": true`).
+**From the Cloudflare dashboard (Git, no terminal):**
+1. *The site:* Workers & Pages > Create > Pages > Connect to Git, pick this repository. *Build command:* (leave empty), *Build output directory:* `public`.
+   It publishes with or without the relay.
+2. *The relay:* Workers & Pages > Create > Workers > Import a repository, pick this repository, name it `realm-relay`, and set the
+   *Deploy command* to `npx wrangler deploy -c relay/wrangler.toml`. Note its address (`https://realm-relay.YOUR-NAME.workers.dev`).
+3. Put that address in `wrangler.toml` (`RELAY_URL = "..."`), commit, and the site redeploys with multiplayer on.
 
-**Deploying from Git instead:** in the Cloudflare dashboard, Workers & Pages > Create > Pages > Connect to Git, pick this repository and set
-*Build command:* (leave empty), *Build output directory:* `public`. The repo's `wrangler.toml` supplies the relay binding, and `functions/` is picked up
-automatically. The relay Worker still has to be deployed once with `npm run deploy:relay`; redeploy it only when `src/` or the relay modules change.
+Check it at `https://realm.pages.dev/health`: `"relay": true` means multiplayer is on (`"via": "url"` or `"binding"`). Then press **Host a game** and share the code or link.
 
-Names: the Pages project is `realm` and the relay Worker `realm-relay` (in `wrangler.toml` and `relay/wrangler.toml`). If you rename the Worker, change
-`script_name` in `wrangler.toml` to match.
+The error *"script realm-relay not found" (8000109)* means the site was bound to a relay Worker that does not exist yet. The binding is now
+off by default; if you want it (option b in `wrangler.toml`: the site talks to the rooms directly instead of through the relay's address),
+uncomment it only after the relay Worker is deployed. If you rename the Worker, change `script_name` there to match.
 
 **All-in-one alternative:** the relay Worker also serves the game, so `npm run deploy:relay` alone gives a working site at `https://realm-relay.NAME.workers.dev`.
 Try everything locally with `npm run dev` (that Worker) or, for the Pages setup, `npx wrangler dev -c relay/wrangler.toml` in one terminal and `npx wrangler pages dev` in another.

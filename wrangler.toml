@@ -1,13 +1,21 @@
 # Cloudflare PAGES: the game. Deploy with `npm run deploy:pages`, or connect the Git repository in the Cloudflare dashboard
 # (Workers & Pages > Create > Pages > Connect to Git) with build command: (none)  and  build output directory: public
 #
-# Multiplayer: functions/ws.js hands each WebSocket to the relay's Durable Object, which lives in the relay Worker (relay/wrangler.toml).
-# Deploy that Worker FIRST (npm run deploy:relay); without it the game still runs solo and offline, and "Host a game" reports that it cannot reach the relay.
+# Multiplayer: functions/ws.js hands each WebSocket to the relay Worker (relay/wrangler.toml), which holds one Durable Object per room.
+# The site publishes WITHOUT the relay (solo and offline play always work). To switch multiplayer on, deploy the relay Worker first
+# (`npm run deploy:relay`, or in the dashboard: Workers & Pages > Create > Import a repository, this repo, deploy command
+# `npx wrangler deploy -c relay/wrangler.toml`), then do ONE of these and redeploy this site:
+#   a) set RELAY_URL below to the relay's address, e.g. "https://realm-relay.YOUR-NAME.workers.dev"  (simplest), or
+#   b) uncomment the [[durable_objects.bindings]] block below (binds straight to the relay's rooms).
+# Do not uncomment (b) before the relay Worker exists: Cloudflare refuses to publish ("script realm-relay not found", error 8000109).
 name = "realm"
 pages_build_output_dir = "public"
 compatibility_date = "2025-09-01"
 
-[[durable_objects.bindings]]
-name = "ROOMS"
-class_name = "RealmRoom"
-script_name = "realm-relay"        # the relay Worker's name in relay/wrangler.toml
+[vars]
+RELAY_URL = ""                     # e.g. "https://realm-relay.YOUR-NAME.workers.dev" once the relay Worker is deployed
+
+# [[durable_objects.bindings]]
+# name = "ROOMS"
+# class_name = "RealmRoom"
+# script_name = "realm-relay"      # the relay Worker's name in relay/wrangler.toml
