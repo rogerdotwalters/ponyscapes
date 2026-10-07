@@ -387,8 +387,9 @@ const ItemIcons = (() => {
       ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(15, 37); ctx.lineTo(33, 37); ctx.moveTo(24, 32); ctx.lineTo(24, 44); ctx.stroke();
       ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(24, 33); ctx.lineTo(24, 18); ctx.stroke();  // the stem
       ctx.fillStyle = leaf;
-      if (pine) { for (const [y, w] of [[6, 5], [12, 8], [18, 11]]) { ctx.beginPath(); ctx.moveTo(24, y); ctx.lineTo(24 + w, y + 9); ctx.lineTo(24 - w, y + 9); ctx.closePath(); ctx.fill(); } }
-      else { for (const [x, y, r] of [[18, 17, 7], [30, 16, 7], [24, 10, 8], [24, 20, 6]]) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); } }
+      ctx.strokeStyle = 'rgba(20,30,15,.75)'; ctx.lineWidth = 2;                                                         // outlined, so it reads on any background
+      const shape = () => { ctx.beginPath(); if (pine) for (const [y, w] of [[6, 5], [12, 8], [18, 11]]) { ctx.moveTo(24, y); ctx.lineTo(24 + w, y + 9); ctx.lineTo(24 - w, y + 9); ctx.closePath(); } else for (const [x, y, r] of [[18, 17, 7], [30, 16, 7], [24, 10, 8], [24, 20, 6]]) { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); } };
+      shape(); ctx.stroke(); ctx.fillStyle = leaf; shape(); ctx.fill();
       ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(pine ? 21 : 29, pine ? 24 : 20, 3, 0, Math.PI * 2); ctx.fill();
       if (def.sapling === 'apple') { ctx.fillStyle = '#d9382b'; for (const [x, y] of [[19, 19], [29, 13]]) { ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill(); } }
     };

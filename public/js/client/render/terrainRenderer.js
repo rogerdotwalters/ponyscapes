@@ -60,14 +60,49 @@ const TerrainRenderer = (() => {
   /** Still ground: baked into its block. (Everything else is drawn every frame.) */
   const STILL = t => t === TILE.GRASS || t === TILE.DIRT || t === TILE.SAND || t === TILE.CLAY || t === TILE.STONE || t === TILE.CAVE || t === TILE.CAVE_WALL;
   /** One tile's still ground (no tilled soil: that is drawn live). */
-  function stillGround(ctx, map, type, tx, ty) {
-    if (type === TILE.GRASS) { const p = GROUND[map.biome(tx, ty)]; cells(ctx, 'grass', p ? p[0] : GRASS, tx, ty, null, !p); }
-    else if (type === TILE.DIRT) { const p = GROUND[map.biome(tx, ty)]; cells(ctx, 'dirt', p ? p[1] : DIRT, tx, ty, null, false); }
-    else if (type === TILE.SAND) cells(ctx, 'sand', SAND, tx, ty, null, false);
-    else if (type === TILE.CLAY) cells(ctx, 'clay', CLAY, tx, ty, null, false);
-    else if (type === TILE.CAVE) cells(ctx, 'cave', CAVE_FLOOR, tx, ty, null, false);
-    else if (type === TILE.CAVE_WALL) cells(ctx, 'cave', CAVE_WALL, tx, ty, null, false);
-    else cells(ctx, 'stone', STONE, tx, ty, null, false);
+  function stillGround(ctx, map, type, tx, ty) { const look = lookOf(map, tx, ty, type); if (look) cells(ctx, look.kind, look.pal, tx, ty, null, look.seasonal); }
+
+  /* ---- autotiling (autoTile.js): each tile's ground is a LOOK (kind + palette, and a rank); a neighbour that outranks it spills into it ---- */
+  const looks = new Map(), BIOME_ORDER = Object.fromEntries(Biomes.ids().map((id, i) => [id, i + 1]));
+  /** One look per kind and palette (made once). The rank orders kinds (AutoTile.RANKS) and, within a kind, biomes (a biome's grass over the meadow's). */
+  function look(kind, pal, seasonal, biome) {
+    const id = kind + '|' + pal[0];
+    let l = looks.get(id);
+    if (!l) { l = { id, kind, pal, seasonal, rank: (AutoTile.RANKS[kind] ?? -1) * 100 + (biome ? BIOME_ORDER[biome] || 0 : 0), dark: PixelCharacter.util.shade(pal[0], 0.68) }; looks.set(id, l); }
+    return l;
+  }
+  /** The still ground of a tile as a look, or null (water, room floors: they are drawn otherwise and never blend). */
+  function lookOf(map, tx, ty, type = map.tile(tx, ty)) {
+    if (type === TILE.GRASS) { const b = map.biome(tx, ty), p = GROUND[b]; return p ? look('grass', p[0], false, b) : look('grass', GRASS, true); }
+    if (type === TILE.DIRT) { const b = map.biome(tx, ty), p = GROUND[b]; return p ? look('dirt', p[1], false, b) : look('dirt', DIRT, false); }
+    if (type === TILE.SAND) return look('sand', SAND, false);
+    if (type === TILE.CLAY) return look('clay', CLAY, false);
+    if (type === TILE.CAVE) return look('cave', CAVE_FLOOR, false);
+    if (type === TILE.CAVE_WALL) return look('cave', CAVE_WALL, false);
+    if (type === TILE.STONE) return look('stone', STONE, false);
+    return null;
+  }
+  const scratch = document.createElement('canvas'), tint = document.createElement('canvas');
+  scratch.width = tint.width = AutoTile.TW; scratch.height = tint.height = AutoTile.TH;
+  const sc = scratch.getContext('2d'), tc = tint.getContext('2d');
+  const ART = AutoTile.TW / (2 * TILE_HALF_W);                                        // art pixels per world pixel
+  /** Paint over a tile the fringes of every neighbouring ground that outranks it. */
+  function blend(ctx, map, tx, ty, here) {
+    const list = AutoTile.spills(here, tx, ty, (x, y) => lookOf(map, x, y));
+    if (!list) return;
+    const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H, variant = AutoTile.variantOf(tx, ty);
+    for (const { look: l, edges, corners } of list) {
+      const m = AutoTile.mask(edges, corners, variant);
+      sc.globalCompositeOperation = 'source-over'; sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, AutoTile.TW, AutoTile.TH);
+      sc.setTransform(ART, 0, 0, ART, AutoTile.TW / 2 - cx * ART, -(cy - TILE_HALF_H) * ART); sc.imageSmoothingEnabled = false;
+      cells(sc, l.kind, l.pal, tx, ty, null, l.seasonal);                             // the neighbour's ground, laid over this whole tile ...
+      sc.setTransform(1, 0, 0, 1, 0, 0);
+      sc.globalCompositeOperation = 'destination-in'; sc.drawImage(m.fill, 0, 0);   // ... cut to the fringe
+      tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = l.dark; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
+      tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.rim, 0, 0);
+      sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // and a dark rim where it meets this tile's own ground
+      ctx.drawImage(scratch, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
+    }
   }
   /** Paint one block: every tile whose ground reaches into it, in the same order as the live drawing (its tiles' chunks are made if needed). */
   function bake(map, bx, by) {
@@ -80,11 +115,13 @@ const TerrainRenderer = (() => {
     const tile = (x, y) => [(x / TILE_HALF_W + y / TILE_HALF_H) / 2, (y / TILE_HALF_H - x / TILE_HALF_W) / 2];
     const cs = [tile(l, t), tile(r, t), tile(l, b), tile(r, b)], tx0 = Math.floor(Math.min(...cs.map(c => c[0]))), tx1 = Math.ceil(Math.max(...cs.map(c => c[0])));
     const ty0 = Math.floor(Math.min(...cs.map(c => c[1]))), ty1 = Math.ceil(Math.max(...cs.map(c => c[1])));
+    const inBlock = [];
     for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
       const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H;
       if (cx < l || cx > r || cy < t || cy > b) continue;
-      const type = map.tile(tx, ty); if (STILL(type)) stillGround(ctx, map, type, tx, ty);
+      const type = map.tile(tx, ty); if (STILL(type)) { stillGround(ctx, map, type, tx, ty); inBlock.push(tx, ty, type); }
     }
+    for (let i = 0; i < inBlock.length; i += 3) blend(ctx, map, inBlock[i], inBlock[i + 1], lookOf(map, inBlock[i], inBlock[i + 1], inBlock[i + 2]));   // then the borders, over all of it
     store.delete(key); store.set(key, { canvas, x0, y0, season, scale: s });
   }
   const fresh = p => p && p.season === season && p.scale === bakeScale;
@@ -130,7 +167,7 @@ const TerrainRenderer = (() => {
       else if (type === TILE.SHALLOW) { diamondPath(ctx, cx, cy); drawShallow(ctx, map, tx, ty, cx, cy, variant, t); }
       else if (type >= INTERIOR_TILE_BASE) { diamondPath(ctx, cx, cy); InteriorSprites.tile(ctx, type, cx, cy, tx, ty); }   // a room's floor (or the dark outside it)
       else {
-        if (!baked) stillGround(ctx, map, type, tx, ty);
+        if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, lookOf(map, tx, ty, type)); }
         if (farm && (type === TILE.GRASS || type === TILE.DIRT) && (farm[tx * 2 + ',' + ty * 2] || farm[(tx * 2 + 1) + ',' + ty * 2] || farm[tx * 2 + ',' + (ty * 2 + 1)] || farm[(tx * 2 + 1) + ',' + (ty * 2 + 1)])) {
           const p = GROUND[map.biome(tx, ty)];                                                  // tilled soil: live (it darkens when watered)
           cells(ctx, type === TILE.GRASS ? 'grass' : 'dirt', p ? p[type === TILE.GRASS ? 0 : 1] : (type === TILE.GRASS ? GRASS : DIRT), tx, ty, farm, type === TILE.GRASS && !p);

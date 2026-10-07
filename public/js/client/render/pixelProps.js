@@ -126,11 +126,15 @@ const PixelProps = (() => {
   function drawSapling(ctx, sx, sy, sp, frac, tint) {
     const def = (typeof TreeSpecies !== 'undefined' && TreeSpecies.get(sp)) || { look: 'leafy' }, pine = def.look === 'pine', u = PX;
     if (frac < 0.3) {                                                               // a sprout: a stem and a few leaves (a tiny cone for a pine)
-      const leaf = tinted(pine ? '#2f6b4b' : '#5f9c4a', tint), dark = shade(leaf, 0.7), px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(sx + x * u * 1.6), Math.round(sy + y * u * 1.6), Math.ceil(u * 1.6), Math.ceil(u * 1.6)); };
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
-      for (let y = -1; y >= -7; y--) px(0, y, '#6b4a2a');
-      if (pine) { for (let r = 0; r < 4; r++) for (let x = -r; x <= r; x++) px(x, -9 + r * 1.5, r % 2 ? dark : leaf); }
-      else for (const [x, y, c] of [[-1, -7, leaf], [-2, -6, leaf], [-3, -6, dark], [1, -8, leaf], [2, -8, leaf], [3, -9, dark], [0, -9, leaf], [-1, -4, leaf], [1, -5, dark]]) px(x, y, c);
+      const leaf = light(tinted(pine ? '#2f6b4b' : '#5f9c4a', tint), 0.18), dark = shade(leaf, 0.62), k = u * 2.2, art = [];
+      for (let y = -1; y >= -6; y--) art.push([0, y, '#6b4a2a']);                    // the stem
+      if (pine) { for (let r = 0; r < 4; r++) for (let x = -r; x <= r; x++) art.push([x, -10 + r * 2, r % 2 ? dark : leaf], [x, -9 + r * 2, leaf]); }
+      else for (const [x, y, c] of [[-1, -6, leaf], [-2, -6, leaf], [-3, -7, leaf], [-2, -7, dark], [1, -7, leaf], [2, -7, leaf], [3, -8, leaf], [2, -8, dark], [0, -8, leaf], [0, -9, leaf], [-1, -4, leaf], [-2, -4, dark], [1, -4, leaf]]) art.push([x, y, c]);
+      const at = new Set(art.map(([x, y]) => x + ',' + y)), px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(sx + (x - 0.5) * k), Math.round(sy + y * k), Math.ceil(k), Math.ceil(k)); };
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 9, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#7a5233'; ctx.beginPath(); ctx.ellipse(sx, sy, 6, 2.4, 0, 0, Math.PI * 2); ctx.fill();   // a patch of freshly dug earth
+      for (const [x, y] of art) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!at.has((x + dx) + ',' + (y + dy))) px(x + dx, y + dy, '#1e2a14');   // a dark outline, so it shows on grass
+      for (const [x, y, c] of art) px(x, y, c);
       return;
     }
     const k = 0.3 + 0.55 * frac;                                                    // a young tree, growing towards full size
