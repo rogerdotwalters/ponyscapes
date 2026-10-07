@@ -447,12 +447,14 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 @media (max-width:560px){.admSlide{grid-template-columns:1fr auto}.admSlide input[type=range],.admSlide input[type=number]{grid-column:1/-1;order:3}}
 
 /* the season bar: the season, its day, and a bar filling as it passes (seasonUI in vitalsUI.js) */
-#seasonBar{position:fixed;z-index:4;top:8px;left:50%;transform:translateX(-50%);width:min(440px,60vw);padding:5px 10px 7px;display:flex;align-items:center;gap:10px;border-radius:9px;
+#seasonBar{position:fixed;z-index:4;box-sizing:border-box;padding:0 .7em;border-radius:9px;display:flex;align-items:center;gap:.7em;
   background:rgba(14,22,32,.72);border:1.5px solid rgba(227,194,122,.55);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
-#seasonBar .sbText{display:flex;align-items:center;gap:6px;justify-content:center;white-space:nowrap}
+#seasonBar .sbText{display:flex;align-items:center;gap:.45em;justify-content:center;white-space:nowrap;overflow:hidden}
 #seasonBar .sbName{color:var(--season,#7cc86a)}
-#seasonBar .sbDay{opacity:.85;font-weight:400}
-#seasonBar .sbTrack{position:relative;margin-top:4px;height:7px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;
+#seasonBar .sbDay,#seasonBar .sbDayShort{opacity:.85;font-weight:400}
+#seasonBar .sbDayShort,#seasonBar.compact .sbDay{display:none}
+#seasonBar.compact .sbDayShort{display:inline}
+#seasonBar .sbTrack{position:relative;margin-top:.3em;height:.55em;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
 #seasonBar .sbFill{height:100%;width:0;background:var(--season,#7cc86a);border-radius:4px;transition:width .6s linear}
 #seasonBar .sbTrack::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(var(--dayw,5%) - 1px),rgba(0,0,0,.35) calc(var(--dayw,5%) - 1px) var(--dayw,5%))}
@@ -460,11 +462,23 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
   background:rgba(14,22,32,.85);color:var(--season,#7cc86a);font-size:14px;animation:sbNews 4s ease forwards}
 @keyframes sbNews{0%{opacity:0;transform:translate(-50%,-6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
 #seasonBar .sbSeason{flex:1;min-width:0}
-#seasonBar .sbClock{display:flex;align-items:center;gap:6px;padding-right:10px;border-right:1px solid rgba(227,194,122,.35);white-space:nowrap}
-#seasonBar .sbClock canvas{width:34px;height:34px;image-rendering:pixelated;image-rendering:crisp-edges}
-#seasonBar .sbPhase{font-weight:700;color:#f6e3a6;min-width:4.5em}
+#seasonBar .sbClock{display:flex;align-items:center;gap:.45em;padding-right:.7em;border-right:1px solid rgba(227,194,122,.35);white-space:nowrap;flex:none}
+#seasonBar .sbClock canvas{width:2.3em;height:2.3em;image-rendering:pixelated;image-rendering:crisp-edges}
+#seasonBar .sbPhase{font-weight:700;color:#f6e3a6}
+#seasonBar.tiny .sbPhase{display:none}
+#seasonBar.tiny{gap:.5em;padding:0 .55em}
+#seasonBar.tiny .sbClock{padding-right:.5em}
 #seasonBar .sbClock[data-phase="night"] .sbPhase,#seasonBar .sbClock[data-phase="predawn"] .sbPhase{color:#b9cdf5}
 #seasonBar .sbClock[data-phase="evening"] .sbPhase{color:#f2a45a}
 #seasonBar .sbClock[data-phase="glow"] .sbPhase{color:#f07a6a}
-@media (max-width:620px){#seasonBar{width:min(300px,72vw);top:auto;bottom:auto;top:calc(var(--sbTop,52px))}#seasonBar .sbPhase{display:none}#seasonBar .sbClock{padding-right:6px}#seasonBar .sbClock canvas{width:26px;height:26px}#seasonBar .sbDay{display:none}}
 #clock[hidden]{display:none}
+/* ---------- short landscape phones: a compact creator (the big preview stays; the header and the three small views give way) ---------- */
+@media (max-height:500px) and (min-aspect-ratio:5/4){
+  .lobbyCard h1{font-size:22px;margin:0}
+  .lobbySub{display:none}
+  #lobbyCreator h2{font-size:16px;margin:2px 0}
+  .charViews{display:none}
+  #lobbyCreator #charDone{padding:8px;font-size:15px}
+  #lobbyCreator .optRow{gap:2px}
+  #lobbyCreator .chips button{min-width:58px}
+}

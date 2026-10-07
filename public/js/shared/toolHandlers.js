@@ -256,9 +256,7 @@ class LeashHandler {
       this.emit({ type: 'notice', to: id, text: 'The loop missed! It bolted' });
       return;
     }
-    if (fromSlot) p.gear.lasso = ''; else inventory.remove(item, 1);       // the lasso stays on the animal; untie it to get it back
-    a.lassoItem = item;
-    this.markInventoryChanged(id);
+    // (a lasso is a tool, not used up: it stays in your hand or lasso slot, ready for the next throw)
     if (def.pony && !mine) {
       this.animals.capture(target.ref, id);
       this.award(id, 'horsemanship', Math.round(40 * AnimalLevels.xpFactor(a.level)));

@@ -137,10 +137,12 @@ Object.assign(GameServer.prototype, {
     return Object.assign({}, input, { action: true });
   },
   _lassoDone(p) { if (p.lassoSwing && p.swingT <= 0) p.lassoSwing = false; },
-  /** The lasso comes off an animal: back into the lasso slot if it is empty, else the pack, else onto the ground. */
+  /** An animal caught in an older save kept the lasso that caught it: it comes back now (into the lasso slot if empty, else the pack,
+   *  else onto the ground). Lassos are tools now and are never used up, so newer catches have nothing to return. */
   _returnLasso(id, a) {
-    const p = this.players[id], inventory = this.inventories[id], item = (a && a.lassoItem) || 'leash';
-    if (a) delete a.lassoItem;
+    const p = this.players[id], inventory = this.inventories[id], item = a && a.lassoItem;
+    if (!item) return;
+    delete a.lassoItem;
     if (!p) return;
     if (!p.gear.lasso) p.gear.lasso = item;
     else if (inventory.add(item, 1) > 0) this._dropOnGround(item, 1, p.x, p.y, gridOf(p));

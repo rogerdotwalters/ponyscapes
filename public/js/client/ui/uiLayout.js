@@ -45,7 +45,7 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
 
 /**
  * @param {{w:number, h:number, insets?:{top,right,bottom,left}, touch:boolean, host?:boolean}} screen  CSS pixels
- * @returns {{k, topButtons, toolbar, health, hunger, thirst, clock, emote, touch, panels, debug, hint}} every rect is { x, y, w, h }
+ * @returns {{k, topButtons, toolbar, health, hunger, thirst, clock, season, emote, touch, panels, debug, hint}} every rect is { x, y, w, h }
  */
 function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0 }, touch, host = false }) {
   const k = clamp(Math.min(w, h) / 380, 0.8, 1.25);          // phones ~1, tablets / desktop a little larger
@@ -101,6 +101,16 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const clock = makeRect(toolbar.x + toolbar.w, vitalsY, clockW, vitalsH);
   let topUsed = (touch ? Math.max(vitalsY + vitalsH, systemBar.y + systemBar.h) : systemBar.y + systemBar.h) + m;   // y where free space starts
 
+  /* ---- the season bar (with the time-of-day clock): top centre on desktop, clear of the buttons; on touch screens its own row under the vitals ---- */
+  const seasonH = Math.round(36 * k);
+  let season;
+  const besideBar = toolbar.x - m - left;                                     // landscape phones: free room at the top left, beside the toolbar
+  if (touch && besideBar >= 210 * k) season = makeRect(left, top, Math.min(Math.round(340 * k), besideBar), seasonH);
+  else if (touch) season = makeRect(toolbar.x, vitalsY + vitalsH + gap, toolbar.w, seasonH);
+  else { const room = systemBar.x - m - left, sw = Math.min(Math.round(440 * k), room); season = makeRect(clamp(w / 2 - sw / 2, left, systemBar.x - m - sw), top, sw, seasonH); }
+  season.compact = season.w < 400 * k; season.tiny = season.w < 300 * k;   // (shorter day text; then the clock shows its picture only)
+  topUsed = Math.max(topUsed, season.y + season.h + m);
+
   /* ---- touch controls: both thumbs' controls must fit side by side, so they shrink on narrow screens ---- */
   let touchLayout = null;
   if (touch) {
@@ -127,7 +137,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
       place2(x0, bottom - ub); utilityAtBottom = true;
       touchLayout.zone = makeRect(0, touchLayout.zone.y, Math.min(touchLayout.zone.w, emote.x - 4), touchLayout.zone.h);
     } else {                                                   // narrow (portrait): a small row under the vitals instead
-      place2(toolbar.x, vitalsY + vitalsH + gap);
+      place2(toolbar.x, season.y + season.h + gap);
       topUsed = Math.max(topUsed, emote.y + emote.h + m);
       touchLayout.zone = makeRect(0, Math.max(h * 0.38, topUsed), touchLayout.zone.w, h - Math.max(h * 0.38, topUsed));
     }
@@ -146,6 +156,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     const between = makeRect(touchLayout.base.x + touchLayout.base.w + m, topUsed, touchLayout.cluster.x - m - (touchLayout.base.x + touchLayout.base.w + m), regionBottom - topUsed);
     const above = makeRect(left, topUsed, right - left, touchLayout.cluster.y - m - topUsed);
     region = invSlotFor(between) >= MIN_PANEL_SLOT || invSlotFor(between) >= invSlotFor(above) ? between : above;
+    if (w > h) region = makeRect(left, topUsed, right - left, bottom - topUsed);   // landscape phones: the panels are modal, so they take the full height under the toolbar (over the thumb controls)
   } else {
     region = makeRect(left, topUsed, right - left, abilityBar.y - m - topUsed);
   }
@@ -171,11 +182,11 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   };
 
   /* ---- text overlays ---- */
-  const debug = { x: left, y: touch ? (emote && !utilityAtBottom ? emote.y + emote.h : vitalsY + vitalsH) + gap : top };
+  const debug = { x: left, y: touch ? (emote && !utilityAtBottom ? emote.y + emote.h : season.y + season.h) + gap : season.y + season.h + gap };
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
-  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -230,6 +241,7 @@ class UiLayout {
     dom.mapPanel.style.width = P.map.w + 'px'; dom.mapBody.style.maxHeight = Math.max(80, P.map.h - P.header - 2 * P.pad - 6) + 'px';        // the tab row takes some of the room
 
     place(dom.health, L.health); place(dom.clock, L.clock);
+    if (dom.season) { place(dom.season, L.season); dom.season.style.fontSize = Math.round(12 * L.k) + 'px'; dom.season.classList.toggle('compact', L.season.compact); dom.season.classList.toggle('tiny', L.season.tiny); }
     for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
