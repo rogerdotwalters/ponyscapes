@@ -7,7 +7,7 @@ const DETAIL = TILE_HALF_W / 32;          // ground detail was authored for 64px
 const TerrainRenderer = (() => {
   const GRASS = ['#5f9c4a', '#68a652', '#589145'], DIRT = ['#a07a52', '#a98258', '#98724b'], STONE = ['#a9a59c', '#b3afa5', '#9d998f'];
   const SAND = ['#dccb94', '#d4c18a', '#e2d29d'], CLAY = ['#b8734a', '#c27d52', '#ad6a44'];
-  const WATER = ['#2c6b99', '#2f70a0', '#2a6794'], SHALLOW = ['rgba(98,181,214,.74)', 'rgba(104,186,217,.74)', 'rgba(92,175,209,.74)'];
+  const WATER = ['#2c6b99', '#2f70a0', '#2a6794'], SHALLOW = ['#6fb4c6', '#76bacb', '#68adc0'];      // (the shallows: sand seen through clear water)
 
   /** Ground colours and effects by biome come from the BIOME TABLE (js/data/biomes/): [grass x3, dirt x3]. A biome with ground: null uses the plain meadow colours. */
   const GROUND = Object.fromEntries(Biomes.all().filter(b => b.ground).map(b => [b.id, [b.ground.grass, b.ground.dirt]]));
@@ -58,7 +58,7 @@ const TerrainRenderer = (() => {
     return true;
   }
   /** Still ground: baked into its block. (Everything else is drawn every frame.) */
-  const STILL = t => t === TILE.GRASS || t === TILE.DIRT || t === TILE.SAND || t === TILE.CLAY || t === TILE.STONE || t === TILE.CAVE || t === TILE.CAVE_WALL;
+  const STILL = t => t === TILE.GRASS || t === TILE.DIRT || t === TILE.SAND || t === TILE.CLAY || t === TILE.STONE || t === TILE.CAVE || t === TILE.CAVE_WALL || t === TILE.WATER || t === TILE.SHALLOW;
   /** One tile's still ground (no tilled soil: that is drawn live). */
   function stillGround(ctx, map, type, tx, ty) { const look = lookOf(map, tx, ty, type); if (look) cells(ctx, look.kind, look.pal, tx, ty, null, look.seasonal); }
 
@@ -80,13 +80,18 @@ const TerrainRenderer = (() => {
     if (type === TILE.CAVE) return look('cave', CAVE_FLOOR, false);
     if (type === TILE.CAVE_WALL) return look('cave', CAVE_WALL, false);
     if (type === TILE.STONE) return look('stone', STONE, false);
+    if (type === TILE.WATER) return look('water', WATER, false);
+    if (type === TILE.SHALLOW) return look('shallow', SHALLOW, false);
     return null;
   }
   const scratch = document.createElement('canvas'), tint = document.createElement('canvas');
   scratch.width = tint.width = AutoTile.TW; scratch.height = tint.height = AutoTile.TH;
   const sc = scratch.getContext('2d'), tc = tint.getContext('2d');
   const ART = AutoTile.TW / (2 * TILE_HALF_W);                                        // art pixels per world pixel
-  /** Paint over a tile the fringes of every neighbouring ground that outranks it. */
+  const FOAM = '#eef8fb', SHALLOW_RIM = 'rgba(190,235,245,.7)', WET = 'rgba(30,55,80,.3)';
+  const watery = l => !!l && !!AutoTile.WATERY[l.kind];
+  /** Paint over a tile the fringes of every neighbouring ground that outranks it. Land running out over water is the SHORE: the outer half of
+   *  its fringe is wet (darker) and its rim is foam. */
   function blend(ctx, map, tx, ty, here) {
     const list = AutoTile.spills(here, tx, ty, (x, y) => lookOf(map, x, y));
     if (!list) return;
@@ -98,7 +103,15 @@ const TerrainRenderer = (() => {
       cells(sc, l.kind, l.pal, tx, ty, null, l.seasonal);                             // the neighbour's ground, laid over this whole tile ...
       sc.setTransform(1, 0, 0, 1, 0, 0);
       sc.globalCompositeOperation = 'destination-in'; sc.drawImage(m.fill, 0, 0);   // ... cut to the fringe
-      tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = l.dark; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
+      if (watery(here) && !watery(l)) {                                                // the shore: wet ground along the waterline
+        const thin = AutoTile.mask(edges, corners, variant, true);
+        tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = WET; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
+        tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.fill, 0, 0);
+        tc.globalCompositeOperation = 'destination-out'; tc.drawImage(thin.fill, 0, 0);
+        sc.globalCompositeOperation = 'source-atop'; sc.drawImage(tint, 0, 0);
+      }
+      const rim = !watery(here) ? l.dark : watery(l) ? SHALLOW_RIM : FOAM;             // a dark outline on land; on water, foam where the beach meets it
+      tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = rim; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
       tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.rim, 0, 0);
       sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // and a dark rim where it meets this tile's own ground
       ctx.drawImage(scratch, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
@@ -140,7 +153,7 @@ const TerrainRenderer = (() => {
   }
   /** Jobs that make every biome's ground cells (all their varieties) for this season, so new ground never has to (the loader runs them while you play). */
   function warmJobs(seasonId) {
-    const sets = [['grass', GRASS, seasonId], ['dirt', DIRT, ''], ['sand', SAND, ''], ['clay', CLAY, ''], ['stone', STONE, '']];
+    const sets = [['grass', GRASS, seasonId], ['dirt', DIRT, ''], ['sand', SAND, ''], ['clay', CLAY, ''], ['stone', STONE, ''], ['water', WATER, ''], ['shallow', SHALLOW, '']];
     for (const [, [grass, dirt]] of Object.entries(GROUND)) sets.push(['grass', grass, ''], ['dirt', dirt, '']);
     return sets.map(([kind, pal, s]) => () => { for (let v = 0; v < 6; v++) PixelTerrain.cell(kind, pal, v, s); });   // one small job per ground
   }
@@ -163,8 +176,10 @@ const TerrainRenderer = (() => {
       const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H;
       if (cx < minX - TILE_HALF_W || cx > maxX + TILE_HALF_W || cy < minY - TILE_HALF_H || cy > maxY + TILE_HALF_H) continue;
       const type = map.tile(tx, ty), noise = hash2(tx, ty), variant = (noise * 3) | 0, baked = blocked && inDrawn(drawn, cx, cy);
-      if (type === TILE.WATER) { diamondPath(ctx, cx, cy); drawWater(ctx, map, tx, ty, cx, cy, variant, t); }
-      else if (type === TILE.SHALLOW) { diamondPath(ctx, cx, cy); drawShallow(ctx, map, tx, ty, cx, cy, variant, t); }
+      if (type === TILE.WATER || type === TILE.SHALLOW) {                                  // water: baked with its shore; only the ripples move
+        if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, lookOf(map, tx, ty, type)); }
+        ripples(ctx, type === TILE.SHALLOW, tx, ty, cx, cy, t);
+      }
       else if (type >= INTERIOR_TILE_BASE) { diamondPath(ctx, cx, cy); InteriorSprites.tile(ctx, type, cx, cy, tx, ty); }   // a room's floor (or the dark outside it)
       else {
         if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, lookOf(map, tx, ty, type)); }
@@ -208,36 +223,12 @@ const TerrainRenderer = (() => {
 
 
 
-  function drawWater(ctx, map, tx, ty, cx, cy, variant, t) {
-    ctx.fillStyle = WATER[variant]; ctx.fill();
-    const drift = Math.sin(t * 1.4 + tx * 0.8 + ty * 0.6) * 4 * DETAIL;
-    ctx.strokeStyle = 'rgba(190,225,240,.35)'; ctx.lineWidth = 1.5; ctx.beginPath();
-    ctx.moveTo(cx - 14 * DETAIL + drift, cy - 3 * DETAIL); ctx.lineTo(cx - 2 * DETAIL + drift, cy - 3 * DETAIL);
-    ctx.moveTo(cx + 2 * DETAIL - drift, cy + 4 * DETAIL); ctx.lineTo(cx + 14 * DETAIL - drift, cy + 4 * DETAIL); ctx.stroke();
-
-    const edges = [[0, -1, cx, cy - TILE_HALF_H, cx + TILE_HALF_W, cy], [1, 0, cx + TILE_HALF_W, cy, cx, cy + TILE_HALF_H],
-                   [0, 1, cx, cy + TILE_HALF_H, cx - TILE_HALF_W, cy], [-1, 0, cx - TILE_HALF_W, cy, cx, cy - TILE_HALF_H]];
-    ctx.strokeStyle = 'rgba(225,240,245,.75)'; ctx.lineWidth = 2; ctx.beginPath();    // foam where water meets land
-    for (const [dx, dy, x1, y1, x2, y2] of edges) {
-      const nx = tx + dx, ny = ty + dy;
-      if (!isWaterTile(map.tile(nx, ny))) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
-    }
-    ctx.stroke();
-  }
-
-  /** Wadeable water: the sandy bottom shows through, with gentle ripples and a bright edge where it meets the beach. */
-  function drawShallow(ctx, map, tx, ty, cx, cy, variant, t) {
-    ctx.fillStyle = SAND[variant]; ctx.fill();                                   // the bottom
-    ctx.fillStyle = SHALLOW[variant]; ctx.fill();                                // the water over it
-    const drift = Math.sin(t * 1.8 + tx * 0.9 + ty * 0.7) * 5 * DETAIL;
-    ctx.strokeStyle = 'rgba(240,250,255,.5)'; ctx.lineWidth = 1.2; ctx.beginPath();
+  /** The water's ripples: two short bright strokes that drift to and fro (live, over the baked water and its shore). */
+  function ripples(ctx, shallow, tx, ty, cx, cy, t) {
+    const drift = Math.sin(t * (shallow ? 1.8 : 1.4) + tx * 0.8 + ty * 0.6) * (shallow ? 5 : 4) * DETAIL;
+    ctx.strokeStyle = shallow ? 'rgba(240,250,255,.5)' : 'rgba(190,225,240,.35)'; ctx.lineWidth = shallow ? 1.2 : 1.5; ctx.beginPath();
     ctx.moveTo(cx - 12 * DETAIL + drift, cy - 2 * DETAIL); ctx.lineTo(cx - 3 * DETAIL + drift, cy - 2 * DETAIL);
-    ctx.moveTo(cx + 3 * DETAIL - drift, cy + 5 * DETAIL); ctx.lineTo(cx + 13 * DETAIL - drift, cy + 5 * DETAIL); ctx.stroke();
-    const edges = [[0, -1, cx, cy - TILE_HALF_H, cx + TILE_HALF_W, cy], [1, 0, cx + TILE_HALF_W, cy, cx, cy + TILE_HALF_H],
-                   [0, 1, cx, cy + TILE_HALF_H, cx - TILE_HALF_W, cy], [-1, 0, cx - TILE_HALF_W, cy, cx, cy - TILE_HALF_H]];
-    ctx.strokeStyle = 'rgba(245,252,255,.8)'; ctx.lineWidth = 1.6; ctx.beginPath();
-    for (const [dx, dy, x1, y1, x2, y2] of edges) if (!isWaterTile(map.tile(tx + dx, ty + dy))) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
-    ctx.stroke();
+    ctx.moveTo(cx + 3 * DETAIL - drift, cy + 4 * DETAIL); ctx.lineTo(cx + 12 * DETAIL - drift, cy + 4 * DETAIL); ctx.stroke();
   }
 
   return { draw, setDate, setScale, load, warmJobs, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6) }; } };

@@ -87,6 +87,18 @@ const PixelTerrain = (() => {
       const P = pal;
       return make((x, y) => tone(P, x, y, v), px => { for (let i = 0; i < 4; i++) px(3 + Math.floor(hash(i, v, 43) * (AW - 6)), 2 + Math.floor(hash(v, i, 47) * (AH - 4)), i % 2 ? 'rgba(150,170,220,.6)' : '#101218'); });
     },
+    water(pal, v) {                                                                          // deep water: slow swells of blue, a few glints (the ripples move: terrainRenderer)
+      const P = pal, lite = light(P[2], 0.18), deep = shade(P[0], 0.86);
+      return make((x, y) => { const b = blotch(x, y, v); return b < 0.08 && (x + y) % 2 ? deep : tone(P, x, y, v, -0.1); }, px => {
+        for (let i = 0; i < 3; i++) { const x = 4 + Math.floor(hash(i, v, 61) * (AW - 10)), y = 3 + Math.floor(hash(v, i, 67) * (AH - 6)); for (let k = 0; k < 3; k++) px(x + k, y, lite); }
+      });
+    },
+    shallow(pal, v) {                                                                        // wadeable water: the sandy bottom shows through, sunlight in nets
+      const P = pal, net = light(P[1], 0.22), stone = shade(P[0], 0.8);
+      return make((x, y) => ((x + 3 * y + Math.floor(hash(y >> 2, 3, v) * 8)) % 13 === 0 ? net : tone(P, x, y, v)), px => {
+        for (let i = 0; i < 4; i++) px(3 + Math.floor(hash(i, v, 71) * (AW - 6)), 2 + Math.floor(hash(v, i, 73) * (AH - 4)), stone);   // pebbles on the bottom
+      });
+    },
     soil(pal, v, season, wet) {                                                              // tilled earth: ridged furrows, darker when watered
       const base = wet ? ['#4e3420', '#553823', '#47301d'] : ['#7a5233', '#83593a', '#704b2e'], ridge = wet ? '#6a4a30' : '#9c7048', furrow = wet ? '#2f1f12' : '#5a3b22';
       return make((x, y) => { const r = ((Math.floor(x / 2) + y) % 5 + 5) % 5; return r === 0 ? ridge : r === 3 ? furrow : tone(base, x, y, v); }, px => {

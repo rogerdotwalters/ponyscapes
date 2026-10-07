@@ -1,7 +1,8 @@
 'use strict';
 /* CLIENT - AUTOTILING: the ground changes at its borders, the retro way. Every kind of ground has a RANK; where a tile touches ground of a higher
  * rank, that neighbour spills over the shared edge (and round the corner) into it, with a stepped, pixel-jagged rim and a dark outline: grass
- * creeps over a dirt path, onto the beach and between the cobbles, a jungle's grass over the meadow's at a biome border.
+ * creeps over a dirt path, onto the beach and between the cobbles, a jungle's grass over the meadow's at a biome border; the beach runs
+ * out over the shallows with a line of foam, and the shallows over deep water.
  *
  * It is generic: a tile asks which of its 8 neighbours outrank it, and for each such neighbour's ground builds a 4-bit EDGE mask (N E S W) and
  * a 4-bit CORNER mask (a diagonal neighbour whose two sides are not that ground already). The masks are made once (16 x 16 combinations x 4
@@ -11,18 +12,20 @@
  * both ends of every edge, so neighbouring tiles' fringes always meet. */
 const AutoTile = (() => {
   /** Who spills over whom (higher over lower). Ground not listed never blends (water, room floors). */
-  const RANKS = { cave: 0, sand: 1, clay: 2, stone: 3, dirt: 4, grass: 5 };
+  const RANKS = { water: -3, shallow: -2, cave: 0, sand: 1, clay: 2, stone: 3, dirt: 4, grass: 5 };     // the shallows lap over deep water, the beach over the shallows
+  /** Kinds of ground that are water: land spilling onto them gets a FOAM rim, and land beside them a wet band (terrainRenderer). */
+  const WATERY = { water: true, shallow: true };
   const TW = 80, TH = 40, FRINGE = 0.24, JAG = 0.07, SEGMENTS = 6, VARIANTS = 4;
   const N = 1, E = 2, S = 4, W = 8;                                                // edges
   const NE = 1, SE = 2, SW = 4, NW = 8;                                            // corners
   const hash = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + c * 2246822519) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
   const masks = new Map();
 
-  /** How deep the fringe reaches at position t (0..1) along one edge: FRINGE at both ends, jagged in steps between. */
-  function depth(t, edge, variant) {
+  /** How deep the fringe reaches at position t (0..1) along one edge: f at both ends, jagged in steps between. */
+  function depth(t, edge, variant, f = FRINGE) {
     const seg = Math.min(SEGMENTS - 1, Math.floor(t * SEGMENTS));
-    if (seg === 0 || seg === SEGMENTS - 1) return FRINGE;
-    return FRINGE + (Math.floor(hash(variant, edge, seg) * 3) - 1) * JAG;
+    if (seg === 0 || seg === SEGMENTS - 1) return f;
+    return f + (Math.floor(hash(variant, edge, seg) * 3) - 1) * JAG * f / FRINGE;
   }
   /** Tile-local (u, v) of an art pixel's centre (u along +x, v along +y of the world), and whether it is on the diamond. */
   function uv(x, y) {
@@ -33,18 +36,18 @@ const AutoTile = (() => {
   const OVER = 0.05;                                                               // the fringe reaches this far past the tile's edge: it covers the cells' overlap
   const nearTile = (u, v) => u >= -OVER && u <= 1 + OVER && v >= -OVER && v <= 1 + OVER;
 
-  /** { fill, rim }: canvases of the fringe for these edges / corners (variant: one of a few jag patterns). */
-  function mask(edges, corners, variant) {
-    const key = edges * 16 + corners + 256 * variant;
+  /** { fill, rim }: canvases of the fringe for these edges / corners (variant: one of a few jag patterns; thin: a band half as deep). */
+  function mask(edges, corners, variant, thin = false) {
+    const key = edges * 16 + corners + 256 * variant + (thin ? 4096 : 0), f = thin ? FRINGE * 0.5 : FRINGE;
     let m = masks.get(key);
     if (m) return m;
     const inFringe = (u, v) => {
       if (!nearTile(u, v)) return false;
-      if ((edges & N) && v < depth(u, 0, variant)) return true;
-      if ((edges & E) && u > 1 - depth(v, 1, variant)) return true;
-      if ((edges & S) && v > 1 - depth(u, 2, variant)) return true;
-      if ((edges & W) && u < depth(v, 3, variant)) return true;
-      const r = FRINGE * 1.05;                                                     // corners: a stepped quarter round, as deep as an edge's end
+      if ((edges & N) && v < depth(u, 0, variant, f)) return true;
+      if ((edges & E) && u > 1 - depth(v, 1, variant, f)) return true;
+      if ((edges & S) && v > 1 - depth(u, 2, variant, f)) return true;
+      if ((edges & W) && u < depth(v, 3, variant, f)) return true;
+      const r = f * 1.05;                                                     // corners: a stepped quarter round, as deep as an edge's end
       if ((corners & NE) && (1 - u) * (1 - u) + v * v < r * r) return true;
       if ((corners & SE) && (1 - u) * (1 - u) + (1 - v) * (1 - v) < r * r) return true;
       if ((corners & SW) && u * u + (1 - v) * (1 - v) < r * r) return true;
@@ -92,6 +95,13 @@ const AutoTile = (() => {
     return out && out.sort((p, q) => p.look.rank - q.look.rank);
   }
   const variantOf = (tx, ty) => Math.floor(hash(tx, ty, 77) * VARIANTS);
+  /** Which sides (edges, and corners not already covered) of the tile at (tx, ty) touch ground that passes `test`: { edges, corners } or null. */
+  function touching(tx, ty, lookAt, test) {
+    let edges = 0, corners = 0;
+    for (const [dx, dy, bit] of OFFS) if (test(lookAt(tx + dx, ty + dy))) edges |= bit;
+    for (const [dx, dy, bit, a, b] of DIAG) if (!(edges & a) && !(edges & b) && test(lookAt(tx + dx, ty + dy))) corners |= bit;
+    return edges || corners ? { edges, corners } : null;
+  }
 
-  return { RANKS, TW, TH, mask, spills, variantOf };
+  return { RANKS, WATERY, TW, TH, mask, spills, touching, variantOf };
 })();
