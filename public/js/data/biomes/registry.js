@@ -9,8 +9,8 @@
  *   effect   the little animated detail the renderer draws (a BiomeEffects id)      ponyVariant  which pony variety lives here
  *   bush / stone / flax   chance a free tile holds one      berries  [[itemId, weight]]     appleTrees  share of trees that bear apples
  *   apples   (optional) which apples its apple trees bear, [[itemId, weight]]; default plain red apples
- *   edgeApples (optional) { neighbouring biome: apple }: its apple trees within EDGE_APPLE_RANGE tiles of that biome bear that apple instead
- *            (the Orchard's trees next to a Crystal Hollow bear crystal apples)
+ *   edgeApples (optional) { neighbouring biome: [apple, chance] }: each of its apple trees within EDGE_APPLE_RANGE tiles of that biome has
+ *            this chance of bearing that apple instead (now and then an Orchard tree beside a Crystal Hollow bears crystal apples)
  *   treeBoost            extra tree density (jungle is thick, ice is bare)
  *   levels   [min, max] level of the wild creatures here IN THE HEARTLAND (ring 0). Farther rings step every biome up by as much as the
  *            ring's own band steps up (meadow 1-5 in the Heartland is 5-10 in the Wilds; jungle 3-8 is 7-13). See ZoneLayer.
