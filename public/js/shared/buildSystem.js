@@ -127,6 +127,7 @@ const BuildSystem = {
     const def = structureId ? StructureDefs[structureId] : null;
     if (isWaterTile(map.tile(tx, ty))) return no('Cannot build on water');
     if (map.objAt(tx, ty) !== OBJ.NONE || map.propAt(tx, ty)) return no('Something is in the way');
+    if (typeof Groves !== 'undefined' && Groves.at(map, tx, ty)) return no('A sapling is growing there');
     const key = tileKey(tx, ty), tile = map.built[key] || {};
     const insert = !!(def && def.insert);
     if (slot === 'f') { if (map.floors[key]) return no('Already has a floor'); }

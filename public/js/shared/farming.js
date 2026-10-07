@@ -36,6 +36,7 @@ const Farming = {
     const tx = cx >> 1, ty = cy >> 1, t = map.tile(tx, ty);
     if (t !== TILE.GRASS && t !== TILE.DIRT) return false;
     if (map.objAt(tx, ty) || map.built[tileKey(tx, ty)] || (map.floors && map.floors[tileKey(tx, ty)]) || BuildingSites.at(tx, ty)) return false;
+    if (typeof Groves !== 'undefined' && Groves.at(map, tx, ty)) return false;                    // (a sapling growing there)
     return !map.propAt(tx, ty);                                                                    // (a tree, a bush, a stone, the well...)
   }
 };
@@ -141,6 +142,7 @@ Object.assign(GameServer.prototype, {
   _farmNewDay(prev) {
     const farm = this._farm(), season = Seasons.indexOfDay(prev + 1);
     for (const [key, plot] of Object.entries(farm)) {
+      if (Groves.isKey(key)) { this._growGrove(key, plot); continue; }                              // a planted sapling (groves.js): it grows every day
       const watered = plot.w === prev;
       if (plot.c && !plot.dead) {
         if (!Farming.inSeason(plot.c, season)) plot.dead = true;                                     // its season is over

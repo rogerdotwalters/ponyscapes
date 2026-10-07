@@ -122,6 +122,21 @@ const PixelProps = (() => {
     ctx.restore();
   }
 
+  /** A planted sapling (groves.js) at (sx, sy), `frac` 0..1 grown: a sprout first, then a small tree of its kind that fills out as it grows. */
+  function drawSapling(ctx, sx, sy, sp, frac, tint) {
+    const def = (typeof TreeSpecies !== 'undefined' && TreeSpecies.get(sp)) || { look: 'leafy' }, pine = def.look === 'pine', u = PX;
+    if (frac < 0.3) {                                                               // a sprout: a stem and a few leaves (a tiny cone for a pine)
+      const leaf = tinted(pine ? '#2f6b4b' : '#5f9c4a', tint), dark = shade(leaf, 0.7), px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(sx + x * u * 1.6), Math.round(sy + y * u * 1.6), Math.ceil(u * 1.6), Math.ceil(u * 1.6)); };
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
+      for (let y = -1; y >= -7; y--) px(0, y, '#6b4a2a');
+      if (pine) { for (let r = 0; r < 4; r++) for (let x = -r; x <= r; x++) px(x, -9 + r * 1.5, r % 2 ? dark : leaf); }
+      else for (const [x, y, c] of [[-1, -7, leaf], [-2, -6, leaf], [-3, -6, dark], [1, -8, leaf], [2, -8, leaf], [3, -9, dark], [0, -9, leaf], [-1, -4, leaf], [1, -5, dark]]) px(x, y, c);
+      return;
+    }
+    const k = 0.3 + 0.55 * frac;                                                    // a young tree, growing towards full size
+    ctx.save(); ctx.translate(sx, sy); ctx.scale(k, k); drawTree(ctx, 0, 0, pine ? 1 : 0, 0, null, null, tint); ctx.restore();
+  }
+
   /** A felled tree toppling: rotated about its foot by `angle` (radians, + to the right), fading out by `alpha` as it breaks into logs. */
   function drawFalling(ctx, sx, sy, variant, angle, alpha, tint) {
     const art = treeArt(variant, tint, null), u = PX;
@@ -154,7 +169,7 @@ const PixelProps = (() => {
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(c, sx - 11 * u, sy - 14 * u, 22 * u, 16 * u); ctx.restore();
   }
 
-  return { drawTree, drawFalling, drawStump, tinted };
+  return { drawTree, drawSapling, drawFalling, drawStump, tinted };
 })();
 
 /* ---- LOGS: a cut log lying on the ground (and the log's icon) ---- */

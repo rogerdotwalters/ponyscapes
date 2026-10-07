@@ -137,7 +137,14 @@ class Renderer {
     for (const id in (state.npcs || {})) { const n = state.npcs[id]; items.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
     const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
     if (farm) for (const key in farm) {
-      const plot = farm[key]; if (!plot.c) continue;
+      const plot = farm[key];
+      if (Groves.isKey(key)) {                                                       // a sapling growing (groves.js); a grown one is a tree prop
+        if (plot.g) continue;
+        const [tx, ty] = Groves.tileOf(key); if (tx < tiles.tx0 || tx > tiles.tx1 || ty < tiles.ty0 || ty > tiles.ty1) continue;
+        items.push({ kind: 'sapling', depth: tx + ty + 0.9, gx: isoX(tx + 0.5, ty + 0.5), gy: isoY(tx + 0.5, ty + 0.5), plot, tx, ty });
+        continue;
+      }
+      if (!plot.c) continue;
       const i = key.indexOf(','), wx = (+key.slice(0, i) + 0.5) / 2, wy = (+key.slice(i + 1) + 0.5) / 2, tx = Math.floor(wx), ty = Math.floor(wy);
       if (tx < tiles.tx0 || tx > tiles.tx1 || ty < tiles.ty0 || ty > tiles.ty1) continue;
       items.push({ kind: 'crop', depth: wx + wy - 0.1, gx: isoX(wx, wy), gy: isoY(wx, wy), plot });
@@ -177,6 +184,7 @@ class Renderer {
     }
     if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
     if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx, item.gy, item.plot);
+    if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx, item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);
     if (item.kind === 'player') {
       const p = item.p, rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;

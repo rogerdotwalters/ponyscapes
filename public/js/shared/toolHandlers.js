@@ -41,6 +41,8 @@ class TreeHarvestHandler {
         if (isWaterTile(this.map.tile(Math.floor(x), Math.floor(y)))) { x = tree.x + (i - 1) * 0.35; y = tree.y + 0.55; }   // (never into the water)
         this.dropOnGround(TreeDef.dropItemId, 1, x, y, '');
       }
+      const species = TreeSpecies.get(TreeSpecies.of(tree)), [lo, hi] = species.saplings || [1, 1], n = lo + Math.floor(this.rng() * (hi - lo + 1));
+      if (n > 0) this.dropOnGround('sapling_' + species.id, n, tree.x - uy * 0.35, tree.y + ux * 0.35, '');      // every tree leaves saplings of its kind (data/trees/trees.js)
     });
   }
 }

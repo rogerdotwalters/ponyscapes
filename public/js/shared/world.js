@@ -153,6 +153,7 @@ function generateChunk(world, cx, cy) {
   }
   const tileOf = (tx, ty) => (tx >= x0 && tx < x0 + CHUNK_SIZE && ty >= y0 && ty < y0 + CHUNK_SIZE)
     ? chunk.tiles[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] : T.tile(tx, ty);
+  if (typeof Groves !== 'undefined') Groves.intoChunk(world, chunk);                         // the trees players planted and grew here
   if (chunk.tiles.includes(TILE.WATER) || chunk.tiles.includes(TILE.SHALLOW)) chunk.boatSpot = T.boatSpot(cx, cy, tileOf);
   chunk.animals = T.animalGroup(cx, cy, tileOf);
   return chunk;
