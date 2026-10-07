@@ -1,7 +1,7 @@
 'use strict';
 /* BEHAVIOUR - territorial: minds its own business (wanders) until someone comes too close, then attacks until they get well away. Sneaking
  * past is safer than running past. Bears. */
-const TERRITORY_STANCE = { idle: 0.6, sneak: 0.5, walk: 1, run: 1.4, row: 0.8 };
+const TERRITORY_STANCE = { idle: 0.6, walk: 1, run: 1, row: 0.8 };                  // (everyone moves at full speed: standing still is the only quiet)
 Behaviors.register(Object.assign({}, Behaviors.get('predator'), {
   id: 'territorial',
   range(a, def, h) { const base = def.aggro || def.hunt, stance = TERRITORY_STANCE[h.state] || 1; return a.aggroT > 0 ? base * 2 : base * stance; },

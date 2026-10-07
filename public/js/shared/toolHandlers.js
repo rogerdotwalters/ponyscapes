@@ -61,7 +61,7 @@ class ShearHandler {
       if (!best || d < best.d) best = { a, d };
     }
     if (!best) {
-      this.emit({ type: 'notice', to: p.id, text: shorn ? `That ${AnimalDefs[shorn.type].name.toLowerCase()} is already shorn: its wool grows back in a while` : 'Stand beside a sheep to shear it (sneak up, or lure it with food)' });
+      this.emit({ type: 'notice', to: p.id, text: shorn ? `That ${AnimalDefs[shorn.type].name.toLowerCase()} is already shorn: its wool grows back in a while` : 'Stand beside a sheep to shear it (lure it with food, or get close: Dexterity and Animal Friendship help)' });
       return null;
     }
     return { ref: best.a.id, x: best.a.x, y: best.a.y };
@@ -256,9 +256,7 @@ class LeashHandler {
       this.emit({ type: 'notice', to: id, text: 'The loop missed! It bolted' });
       return;
     }
-    if (fromSlot) p.gear.lasso = ''; else inventory.remove(item, 1);       // the lasso stays on the animal; untie it to get it back
-    a.lassoItem = item;
-    this.markInventoryChanged(id);
+    // (a lasso is a tool, not used up: it stays in your hand or lasso slot, ready for the next throw)
     if (def.pony && !mine) {
       this.animals.capture(target.ref, id);
       this.award(id, 'horsemanship', Math.round(40 * AnimalLevels.xpFactor(a.level)));

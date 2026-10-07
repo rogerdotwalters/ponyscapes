@@ -4,6 +4,7 @@
  *   Testing      a flying test pony; hostile mobs off
  *   Players      hunger and thirst per player (only when vitals are switched on)
  *   World        one movement speed for everything (1-100, 100 = as built), the day / night split, how fast in-game time runs
+ *   Animals      how far animals notice you (their senses, sharper with level; your Dexterity and Animal Friendship), how fast they flee
  *   Trees        per biome: how many (% of normal) and the most there can be (% of grass tiles); used from the next world start
  *   Export       the values as JSON for js/content/gameSettings.js (download, copy, or paste some back in)
  * Changes are kept in this browser (GameSettings) until they are exported into the game folder. */
@@ -19,6 +20,7 @@ class SettingsUI {
     if (CONFIG.sim.vitals) { this.body.insertAdjacentHTML('beforeend', '<div class="gtitle">Players</div>'); for (let slot = 0; slot < CONFIG.sim.maxPlayers; slot++) this._createRow(slot); }
     this._createWorld();
     this._createFarming();
+    this._createAnimals();
     this._createTrees();
     this._createExport();
     game.events.on('settingsChanged', () => this.isOpen && this.refresh());
@@ -105,7 +107,7 @@ class SettingsUI {
     this.pending[k] = this.draft[k];
     const send = () => { this.sendTimer = null; const values = this.pending; this.pending = {}; this.game.setAdmin(values); };
     if (!dragging) { clearTimeout(this.sendTimer); send(); } else if (!this.sendTimer) this.sendTimer = setTimeout(send, 100);
-    this._refreshWorld(); this._refreshFarming(); this._refreshExport();
+    this._refreshWorld(); this._refreshFarming(); this._refreshAnimals(); this._refreshExport();
   }
   _refreshWorld() {
     const d = this.draft;
@@ -115,6 +117,46 @@ class SettingsUI {
     o('dayShare').textContent = `${d.dayShare}% day · ${100 - d.dayShare}% night`;
     const dayMinutes = 24 * 60 / d.gameHoursPerRealHour;
     o('gameHoursPerRealHour').textContent = 'a day = ' + (dayMinutes >= 1 ? +dayMinutes.toFixed(1) + ' real min' : Math.round(dayMinutes * 60) + ' real s');
+  }
+
+  /* ---- animals: their senses (how far they notice you) and how you get closer; everyone always moves at full speed ---- */
+  _createAnimals() {
+    const L = GameSettings.LIMITS, el = document.createElement('div'); el.className = 'admBox';
+    const row = (k, name, help) => `<label class="admSlide"><span><b>${name}</b><small>${help} ${GameSettings.DEFAULTS[k]} = as built.</small></span><input type="range" data-k="${k}" min="${L[k][0]}" max="${L[k][1]}" step="1"><output data-o="${k}"></output></label>`;
+    el.innerHTML = '<div class="gtitle">Animals &amp; getting close <small>(changes right away, for everyone)</small></div>' +
+      '<p class="admNote">There is no running or sneaking: everyone moves at full speed. How close you get before an animal bolts depends on its senses (sharper the higher its level) against your Dexterity and Animal Friendship.</p>' +
+      row('animalSense', 'Animal senses', 'How far animals notice you, % of their own senses.') +
+      row('senseLevelScale', 'Senses per level', '% farther an animal notices you for each level above 1.') +
+      row('fleeLevelScale', 'Flee speed per level', '% faster a fleeing animal runs for each level above 1 (ponies have their own speeds).') +
+      row('stealthDex', 'Dexterity', '% closer you get for every 10 levels of Dexterity.') +
+      row('stealthFriend', 'Animal Friendship', '% closer you get for every 10 levels of Animal Friendship.') +
+      row('stealthCap', 'Most you can get closer', 'The cap on Dexterity and Animal Friendship together, % of an animal\'s senses.') +
+      '<p class="admNote" data-o="preview"></p>' +
+      '<div class="admRow"><button data-animals-reset>As built</button></div>';
+    for (const input of el.querySelectorAll('input[data-k]')) {
+      const k = input.dataset.k;
+      input.addEventListener('input', () => this._setLive(k, Number(input.value), true));
+      input.addEventListener('change', () => this._setLive(k, Number(input.value), false));
+      input.addEventListener('keydown', e => e.stopPropagation());
+    }
+    el.querySelector('[data-animals-reset]').addEventListener('click', () => { for (const k of ['animalSense', 'senseLevelScale', 'fleeLevelScale', 'stealthDex', 'stealthFriend', 'stealthCap']) this._setLive(k, GameSettings.DEFAULTS[k], false); });
+    this.body.appendChild(el); this.animalsBox = el;
+    this._refreshAnimals();
+  }
+  _refreshAnimals() {
+    if (!this.animalsBox) return;
+    const d = this.draft, o = k => this.animalsBox.querySelector(`[data-o=${k}]`);
+    for (const input of this.animalsBox.querySelectorAll('input[data-k]')) input.value = d[input.dataset.k];
+    o('animalSense').textContent = d.animalSense + '%';
+    o('senseLevelScale').textContent = '+' + d.senseLevelScale + '% / level';
+    o('fleeLevelScale').textContent = '+' + d.fleeLevelScale + '% / level';
+    o('stealthDex').textContent = d.stealthDex + '% / 10 lv';
+    o('stealthFriend').textContent = d.stealthFriend + '% / 10 lv';
+    o('stealthCap').textContent = 'up to ' + d.stealthCap + '%';
+    // a worked example: a deer (moving past it) at level 1 and 10, for a new player and one with 30 Dexterity and Animal Friendship
+    const deer = AnimalDefs.deer, base = deer ? deer.detect.walk : 6, sharp = lv => (d.animalSense / 100) * (1 + d.senseLevelScale / 100 * (lv - 1));
+    const stealth = n => Math.min(d.stealthCap / 100, ((n - 1) * d.stealthDex + (n - 1) * d.stealthFriend) / 1000), t = v => v.toFixed(1);
+    o('preview').textContent = `A deer notices you from: level 1 \u2192 ${t(base * sharp(1))} tiles (new player), ${t(base * sharp(1) * (1 - stealth(30)))} (Dexterity and Animal Friendship 30) \u00b7 level 10 \u2192 ${t(base * sharp(10))} / ${t(base * sharp(10) * (1 - stealth(30)))} tiles`;
   }
 
   /* ---- seasons and farming: how long a season lasts, and how many days each crop takes to grow (changes right away) ---- */
@@ -251,6 +293,6 @@ class SettingsUI {
     }
     for (const k of GameSettings.LIVE) if (!(k in this.pending)) this.draft[k] = GameSettings.values[k];      // (the server's values win, unless we are mid-drag)
     this.draft.crops = Object.assign({}, GameSettings.values.crops || {});
-    this._refreshWorld(); this._refreshFarming(); this._refreshTrees(); this._refreshExport();
+    this._refreshWorld(); this._refreshFarming(); this._refreshAnimals(); this._refreshTrees(); this._refreshExport();
   }
 }

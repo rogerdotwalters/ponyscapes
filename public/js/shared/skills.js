@@ -9,7 +9,7 @@
  *   Levels use RuneScape's XP curve (level 2 = 83 xp, 10 = 1,154 xp, 50 = 101,333 xp, 99 = 13,034,431 xp). */
 const AttributeDefs = Object.freeze({
   strength:     Object.freeze({ name: 'Strength',     short: 'STR', effect: 'Hits harder with every 10 levels' }),
-  dexterity:    Object.freeze({ name: 'Dexterity',    short: 'DEX', effect: 'Move up to 20% faster' }),
+  dexterity:    Object.freeze({ name: 'Dexterity',    short: 'DEX', effect: 'Move up to 20% faster, and get closer to animals before they notice you' }),
   constitution: Object.freeze({ name: 'Constitution', short: 'CON', effect: '+5 maximum health and +1 stack of wood, stone and clay you can carry per level' }),
   endurance:    Object.freeze({ name: 'Endurance',    short: 'END', effect: 'Hunger and thirst drain up to 30% slower' }),
   intelligence: Object.freeze({ name: 'Intelligence', short: 'INT', effect: 'All skills gain up to 25% more XP' }),
@@ -27,7 +27,7 @@ const SkillDefs = Object.freeze({
   digging:      Object.freeze({ name: 'Digging',      attrs: Object.freeze({ strength: 0.4, endurance: 0.4, constitution: 0.2 }) }),
   horsemanship: Object.freeze({ name: 'Horsemanship', attrs: Object.freeze({ charisma: 0.5, dexterity: 0.3, constitution: 0.2 }) }),
   friendship:        Object.freeze({ name: 'Friendship',        attrs: Object.freeze({ charisma: 0.6, intelligence: 0.2 }) }),          // talking to and giving gifts to PEOPLE
-  animal_friendship: Object.freeze({ name: 'Animal Friendship', attrs: Object.freeze({ charisma: 0.5, endurance: 0.1 }) })             // petting and feeding ANIMALS: separate from the one above
+  animal_friendship: Object.freeze({ name: 'Animal Friendship', attrs: Object.freeze({ charisma: 0.5, endurance: 0.1 }) })             // petting and feeding ANIMALS: separate from the one above; also lets you get closer before animals bolt (AnimalSenses)
 });
 const MAX_LEVEL = 99;
 

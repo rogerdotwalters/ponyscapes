@@ -677,11 +677,11 @@ class GameServer {
     this._untie(id, target.animal);
   }
 
-  /** Take the lasso off a pet: it stays where it is (near its new home) and you get the lasso back. A caught wild pony bolts instead. */
+  /** Take the lasso off a pet: it stays where it is (near its new home). A caught wild pony bolts instead. */
   _untie(id, animal) {
     const wasCaught = animal.captor === id;
     if (wasCaught) this.animals.releaseWild(animal.id); else this.animals.unleash(animal.id);
-    this._returnLasso(id, animal);                                        // back into the lasso slot (or the pack)
+    this._returnLasso(id, animal);                                        // (only an animal caught in an older save still holds a lasso)
     this.pendingEvents.push({ type: wasCaught ? 'letGo' : 'untied', to: id, x: animal.x, y: animal.y });
   }
 
@@ -696,7 +696,7 @@ class GameServer {
     this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need });
     if (!result.done) return;                                                  // (the client shows "Apple 1/2")
     this._remember(id, animal);
-    this._returnLasso(id, animal);                                                                        // the lasso comes back
+    this._returnLasso(id, animal);                                                                        // (older saves only)
     animal.xp = PonyXp.xpFor(animal.level);                                                               // from now on it grows with you
     this.progress.award(id, 'horsemanship', 80);
     this.pendingEvents.push({ type: 'tamed', to: id, x: animal.x, y: animal.y, animal: animal.type, id: animal.id });
@@ -800,7 +800,7 @@ class GameServer {
     a.x = p.x; a.y = p.y; a.vx = p.vx; a.vy = p.vy; a.facing = p.facing; a.state = Math.hypot(p.vx, p.vy) > 0.2 ? 'ride' : 'idle';
     this.vitals.consumeHeld(id, p, inventory, input, TICK_DT);
     if (a.state === 'ride') {                                      // a little Horsemanship XP for every few seconds in the saddle
-      this.rideAcc[id] = (this.rideAcc[id] || 0) + TICK_DT * (input.run ? 2 : 1);
+      this.rideAcc[id] = (this.rideAcc[id] || 0) + TICK_DT * 2;
       if (this.rideAcc[id] >= 4) { this.rideAcc[id] = 0; this.progress.award(id, 'horsemanship', 6); }
     }
   }

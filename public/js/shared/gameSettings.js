@@ -8,9 +8,11 @@
  * moment the world starts): a change on the Admin page waits for the next time a world is started or continued. */
 const GameSettings = (() => {
   const OVERRIDE_KEY = 'ponyscapes.adminSettings';
-  const LIVE = ['globalSpeed', 'dayShare', 'gameHoursPerRealHour', 'seasonDays'];
-  const LIMITS = { globalSpeed: [1, 100], dayShare: [10, 90], gameHoursPerRealHour: [1, 5000], seasonDays: [1, 365] };
-  const DEFAULTS = Object.freeze({ globalSpeed: 100, dayShare: 54, gameHoursPerRealHour: 180, seasonDays: 20, trees: {}, crops: {} });   // crops: { cropId: days to grow } (else the crop's own)
+  const LIVE = ['globalSpeed', 'dayShare', 'gameHoursPerRealHour', 'seasonDays', 'animalSense', 'senseLevelScale', 'fleeLevelScale', 'stealthDex', 'stealthFriend', 'stealthCap'];
+  const LIMITS = { globalSpeed: [1, 100], dayShare: [10, 90], gameHoursPerRealHour: [1, 5000], seasonDays: [1, 365],
+    animalSense: [10, 300], senseLevelScale: [0, 20], fleeLevelScale: [0, 10], stealthDex: [0, 50], stealthFriend: [0, 50], stealthCap: [0, 90] };
+  const DEFAULTS = Object.freeze({ globalSpeed: 100, dayShare: 54, gameHoursPerRealHour: 180, seasonDays: 20,
+    animalSense: 100, senseLevelScale: 3, fleeLevelScale: 2, stealthDex: 10, stealthFriend: 15, stealthCap: 60, trees: {}, crops: {} });   // animals' senses and your approach (animalSystem.js: AnimalSenses)   // crops: { cropId: days to grow } (else the crop's own)
   const BIOME_ID = /^[a-z][a-z0-9_]{0,39}$/;
   const plain = v => v !== null && typeof v === 'object' && !Array.isArray(v);
   const copy = v => JSON.parse(JSON.stringify(v));
@@ -87,7 +89,7 @@ const GameSettings = (() => {
   }
 
   /** The settings as JSON for js/content/gameSettings.js (only values, in the file's order). */
-  function toJSON(v = values) { const s = sanitize(v); return JSON.stringify({ globalSpeed: s.globalSpeed, dayShare: s.dayShare, gameHoursPerRealHour: s.gameHoursPerRealHour, seasonDays: s.seasonDays, crops: s.crops, trees: s.trees }, null, 2); }
+  function toJSON(v = values) { const s = sanitize(v), out = {}; for (const k of LIVE) out[k] = s[k]; out.crops = s.crops; out.trees = s.trees; return JSON.stringify(out, null, 2); }
 
   /* ---- what the rest of the game asks ---- */
   /** Every movement speed is multiplied by this (1 = as built). */

@@ -22,7 +22,7 @@ function createPlayer(slot, spawn) {
 const noBuffs = () => ({ movement: 0, health: 0, luck: 0, friendship: 0, carry: 0 });
 const clonePlayer = p => Object.assign({}, p, { gear: Object.assign({}, p.gear), buffs: Object.assign(noBuffs(), p.buffs), abilities: (p.abilities || []).slice(), abilityCd: (p.abilityCd || [0, 0]).slice() });
 
-/** Never trust the wire: clamp everything. Input = { moveX, moveY, run, sneak, action, interact, slot, seq } (world axes).
+/** Never trust the wire: clamp everything. Input = { moveX, moveY, action, interact, slot, seq } (world axes).
  *  `interact` is true for exactly one tick per key press (board / leave a boat). */
 /** A selectable hotbar slot (0..5). */
 function sanitizeSlot(n) { return clamp(n | 0, 0, CONFIG.sim.inventory.hotbarSlots - 1); }
@@ -31,7 +31,7 @@ function sanitizeInput(i) {
   const num = v => (Number.isFinite(v) ? v : 0);
   return {
     moveX: clamp(num(i.moveX), -1, 1), moveY: clamp(num(i.moveY), -1, 1),
-    run: !!i.run, sneak: !!i.sneak, action: !!i.action, interact: !!i.interact,
+    action: !!i.action, interact: !!i.interact,
     slot: sanitizeSlot(i.slot), seq: i.seq | 0,
     power: clamp(i.power | 0, 0, 2),                                         // 1 / 2: fire the ridden pony's first / second rarity ability this tick
     lasso: !!i.lasso                                                         // L: throw the lasso from the lasso slot
@@ -72,14 +72,15 @@ function stepPlayer(p, input, dt, map) {
   if (p.dashT > 0) p.dashT = Math.max(0, p.dashT - dt);
   const pony = riding ? PonySpeed.ride(p.mountType || 'pony_earth', p.mountLevel) : null;   // a pony's speed is its kind's base speed x the level curve (ponyProgress.js)
   const walk = riding ? pony.walk * boost : C.walkSpeed * Skills.speedFactor(p.lv) * boost;
-  const topSpeed = (weak ? walk * slowdown : input.run ? (riding ? pony.run * boost : C.runSpeed * Skills.speedFactor(p.lv) * boost) : input.sneak && !riding ? C.sneakSpeed : walk) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1) * GameSettings.speed();      // (the Admin page's global speed)
+  const full = riding ? pony.run * boost : C.runSpeed * Skills.speedFactor(p.lv) * boost;   // everyone always moves at full speed (no run or sneak)
+  const topSpeed = (weak ? walk * slowdown : full) * wading * (flying ? PonyAbilities.get('fly').speedFactor : 1) * GameSettings.speed();      // (the Admin page's global speed)
 
   accelerateToward(p, mx * topSpeed, my * topSpeed, movementRate(p, mx * topSpeed, my * topSpeed, moving) * dt);
   p.x += p.vx * dt; p.y += p.vy * dt;
   if (flying) resolveFlightCollisions(map, p, R.radius); else resolveCollisions(map, p, riding ? R.radius : C.playerRadius);
 
   if (mag > 0.1) turnToward(p, snapAngle8(Math.atan2(my, mx)), C.turnRate * dt);
-  p.state = Math.hypot(p.vx, p.vy) < 0.15 / TILE_SCALE ? 'idle' : input.run && !weak ? 'run' : input.sneak ? 'sneak' : 'walk';
+  p.state = Math.hypot(p.vx, p.vy) < 0.15 / TILE_SCALE ? 'idle' : weak ? 'walk' : 'run';
   p.ack = input.seq;
 }
 

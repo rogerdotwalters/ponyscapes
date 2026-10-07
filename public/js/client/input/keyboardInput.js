@@ -18,7 +18,6 @@ class KeyboardInput {
     const len = Math.hypot(x, y);
     return len > 0 ? { x: x / len, y: y / len } : { x: 0, y: 0 };
   }
-  get runHeld() { return this.down.has('ShiftLeft') || this.down.has('ShiftRight'); }
   get actionHeld() { return ACTION_KEYS.some(k => this.down.has(k)); }
 
   _axis(positive, negative) {
@@ -32,7 +31,6 @@ class KeyboardInput {
   }
 
   _emitOneShotEvents(code, shift) {
-    if (code === 'KeyC' || code === 'ControlLeft') this.bus.emit('toggleSneak');
     if (code === 'Backquote') this.bus.emit('toggleDebug');
     if (code === 'KeyI' || code === 'Tab') this.bus.emit('toggleInventory');
     if (code === 'KeyQ') this.bus.emit('toggleCrafting');

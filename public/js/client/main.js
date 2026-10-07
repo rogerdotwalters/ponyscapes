@@ -29,8 +29,8 @@ function setupFullscreenButton(button) {
 }
 
 function collectLayoutDom(game) {
-  const dom = { isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), clock: $('clock') };
-  ['btnMenu', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnRun', 'btnBoard', 'btnRelease', 'btnRot', 'btnSneak', 'btnAbility', 'btnLasso', 'btnDrop'].forEach(id => { dom[id] = $(id); });
+  const dom = { isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), clock: $('clock'), season: $('seasonBar') };
+  ['btnMenu', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnDrop'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
 
@@ -60,7 +60,7 @@ function launch(choice, query) {
     const keyboard = new KeyboardInput(bus);
     const touch = new TouchControls(bus, {
       root: $('touchUI'), zone: $('joyZone'), base: $('joyBase'), knob: $('joyKnob'),
-      btnRun: $('btnRun'), btnSneak: $('btnSneak'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility'), btnLasso: $('btnLasso'), btnDrop: $('btnDrop')
+      btnBag: $('btnBag'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility'), btnLasso: $('btnLasso'), btnDrop: $('btnDrop')
     });
     const input = new InputController({ bus, keyboard, touch });
     const layout = new UiLayout({ dom: collectLayoutDom(game), touchControls: touch });
@@ -117,6 +117,7 @@ function launch(choice, query) {
     /* events: devices -> intent */
     bus.on('selectSlot', i => game.selectSlot(i));
     bus.on('toggleInventory', () => panels.toggle('inventory'));
+    { const icon = $('btnBag') && $('btnBag').querySelector('.bagIcon'); if (icon) icon.style.backgroundImage = `url(${ItemIcons.url(CONFIG.sim.inventory.starterBag)})`; }   // the touch Bag button shows a backpack
     bus.on('toggleGear', () => panels.toggle('gear'));
     bus.on('togglePonies', () => panels.toggle('ponies'));
     bus.on('toggleJournal', () => panels.toggle('journal'));

@@ -7,7 +7,7 @@
  *
  *   touch layout            ┌ toolbar (beside the system buttons, or on its own row if the screen is narrow) ┐ [Craft Bag ⛶ DBG]
  *                           │  panels (inventory / crafting) open in the free space between the two thumbs  │
- *                           └ left thumb: floating joystick      right thumb: [Sneak Rot Board] / [Run Use] ┘
+ *                           └ left thumb: floating joystick      right thumb: [Let go Rot Board] / [Bag Use] ┘
  */
 const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
@@ -23,29 +23,28 @@ const unionRect = rects => {
 
 /** The two thumb clusters: joystick (left) and action buttons (right), sized by scale `k`. */
 function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
-  const use = Math.round(84 * k), run = Math.round(66 * k), small = Math.round(50 * k), g = Math.round(8 * k);
+  const use = Math.round(84 * k), bagSize = Math.round(66 * k), small = Math.round(50 * k), g = Math.round(8 * k);
   const useRect = makeRect(right - use, bottom - use, use, use);
-  const runRect = makeRect(useRect.x - g - run, bottom - run, run, run);
+  const bag = makeRect(useRect.x - g - bagSize, bottom - bagSize, bagSize, bagSize);   // the backpack, where Run used to be (everyone always moves at full speed)
   const rowY = useRect.y - g - small;                          // second row, above Use
   const board = makeRect(right - small, rowY, small, small);
   const rot = makeRect(board.x - g - small, rowY, small, small);
-  const sneak = makeRect(rot.x - g - small, rowY, small, small);
-  const release = makeRect(sneak.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
+  const release = makeRect(rot.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
   const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
   const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
   const drop = makeRect(lasso.x - g - small, ability.y, small, small);       // drop what is in your hand, beside the lasso
-  const cluster = unionRect([useRect, runRect, board, rot, sneak, release, ability, lasso, drop]);
+  const cluster = unionRect([useRect, bag, board, rot, release, ability, lasso, drop]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, run: runRect, board, rot, sneak, release, ability, lasso, drop, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, bag, board, rot, release, ability, lasso, drop, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
  * @param {{w:number, h:number, insets?:{top,right,bottom,left}, touch:boolean, host?:boolean}} screen  CSS pixels
- * @returns {{k, topButtons, toolbar, health, hunger, thirst, clock, emote, touch, panels, debug, hint}} every rect is { x, y, w, h }
+ * @returns {{k, topButtons, toolbar, health, hunger, thirst, clock, season, emote, touch, panels, debug, hint}} every rect is { x, y, w, h }
  */
 function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0 }, touch, host = false }) {
   const k = clamp(Math.min(w, h) / 380, 0.8, 1.25);          // phones ~1, tablets / desktop a little larger
@@ -101,6 +100,16 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const clock = makeRect(toolbar.x + toolbar.w, vitalsY, clockW, vitalsH);
   let topUsed = (touch ? Math.max(vitalsY + vitalsH, systemBar.y + systemBar.h) : systemBar.y + systemBar.h) + m;   // y where free space starts
 
+  /* ---- the season bar (with the time-of-day clock): top centre on desktop, clear of the buttons; on touch screens its own row under the vitals ---- */
+  const seasonH = Math.round(36 * k);
+  let season;
+  const besideBar = toolbar.x - m - left;                                     // landscape phones: free room at the top left, beside the toolbar
+  if (touch && besideBar >= 210 * k) season = makeRect(left, top, Math.min(Math.round(340 * k), besideBar), seasonH);
+  else if (touch) season = makeRect(toolbar.x, vitalsY + vitalsH + gap, toolbar.w, seasonH);
+  else { const room = systemBar.x - m - left, sw = Math.min(Math.round(440 * k), room); season = makeRect(clamp(w / 2 - sw / 2, left, systemBar.x - m - sw), top, sw, seasonH); }
+  season.compact = season.w < 400 * k; season.tiny = season.w < 300 * k;   // (shorter day text; then the clock shows its picture only)
+  topUsed = Math.max(topUsed, season.y + season.h + m);
+
   /* ---- touch controls: both thumbs' controls must fit side by side, so they shrink on narrow screens ---- */
   let touchLayout = null;
   if (touch) {
@@ -127,7 +136,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
       place2(x0, bottom - ub); utilityAtBottom = true;
       touchLayout.zone = makeRect(0, touchLayout.zone.y, Math.min(touchLayout.zone.w, emote.x - 4), touchLayout.zone.h);
     } else {                                                   // narrow (portrait): a small row under the vitals instead
-      place2(toolbar.x, vitalsY + vitalsH + gap);
+      place2(toolbar.x, season.y + season.h + gap);
       topUsed = Math.max(topUsed, emote.y + emote.h + m);
       touchLayout.zone = makeRect(0, Math.max(h * 0.38, topUsed), touchLayout.zone.w, h - Math.max(h * 0.38, topUsed));
     }
@@ -146,6 +155,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     const between = makeRect(touchLayout.base.x + touchLayout.base.w + m, topUsed, touchLayout.cluster.x - m - (touchLayout.base.x + touchLayout.base.w + m), regionBottom - topUsed);
     const above = makeRect(left, topUsed, right - left, touchLayout.cluster.y - m - topUsed);
     region = invSlotFor(between) >= MIN_PANEL_SLOT || invSlotFor(between) >= invSlotFor(above) ? between : above;
+    if (w > h) region = makeRect(left, topUsed, right - left, bottom - topUsed);   // landscape phones: the panels are modal, so they take the full height under the toolbar (over the thumb controls)
   } else {
     region = makeRect(left, topUsed, right - left, abilityBar.y - m - topUsed);
   }
@@ -171,11 +181,11 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   };
 
   /* ---- text overlays ---- */
-  const debug = { x: left, y: touch ? (emote && !utilityAtBottom ? emote.y + emote.h : vitalsY + vitalsH) + gap : top };
+  const debug = { x: left, y: touch ? (emote && !utilityAtBottom ? emote.y + emote.h : season.y + season.h) + gap : season.y + season.h + gap };
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
-  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -230,6 +240,7 @@ class UiLayout {
     dom.mapPanel.style.width = P.map.w + 'px'; dom.mapBody.style.maxHeight = Math.max(80, P.map.h - P.header - 2 * P.pad - 6) + 'px';        // the tab row takes some of the room
 
     place(dom.health, L.health); place(dom.clock, L.clock);
+    if (dom.season) { place(dom.season, L.season); dom.season.style.fontSize = Math.round(12 * L.k) + 'px'; dom.season.classList.toggle('compact', L.season.compact); dom.season.classList.toggle('tiny', L.season.tiny); }
     for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
@@ -244,7 +255,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnRun', T.run], ['btnBoard', T.board], ['btnRot', T.rot], ['btnSneak', T.sneak], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnDrop', T.drop]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnBag', T.bag], ['btnBoard', T.board], ['btnRot', T.rot], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnDrop', T.drop]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);

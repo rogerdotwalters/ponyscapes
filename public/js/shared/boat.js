@@ -9,7 +9,7 @@ const BoatDef = Object.freeze({
   boardRange: 1.8,                                    // tiles from the player to the boat
   dismountRange: 2.2                                  // how far from the boat we look for a shore tile
 });
-const NO_INPUT = Object.freeze({ moveX: 0, moveY: 0, run: false, sneak: false });
+const NO_INPUT = Object.freeze({ moveX: 0, moveY: 0 });
 
 function createBoat(id, spawn) {
   return { id, x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: spawn.facing || 0, occupant: '' };
@@ -42,7 +42,7 @@ function stepBoat(boat, input, dt, map) {
   if (mag > 1) { mx /= mag; my /= mag; mag = 1; }
   const moving = mag > 0.01;
   if (moving) [mx, my] = isoNormalize(mx, my);                  // the same constant on-screen speed as walking
-  const top = (input.run ? B.fastSpeed : input.sneak ? B.slowSpeed : B.cruiseSpeed) * GameSettings.speed();
+  const top = B.fastSpeed * GameSettings.speed();                 // (always rowing at full speed)
   accelerateToward(boat, mx * top, my * top, (moving ? B.accel : B.drag) * dt);
   boat.x += boat.vx * dt; boat.y += boat.vy * dt;
   resolveBoatCollisions(map, boat, B.radius);
