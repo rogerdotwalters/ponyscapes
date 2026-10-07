@@ -15,6 +15,9 @@ const AutoTile = (() => {
   const RANKS = { water: -3, shallow: -2, cave: 0, sand: 1, clay: 2, stone: 3, dirt: 4, grass: 5 };     // the shallows lap over deep water, the beach over the shallows
   /** Kinds of ground that are water: land spilling onto them gets a FOAM rim, and land beside them a wet band (terrainRenderer). */
   const WATERY = { water: true, shallow: true };
+  /** Paved, CRISP ground (cobbles): nothing spills over it and it spills over nothing; instead it is edged with a straight curb wherever it
+   *  meets other ground (terrainRenderer). */
+  const CRISP = { stone: true };
   const TW = 80, TH = 40, FRINGE = 0.24, JAG = 0.07, SEGMENTS = 6, VARIANTS = 4;
   const N = 1, E = 2, S = 4, W = 8;                                                // edges
   const NE = 1, SE = 2, SW = 4, NW = 8;                                            // corners
@@ -24,7 +27,7 @@ const AutoTile = (() => {
   /** How deep the fringe reaches at position t (0..1) along one edge: f at both ends, jagged in steps between. */
   function depth(t, edge, variant, f = FRINGE) {
     const seg = Math.min(SEGMENTS - 1, Math.floor(t * SEGMENTS));
-    if (seg === 0 || seg === SEGMENTS - 1) return f;
+    if (seg === 0 || seg === SEGMENTS - 1 || variant < 0) return f;                // (variant -1: a straight edge, for curbs)
     return f + (Math.floor(hash(variant, edge, seg) * 3) - 1) * JAG * f / FRINGE;
   }
   /** Tile-local (u, v) of an art pixel's centre (u along +x, v along +y of the world), and whether it is on the diamond. */
@@ -40,7 +43,7 @@ const AutoTile = (() => {
    *  true = half; the surf uses a few steps in between). */
   function mask(edges, corners, variant, scale = 1) {
     if (scale === true) scale = 0.5;
-    const step = Math.round(scale * 20), key = edges * 16 + corners + 256 * variant + 1024 * step, f = FRINGE * step / 20;
+    const step = Math.round(scale * 20), key = edges * 16 + corners + 256 * (variant + 1) + 2048 * step, f = FRINGE * step / 20;
     let m = masks.get(key);
     if (m) return m;
     const inFringe = (u, v) => {
@@ -79,11 +82,11 @@ const AutoTile = (() => {
   /** What spills into the tile at (tx, ty): [{ look, edges, corners }] lowest rank first (draw in this order). `here` is the tile's own ground
    *  and `lookAt(tx, ty)` any tile's: { id, rank } or null (no blending). */
   function spills(here, tx, ty, lookAt) {
-    if (!here) return null;
+    if (!here || CRISP[here.kind]) return null;
     let out = null;
     const seen = {};
     const add = (look, e, c) => {
-      if (!look || look.id === here.id || look.rank <= here.rank) return;
+      if (!look || look.id === here.id || look.rank <= here.rank || CRISP[look.kind]) return;
       const s = seen[look.id] || (seen[look.id] = { look, edges: 0, corners: 0 });
       s.edges |= e; s.corners |= c;
     };
@@ -105,5 +108,5 @@ const AutoTile = (() => {
     return edges || corners ? { edges, corners } : null;
   }
 
-  return { RANKS, WATERY, TW, TH, mask, spills, touching, variantOf };
+  return { RANKS, WATERY, CRISP, TW, TH, mask, spills, touching, variantOf };
 })();

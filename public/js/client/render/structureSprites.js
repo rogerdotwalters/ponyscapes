@@ -6,8 +6,8 @@ const StructureSprites = (() => {
 
   function draw(g, item, cx, cy) {
     if (item.o >= INTERIOR_OBJ_BASE) InteriorSprites.wall(g, item.o, cx, cy, item);          // a room's wall (low ones at the front)
-    else if (item.o === OBJ.WALL) drawWall(g, cx, cy);
-    else if (item.o === OBJ.TOWER) drawTower(g, cx, cy);
+    else if (item.o === OBJ.WALL) drawWall(g, cx, cy, item);
+    else if (item.o === OBJ.TOWER) drawTower(g, cx, cy, item);
     else drawHouse(g, item, cx, cy);
   }
 
@@ -24,9 +24,9 @@ const StructureSprites = (() => {
     ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Bx, By); ctx.lineTo(Bx, By - height); ctx.stroke();
   }
 
-  function drawWall(g, cx, cy) { PixelBuildings.drawPiece(g.ctx, 'wall', cx, cy); }                    // crenellated fieldstone (pixelBuildings.js)
+  function drawWall(g, cx, cy, item) { PixelBuildings.drawPiece(g.ctx, 'wall', cx, cy, item && item.tx, item && item.ty); }                    // crenellated fieldstone (pixelBuildings.js)
 
-  function drawTower(g, cx, cy) { PixelBuildings.drawPiece(g.ctx, 'tower', cx, cy); }                  // a stone watchtower with a pointed roof
+  function drawTower(g, cx, cy, item) { PixelBuildings.drawPiece(g.ctx, 'tower', cx, cy, item && item.tx, item && item.ty); }                  // a stone watchtower with a pointed roof
 
 
   /** One tile of a building (BuildingSites): drawn in its own colours, the door tile with a sign. A building with its own picture

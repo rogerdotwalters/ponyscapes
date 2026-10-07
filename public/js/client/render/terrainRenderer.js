@@ -93,6 +93,7 @@ const TerrainRenderer = (() => {
   /** Paint over a tile the fringes of every neighbouring ground that outranks it. Land running out over water is the SHORE: the outer half of
    *  its fringe is wet (darker) and its rim is foam. */
   function blend(ctx, map, tx, ty, here) {
+    if (here && AutoTile.CRISP[here.kind]) { curb(ctx, map, tx, ty, here); return; }
     const list = AutoTile.spills(here, tx, ty, (x, y) => lookOf(map, x, y));
     if (!list) return;
     const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H, variant = AutoTile.variantOf(tx, ty);
@@ -117,6 +118,27 @@ const TerrainRenderer = (() => {
       ctx.drawImage(scratch, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
     }
   }
+  /** Paving's CURB: wherever cobbles meet other ground, a straight edging of bigger, paler stones, a dark line inside it, and a dark gap at
+   *  the very edge (between the paving and whatever is next to it). */
+  const CURB = ['#c9c4b8', '#d2cdc1', '#bfbaae'], CURB_GAP = 'rgba(40,36,30,.75)';
+  function curb(ctx, map, tx, ty, here) {
+    const t = AutoTile.touching(tx, ty, (x, y) => lookOf(map, x, y), l => !l || l.kind !== here.kind);
+    if (!t) return;
+    const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H, band = AutoTile.mask(t.edges, t.corners, -1, 0.6), gap = AutoTile.mask(t.edges, t.corners, -1, 0.15);
+    sc.globalCompositeOperation = 'source-over'; sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, AutoTile.TW, AutoTile.TH);
+    sc.setTransform(ART, 0, 0, ART, AutoTile.TW / 2 - cx * ART, -(cy - TILE_HALF_H) * ART); sc.imageSmoothingEnabled = false;
+    cells(sc, 'stone', CURB, tx, ty, null, false);                                    // the edging: paler stones
+    sc.setTransform(1, 0, 0, 1, 0, 0);
+    sc.globalCompositeOperation = 'destination-in'; sc.drawImage(band.fill, 0, 0);
+    tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = shadeOf(here); tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
+    tc.globalCompositeOperation = 'destination-in'; tc.drawImage(band.rim, 0, 0);
+    sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // the line where the curb meets the paving
+    tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = CURB_GAP; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
+    tc.globalCompositeOperation = 'destination-in'; tc.drawImage(gap.fill, 0, 0);
+    sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // and the gap at its outer edge
+    ctx.drawImage(scratch, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
+  }
+  const shadeOf = l => l.dark;
   /** Paint one block: every tile whose ground reaches into it, in the same order as the live drawing (its tiles' chunks are made if needed). */
   function bake(map, bx, by) {
     const s = bakeScale, store = blocksOf(map), key = blockKey(bx, by), old = store.get(key);
@@ -282,5 +304,5 @@ const TerrainRenderer = (() => {
     ctx.moveTo(cx + 3 * DETAIL - drift, cy + 4 * DETAIL); ctx.lineTo(cx + 12 * DETAIL - drift, cy + 4 * DETAIL); ctx.stroke();
   }
 
-  return { draw, setDate, setScale, load, warmJobs, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6) }; } };
+  return { draw, setDate, setScale, load, warmJobs, lookOf, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6) }; } };
 })();

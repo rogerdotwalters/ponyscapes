@@ -81,7 +81,12 @@ const Loader = (() => {
     await Promise.all(pics.map(src => picture(src).then(() => { loaded++; show('Unpacking your things...', (2 + loaded / pics.length) / steps); })));
 
     show('Raising the village...', 2.6 / steps); await nextFrame();                       // the buildings, walls and towers: each painted once (pixelBuildings.js)
-    PixelBuildings.drawPiece(scratch(), 'wall', 0, 0); PixelBuildings.drawPiece(scratch(), 'tower', 0, 0);
+    const wm = game.worldMap, o = CONFIG.sim.levels.origin, piece = scratch();             // every wall and tower of the village, as it meets its ground
+    if (wm) for (let ty = Math.floor(o.y) - 60; ty <= o.y + 60; ty++) for (let tx = Math.floor(o.x) - 60; tx <= o.x + 60; tx++) {
+      if (Village.influence(tx, ty) <= 0) continue;
+      const ob = wm.objAt(tx, ty);
+      if (ob === OBJ.WALL || ob === OBJ.TOWER) PixelBuildings.drawPiece(piece, ob === OBJ.WALL ? 'wall' : 'tower', 0, 0, tx, ty);
+    }
     const sites = BuildingSites.list;
     for (let i = 0; i < sites.length; i++) { PixelBuildings.art(sites[i]); show('Raising the village...', (2.6 + 0.4 * (i + 1) / sites.length) / steps); await nextFrame(); }
 

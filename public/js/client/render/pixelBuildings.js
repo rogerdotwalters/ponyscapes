@@ -8,6 +8,10 @@
  * It is drawn in vertical SLICES, one per front tile of its footprint, each at that tile's depth: someone in front of the building is drawn
  * over it and someone behind it is hidden, exactly as with the old per-tile boxes.
  *
+ * Its FOOT meets the ground it stands on (the tile system's ground, tile by tile along each wall): grass leaves a trodden impression and
+ * tufts against the wall, and moss creeps up the stones; dirt is pressed in and splashes the wall with grime; sand dusts it; cobbles meet it
+ * with a cove plinth and a shadow gap; water darkens it. The village's walls and watchtowers do the same.
+ *
  * Its look comes from the building's data (js/data/buildings/): exterior { wall (infill), roof, trim (timber), stone, glass, infill: 'plaster' |
  * 'stone' | 'planks', chimney, dormer, boarded, props: ['lantern', 'firewood', 'barrels', 'crates', 'flowers', 'hay'] }. */
 const PixelBuildings = (() => {
@@ -17,6 +21,11 @@ const PixelBuildings = (() => {
   const F = 46, U = 36, J = 0.14, O = 0.2;                                     // ground floor and upper floor heights (art px); jetty and roof overhang (tiles)
   const OUTLINE = '#1c140e';
   const cache = new Map();
+  /** (tx, ty) -> the ground's look there (TerrainRenderer.lookOf on the overworld), set by the renderer; null until then (no ground effects). */
+  let groundAt = null;
+  function useGround(fn) { if (fn !== groundAt) { groundAt = fn; } }
+  const AP = 0.16;                                                             // how far (tiles) the wall's foot marks the ground in front of it
+  const kindAt = (tx, ty) => { const l = groundAt && groundAt(tx, ty); return l ? l.kind : null; };
   const hash = (a, b, c = 0) => { let h = (Math.floor(a) * 374761393 + Math.floor(b) * 668265263 + c * 2246822519) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
   const frac = v => v - Math.floor(v);
   const tones = (c, k) => [shade(c, 0.78 * k), shade(c, 0.9 * k), k === 1 ? c : shade(c, k), light(shade(c, k), 0.14)];
@@ -29,7 +38,9 @@ const PixelBuildings = (() => {
       w, h, ym, ye, yn, E, R, door: site.doorX - site.x0,
       infill: e.infill || 'plaster', chimney: e.chimney !== false, dormer: e.dormer !== undefined ? e.dormer : w >= 5, boarded: !!e.boarded, props: ['sign', ...(e.props || ['lantern'])],
       stone: e.stone || '#8d8a83', wall: e.wall || '#dccca6', roof: e.roof || '#8a5a36', trim: e.trim || '#4a3322', glass: e.glass || '#aab7e4',
-      chimneyX: w * 0.72, dormerX: w * 0.38
+      chimneyX: w * 0.72, dormerX: w * 0.38,
+      groundS: x => kindAt(site.x0 + Math.min(w - 1, Math.max(0, Math.floor(x))), site.y1 + 1),       // the ground in front of the south wall at x
+      groundE: y => kindAt(site.x1 + 1, site.y0 + Math.min(h - 1, Math.max(0, Math.floor(y))))          // ... of the east wall at y
     };
   }
 
@@ -69,6 +80,7 @@ const PixelBuildings = (() => {
   function cast(S, X, Y) {
     const { w, h, ym, ye, yn, E, R } = S, roofS = y => E + R * (ye - y) / (ye - ym), roofN = y => E + R * (y - yn) / (ym - yn), roofAt = y => Math.min(roofS(y), roofN(y));
     const hits = [
+      top(X, Y, 0, 0, w + AP, h, h + AP, 'apronS'), top(X, Y, 0, w, w + AP, 0, h, 'apronE'),   // the ground at its foot
       faceS(X, Y, h, 0, w, 0, F, 'stone'),                                      // the ground floor
       faceE(X, Y, w, 0, h, 0, F, 'stone'),
       faceS(X, Y, h + J, 0, w + J, F, E, 'frame'),                              // the jettied upper floor
@@ -118,30 +130,65 @@ const PixelBuildings = (() => {
     return p < 0.4 && q > 0.55 ? light(S.glass, 0.35) : S.glass;
   }
 
+  /** The ground marked by a wall's foot: d tiles out from the wall, over ground of `kind`. A translucent colour over the ground, or null. */
+  function apron(kind, d, u) {
+    const f = 1 - d / AP, n = hash(Math.floor(u), Math.floor(d * 60), 21);
+    if (kind === 'stone') return d < 0.035 ? 'rgba(25,22,18,.8)' : null;                                       // a dark gap where the plinth meets the paving
+    if (kind === 'grass') return d < 0.025 ? 'rgba(28,42,18,.6)' : `rgba(34,62,24,${(0.34 * f * (0.7 + 0.3 * n)).toFixed(2)})`;   // a trodden band
+    if (kind === 'dirt') return n > 0.94 && d > 0.04 ? 'rgba(88,74,60,.9)' : `rgba(58,38,20,${(0.46 * f).toFixed(2)})`;          // pressed in, a few pebbles
+    if (kind === 'sand') return `rgba(120,96,58,${(0.32 * f).toFixed(2)})`;
+    if (kind === 'water' || kind === 'shallow') return `rgba(16,36,48,${(0.3 * f).toFixed(2)})`;
+    return `rgba(0,0,0,${(0.22 * f).toFixed(2)})`;                                                            // a contact shadow
+  }
+  /** A wall's stones near its foot, by the ground in front: moss creeping up from grass, grime from dirt, dust from sand, a cove plinth on cobbles. */
+  function footOf(c, kind, z, u) {
+    if (!kind || z > 30) return c;
+    if (kind === 'grass') {                                                            // moss creeping up in uneven tendrils, thinning towards their tips
+      const col = Math.floor(u / 2), reach = 8 + Math.pow(hash(Math.floor(u / 7), 3, 22), 1.2) * 30 * (0.55 + 0.45 * hash(col, 4, 22));
+      if (z > reach) return c;
+      const p = z < reach * 0.55 ? 0.92 : 1 - (z - reach * 0.55) / (reach * 0.45);
+      return hash(col, Math.floor(z), 24) < p ? ['#4f7a34', '#5f8a3c', '#3f6a2c', '#6f9a44'][Math.floor(hash(col, Math.floor(z / 2), 25) * 4)] : c;
+    }
+    if (z > 18) return c;
+    if (kind === 'dirt') return z < 12 ? mix(c, '#5a3f26', (1 - z / 12) * (0.4 + 0.25 * hash(Math.floor(u / 2), Math.floor(z / 2), 26))) : c;
+    if (kind === 'sand') return z < 9 ? mix(c, '#c2a874', (1 - z / 9) * 0.4) : c;
+    if (kind === 'stone') return z < 1 ? '#5f5a52' : z < 4.5 ? (z > 3.5 ? '#d2ccc0' : hash(Math.floor(u / 6), 1, 27) < 0.08 ? '#a8a296' : '#bbb5a9') : z < 5.5 ? shade(c, 0.8) : c;   // the cove plinth
+    if (kind === 'water' || kind === 'shallow') return z < 8 ? mix(c, '#2f4a40', (1 - z / 8) * 0.55) : c;
+    return c;
+  }
+
+  /** The ground floor's stones, its door (in its arch: marked hit.door) and its small windows. */
+  function stoneFace(S, hit, k, u, v) {
+    if (hit.side === 's') {
+      const local = hit.x - S.door;
+      if (local > 0.2 && local < 0.8) {                                        // the door: arched oak planks, iron straps, in a stone arch
+        const p = (local - 0.2) / 0.6, cxp = Math.abs(p - 0.5), arch = 30 + Math.sqrt(Math.max(0, 0.25 - cxp * cxp)) * 16;
+        if (v < arch) {
+          hit.door = true;
+          if (v > 13 && v < 15.5 || v > 25 && v < 27.5) return '#3a3430';                                   // iron straps
+          if (Math.abs(p - 0.72) < 0.05 && Math.abs(v - 18) < 2.5) return '#c9a24a';                       // the ring
+          return plankAt(S, p * 22, 0, 0.82, mix(S.trim, '#8a5a32', 0.55));
+        }
+        if (v < arch + 4) { hit.door = true; return Math.floor((Math.atan2(v - 30, (p - 0.5) * 22) * 6)) % 2 ? light(S.stone, 0.18) : light(S.stone, 0.05); }   // the arch's stones
+      }
+      const t = Math.floor(hit.x), cell = hit.x - t;
+      if (t !== S.door && t >= 0 && t < S.w && hash(t, 17) > 0.35 && cell > 0.32 && cell < 0.68 && v > 17 && v < 33) {    // a small window, shuttered
+        return windowAt(S, (cell - 0.32) / 0.36, 1 - (v - 17) / 16, 1, u, v);
+      }
+      if (t !== S.door && hash(t, 17) > 0.35 && v > 16 && v < 34 && ((cell > 0.22 && cell < 0.31) || (cell > 0.69 && cell < 0.78))) return plankAt(S, u * 2, v, 0.9, S.trim);   // shutters
+    } else if (hit.y > 0.3 && hit.y < 0.7 && v > 17 && v < 33 && S.h >= 3) return windowAt(S, (hit.y - 0.3) / 0.4, 1 - (v - 17) / 16, k, u, v);
+    return stoneAt(S, u, v, k * (v < 6 ? 0.88 : 1));
+  }
+
   function colourOf(S, hit) {
     const k = hit.side === 'e' ? 0.78 : 1;
     const u = (hit.side === 'e' ? (S.h + J - hit.y) : hit.x) * LEN, v = hit.z;
     switch (hit.mat) {
+      case 'apronS': return hit.x > S.w ? apron(S.groundE(S.h - 1), Math.max(hit.y - S.h, hit.x - S.w), u) : apron(S.groundS(hit.x), hit.y - S.h, u);
+      case 'apronE': return apron(S.groundE(hit.y), hit.x - S.w, (S.h - hit.y) * LEN);
       case 'stone': {
-        if (hit.side === 's' && v < 3 && hash(Math.floor(u / 2), 1, 2) < 0.5) return mix('#5f7a3a', '#3f5a2a', hash(Math.floor(u), 2));   // moss and grass at the foot
-        if (hit.side === 's') {
-          const local = hit.x - S.door;
-          if (local > 0.2 && local < 0.8) {                                        // the door: arched oak planks, iron straps, in a stone arch
-            const p = (local - 0.2) / 0.6, cxp = Math.abs(p - 0.5), arch = 30 + Math.sqrt(Math.max(0, 0.25 - cxp * cxp)) * 16;
-            if (v < arch) {
-              if (v > 13 && v < 15.5 || v > 25 && v < 27.5) return '#3a3430';                                   // iron straps
-              if (Math.abs(p - 0.72) < 0.05 && Math.abs(v - 18) < 2.5) return '#c9a24a';                       // the ring
-              return plankAt(S, p * 22, 0, 0.82, mix(S.trim, '#8a5a32', 0.55));
-            }
-            if (v < arch + 4) return Math.floor((Math.atan2(v - 30, (p - 0.5) * 22) * 6)) % 2 ? light(S.stone, 0.18) : light(S.stone, 0.05);   // the arch's stones
-          }
-          const t = Math.floor(hit.x), cell = hit.x - t;
-          if (t !== S.door && t >= 0 && t < S.w && hash(t, 17) > 0.35 && cell > 0.32 && cell < 0.68 && v > 17 && v < 33) {    // a small window, shuttered
-            return windowAt(S, (cell - 0.32) / 0.36, 1 - (v - 17) / 16, 1, u, v);
-          }
-          if (t !== S.door && hash(t, 17) > 0.35 && v > 16 && v < 34 && ((cell > 0.22 && cell < 0.31) || (cell > 0.69 && cell < 0.78))) return plankAt(S, u * 2, v, 0.9, S.trim);   // shutters
-        } else if (hit.y > 0.3 && hit.y < 0.7 && v > 17 && v < 33 && S.h >= 3) return windowAt(S, (hit.y - 0.3) / 0.4, 1 - (v - 17) / 16, k, u, v);
-        return stoneAt(S, u, v, k * (v < 6 ? 0.88 : 1));
+        const base = stoneFace(S, hit, k, u, v);
+        return hit.door ? base : footOf(base, hit.side === 'e' ? S.groundE(hit.y) : S.groundS(hit.x), v, u);
       }
       case 'frame': {
         const zf = v - F;
@@ -242,9 +289,30 @@ const PixelBuildings = (() => {
     }
   }
 
+  /** A colour ('#rrggbb', 'rgb()' or 'rgba()') as [r, g, b, alpha 0-255] (remembered). */
+  const rgbaSeen = new Map();
+  function rgba(c) {
+    let v = rgbaSeen.get(c);
+    if (v) return v;
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(c);
+    if (m) v = [+m[1], +m[2], +m[3], m[4] === undefined ? 255 : Math.round(+m[4] * 255)];
+    else { const n = parseInt(c.slice(1), 16); v = [n >> 16, (n >> 8) & 255, n & 255, 255]; }
+    if (rgbaSeen.size > 5000) rgbaSeen.clear();
+    rgbaSeen.set(c, v); return v;
+  }
+  /** Grass tufts against the foot of a wall where grass meets it: blades of a few pixels, leaning a little. */
+  function tufts(g, P, along, ground, len, seed) {
+    for (let t = 0.03; t < len; t += 0.045) {
+      if (ground(t) !== 'grass' || hash(Math.floor(t * 100), seed, 31) < 0.45) continue;
+      const [x, y] = P(t), hgt = 2 + Math.floor(hash(Math.floor(t * 100), seed, 32) * 4), lean = hash(Math.floor(t * 100), seed, 33) < 0.5 ? -1 : 1;
+      for (let i = 0; i < hgt; i++) { g.fillStyle = i === hgt - 1 ? '#7fb24f' : i ? '#5f9a3c' : '#3f6a2c'; g.fillRect(Math.round(x + (i > 1 ? lean : 0)), Math.round(y - i), 1, 1); }
+      if (hgt > 3) { g.fillStyle = '#5f9a3c'; g.fillRect(Math.round(x + 1), Math.round(y - 1), 1, 1); g.fillRect(Math.round(x - 1), Math.round(y - 2), 1, 1); }
+    }
+  }
+
   /** The finished picture of a building: { canvas, minX, minY } in art pixels relative to its north-west ground corner. */
   function art(site) {
-    const key = site.index + '|' + JSON.stringify(site.def.exterior || {});
+    const key = site.index + '|' + JSON.stringify(site.def.exterior || {}) + (groundAt ? '|g' : '');   // (made again once the ground is known)
     if (cache.has(key)) return cache.get(key);
     const S = specOf(site), M = 6;
     const minX = Math.floor(-(S.h + J + 2 * O) * HWa) - M, maxX = Math.ceil((S.w + J + 2 * O) * HWa) + M;
@@ -252,12 +320,11 @@ const PixelBuildings = (() => {
     const canvas = document.createElement('canvas'); canvas.width = maxX - minX; canvas.height = maxY - minY;
     const g = canvas.getContext('2d'), img = g.createImageData(canvas.width, canvas.height), d = img.data;
     const rgb = {};
-    const parse = c => rgb[c] || (rgb[c] = (() => { const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(c); if (m) return [+m[1], +m[2], +m[3]]; const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; })());
     for (let py = 0; py < canvas.height; py++) for (let px = 0; px < canvas.width; px++) {
-      const hit = cast(S, px + minX + 0.5, py + minY + 0.5);
-      if (!hit) continue;
-      const [r, gg, b] = parse(colourOf(S, hit)), i = (py * canvas.width + px) * 4;
-      d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = 255;
+      const hit = cast(S, px + minX + 0.5, py + minY + 0.5), col = hit && colourOf(S, hit);
+      if (!col) continue;
+      const [r, gg, b, a] = rgba(col), i = (py * canvas.width + px) * 4;
+      d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = a;
     }
     for (let py = 0; py < canvas.height; py++) for (let px = 0; px < canvas.width; px++) {          // the dark outline round the silhouette
       const i = (py * canvas.width + px) * 4;
@@ -266,7 +333,9 @@ const PixelBuildings = (() => {
       if (solid(px + 1, py) || solid(px - 1, py) || solid(px, py + 1) || solid(px, py - 1)) { d[i] = 0x1c; d[i + 1] = 0x14; d[i + 2] = 0x0e; d[i + 3] = 254; }
     }
     g.putImageData(img, 0, 0);
-    props(S, g, (x, y, z) => [(x - y) * HWa - minX, (x + y) * HHa - z - minY]);
+    const P = (x, y, z) => [(x - y) * HWa - minX, (x + y) * HHa - z - minY];
+    tufts(g, x => P(x, S.h + 0.04, 0), 'x', S.groundS, S.w, 1); tufts(g, y => P(S.w + 0.04, y, 0), 'y', S.groundE, S.h, 2);   // grass at the foot of the walls
+    props(S, g, P);
     const out = { canvas, minX, minY, spec: S };
     cache.set(key, out);
     return out;
@@ -275,8 +344,9 @@ const PixelBuildings = (() => {
   /* ---- the village's walls and watchtowers: one tile each, the same stone, cast the same way ---- */
   const WALL_STONE = '#9a958b', TOWER_ROOF = '#7a3b30';
   /** A picture of one tile of wall (crenellated) or of a watchtower (a pointed shingle roof and a pennant): { canvas, minX, minY }. */
-  function pieceArt(kind) {
-    if (cache.has(kind)) return cache.get(kind);
+  function pieceArt(kind, gS = null, gE = null) {
+    const key = kind + '|' + gS + '|' + gE;
+    if (cache.has(key)) return cache.get(key);
     const tower = kind === 'tower', H = (tower ? CONFIG.view.towerH : CONFIG.view.wallH) / ART, M = 4;
     const S = { stone: WALL_STONE, trim: '#4a3322', roof: TOWER_ROOF, wall: '#cfc6b4', glass: '#2a2a33', boarded: false, ym: 0.5, ye: 1.12, yn: -0.12, h: 1, w: 1 };
     const Rr = tower ? 54 : 0, apex = H + Rr;
@@ -284,7 +354,7 @@ const PixelBuildings = (() => {
     const canvas = document.createElement('canvas'); canvas.width = maxX - minX; canvas.height = maxY - minY;
     const g = canvas.getContext('2d');
     for (let py = 0; py < canvas.height; py++) for (let px = 0; px < canvas.width; px++) {
-      const X = px + minX + 0.5, Y = py + minY + 0.5, hits = [faceS(X, Y, 1, 0, 1, 0, H, 'stone'), faceE(X, Y, 1, 0, 1, 0, H, 'stone')];
+      const X = px + minX + 0.5, Y = py + minY + 0.5, hits = [faceS(X, Y, 1, 0, 1, 0, H, 'stone'), faceE(X, Y, 1, 0, 1, 0, H, 'stone'), top(X, Y, 0, 0, 1 + AP, 1, 1 + AP, 'apronS'), top(X, Y, 0, 1, 1 + AP, 0, 1, 'apronE')];
       if (tower) {                                                                      // a pyramid roof with eaves: its south and east slopes
         const o = 0.12, slope = Rr / (0.5 + o);
         const sHit = slopeY(X, Y, H + Rr + slope * 0.5, -slope, -o, 1 + o, 0.5, 1 + o, 'roofS'), eHit = slopeX(X, Y, H + Rr + slope * 0.5, -slope, 0.5, 1 + o, -o, 1 + o, 'roofE');
@@ -300,6 +370,11 @@ const PixelBuildings = (() => {
       if (!best) continue;
       const k = best.side === 'e' ? 0.78 : 1, u = (best.side === 'e' ? 1 - best.y : best.x) * LEN, v = best.z;
       let c;
+      if (best.mat === 'apronS' || best.mat === 'apronE') {                              // the ground at its foot
+        c = best.mat === 'apronS' ? apron(best.x > 1 ? gE : gS, best.x > 1 ? Math.max(best.y - 1, best.x - 1) : best.y - 1, best.x * LEN) : apron(gE, best.x - 1, best.y * LEN);
+        if (!c) continue;
+        const [r, gg, b, a] = rgba(c); g.fillStyle = `rgba(${r},${gg},${b},${(a / 255).toFixed(2)})`; g.fillRect(px, py, 1, 1); continue;
+      }
       if (best.mat === 'walltop') c = light(WALL_STONE, 0.1);
       else if (best.mat === 'roofS' || best.mat === 'roofE') {
         const kk = best.mat === 'roofE' ? 0.78 : 1, along = (best.mat === 'roofE' ? best.y : best.x) * LEN * 0.8, sDist = (apex - v) * 0.9, row = Math.floor(sDist / 5);
@@ -308,12 +383,14 @@ const PixelBuildings = (() => {
         c = stoneAt(S, u, v, k * (v < 6 ? 0.88 : 1), WALL_STONE);
         if (tower && best.side === 's' && Math.abs(best.x - 0.5) < 0.07 && v > H - 34 && v < H - 14) c = '#1e1a18';     // an arrow slit
         if (tower && best.side === 'e' && Math.abs(best.y - 0.5) < 0.07 && v > H * 0.45 && v < H * 0.45 + 18) c = '#1e1a18';
-        if (best.side === 's' && v < 3 && hash(Math.floor(u / 2), 1, 2) < 0.5) c = mix('#5f7a3a', '#3f5a2a', hash(Math.floor(u), 2));
+        c = footOf(c, best.side === 'e' ? gE : gS, v, u);                                 // moss, grime, dust or a plinth, by the ground in front
       }
       g.fillStyle = c; g.fillRect(px, py, 1, 1);
     }
     const img = g.getImageData(0, 0, canvas.width, canvas.height), d = img.data, W = canvas.width;     // the outline
     const solid = (x, y) => x >= 0 && y >= 0 && x < W && y < canvas.height && d[(y * W + x) * 4 + 3] === 255;
+    const P = (x, y, z) => [(x - y) * HWa - minX, (x + y) * HHa - z - minY];
+    tufts(g, x => P(x, 1.04, 0), 'x', () => gS, 1, 3); tufts(g, y => P(1.04, y, 0), 'y', () => gE, 1, 4);
     const edge = [];
     for (let y = 0; y < canvas.height; y++) for (let x = 0; x < W; x++) if (!d[(y * W + x) * 4 + 3] && (solid(x + 1, y) || solid(x - 1, y) || solid(x, y + 1) || solid(x, y - 1))) edge.push(x, y);
     if (tower) { g.fillStyle = OUTLINE; for (let i = 0; i < edge.length; i += 2) g.fillRect(edge[i], edge[i + 1], 1, 1); }   // (walls run on into each other: no outline between them)
@@ -323,12 +400,12 @@ const PixelBuildings = (() => {
       g.fillStyle = '#d9b45a'; g.fillRect(Math.round(x) + 1, Math.round(y) - 14, 7, 2); g.fillRect(Math.round(x) + 1, Math.round(y) - 12, 5, 2); g.fillRect(Math.round(x) + 1, Math.round(y) - 10, 3, 1);
     }
     const out = { canvas, minX, minY };
-    cache.set(kind, out);
+    cache.set(key, out);
     return out;
   }
   /** Draw a tile of wall or a watchtower standing on tile (tx, ty) (its ground centre at cx, cy in world pixels). */
-  function drawPiece(ctx, kind, cx, cy) {
-    const A = pieceArt(kind), ox = cx, oy = cy - TILE_HALF_H, smooth = ctx.imageSmoothingEnabled;   // (the art's origin: the tile's north corner)
+  function drawPiece(ctx, kind, cx, cy, tx, ty) {
+    const A = pieceArt(kind, tx === undefined ? null : kindAt(tx, ty + 1), tx === undefined ? null : kindAt(tx + 1, ty)), ox = cx, oy = cy - TILE_HALF_H, smooth = ctx.imageSmoothingEnabled;   // (the art's origin: the tile's north corner)
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(A.canvas, ox + A.minX * ART, oy + A.minY * ART, A.canvas.width * ART, A.canvas.height * ART);
     ctx.imageSmoothingEnabled = smooth;
@@ -359,5 +436,5 @@ const PixelBuildings = (() => {
   /** How tall the ground floor is in world pixels (the name banner floats above the door). */
   const groundFloorHeight = () => F * ART;
 
-  return { art, drawTile, drawPiece, signAt, groundFloorHeight, ART };
+  return { art, drawTile, drawPiece, signAt, groundFloorHeight, useGround, ART };
 })();
