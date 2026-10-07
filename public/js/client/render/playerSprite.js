@@ -5,7 +5,7 @@
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
-const TOOL_LENGTH = { axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10, hoe: 22, water: 6 };
+const TOOL_LENGTH = { sickle: 12, axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10, hoe: 22, water: 6 };
 /** Each lasso's look: rope, braid highlight, outline, the ring (honda) the loop runs through, its ribbon tails (none: a plain rope end)
  *  and whether it is old and frayed (the starter). A lasso made in the editor uses its item colour. Shared with the item icons and the throw effect. */
 const LASSO_LOOKS = {
@@ -316,6 +316,7 @@ class PlayerSprite {
       else if (tool.kind === 'knife') this.g.polygon([handX + dirX * 4, handY + dirY * 4, tipX + dirX * 8, tipY + dirY * 8, handX + dirX * 4 + perpX * 4, handY + dirY * 4 + perpY * 4], '#d3d8df');
       else if (tool.kind === 'spear') this.g.polygon([tipX - dirX * 2 + perpX * 3, tipY - dirY * 2 + perpY * 3, tipX + dirX * 9, tipY + dirY * 9, tipX - dirX * 2 - perpX * 3, tipY - dirY * 2 - perpY * 3], '#c9ced6');
       else if (tool.kind === 'shovel') this._drawShovelHead(tipX, tipY, dirX, dirY, perpX, perpY);
+      else if (tool.kind === 'sickle') { ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tipX + perpX * 5, tipY + perpY * 5, 6, Math.atan2(-perpY, -perpX) - 1.6, Math.atan2(-perpY, -perpX) + 1.6); ctx.stroke(); }   // the crescent blade
       else if (tool.kind === 'hoe') this.g.polygon([tipX - dirX * 1, tipY - dirY * 1, tipX + dirX * 2, tipY + dirY * 2, tipX + dirX * 2 + perpX * 7, tipY + dirY * 2 + perpY * 7, tipX - dirX * 2 + perpX * 6, tipY - dirY * 2 + perpY * 6], '#9aa2ad');
       else if (tool.kind === 'sword') this._drawSwordBlade(handX, handY, tipX, tipY, dirX, dirY, perpX, perpY, p.held);
       else if (tool.kind === 'rod') { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + dirX * 6, tipY + dirY * 6 + 12); ctx.stroke(); }

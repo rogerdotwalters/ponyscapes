@@ -98,6 +98,7 @@ const SaveData = {
     }
     for (const [k, tile] of Object.entries(out.built)) if (Stockpiles.isStockpile(tile.c) && !out.stockpiles.piles[k]) out.stockpiles.piles[k] = { items: {} };
     for (const [k, f] of Object.entries(SaveData._plain(data.farm) ? data.farm : {})) {                // the fields: plots on half-tile cells
+      if (/^c-?\d{1,7},-?\d{1,7}$/.test(k) && SaveData._plain(f) && Number.isFinite(f.t)) { out.farm[k] = { t: Math.max(0, Math.round(f.t)) }; continue; }   // cut grass (grass.js)
       if (/^g-?\d{1,7},-?\d{1,7}$/.test(k) && SaveData._plain(f) && typeof TreeSpecies !== 'undefined' && TreeSpecies.has(f.t)) {   // a planted sapling / grown tree (groves.js)
         out.farm[k] = { t: f.t, d: SaveData._int(f.d, 0, 999, 0) }; if (f.g) out.farm[k].g = 1; continue;
       }

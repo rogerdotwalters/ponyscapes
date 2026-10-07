@@ -175,10 +175,10 @@ class GameServer {
       till: (id, cx, cy) => this._till(id, cx, cy), water: (id, cx, cy) => this._water(id, cx, cy),
       later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
-    const hunt = new HuntHandler(deps);
+    const hunt = new HuntHandler(deps), grass = new GrassCutHandler(Object.assign({}, deps, { cutGrass: (id, tiles) => this._cutGrass(id, tiles) }));
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
     deps.onTamed = (ownerId, animal) => this._remember(ownerId, animal);
-    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: hunt, spear: hunt, sword: hunt, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: new ShearHandler(deps), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
+    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: withGrass(hunt, grass), spear: hunt, sword: withGrass(hunt, grass), sickle: grass, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: withGrass(new ShearHandler(deps), grass), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
   }
 
   /* ---- membership ---- */

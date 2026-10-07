@@ -12,6 +12,7 @@ Materials.registerAll([
   { id: 'gold_coin', name: 'Gold Coin', maxStack: 999, rarity: 'rare', spawns: [{ biome: 'beach', rate: 0.6 }] },                              // the odd coin washed up long ago
   { id: 'coffee_beans', name: 'Coffee Beans', maxStack: 40, color: '#6b3e22', spawns: [{ biome: 'jungle', rate: 3 }] },                         // jungle pickings
   { id: 'bamboo', name: 'Bamboo', maxStack: 20, color: '#9cc25a', spawns: [{ biome: 'jungle', rate: 5 }] },
+  { id: 'hay', name: 'Hay', maxStack: 50, color: '#d9b45a' },                                                                                // cut grass, dried (grass.js)
   { id: 'rope', name: 'Rope', maxStack: 30 },
   { id: 'clay', name: 'Clay', maxStack: 20, resource: 'clay' },
   { id: 'brick', name: 'Brick', maxStack: 40, resource: 'stone' },

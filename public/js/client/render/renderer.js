@@ -79,6 +79,9 @@ class Renderer {
     TerrainRenderer.setDate(date.season.id, date.day); PropSprites.seasonTint = date.season.treeTint;
     if (!this.groundLook || this.groundMap !== this.game.worldMap) { this.groundMap = this.game.worldMap; this.groundLook = (x, y) => TerrainRenderer.lookOf(this.groundMap, x, y); PixelBuildings.useGround(this.groundLook); }   // buildings meet the ground they stand on
     TerrainRenderer.setScale(this.camera.scale); TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
+    const movers = [];                                                              // whoever pushes the grass aside (grassRenderer.js)
+    for (const group of [state.players, state.animals, state.npcs]) for (const id in (group || {})) { const m = group[id]; if (m && !m.boat && !m.flying) movers.push(m); }
+    this.nearGrass = GrassRenderer.draw(this.ctx, this.game.map, bounds, tiles, this.game.clockTick, now, movers);
     this._drawTapMarker(now);
     for (const item of this._sortedWorldItems(state, bounds, tiles)) this._drawItem(item, now);
     if (!indoors) this._drawBuildingNames(me);
@@ -136,6 +139,7 @@ class Renderer {
     if (target) items.push({ kind: 'ghost', depth: target.tx + target.ty + 1, target, gx: (target.tx - target.ty) * TILE_HALF_W, gy: (target.tx + target.ty + 1) * TILE_HALF_H });
     for (const id in state.animals) { const a = state.animals[id]; items.push({ kind: 'animal', depth: a.x + a.y - (a.rider ? 0.05 : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider
     for (const id in (state.npcs || {})) { const n = state.npcs[id]; items.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
+    for (const gr of this.nearGrass || []) items.push({ kind: 'grass', depth: gr.depth, draw: gr.draw });   // the grass around people's feet
     const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
     if (farm) for (const key in farm) {
       const plot = farm[key];
@@ -157,6 +161,7 @@ class Renderer {
   }
 
   _drawItem(item, now) {
+    if (item.kind === 'grass') { const sm = this.ctx.imageSmoothingEnabled; this.ctx.imageSmoothingEnabled = false; item.draw(); this.ctx.imageSmoothingEnabled = sm; return; }
     const g = this.g;
     if (item.kind === 'structure') return StructureSprites.draw(g, item, item.gx, item.gy);
     if (item.kind === 'built') return StructureSprites.drawBuiltChunk(g, item);

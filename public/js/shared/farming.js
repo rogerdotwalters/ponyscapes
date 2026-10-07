@@ -133,6 +133,7 @@ Object.assign(GameServer.prototype, {
 
   /** Called every tick: each new day grows what was watered the day before, withers what is out of season, lets dry empty soil go back. */
   _farmDays() {
+    this._pruneGrass();
     if (this.tick % 15) return;
     const today = this._today();
     if (this.farmDay === undefined) this.farmDay = today;
@@ -142,7 +143,8 @@ Object.assign(GameServer.prototype, {
   _farmNewDay(prev) {
     const farm = this._farm(), season = Seasons.indexOfDay(prev + 1);
     for (const [key, plot] of Object.entries(farm)) {
-      if (Groves.isKey(key)) { this._growGrove(key, plot); continue; }                              // a planted sapling (groves.js): it grows every day
+      if (Groves.isKey(key)) { this._growGrove(key, plot); continue; }
+      if (Grass.isKey(key)) continue;                                                               // cut grass (grass.js): it grows back by itself                              // a planted sapling (groves.js): it grows every day
       const watered = plot.w === prev;
       if (plot.c && !plot.dead) {
         if (!Farming.inSeason(plot.c, season)) plot.dead = true;                                     // its season is over

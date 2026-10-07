@@ -318,6 +318,18 @@ const ItemIcons = (() => {
       ctx.fillStyle = '#241a14'; ctx.beginPath(); ctx.arc(19, 28, 1.6, 0, Math.PI * 2); ctx.arc(29, 28, 1.6, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#d98a8a'; ctx.beginPath(); ctx.arc(24, 32, 1.8, 0, Math.PI * 2); ctx.fill();
     },
+    hay(ctx) {                                                                     // a tied bundle of hay
+      for (let i = 0; i < 26; i++) {
+        const x = 10 + (i * 7) % 28, lean = ((i * 13) % 7 - 3) * 0.9;
+        ctx.strokeStyle = ['#d9b45a', '#efd27a', '#b8923a'][i % 3]; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, 42); ctx.quadraticCurveTo(x + lean, 26, x + lean * 2, 8 + (i % 4) * 2); ctx.stroke();
+      }
+      ctx.fillStyle = '#8a5a32'; ctx.fillRect(9, 26, 30, 4); ctx.fillStyle = '#a8763f'; ctx.fillRect(9, 26, 30, 1.5);
+    },
+    sickle(ctx) {                                                                  // a wooden grip and a crescent blade
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(10, 42); ctx.lineTo(20, 30); ctx.stroke();
+      ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(28, 18, 13, Math.PI * 0.75, Math.PI * 2.05); ctx.stroke();
+      ctx.strokeStyle = '#eef2f7'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(28, 18, 11, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    },
     captured_cat: critterPainter({ fur: '#9a9a9a', face: '#e8e4dc', ears: 'point', nose: '#d98a8a' }),
     captured_lemur: critterPainter({ fur: '#9a9a9e', face: '#f2f0ea', ears: 'round', nose: '#1a1410', mask: '#2a2a30', eye: '#f2a33a' }),
     captured_chicken: critterPainter({ fur: '#f4f0e6', face: '#f4f0e6', ears: 'comb', beak: '#f0a830' }),
