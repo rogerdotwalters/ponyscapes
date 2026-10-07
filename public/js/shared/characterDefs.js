@@ -22,7 +22,7 @@ const CharacterLook = {
   PRINCE: 0, PRINCESS: 1,
   /** How many choices each of the six slots has. */
   SIZES: Object.freeze([2, 6, 10, 6, 10, 8]),
-  /** A different-looking default for each seat (bots and ?solo=1 use these). */
+  /** A different-looking default for each seat (?solo=1 uses these). */
   defaultFor(slot) { return [[0, 0, 1, 1, 0, 0], [1, 1, 4, 0, 3, 1], [0, 2, 2, 3, 2, 0], [1, 5, 6, 2, 1, 2]][((slot | 0) % 4 + 4) % 4].slice(); },
   random(rng = Math.random) { return CharacterLook.SIZES.map(n => Math.floor(rng() * n)); },
   /** A clean copy of an untrusted appearance, or null if it is not one. */

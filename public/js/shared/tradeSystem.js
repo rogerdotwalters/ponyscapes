@@ -1,13 +1,12 @@
 'use strict';
 /* SERVER-SIDE player-to-player trading.
- *   1. one player requests a trade with a nearby player          (bots always accept)
+ *   1. one player requests a trade with a nearby player
  *   2. both put items from their inventories on the table         (any change clears both confirmations)
  *   3. both confirm -> the swap happens atomically, or nothing happens if anyone lacks room / items
  * The server is the only place the swap is decided; clients just show the state they are sent. */
-const BOT_TRADE_STOCK = ['rope', 'string', 'stone', 'raspberry', 'plank'];
 
 class TradeSystem {
-  /** @param {{players, inventories, bots, rng, emit, markInventoryChanged, notice}} deps  (the first three are live dictionaries) */
+  /** @param {{players, inventories, rng, emit, markInventoryChanged, notice}} deps  (the first two are live dictionaries) */
   constructor(deps) { Object.assign(this, deps); this.sessions = []; this.rev = {}; this.sentRev = {}; }
 
   sessionOf(id) { return this.sessions.find(s => s.a === id || s.b === id) || null; }
@@ -19,10 +18,9 @@ class TradeSystem {
     if (!a || !b || from === target) { this.notice(from, 'Nobody to trade with'); return; }
     if (this.sessionOf(from) || this.sessionOf(target)) { this.notice(from, 'One of you is already trading'); return; }
     if (!sameGrid(a, b) || Math.hypot(a.x - b.x, a.y - b.y) > CONFIG.sim.tradeRange) { this.notice(from, 'Too far away to trade'); return; }
-    const s = { a: from, b: target, status: this.bots[target] ? 'active' : 'pending', offers: { [from]: {}, [target]: {} }, confirmed: { [from]: false, [target]: false } };
+    const s = { a: from, b: target, status: 'pending', offers: { [from]: {}, [target]: {} }, confirmed: { [from]: false, [target]: false } };
     this.sessions.push(s);
-    if (this.bots[target]) s.offers[target] = { [BOT_TRADE_STOCK[Math.floor(this.rng() * BOT_TRADE_STOCK.length)]]: 1 };   // a bot puts something on the table
-    else this.notice(target, `${from.toUpperCase()} wants to trade`);
+    this.notice(target, `${from.toUpperCase()} wants to trade`);
     this._touch(s);
   }
 
@@ -55,8 +53,6 @@ class TradeSystem {
     const s = this.sessionOf(id);
     if (!s || s.status !== 'active') return;
     s.confirmed[id] = !!value;
-    const other = this._other(s, id);
-    if (this.bots[other] && value && Object.keys(s.offers[id]).length) s.confirmed[other] = true;     // the bot agrees to any real offer
     this._touch(s);
     if (s.confirmed[s.a] && s.confirmed[s.b]) this._execute(s);
   }
@@ -68,7 +64,7 @@ class TradeSystem {
     let problem = '';
     for (const [from, to] of [[s.a, s.b], [s.b, s.a]]) {
       for (const [item, count] of give(from, to)) {
-        if (!this.bots[from] && !trials[from].remove(item, count)) problem = `${from.toUpperCase()} no longer has the items`;   // a bot's stock is conjured, not owned
+        if (!trials[from].remove(item, count)) problem = `${from.toUpperCase()} no longer has the items`;
       }
       for (const [item, count] of give(to, from)) {
         if (trials[from].add(item, count) > 0) problem = problem || `${from.toUpperCase()} has no room`;
@@ -76,7 +72,7 @@ class TradeSystem {
     }
     if (problem) {
       s.confirmed[s.a] = s.confirmed[s.b] = false; this._touch(s);
-      for (const id of [s.a, s.b]) if (!this.bots[id]) this.notice(id, 'Trade failed: ' + problem);
+      for (const id of [s.a, s.b]) this.notice(id, 'Trade failed: ' + problem);
       return;
     }
     for (const id of [s.a, s.b]) { this.inventories[id].slots = trials[id].slots; this.markInventoryChanged(id); this.emit({ type: 'tradeDone', to: id }); }

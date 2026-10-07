@@ -2,11 +2,10 @@
 /* CLIENT composition root: creates the objects and wires them together. No game rules live here. */
 const $ = id => document.getElementById(id);
 
-function applyUrlOverrides() {                       // ?lag=120&jitter=30&bots=3&debug=1
+function applyUrlOverrides() {                       // ?lag=120&jitter=30&debug=1
   const q = new URLSearchParams(location.search);
   if (q.has('lag')) CONFIG.net.fakeLatencyMs = Number(q.get('lag')) || 0;
   if (q.has('jitter')) CONFIG.net.fakeJitterMs = Number(q.get('jitter')) || 0;
-  if (q.has('bots')) CONFIG.net.bots = clamp(Number(q.get('bots')) || 0, 0, 3);
   if (q.get('kit') === '0') CONFIG.sim.testKit = false;                 // ?kit=0: start with just an axe, no home, no pony
   if (q.has('hour')) CONFIG.sim.time.startHour = clamp(Number(q.get('hour')) || 0, 0, 24);
   return q;

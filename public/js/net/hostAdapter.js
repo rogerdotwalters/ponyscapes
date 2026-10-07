@@ -32,7 +32,6 @@ class HostAdapter extends LocalAdapter {
     { const look = CharacterLook.sanitize(this.o.appearance); if (look) { this.server.players[this.id].appearance = look; this.server.fitWardrobe(this.id); } }
     this.keys[this.id] = key; this.known.add(key);
     try { for (const c of await this.store.listCharacters(this.world.id)) this.known.add(c.key); } catch (e) { /* the count is only a label */ }
-    this._fillBots();
     this.lastTime = performance.now();
     this._startTicker();
     this.nextAutoAt = Date.now() + this.o.autosaveMs;
@@ -40,11 +39,6 @@ class HostAdapter extends LocalAdapter {
     if (!this.world.data) await this.saveAll('created');                   // a brand-new world exists in the database from the first moment
     if (this.o.online) await this.startOnline();
     return JSON.parse(JSON.stringify(Object.assign(SnapshotBuilder.welcomeFor(this.server, this.id), { you: { name }, session: this._sessionPublic() })));
-  }
-
-  _fillBots() {
-    const want = Math.min(CONFIG.net.bots, CONFIG.sim.maxPlayers - this.server.humanIds().length);
-    while (Object.keys(this.server.bots).length < want) if (!this.server.addPlayer(true)) break;
   }
 
   /** The simulation clock. A Worker's timer is not throttled when the tab is hidden; the page's own setInterval is (to once a second). */
@@ -212,7 +206,7 @@ class HostAdapter extends LocalAdapter {
     this._broadcastRoster();
   }
 
-  /** Somebody left (or was removed): their character is written to the database FIRST, then their seat goes back to a bot. */
+  /** Somebody left (or was removed): their character is written to the database FIRST, then their seat is free again. */
   async _dropRemote(cid, why) {
     const r = this.remotes[cid];
     if (!r) return;
@@ -251,7 +245,6 @@ class HostAdapter extends LocalAdapter {
     const remotes = Object.values(this.remotes); this.remotes = {};
     for (const r of remotes) if (r.ready) { const data = SaveData.exportCharacter(this.server, r.id); delete this.keys[r.id]; this.server.leaveHuman(r.id); try { if (data) await this.store.putCharacter(this.world.id, r.key, r.name, data); } catch (e) { /* reported by the save below */ } }
     this._emit({ type: 'relayLost', reason });
-    this._fillBots();
     await this.saveAll('relay lost');
   }
 

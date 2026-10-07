@@ -23,6 +23,6 @@ class DebugOverlay {
       `hunger ${p.hunger.toFixed(0)}  thirst ${p.thirst.toFixed(0)}  time ${DayCycle.format(g.hour())}\n` +
       `held ${g.heldItemId() || '-'}  logs ${g.inventory.count('log')}\n` +
       `pending ${g.pending.length}  ack ${g.lastAck}  err ${g.lastError.toFixed(4)}\n` +
-      `lag sim ${net.fakeLatencyMs}ms (+${net.fakeJitterMs} jitter)  bots ${net.bots}`;
+      `lag sim ${net.fakeLatencyMs}ms (+${net.fakeJitterMs} jitter)`;
   }
 }
