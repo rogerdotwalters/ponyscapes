@@ -42,6 +42,7 @@ function start() {
   const query = applyUrlOverrides();
   preventBrowserGestures();
   if (query.get('solo') === '1') { launch({ adapter: new LocalAdapter() }, query); return; }
+  Loader.hide();                                                       // (the page's own loading screen: the scripts are all here)
   new LobbyUI({ root: $('lobby'), query }).show().then(choice => launch(choice, query));
 }
 
@@ -51,6 +52,7 @@ function launch(choice, query) {
   const adapter = choice.adapter;
   const game = new ClientGame(adapter);
   game.session = typeof adapter.getSessionInfo === 'function' ? adapter : null;      // only hosted / joined games have a session
+  Loader.show(choice.welcome ? 'Starting...' : 'Connecting...');
 
   (choice.welcome ? Promise.resolve(choice.welcome) : adapter.connect()).then(welcome => {
     game.onWelcome(welcome);
@@ -172,8 +174,8 @@ function launch(choice, query) {
       $('btnAbility').classList.toggle('cd', !!ready && ready.cooldown > 0);
     };
 
-    /* loop */
-    new GameLoop({
+    /* loop: it starts once the loading screen has everything the first moments need (Loader.initial); the rest loads while you play */
+    const loop = new GameLoop({
       tickMs: TICK_MS,
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
@@ -196,7 +198,8 @@ function launch(choice, query) {
         const interactHint = game.interactHint();
         if (interactHint !== interactShown) { interactShown = interactHint; $('btnBoard').style.display = interactHint ? '' : 'none'; $('btnBoard').textContent = shortVerb(interactHint || ''); $('btnBoard').title = interactHint || ''; }
       }
-    }).start();
+    });
+    Loader.initial({ game, renderer }).catch(err => { console.error('loading:', err); Loader.hide(); }).then(() => { loop.start(); Loader.background(game, renderer); });
   });
 }
 

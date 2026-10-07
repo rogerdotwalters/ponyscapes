@@ -4,6 +4,7 @@
 /** Which skill a forageable trains. */
 const ForageSkill = { bush: 'foraging', flax: 'foraging', apple_tree: 'foraging', bottle: 'foraging', stone: 'digging', clay: 'digging', mound: 'digging' };
 const SERVER_STREAM_RADIUS = 2, SERVER_KEEP_RADIUS = 6, BOAT_SYNC_RADIUS = 90;     // chunks / chunks / tiles
+const SERVER_CHUNKS_PER_TICK = 2;                                                    // new chunks (beyond the nearest 3 x 3) made per player per tick
 
 /** The server's event list. Each event remembers the grid it happened on (GameServer.eventGrid at the time), so a puff of dust in a cave is only
  *  shown to the people in that cave. Events with no position, or addressed to one player, go wherever they are meant to. */
@@ -602,7 +603,10 @@ class GameServer {
 
   _streamWorld() {
     const humans = this._humans();
-    for (const p of humans) this.mapOf(p).ensureAround(p.x, p.y, SERVER_STREAM_RADIUS);
+    for (const p of humans) {                                                          // the chunk you stand in and its neighbours at once (walls, water); the
+      const map = this.mapOf(p);                                                      // rest of the ring a couple of chunks a tick, nearest first, so
+      map.ensureAround(p.x, p.y, 1); map.ensureAround(p.x, p.y, SERVER_STREAM_RADIUS, SERVER_CHUNKS_PER_TICK);   // crossing a chunk edge never stalls a tick
+    }
     if (this.tick % 150 !== 0) return;
     const everyone = Object.values(this.players);
     for (const id of this.grids.ids()) {                                               // each grid keeps what its own people are near; an empty instance is forgotten

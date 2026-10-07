@@ -29,31 +29,121 @@ const TerrainRenderer = (() => {
   }
   const SOIL = ['#7a5233', '#83593a', '#704b2e'];
 
+  /* ---- the ground in BLOCKS: the overworld's still ground (grass, dirt, sand, clay, stone) is painted once into screen-aligned blocks (canvases)
+   * and drawn as a few pictures instead of four cells per tile, every frame. Blocks load around what the camera sees (and a margin), one or two
+   * a frame, nearest first, and the least recently seen are forgotten. Water, the biomes' animated details, tilled soil, ring barriers and
+   * built floors stay live on top. A tile whose block is not baked yet is drawn the old way, so nothing ever waits for one. */
+  const BW = 8 * TILE_HALF_W, BH = 8 * TILE_HALF_H;                                  // a block: a screen-aligned rectangle of the ground, in world pixels
+  const MARGIN = 2 * TILE_HALF_W;                                                    // blocks are loaded this far (world pixels) beyond the screen's edges
+  const PAD = 1;                                                                     // each block is painted (and drawn) 1 pixel bigger all round: no seams
+  const BAKE_MS = 4;                                                                 // a frame bakes one block, and another only while it has used less than this
+  const spare = [];                                                                  // canvases of forgotten blocks, reused (making a canvas is slow)
+  const blockStore = new WeakMap();                                                 // map -> Map(key -> { canvas, x0, y0, season, scale })
+  let bakeScale = 1, keepBlocks = 0;
+  /** The renderer passes the camera's scale: blocks are baked at it (to 1.5x at most, to keep their memory small). */
+  function setScale(s) { bakeScale = clamp(Math.round(s * 2) / 2, 1, 1.5); }
+  const blockKey = (bx, by) => (bx + 32768) * 65536 + (by + 32768);
+  const blocksOf = map => { let m = blockStore.get(map); if (!m) { m = new Map(); blockStore.set(map, m); } return m; };
+  /** The blocks that meet a world-pixel rectangle: [[bx, by], ...]. */
+  function blocksIn(b) {
+    const out = [];
+    for (let by = Math.floor(b.minY / BH); by * BH < b.maxY; by++) for (let bx = Math.floor(b.minX / BW); bx * BW < b.maxX; bx++) out.push([bx, by]);
+    return out;
+  }
+  const grow = (b, m) => ({ minX: b.minX - m, maxX: b.maxX + m, minY: b.minY - m, maxY: b.maxY + m });
+  /** Was every block this tile (centred at cx, cy) reaches into drawn this frame? (else the tile is drawn on its own) */
+  function inDrawn(drawn, cx, cy) {
+    const bx0 = Math.floor((cx - TILE_HALF_W) / BW), bx1 = Math.floor((cx + TILE_HALF_W) / BW), by0 = Math.floor((cy - TILE_HALF_H) / BH), by1 = Math.floor((cy + TILE_HALF_H) / BH);
+    for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) if (!drawn.has(blockKey(bx, by))) return false;
+    return true;
+  }
+  /** Still ground: baked into its block. (Everything else is drawn every frame.) */
+  const STILL = t => t === TILE.GRASS || t === TILE.DIRT || t === TILE.SAND || t === TILE.CLAY || t === TILE.STONE || t === TILE.CAVE || t === TILE.CAVE_WALL;
+  /** One tile's still ground (no tilled soil: that is drawn live). */
+  function stillGround(ctx, map, type, tx, ty) {
+    if (type === TILE.GRASS) { const p = GROUND[map.biome(tx, ty)]; cells(ctx, 'grass', p ? p[0] : GRASS, tx, ty, null, !p); }
+    else if (type === TILE.DIRT) { const p = GROUND[map.biome(tx, ty)]; cells(ctx, 'dirt', p ? p[1] : DIRT, tx, ty, null, false); }
+    else if (type === TILE.SAND) cells(ctx, 'sand', SAND, tx, ty, null, false);
+    else if (type === TILE.CLAY) cells(ctx, 'clay', CLAY, tx, ty, null, false);
+    else if (type === TILE.CAVE) cells(ctx, 'cave', CAVE_FLOOR, tx, ty, null, false);
+    else if (type === TILE.CAVE_WALL) cells(ctx, 'cave', CAVE_WALL, tx, ty, null, false);
+    else cells(ctx, 'stone', STONE, tx, ty, null, false);
+  }
+  /** Paint one block: every tile whose ground reaches into it, in the same order as the live drawing (its tiles' chunks are made if needed). */
+  function bake(map, bx, by) {
+    const s = bakeScale, store = blocksOf(map), key = blockKey(bx, by), old = store.get(key);
+    const x0 = bx * BW - PAD, y0 = by * BH - PAD, W = Math.ceil((BW + 2 * PAD) * s), H = Math.ceil((BH + 2 * PAD) * s);
+    const canvas = old ? old.canvas : spare.pop() || document.createElement('canvas'), ctx = canvas.getContext('2d');
+    if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; } else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); }
+    ctx.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); ctx.imageSmoothingEnabled = false;
+    const ex = TILE_HALF_W + 4, ey = TILE_HALF_H + 4, l = x0 - ex, r = x0 + BW + 2 * PAD + ex, t = y0 - ey, b = y0 + BH + 2 * PAD + ey;
+    const tile = (x, y) => [(x / TILE_HALF_W + y / TILE_HALF_H) / 2, (y / TILE_HALF_H - x / TILE_HALF_W) / 2];
+    const cs = [tile(l, t), tile(r, t), tile(l, b), tile(r, b)], tx0 = Math.floor(Math.min(...cs.map(c => c[0]))), tx1 = Math.ceil(Math.max(...cs.map(c => c[0])));
+    const ty0 = Math.floor(Math.min(...cs.map(c => c[1]))), ty1 = Math.ceil(Math.max(...cs.map(c => c[1])));
+    for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+      const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H;
+      if (cx < l || cx > r || cy < t || cy > b) continue;
+      const type = map.tile(tx, ty); if (STILL(type)) stillGround(ctx, map, type, tx, ty);
+    }
+    store.delete(key); store.set(key, { canvas, x0, y0, season, scale: s });
+  }
+  const fresh = p => p && p.season === season && p.scale === bakeScale;
+  /** Bake what is missing (or out of date) around a world-pixel rectangle (plus MARGIN), nearest its middle first: at most `budget`, and after
+   *  the first only while less than `ms` has gone by. Forgets the least recently used blocks beyond what is needed. Returns how many are left. */
+  function load(map, bounds, budget, ms = Infinity) {
+    if (map.kind !== 'world') return 0;
+    const want = blocksIn(grow(bounds, MARGIN)), store = blocksOf(map), mx = (bounds.minX + bounds.maxX) / 2, my = (bounds.minY + bounds.maxY) / 2, todo = [];
+    for (const [bx, by] of want) if (!fresh(store.get(blockKey(bx, by)))) todo.push([Math.hypot((bx + 0.5) * BW - mx, (by + 0.5) * BH - my), bx, by]);
+    todo.sort((u, v) => u[0] - v[0]);
+    const t0 = performance.now(); let done = 0;
+    while (done < todo.length && done < budget && (done === 0 || performance.now() - t0 < ms)) { bake(map, todo[done][1], todo[done][2]); done++; }
+    keepBlocks = Math.max(keepBlocks, Math.ceil(want.length * 1.3));
+    if (store.size > keepBlocks) for (const [k, p] of store) { store.delete(k); if (spare.length < 6) spare.push(p.canvas); if (store.size <= keepBlocks) break; }
+    return todo.length - done;
+  }
+  /** Jobs that make every biome's ground cells (all their varieties) for this season, so new ground never has to (the loader runs them while you play). */
+  function warmJobs(seasonId) {
+    const sets = [['grass', GRASS, seasonId], ['dirt', DIRT, ''], ['sand', SAND, ''], ['clay', CLAY, ''], ['stone', STONE, '']];
+    for (const [, [grass, dirt]] of Object.entries(GROUND)) sets.push(['grass', grass, ''], ['dirt', dirt, '']);
+    return sets.map(([kind, pal, s]) => () => { for (let v = 0; v < 6; v++) PixelTerrain.cell(kind, pal, v, s); });   // one small job per ground
+  }
+
   function draw(g, map, bounds, range, now) {
     const anyFloors = Object.keys(map.floors).length > 0, ctx = g.ctx, farm = map.farm && Object.keys(map.farm).length ? map.farm : null;
     const t = now / 1000, { minX, maxX, minY, maxY } = bounds, rings = map.layers && map.layers.rings;
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    const blocked = map.kind === 'world', store = blocked ? blocksOf(map) : null, drawn = new Set();
+    if (blocked) {
+      load(map, bounds, 3, BAKE_MS);
+      for (const [bx, by] of blocksIn(bounds)) {
+        const key = blockKey(bx, by), p = store.get(key);
+        if (!p) continue;                                                                     // (its tiles are drawn one by one below until it is baked)
+        ctx.drawImage(p.canvas, p.x0, p.y0, BW + 2 * PAD, BH + 2 * PAD);
+        store.delete(key); store.set(key, p); drawn.add(key);                                  // (recently used)
+      }
+    }
     for (let ty = range.ty0; ty <= range.ty1; ty++) for (let tx = range.tx0; tx <= range.tx1; tx++) {
       const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H;
       if (cx < minX - TILE_HALF_W || cx > maxX + TILE_HALF_W || cy < minY - TILE_HALF_H || cy > maxY + TILE_HALF_H) continue;
-      const type = map.tile(tx, ty), noise = hash2(tx, ty), variant = (noise * 3) | 0;
-      diamondPath(ctx, cx, cy);
-      if (type === TILE.WATER) drawWater(ctx, map, tx, ty, cx, cy, variant, t);
-      else if (type === TILE.SHALLOW) drawShallow(ctx, map, tx, ty, cx, cy, variant, t);
-      else if (type === TILE.GRASS) {
-        const biome = map.biome(tx, ty), palette = GROUND[biome], effect = EFFECT[biome];
-        cells(ctx, 'grass', palette ? palette[0] : GRASS, tx, ty, farm, !palette);
-        diamondPath(ctx, cx, cy);
-        if (effect && effect.tint) effect.tint(ctx, tx, ty, t);
-        if (effect && noise > effect.above) effect.detail(ctx, cx + (hash2(tx + 9, ty) - 0.5) * 30 * DETAIL, cy + (hash2(tx, ty + 9) - 0.5) * 12 * DETAIL, noise, tx, ty, t);
+      const type = map.tile(tx, ty), noise = hash2(tx, ty), variant = (noise * 3) | 0, baked = blocked && inDrawn(drawn, cx, cy);
+      if (type === TILE.WATER) { diamondPath(ctx, cx, cy); drawWater(ctx, map, tx, ty, cx, cy, variant, t); }
+      else if (type === TILE.SHALLOW) { diamondPath(ctx, cx, cy); drawShallow(ctx, map, tx, ty, cx, cy, variant, t); }
+      else if (type >= INTERIOR_TILE_BASE) { diamondPath(ctx, cx, cy); InteriorSprites.tile(ctx, type, cx, cy, tx, ty); }   // a room's floor (or the dark outside it)
+      else {
+        if (!baked) stillGround(ctx, map, type, tx, ty);
+        if (farm && (type === TILE.GRASS || type === TILE.DIRT) && (farm[tx * 2 + ',' + ty * 2] || farm[(tx * 2 + 1) + ',' + ty * 2] || farm[tx * 2 + ',' + (ty * 2 + 1)] || farm[(tx * 2 + 1) + ',' + (ty * 2 + 1)])) {
+          const p = GROUND[map.biome(tx, ty)];                                                  // tilled soil: live (it darkens when watered)
+          cells(ctx, type === TILE.GRASS ? 'grass' : 'dirt', p ? p[type === TILE.GRASS ? 0 : 1] : (type === TILE.GRASS ? GRASS : DIRT), tx, ty, farm, type === TILE.GRASS && !p);
+        }
+        if (type === TILE.GRASS) {
+          const effect = EFFECT[map.biome(tx, ty)];
+          if (effect) {
+            diamondPath(ctx, cx, cy);
+            if (effect.tint) effect.tint(ctx, tx, ty, t);
+            if (noise > effect.above) effect.detail(ctx, cx + (hash2(tx + 9, ty) - 0.5) * 30 * DETAIL, cy + (hash2(tx, ty + 9) - 0.5) * 12 * DETAIL, noise, tx, ty, t);
+          }
+        }
       }
-      else if (type === TILE.DIRT) { const palette = GROUND[map.biome(tx, ty)]; cells(ctx, 'dirt', palette ? palette[1] : DIRT, tx, ty, farm, false); }
-      else if (type === TILE.SAND) cells(ctx, 'sand', SAND, tx, ty, null, false);
-      else if (type === TILE.CLAY) cells(ctx, 'clay', CLAY, tx, ty, null, false);
-      else if (type === TILE.CAVE) cells(ctx, 'cave', CAVE_FLOOR, tx, ty, null, false);
-      else if (type === TILE.CAVE_WALL) cells(ctx, 'cave', CAVE_WALL, tx, ty, null, false);
-      else if (type >= INTERIOR_TILE_BASE) InteriorSprites.tile(ctx, type, cx, cy, tx, ty);       // a room's floor (or the dark outside it)
-      else cells(ctx, 'stone', STONE, tx, ty, null, false);
       if (rings && rings.barrierAt(tx, ty)) drawBarrier(ctx, cx, cy, t, tx, ty);          // a sealed ring's magical wall
       if (anyFloors && map.floors[tileKey(tx, ty)]) StructureSprites.drawFloor(ctx, cx, cy);   // built floors sit on top of the ground
     }
@@ -113,5 +203,5 @@ const TerrainRenderer = (() => {
     ctx.stroke();
   }
 
-  return { draw, setDate };
+  return { draw, setDate, setScale, load, warmJobs, stats: map => { let px = 0; const st = blocksOf(map); for (const p of st.values()) px += p.canvas.width * p.canvas.height; return { blocks: st.size, megabytes: Math.round(px * 4 / 1e6) }; } };
 })();

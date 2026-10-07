@@ -15,11 +15,14 @@ const PixelCharacter = (() => {
     const m = /^#?([0-9a-f]{6})$/i.exec(c || ''), n = m ? parseInt(m[1], 16) : 0x888888; return [n >> 16, (n >> 8) & 255, n & 255];
   };
   const css = ([r, g, b]) => `rgb(${Math.max(0, Math.min(255, r | 0))},${Math.max(0, Math.min(255, g | 0))},${Math.max(0, Math.min(255, b | 0))})`;
-  const shade = (c, f) => css(hex(c).map(v => v * f));
-  const light = (c, f) => css(hex(c).map(v => v + (255 - v) * f));
-  const mix = (a, b, t) => { const A = hex(a), B = hex(b); return css(A.map((v, i) => v + (B[i] - v) * t)); };
+  /** Colour maths runs for every pixel creature and character on every frame, so each answer is remembered (a few hundred colours in all). */
+  const memo = fn => { const seen = new Map(); return (...a) => { const k = a.join('|'); let v = seen.get(k); if (v === undefined) { if (seen.size > 4000) seen.clear(); v = fn(...a); seen.set(k, v); } return v; }; };
+  const shade = memo((c, f) => css(hex(c).map(v => v * f)));
+  const light = memo((c, f) => css(hex(c).map(v => v + (255 - v) * f)));
+  const mix = memo((a, b, t) => { const A = hex(a), B = hex(b); return css(A.map((v, i) => v + (B[i] - v) * t)); });
   /** Three tones of one colour: base, shadow, highlight. */
-  const tones = c => ({ b: css(hex(c)), d: shade(c, 0.72), l: light(c, 0.22) });
+  const tonesOf = memo(c => ({ b: css(hex(c)), d: shade(c, 0.72), l: light(c, 0.22) }));
+  const tones = c => Object.assign({}, tonesOf(c));                                        // (a copy: some palettes add their own fields to it)
 
   /* ---- the palette of one character in one outfit ---- */
   function palette(L, W8) {

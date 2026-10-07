@@ -77,7 +77,7 @@ class Renderer {
     const tiles = this.camera.visibleTiles();
     const date = Seasons.at(this.game.clockTick);                                   // the season colours the grass and the trees; watered soil stays dark today
     TerrainRenderer.setDate(date.season.id, date.day); PropSprites.seasonTint = date.season.treeTint;
-    TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
+    TerrainRenderer.setScale(this.camera.scale); TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
     this._drawTapMarker(now);
     for (const item of this._sortedWorldItems(state, bounds, tiles)) this._drawItem(item, now);
     if (!indoors) this._drawBuildingNames(me);

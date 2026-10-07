@@ -486,3 +486,13 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 #btnBag{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1}
 #btnBag .bagIcon{width:52%;height:52%;background:center/contain no-repeat;image-rendering:pixelated}
 #btnBag span:last-child{font-size:.8em}
+
+/* the loading screen (index.html #loading; js/client/loader.js) */
+#loading{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(ellipse at 50% 30%,#2f5a44 0%,#17303a 60%,#0d1822 100%);color:#f4e6c1;font-family:Georgia,serif}
+#loading[hidden]{display:none}
+#loading .ldBox{width:min(320px,100%);text-align:center}
+#loading .ldTitle{font-size:28px;letter-spacing:.04em;margin-bottom:10px}
+#loading .ldText{font-size:14px;opacity:.85;min-height:1.4em}
+#loading .ldBar{height:8px;margin-top:12px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden}
+#loading .ldBar[hidden]{display:none}
+#loading .ldBar i{display:block;height:100%;width:0;background:#e3c27a;transition:width .15s}
