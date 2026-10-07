@@ -19,13 +19,15 @@ const PixelPony = (() => {
   function palette(look) {
     const key = `${look.coat}|${look.mane.join()}|${look.mark}|${look.accessory}`;
     let p = palettes.get(key);
-    if (!p) { p = makePalette(look); p.wing = tones(mix(look.coat, '#ffffff', 0.35)); palettes.set(key, p); }
+    if (!p) { p = makePalette(look); palettes.set(key, p); }
     return Object.assign({}, p);
   }
+  /** Every colour a pony is drawn in. The painting code below only ever uses entries of this (never works a colour out itself): that is what lets
+   *  the art pack save the shapes once and colour them per pony (SlotArt, SLOTS). */
   function makePalette(look) {
     const coat = look.coat, m = look.mane;
     const manes = (m.length >= 3 ? m : [m[0], m[1] || light(m[0], 0.3), light(m[1] || m[0], 0.45)]).map(tones);   // (a rainbow mane has four)
-    return {
+    const C = {
       coat: tones(coat), muzzle: tones(mix(coat, '#f1dcc0', 0.45)), feather: tones(mix(coat, '#f6ead2', 0.6)),
       ear: mix(coat, '#e98fa6', 0.5), eye: '#2a1810', iris: mix(m[0], '#4a2a18', 0.55),
       manes, mark: look.mark, markColor: m[0], markColor2: m[1] || m[0], outline: '#24170f',
@@ -33,7 +35,24 @@ const PixelPony = (() => {
       hoof: look.accessory === 'flames' ? EMBER_HOOF : look.accessory === 'frost' ? ICE_HOOF : HOOF,
       ...(look.accessory === 'flames' ? { feather: tones(mix(coat, '#ff7043', 0.45)) } : look.accessory === 'frost' ? { feather: tones('#f2faff') } : {}),
     };
+    C.coatFar = { b: C.coat.d, d: shade(C.coat.d, 0.85), l: C.coat.b };                       // the far side's legs, and the back of the head: darker
+    C.featherFar = { b: C.feather.d, d: shade(C.feather.d, 0.85), l: C.feather.b };
+    C.wing = tones(mix(coat, '#ffffff', 0.35));
+    C.wingFar = { b: shade(C.wing.b, 0.78), l: C.wing.b, d: shade(C.wing.d, 0.8) };
+    C.wingEdge = shade(C.coat.b, 0.55); C.wingEdgeFar = shade(C.coat.b, 0.45);                // the dark line round a wing
+    C.nostril = shade(C.muzzle.b, 0.4);
+    // The painters compare colours in two places (a coat's fur texture: `c === t.b`; a wing's edge: `tip.has(c)`). If such colours coincide
+    // (a pure white coat; a mane colour equal to a wing's), a picture built from marker colours would differ, so those ponies are painted live.
+    const same = (t) => t.l === t.b || t.d === t.b;
+    C.liveOnly = same(C.coat) || same(C.coatFar) || same(C.feather) || same(C.muzzle)
+      || [C.manes[0].b, C.manes[0].d].some(tip => [C.wing.b, C.wing.l, C.wing.d, C.wingFar.b, C.wingFar.l, C.wingFar.d].includes(tip));
+    return C;
   }
+  /** The palette entries that have a slot in a saved picture, in slot order (see SlotArt). Four manes at most (a rainbow's). */
+  const SLOTS = [];
+  for (const t of ['coat', 'muzzle', 'feather', 'coatFar', 'featherFar', 'wing', 'wingFar', 'hoof']) for (const k of ['b', 'l', 'd']) SLOTS.push(t + '.' + k);
+  for (let i = 0; i < 4; i++) for (const k of ['b', 'l', 'd']) SLOTS.push('manes.' + i + '.' + k);
+  SLOTS.push('ear', 'iris', 'markColor', 'wingEdge', 'wingEdgeFar', 'nostril', 'eye');
 
   /* ---- EMBER and FROST ponies: fire for a mane, ice at the tips ---- */
   const EMBER_HOOF = { b: '#5a2a1a', l: '#ff9100', d: '#3a1a10' }, ICE_HOOF = { b: '#7f9fb8', l: '#d9f1ff', d: '#4e6a80' };
@@ -50,9 +69,14 @@ const PixelPony = (() => {
     P.px(x + dir, y, FIRE[2]); P.px(x + dir * 2, y - 1, FIRE[1]); if ((y + C.ff) % 2) P.px(x + dir * 2, y - 2, FIRE[0]);
   }
 
-  function painter(ctx) {
+  /** `cap`: null to paint into `ctx`; or a function (layer name) -> a 2D context, to paint each LAYER of the picture onto a canvas of its own (the
+   *  art pack's export: see layers in side(), and SlotArt). In capture mode the cutie mark is left out: it is laid on by the game. */
+  function painter(ctx, cap) {
     let ox = 0, oy = 0;
     const P = {
+      cap: !!cap,
+      /** Paint what `fn` draws onto layer `name` (capture mode), or just run it (painting live, in order, onto one canvas). */
+      layer(name, fn) { if (!cap) { fn(); return; } const prev = ctx; ctx = cap(name); fn(); ctx = prev; },
       at(dx, dy, fn) { const sx = ox, sy = oy; ox += dx; oy += dy; fn(); ox = sx; oy = sy; },
       px(x, y, c) { if (c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x) + ox, Math.round(y) + oy, 1, 1); } },
       rect(x, y, w, h, c) { if (c && w > 0 && h > 0) { ctx.fillStyle = c; ctx.fillRect(Math.round(x) + ox, Math.round(y) + oy, w, h); } },
@@ -113,7 +137,7 @@ const PixelPony = (() => {
 
   /** A leg from (x, top) down to the hoof: shin, a shaggy fetlock and a dark hoof. far: the far side's legs are shaded darker. */
   function leg(P, C, x, top, [dx, lift], far, thick = 4) {
-    const coat = far ? { b: C.coat.d, d: shade(C.coat.d, 0.85), l: C.coat.b } : C.coat, feather = far ? { b: C.feather.d, d: shade(C.feather.d, 0.85), l: C.feather.b } : C.feather;
+    const coat = far ? C.coatFar : C.coat, feather = far ? C.featherFar : C.feather;
     const hoofY = GROUND - 2 - lift, fet = hoofY - 3;
     for (let y = top; y < fet; y++) { const t = (y - top) / Math.max(1, fet - top), xx = x + Math.round(dx * t); P.rect(xx, y, thick, 1, coat.b); P.px(xx + thick - 1, y, coat.d); if (y === top + 3) P.px(xx, y, coat.d); }
     for (let y = fet; y < hoofY; y++) { P.rect(x + dx - 1, y, thick + 1, 1, feather.b); P.px(x + dx - 1, y, feather.l); P.px(x + dx + thick - 1, y, feather.d); }
@@ -150,7 +174,7 @@ const PixelPony = (() => {
     const dx = sgn * Math.cos(a), dy = -Math.sin(a);
     let [qx, qy] = out || [-dy, dx];
     if (!out && qy < 0) { qx = -qx; qy = -qy; }
-    const f = far ? { b: shade(C.wing.b, 0.78), l: C.wing.b, d: shade(C.wing.d, 0.8) } : C.wing, tipT = far ? C.manes[0].d : C.manes[0].b;
+    const f = far ? C.wingFar : C.wing, tipT = far ? C.manes[0].d : C.manes[0].b;
     const steps = Math.ceil(L * 1.6), pix = new Map();
     for (let s = 0; s <= steps; s++) {
       const t = s / steps, lx = rx + dx * L * t - qx * curve * t * t, ly = ry + dy * L * t - qy * curve * t * t, feather = Math.floor(t * 5);   // (the leading edge arcs up towards the tip)
@@ -160,7 +184,7 @@ const PixelPony = (() => {
         pix.set(Math.round(lx + qx * k) + ',' + Math.round(ly + qy * k), c);
       }
     }
-    const edge = shade(C.coat.b, far ? 0.45 : 0.55), tip = new Set([tipT]);                       // its own dark line round the edge, so it stands out on the coat
+    const edge = far ? C.wingEdgeFar : C.wingEdge, tip = new Set([tipT]);                       // its own dark line round the edge, so it stands out on the coat
     for (const [k, c] of pix) {
       const [x, y] = k.split(',').map(Number), open = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([u, v]) => !pix.has((x + u) + ',' + (y + v)));
       P.px(x, y, open && !tip.has(c) ? edge : c);
@@ -240,10 +264,13 @@ const PixelPony = (() => {
       tailSide(P, C, F);
       P.shape([[23, 24, 12.5, 7], [13, 23, 6.5, 7], [32, 24, 5, 7]], C.coat);             // the barrel, the rump and the chest
       for (let x = 15; x < 31; x++) if ((x * 7) % 5 === 0) P.px(x, 31, C.coat.d);          // a shaggy belly
-      mark(P, C, 11, 21);
-      bodyFx(P, C, 'right');
-      for (let y = 9; y <= 24; y++) { const t = (y - 9) / 15, xl = Math.round(33 - t * 6), xr = Math.round(41 - t * 4); P.row(y, xl, xr, C.coat.b); P.px(xr, y, C.coat.d); P.px(xr - 1, y, t > 0.3 ? C.coat.b : C.coat.d); }   // the neck
+      if (!P.cap) mark(P, C, 11, 21);                                                      // (the layers below it are layer B: see PixelPony.pack)
+      P.layer('B', () => {
+        bodyFx(P, C, 'right');
+        for (let y = 9; y <= 24; y++) { const t = (y - 9) / 15, xl = Math.round(33 - t * 6), xr = Math.round(41 - t * 4); P.row(y, xl, xr, C.coat.b); P.px(xr, y, C.coat.d); P.px(xr - 1, y, t > 0.3 ? C.coat.b : C.coat.d); }   // the neck
+      });
     });
+    P.layer('B', () => {
     leg(P, C, 31, 28, F.A, false); leg(P, C, 11, 28, F.B, false);                         // near legs, in front
     P.at(0, b, () => {
       for (let y = 25; y <= 31; y++) P.px(16 - Math.round(Math.abs(y - 27.5) * 0.4), y, C.coat.d);   // the line of the near thigh
@@ -253,6 +280,7 @@ const PixelPony = (() => {
       if (C.horn) horn(P, C, 40, 2, 44, -7);
       headFx(P, C, 'right');
       if (C.wings) wings(P, C, 'right', 'near');
+    });
     });
   }
 
@@ -285,7 +313,7 @@ const PixelPony = (() => {
     }
     P.shape([[40, 9, 6.5, 6], [41, 13, 5, 4.5], [46, 14, 4, 3.5]], C.coat, false);           // the skull, the cheek and the nose, as one head
     for (let y = 11; y <= 17; y++) for (let x = 43; x <= 50; x++) if (((x - 46) / 4.3) ** 2 + ((y - 14) / 3.6) ** 2 <= 1) P.px(x, y, y >= 17 ? C.muzzle.d : y <= 11 ? C.muzzle.l : C.muzzle.b);   // the soft, pale muzzle
-    P.px(48, 13, shade(C.muzzle.b, 0.4)); P.px(49, 13, C.muzzle.d);                        // the nostril
+    P.px(48, 13, C.nostril); P.px(49, 13, C.muzzle.d);                        // the nostril
     P.row(17, 45, 48, C.muzzle.d);                                                          // the mouth
     P.row(17, 38, 40, C.coat.d); P.px(37, 16, C.coat.d);                                   // the jaw
     if (blink) { P.row(9, 40, 42, C.eye); P.px(43, 8, C.eye); }
@@ -312,7 +340,7 @@ const PixelPony = (() => {
       for (const [x, e, out] of [[19, 0, -1], [31, flick, 1]]) { P.px(x + 1 + out, e, C.coat.b); P.rect(x + (out > 0 ? 1 : 0), 1 + e, 2, 1, C.coat.b); P.rect(x, 2 + e, 3, 2, C.coat.b); P.px(x + 1, 2 + e, C.ear); P.px(x + 1, 3 + e, C.ear); }   // ears, pointing out
       P.shape([[CX, 11, 7.5, 7], [CX, 17.5, 5, 4]], C.coat, false);                          // the head
       for (let y = 15; y <= 21; y++) for (let x = 21; x <= 31; x++) if (((x - CX) / 5) ** 2 + ((y - 18) / 3.6) ** 2 <= 1) P.px(x, y, y >= 21 ? C.muzzle.d : y <= 15 ? C.muzzle.l : C.muzzle.b);   // the muzzle
-      P.px(23, 19, shade(C.muzzle.b, 0.4)); P.px(29, 19, shade(C.muzzle.b, 0.4)); P.row(21, 25, 27, C.muzzle.d);
+      P.px(23, 19, C.nostril); P.px(29, 19, C.nostril); P.row(21, 25, 27, C.muzzle.d);
       for (const x of [20, 29]) {                                                           // big eyes on the sides of the head
         if (blink) P.row(11, x, x + 2, C.eye);
         else { P.rect(x, 9, 3, 4, C.eye); P.px(x + (x < CX ? 2 : 0), 9, '#ffffff'); P.row(12, x, x + 2, C.iris); P.row(8, x, x + 2, C.eye); }
@@ -328,7 +356,7 @@ const PixelPony = (() => {
    * BACK VIEW (walking away)
    * ===================================================================================================================== */
   function back(P, C, F) {
-    const b = F.bob, far = { b: C.coat.d, d: shade(C.coat.d, 0.85), l: C.coat.b };
+    const b = F.bob, far = C.coatFar;
     leg(P, C, 21, 30, [0, F.A[1]], true, 3); leg(P, C, 29, 30, [0, F.B[1]], true, 3);     // front legs, far away
     P.at(0, b, () => {
       if (C.horn) horn(P, C, CX, 4, CX, -6);
@@ -406,17 +434,83 @@ const PixelPony = (() => {
     ctx.globalAlpha = 1;
   }
 
-  function render(C, view, F, blink) {
+  /** One pony frame, painted live (the old way): the body, the outline round it, then frost's twinkles over that. */
+  function renderLive(C, view, F, blink) {
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d'), P = painter(ctx);
     P.at(0, TOP, () => { if (view === 'up') back(P, C, F); else if (view === 'down') front(P, C, F, blink); else side(P, C, F, blink); });
     outline(ctx, C.outline, W, H);
-    if (C.fx === 'frost') P.at(0, TOP, () => {                                                                  // frost twinkling on the coat
+    if (C.fx === 'frost') twinkles(P, C, view, F);
+    return canvas;
+  }
+  function twinkles(P, C, view, F) {
+    P.at(0, TOP, () => {                                                                                      // frost twinkling on the coat
       const spots = TWINKLES[view], at = k => spots[(C.tw + k) % spots.length];
       for (const k of [0, 3]) { const [x, y] = at(k); P.at(0, F.bob, () => { P.px(x, y, ICE.white); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) P.px(x + dx, y + dy, ICE.sparkle); }); }
     });
-    return canvas;
   }
+
+  /* ---- the ART PACK's ponies (artPack.js, SlotArt): the shapes of every frame are saved once, in marker colours, as LAYERS (A: everything behind the
+   *      cutie mark, B: everything in front of it, C: frost's twinkles, drawn over the outline); a pony's own colours are applied when it is built. ---- */
+  const POSES = { T0: TROT[0], T1: TROT[1], T2: TROT[2], T3: TROT[3], S0: STAND[0], S1: STAND[1], S2: STAND[2], S3: STAND[3] };
+  /** Which saved picture a frame is: everything about it that changes its SHAPE (never its colours). */
+  const stateKey = (C, view, pose, blink) => [view, pose, blink ? 1 : 0, (C.fx || '') + (C.fx === 'flames' ? C.ff : C.fx === 'frost' || C.fx === 'stars' ? C.tw : 0),
+    C.wings ? (C.flying ? 'w' + C.wf : 'wf') : '', C.horn ? 'h' : '', C.manes.length].join('|');
+  const accent = C => C.mark === 'apple' ? '#4f8a3a' : C.mark === 'snow' ? '#ffffff' : '#fff3b0';
+  /** The cutie mark as pixels (side view only), where mark() paints it: 5 x 5 at (11, 21), bobbing with the body. */
+  function markPixels(C, F) {
+    const px = new Uint32Array(W * H), rows = MARKS[C.mark] || MARKS.note, col = SlotArt.abgr(C.markColor), acc = SlotArt.abgr(accent(C));
+    rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') px[(21 + j + F.bob + TOP) * W + 11 + i] = col; else if (ch === 'o') px[(21 + j + F.bob + TOP) * W + 11 + i] = acc; }));
+    return px;
+  }
+  /** A frame built from the pack in this pony's colours, or null when the pack lacks it (or this pony's colours would not build exactly). */
+  function renderPacked(C, view, F, blink, pose) {
+    if (!ArtPack.loaded || C.liveOnly) return null;
+    const key = stateKey(C, view, pose, blink), A = ArtPack.sprite('pony', key + '|A');
+    if (!A) return null;
+    const B = view === 'right' ? ArtPack.sprite('pony', key + '|B') : null, T = C.fx === 'frost' ? ArtPack.sprite('pony', key + '|C') : null;
+    if ((view === 'right' && !B) || (C.fx === 'frost' && !T)) return null;
+    const lut = SlotArt.lutOf(C, SLOTS);
+    return SlotArt.canvasOf(W, H, SlotArt.compose(W, H, view === 'right' ? [A, markPixels(C, F), B] : [A], lut, SlotArt.abgr(C.outline), T ? [T] : null));
+  }
+  /** The frame's layers painted in marker colours: { A, B?, C? } canvases (for the exporter). C: a palette with its frame fields set (see states()). */
+  function captureLayers(C, view, F, blink) {
+    const layers = {}, cap = name => (layers[name] || (layers[name] = Object.assign(document.createElement('canvas'), { width: W, height: H }))).getContext('2d');
+    const P = painter(cap('A'), cap);
+    P.at(0, TOP, () => { if (view === 'up') back(P, C, F); else if (view === 'down') front(P, C, F, blink); else side(P, C, F, blink); });
+    if (C.fx === 'frost') P.layer('C', () => twinkles(P, C, view, F));
+    return layers;
+  }
+  /** Every frame the pack should hold for these effects (null: a plain pony): { view, pose, blink, fx, fxFrame, wings, flying, wf, horn, nm }. */
+  function* states(fxs) {
+    for (const fx of fxs) for (const nm of fx === 'rainbow' ? [3, 4] : [3]) for (let fxFrame = 0; fxFrame < (fx === 'flames' ? 4 : fx === 'frost' || fx === 'stars' ? 8 : 1); fxFrame++)
+      for (const view of ['right', 'down', 'up']) for (const [wings, horn] of [[0, 0], [0, 1], [1, 0], [1, 1]]) {
+        const base = { view, fx, fxFrame, wings, horn, nm, flying: false, wf: 0 };
+        for (const pose of ['T0', 'T1', 'T2', 'T3']) yield { ...base, pose, blink: 0 };
+        for (const pose of ['S0', 'S1', 'S2', 'S3']) for (const blink of [0, 1]) yield { ...base, pose, blink };
+        if (wings) for (let wf = 0; wf < 4; wf++) for (const blink of [0, 1]) yield { ...base, pose: 'S0', blink, flying: true, wf };
+      }
+  }
+  /** The palette for a frame state, from a pony look: the frame fields draw() sets are filled in (ruffle is a trot's odd frames). */
+  function stateOf(look, st) {
+    const C = palette(look);
+    C.wings = !!st.wings; C.horn = !!st.horn; C.flying = st.flying; C.wf = st.wf; C.ruffle = !st.flying && st.pose[0] === 'T' && st.pose[1] % 2 === 1;
+    C.ff = st.fx === 'flames' ? st.fxFrame : 0; C.tw = st.fx === 'frost' || st.fx === 'stars' ? st.fxFrame : 0;
+    return C;
+  }
+  /** What art-sweeps.js and the exporter use. `probe(look)` is a palette whose every slot is its marker colour. */
+  const pack = {
+    SLOTS, states, stateKey,
+    layersOf(st) {
+      const ref = { coat: '#9fb7e8', mane: st.nm === 4 ? ['#ff1744', '#ff9100', '#ffea00', '#00e676'] : ['#6a4bc4', '#a58be8'], mark: 'star', accessory: st.fx };
+      const C = stateOf(ref, st), probe = SlotArt.probeOf(C, SLOTS);
+      Object.assign(probe, { wings: C.wings, horn: C.horn, flying: C.flying, wf: C.wf, ruffle: C.ruffle, ff: C.ff, tw: C.tw, fx: C.fx, outline: C.outline });
+      return { key: stateKey(C, st.view, st.pose, st.blink), layers: captureLayers(probe, st.view, POSES[st.pose], !!st.blink) };
+    },
+    live(look, st) { const C = stateOf(look, st); return renderLive(C, st.view, POSES[st.pose], !!st.blink); },
+    packed(look, st) { const C = stateOf(look, st); return renderPacked(C, st.view, POSES[st.pose], !!st.blink, st.pose); },
+    palette,
+  };
 
   /**
    * Draws a pony at its footprint (sx, sy). look: PonyLook.describe(...); dir: 'up'|'down'|'left'|'right' (the screen direction it faces);
@@ -428,7 +522,7 @@ const PixelPony = (() => {
     C.wf = C.flying ? Math.floor(anim.now / 85) % 4 : 0;                                          // the wingbeat
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 420 + anim.seed) % 4);
-    const F = C.flying ? STAND[0] : anim.moving ? TROT[frame] : STAND[frame];
+    const pose = C.flying ? 'S0' : (anim.moving ? 'T' : 'S') + frame, F = POSES[pose];
     C.ruffle = !C.flying && anim.moving && frame % 2 === 1;
     const blink = !anim.moving && ((anim.now + anim.seed * 1311) % 4200) < 150;
     const view = dir === 'left' ? 'right' : dir;
@@ -436,7 +530,11 @@ const PixelPony = (() => {
     const fxFrame = C.fx === 'flames' ? C.ff : C.fx === 'frost' || C.fx === 'stars' ? C.tw : 0;
     const key = `${look.coat}|${look.mane.join()}|${look.mark}|${C.fx}${fxFrame}|${C.wings ? 'w' + (C.flying ? C.wf : 'f') : ''}${C.horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
     let canvas = cache.get(key);
-    if (!canvas) { canvas = render(C, view, F, blink); cache.set(key, canvas); }
+    if (!canvas) {
+      canvas = renderPacked(C, view, F, blink, pose);                                              // from the art pack, in this pony's colours ...
+      if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink); ArtPack.stats.painted++; }   // ... or painted
+      cache.set(key, canvas);
+    }
     const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
     if (!anim.lift) { ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, view === 'right' ? 20 : 11, 6, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.save(); ctx.imageSmoothingEnabled = false;
@@ -449,5 +547,5 @@ const PixelPony = (() => {
 
   /** Whether a kind of animal is drawn as a pixel pony. */
   const covers = type => !!(AnimalDefs[type] && AnimalDefs[type].pony && !PIXEL_PONIES_OFF[type]);
-  return { draw, covers, W, H, PX };
+  return { draw, covers, W, H, PX, pack };
 })();

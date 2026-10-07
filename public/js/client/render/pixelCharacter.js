@@ -32,7 +32,7 @@ const PixelCharacter = (() => {
       style, hairKind: L.hairKind, prince: !L.princess,
       tunic: tones(style === 'hunter' ? shade(skirt, 0.92) : skirt), trousers: tones(L.princess ? '#3b3542' : mix(skirt, '#2a2632', 0.72)), boot: tones('#5a3a22'), belt: tones(style === 'hunter' ? '#3a2a1a' : style === 'doublet' ? shade(skirt, 0.55) : '#4a3624'),
       hair: tones(L.hair), skin: { b: L.skin, d: shade(L.skin, 0.82), blush: mix(L.skin, '#e26a6a', L.princess ? 0.35 : 0.16) },
-      eye: '#2a1a12', mouth: shade(L.skin, 0.62),
+      eye: '#2a1a12', eyeShine: mix('#2a1a12', '#8a6a50', 0.5), mouth: shade(L.skin, 0.62),
       blouse: style === 'plain' ? tones('#7a5236') : tones(skirt),                  // the plain dress: a brown blouse, a cream apron, a skirt in your colour
       lace: tones('#efe3c4'), apron: tones('#e6d9b6'), skirt: tones(skirt), trim: tones(trim),
       shoe: tones('#6b4428'),
@@ -43,9 +43,13 @@ const PixelCharacter = (() => {
   }
 
   /* ---- a tiny pixel painter with a movable origin (for the bob of the upper body) ---- */
-  function painter(ctx) {
+  /** `cap`: null to paint into `ctx`; or a function (layer name) -> a 2D context, to paint each LAYER onto a canvas of its own (the art pack's export:
+   *  SlotArt in artPack.js, and the layers in front() / back() / side() and the prince's). Painting live, layer() just runs its function. */
+  function painter(ctx, cap) {
     let ox = 0, oy = 0;
     const P = {
+      cap: !!cap,
+      layer(name, fn) { if (!cap) { fn(); return; } const prev = ctx; ctx = cap(name); fn(); ctx = prev; },
       at(dx, dy, fn) { const sx = ox, sy = oy; ox += dx; oy += dy; fn(); ox = sx; oy = sy; },
       px(x, y, c) { if (c) { ctx.fillStyle = c; ctx.fillRect(x + ox, y + oy, 1, 1); } },
       rect(x, y, w, h, c) { if (c && w > 0 && h > 0) { ctx.fillStyle = c; ctx.fillRect(x + ox, y + oy, w, h); } },
@@ -86,16 +90,21 @@ const PixelCharacter = (() => {
    * ===================================================================================================================== */
   function front(P, C, F, blink) {
     const gown = C.style === 'ball' || C.style === 'scaled', sun = C.style === 'sundress';
-    P.at(0, F.bob, () => { capeBehind(P, C, F); hairBack(P, C, F, 'down'); });
-    // the skirt (not bobbing at the hem, so the feet stay planted)
-    skirtFront(P, C, F, gown, sun);
-    if (!gown) feetFront(P, C, F, sun);
+    P.at(0, F.bob, () => { P.layer('capeB', () => capeBehind(P, C, F)); P.layer('hairB', () => hairBack(P, C, F, 'down')); });
+    P.layer('body', () => {
+      // the skirt (not bobbing at the hem, so the feet stay planted)
+      skirtFront(P, C, F, gown, sun);
+      if (!gown) feetFront(P, C, F, sun);
+      P.at(0, F.bob, () => {
+        if (C.style === 'plain') apronFront(P, C);
+        torsoFront(P, C, F, gown, sun);
+      });
+    });
     P.at(0, F.bob, () => {
-      if (C.style === 'plain') apronFront(P, C);
-      torsoFront(P, C, F, gown, sun);
-      headFront(P, C, blink);
-      hairFront(P, C, F, 'down');
-      crown(P, C, 'down');
+      P.layer('capeF', () => capeFront(P, C));
+      P.layer('head', () => headFront(P, C, blink));
+      P.layer('hairF', () => hairFront(P, C, F, 'down'));
+      P.layer('crown', () => crown(P, C, 'down'));
     });
   }
 
@@ -149,6 +158,9 @@ const PixelCharacter = (() => {
       P.sym(16, 3, C.lace.b); P.sym(17, 4, C.lace.b); for (let x = -4; x < 4; x += 2) P.px(CX + x, 17, C.lace.d); P.px(CX - 1, 18, C.lace.d); P.px(CX, 18, C.lace.d);
     } else if (sun) { P.px(CX - 1, 18, C.trim.b); P.px(CX, 18, C.trim.d); P.px(CX - 2, 17, C.trim.b); P.px(CX + 1, 17, C.trim.b); }     // a bow
     else { P.sym(16, 4, C.trim.b); P.sym(17, 2, C.skin.b); }                            // a gown's neckline
+  }
+  /** The cape seen from the front: its trim along the shoulders and its clasp (a layer of its own, between the body and the head). */
+  function capeFront(P, C) {
     if (C.cape && (C.cape.style === 'royal' || C.cape.style === 'fur')) { for (let x = -5; x < 5; x++) P.px(CX + x, 16, (x & 1) ? C.cape.trim.b : C.cape.trim.l); }
     if (C.cape) { P.px(CX - 1, 17, '#f2c14e'); P.px(CX, 17, '#f2c14e'); }              // the cape's clasp
   }
@@ -160,7 +172,7 @@ const PixelCharacter = (() => {
     P.px(CX + 5, 13, s.d); P.px(CX + 4, 14, s.d); P.px(CX + 3, 15, s.d);               // shadow under the jaw
     if (blink) { P.row(11, CX - 5, CX - 3, C.eye); P.row(11, CX + 2, CX + 4, C.eye); }
     else for (const x of [CX - 5, CX + 2]) {                                             // big dark eyes with a shine, and a brow
-      P.rect(x, 9, 3, 3, C.eye); P.px(x, 9, '#ffffff'); P.px(x + 2, 11, mix(C.eye, '#8a6a50', 0.5)); P.row(8, x, x + 2, C.hair.d);
+      P.rect(x, 9, 3, 3, C.eye); P.px(x, 9, '#ffffff'); P.px(x + 2, 11, C.eyeShine); P.row(8, x, x + 2, C.hair.d);
     }
     P.row(12, CX - 6, CX - 5, s.blush); P.row(12, CX + 4, CX + 5, s.blush);
     P.row(13, CX - 1, CX, C.mouth);
@@ -171,23 +183,29 @@ const PixelCharacter = (() => {
    * ===================================================================================================================== */
   function back(P, C, F) {
     const gown = C.style === 'ball' || C.style === 'scaled', sun = C.style === 'sundress';
-    skirtFront(P, C, F, gown, sun);
-    if (!gown) feetFront(P, C, { fl: F.fr, fr: F.fl }, sun);
+    P.layer('body', () => {
+      skirtFront(P, C, F, gown, sun);
+      if (!gown) feetFront(P, C, { fl: F.fr, fr: F.fl }, sun);
+      P.at(0, F.bob, () => {
+        const b = C.blouse;
+        P.sym(16, 3, b.b); for (let y = 17; y <= 22; y++) P.shaded(y, 5, b);
+        for (const [x, d] of [[CX - 7, F.ar], [CX + 5, F.al]]) { P.rect(x, 17, 2, sun ? 2 : 6, b.d); if (sun) P.rect(x, 19, 2, 4, C.skin.b); P.rect(x, 24 + d, 2, 2, C.skin.d); }
+        P.sym(23, 4, C.style === 'plain' ? C.apron.l : C.trim.b);
+        if (C.style === 'plain') {                                                     // the apron's bow at the back
+          P.rect(CX - 3, 22, 2, 2, C.apron.b); P.rect(CX + 1, 22, 2, 2, C.apron.b); P.rect(CX - 1, 22, 2, 2, C.apron.d);
+          P.px(CX - 2, 24, C.apron.b); P.px(CX - 2, 25, C.apron.b); P.px(CX + 1, 24, C.apron.b); P.px(CX + 1, 25, C.apron.b); P.px(CX + 2, 26, C.apron.d);
+        }
+      });
+    });
     P.at(0, F.bob, () => {
-      const b = C.blouse;
-      P.sym(16, 3, b.b); for (let y = 17; y <= 22; y++) P.shaded(y, 5, b);
-      for (const [x, d] of [[CX - 7, F.ar], [CX + 5, F.al]]) { P.rect(x, 17, 2, sun ? 2 : 6, b.d); if (sun) P.rect(x, 19, 2, 4, C.skin.b); P.rect(x, 24 + d, 2, 2, C.skin.d); }
-      P.sym(23, 4, C.style === 'plain' ? C.apron.l : C.trim.b);
-      if (C.style === 'plain') {                                                       // the apron's bow at the back
-        P.rect(CX - 3, 22, 2, 2, C.apron.b); P.rect(CX + 1, 22, 2, 2, C.apron.b); P.rect(CX - 1, 22, 2, 2, C.apron.d);
-        P.px(CX - 2, 24, C.apron.b); P.px(CX - 2, 25, C.apron.b); P.px(CX + 1, 24, C.apron.b); P.px(CX + 1, 25, C.apron.b); P.px(CX + 2, 26, C.apron.d);
-      }
-      capeOver(P, C, F);
-      P.sym(15, 1, C.skin.d);
-      for (let y = 2; y <= 15; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < 14 ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);   // the back of the head is all hair
-      P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
-      hairBack(P, C, F, 'up');
-      crown(P, C, 'up');
+      P.layer('capeO', () => capeOver(P, C, F));
+      P.layer('head', () => {
+        P.sym(15, 1, C.skin.d);
+        for (let y = 2; y <= 15; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < 14 ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);   // the back of the head is all hair
+        P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
+      });
+      P.layer('hairB', () => hairBack(P, C, F, 'up'));
+      P.layer('crown', () => crown(P, C, 'up'));
     });
   }
 
@@ -196,7 +214,8 @@ const PixelCharacter = (() => {
    * ===================================================================================================================== */
   function side(P, C, F) {
     const gown = C.style === 'ball' || C.style === 'scaled', sun = C.style === 'sundress', S = F.side, b = C.blouse;
-    P.at(0, F.bob, () => { capeSide(P, C, F); hairBack(P, C, F, 'left'); });
+    P.at(0, F.bob, () => { P.layer('capeB', () => capeSide(P, C, F)); P.layer('hairB', () => hairBack(P, C, F, 'left')); });
+    P.layer('body', () => {
     // the far foot, behind the skirt
     const shoe = sun ? C.trim : C.shoe;
     if (!gown) { if (sun) P.rect(CX + S.far, 32, 2, 3, C.skin.d); P.rect(CX - 1 + S.far, 35, 3, 2, shoe.d); }
@@ -222,15 +241,20 @@ const PixelCharacter = (() => {
       if (sun) P.rect(Math.round((ax + hand) / 2), 19, 2, 4, C.skin.b);
       else { P.rect(Math.round((ax + hand) / 2), 21, 2, 2, b.b); P.rect(Math.round((ax + hand) / 2), 23, 2, 1, C.style === 'plain' ? C.lace.b : C.trim.b); }
       P.rect(hand, 24, 2, 2, C.skin.b);
-      // the head in profile: face to the left
-      const s = C.skin;
-      P.row(16, CX - 1, CX + 1, s.d);
-      for (let y = 5; y <= 15; y++) { const x0 = y < 14 ? CX - 6 : y === 14 ? CX - 5 : CX - 4, x1 = CX + 4; P.row(y, x0, x1, s.b); }
-      P.px(CX - 7, 11, s.b);                                                             // the nose
-      P.rect(CX - 5, 9, 2, 3, C.eye); P.px(CX - 5, 9, '#ffffff'); P.row(8, CX - 5, CX - 3, C.hair.d);
-      P.px(CX - 3, 12, s.blush); P.px(CX - 2, 12, s.blush); P.px(CX - 6, 13, C.mouth);
-      hairFront(P, C, F, 'left');
-      crown(P, C, 'left');
+    });
+    });
+    P.at(0, F.bob, () => {
+      P.layer('head', () => {
+        // the head in profile: face to the left
+        const s = C.skin;
+        P.row(16, CX - 1, CX + 1, s.d);
+        for (let y = 5; y <= 15; y++) { const x0 = y < 14 ? CX - 6 : y === 14 ? CX - 5 : CX - 4, x1 = CX + 4; P.row(y, x0, x1, s.b); }
+        P.px(CX - 7, 11, s.b);                                                           // the nose
+        P.rect(CX - 5, 9, 2, 3, C.eye); P.px(CX - 5, 9, '#ffffff'); P.row(8, CX - 5, CX - 3, C.hair.d);
+        P.px(CX - 3, 12, s.blush); P.px(CX - 2, 12, s.blush); P.px(CX - 6, 13, C.mouth);
+      });
+      P.layer('hairF', () => hairFront(P, C, F, 'left'));
+      P.layer('crown', () => crown(P, C, 'left'));
     });
   }
 
@@ -277,36 +301,45 @@ const PixelCharacter = (() => {
     }
     P.sym(24, 5, C.belt.b); P.row(24, CX - 5, CX - 4, C.belt.l);                                             // the belt, and its buckle
     if (!back && S !== 'doublet') { P.rect(CX - 1, 24, 2, 1, '#f2c14e'); }
-    if (C.cape && !back && (C.cape.style === 'royal' || C.cape.style === 'fur')) { for (let x = -5; x < 5; x++) P.px(CX + x, 16, (x & 1) ? C.cape.trim.b : C.cape.trim.l); }
-    if (C.cape && !back) { P.px(CX - 1, 17, '#f2c14e'); P.px(CX, 17, '#f2c14e'); }
   }
   function frontPrince(P, C, F, blink) {
-    P.at(0, F.bob, () => { capeBehind(P, C, F); princeHairBack(P, C, F, 'down'); });
-    legsFront(P, C, F);
+    P.at(0, F.bob, () => { P.layer('capeB', () => capeBehind(P, C, F)); P.layer('hairB', () => princeHairBack(P, C, F, 'down')); });
+    P.layer('body', () => {
+      legsFront(P, C, F);
+      P.at(0, F.bob, () => { tunicSkirt(P, C, F); princeTorso(P, C, F, false); });
+    });
     P.at(0, F.bob, () => {
-      tunicSkirt(P, C, F); princeTorso(P, C, F, false);
-      headFront(P, C, blink); princeHairFront(P, C, F, 'down'); crown(P, C, 'down');
+      P.layer('capeF', () => capeFront(P, C));
+      P.layer('head', () => headFront(P, C, blink));
+      P.layer('hairF', () => princeHairFront(P, C, F, 'down'));
+      P.layer('crown', () => crown(P, C, 'down'));
     });
   }
   function backPrince(P, C, F) {
-    legsFront(P, C, { fl: F.fr, fr: F.fl });
+    P.layer('body', () => {
+      legsFront(P, C, { fl: F.fr, fr: F.fl });
+      P.at(0, F.bob, () => { tunicSkirt(P, C, F); princeTorso(P, C, F, true); });
+    });
     P.at(0, F.bob, () => {
-      tunicSkirt(P, C, F); princeTorso(P, C, F, true); capeOver(P, C, F);
-      const k = C.hairKind, end = k === 'medium' ? 16 : k === 'curly' ? 13 : 12;
-      for (let y = 6; y <= 15; y++) P.sym(y, y < 14 ? 6 : y === 14 ? 5 : 4, C.skin.d);                     // the back of the head and the neck
-      for (let y = 2; y <= end; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < end ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);
-      P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
-      princeHairBack(P, C, F, 'up'); princeHairTop(P, C, 'up');
-      crown(P, C, 'up');
+      P.layer('capeO', () => capeOver(P, C, F));
+      P.layer('head', () => {
+        const k = C.hairKind, end = k === 'medium' ? 16 : k === 'curly' ? 13 : 12;
+        for (let y = 6; y <= 15; y++) P.sym(y, y < 14 ? 6 : y === 14 ? 5 : 4, C.skin.d);                   // the back of the head and the neck
+        for (let y = 2; y <= end; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < end ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);
+        P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
+      });
+      P.layer('hairB', () => { princeHairBack(P, C, F, 'up'); princeHairTop(P, C, 'up'); });
+      P.layer('crown', () => crown(P, C, 'up'));
     });
   }
   function sidePrince(P, C, F) {
     const S = F.side, t = C.tunic, tr = C.trousers, b = C.boot;
-    P.at(0, F.bob, () => { capeSide(P, C, F); princeHairBack(P, C, F, 'left'); });
+    P.at(0, F.bob, () => { P.layer('capeB', () => capeSide(P, C, F)); P.layer('hairB', () => princeHairBack(P, C, F, 'left')); });
     const leg = (stride, far) => {                                                                         // a leg swinging from the hip
       for (let y = 25; y <= 33; y++) { const x = CX - 1 + Math.round(stride * (y - 25) / 9); P.rect(x, y, 3, 1, far ? tr.d : tr.b); if (!far) P.px(x, y, tr.l); }
       const fx = CX - 1 + stride; P.rect(fx, 33, 3, 3, far ? b.d : b.b); if (!far) P.row(33, fx, fx + 2, b.l); P.row(36, fx - 1, fx + 2, b.d);   // the boot, toe forward (left)
     };
+    P.layer('body', () => {
     leg(S.far, true); leg(S.near, false);
     P.at(0, F.bob, () => {
       const hem = HEM[C.style] || 26;
@@ -320,13 +353,19 @@ const PixelCharacter = (() => {
       const ax = CX - 1 + Math.round(S.arm / 2), hand = CX - 1 + S.arm;                                     // the near arm, swinging
       P.rect(ax, 17, 2, 5, t.l); P.px(ax + 1, 18, t.b); P.rect(Math.round((ax + hand) / 2), 21, 2, 2, t.b);
       P.rect(Math.round((ax + hand) / 2), 23, 2, 1, C.style === 'plain' ? t.d : C.trim.b); P.rect(hand, 24, 2, 2, C.skin.b);
-      const s = C.skin;                                                                                    // the head in profile, facing left
-      P.row(16, CX - 1, CX + 1, s.d);
-      for (let y = 5; y <= 15; y++) { const x0 = y < 14 ? CX - 6 : y === 14 ? CX - 5 : CX - 4; P.row(y, x0, CX + 4, s.b); }
-      P.px(CX - 7, 11, s.b);
-      P.rect(CX - 5, 9, 2, 3, C.eye); P.px(CX - 5, 9, '#ffffff'); P.row(8, CX - 5, CX - 3, C.hair.d);
-      P.px(CX - 6, 13, C.mouth);
-      princeHairFront(P, C, F, 'left'); crown(P, C, 'left');
+    });
+    });
+    P.at(0, F.bob, () => {
+      P.layer('head', () => {
+        const s = C.skin;                                                                                  // the head in profile, facing left
+        P.row(16, CX - 1, CX + 1, s.d);
+        for (let y = 5; y <= 15; y++) { const x0 = y < 14 ? CX - 6 : y === 14 ? CX - 5 : CX - 4; P.row(y, x0, CX + 4, s.b); }
+        P.px(CX - 7, 11, s.b);
+        P.rect(CX - 5, 9, 2, 3, C.eye); P.px(CX - 5, 9, '#ffffff'); P.row(8, CX - 5, CX - 3, C.hair.d);
+        P.px(CX - 6, 13, C.mouth);
+      });
+      P.layer('hairF', () => princeHairFront(P, C, F, 'left'));
+      P.layer('crown', () => crown(P, C, 'left'));
     });
   }
 
@@ -480,15 +519,84 @@ const PixelCharacter = (() => {
     }
   }
 
-  /* ---- one frame ---- */
-  function render(C, dir, F, blink, hurt) {
-    const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d'), P = painter(ctx);
-    P.at(0, TOP, () => { if (C.prince) { if (dir === 'up') backPrince(P, C, F); else if (dir === 'down') frontPrince(P, C, F, blink); else sidePrince(P, C, F); } else if (dir === 'up') back(P, C, F); else if (dir === 'down') front(P, C, F, blink); else side(P, C, F); });
-    outline(ctx, C.outline);
-    if (hurt) { ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(255,40,40,.55)'; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over'; }
+  /** The hurt flash: a red wash over the figure only. */
+  function hurtWash(canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(255,40,40,.55)'; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over';
     return canvas;
   }
+  const paintFigure = (P, C, dir, F, blink) => P.at(0, TOP, () => { if (C.prince) { if (dir === 'up') backPrince(P, C, F); else if (dir === 'down') frontPrince(P, C, F, blink); else sidePrince(P, C, F); } else if (dir === 'up') back(P, C, F); else if (dir === 'down') front(P, C, F, blink); else side(P, C, F); });
+
+  /* ---- one frame, painted live ---- */
+  function renderLive(C, dir, F, blink, hurt) {
+    const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d'), P = painter(ctx);
+    paintFigure(P, C, dir, F, blink);
+    outline(ctx, C.outline);
+    return hurt ? hurtWash(canvas) : canvas;
+  }
+
+  /* ---- the ART PACK's characters (artPack.js, SlotArt): the shapes are saved once as marker-coloured LAYERS, in the order the painters draw them; a
+   *      character's own colours are applied when it is built. Each layer depends only on what its key says (checked by the exporter). ---- */
+  const POSES = { w0: WALK[0], w1: WALK[1], w2: WALK[2], w3: WALK[3], i0: IDLE[0], i1: IDLE[1] };
+  const SEQ = { down: ['capeB', 'hairB', 'body', 'capeF', 'head', 'hairF', 'crown'], up: ['body', 'capeO', 'head', 'hairB', 'crown'], left: ['capeB', 'hairB', 'body', 'head', 'hairF', 'crown'] };
+  const SLOTS = [];
+  for (const t of ['tunic', 'trousers', 'boot', 'belt', 'hair', 'blouse', 'lace', 'apron', 'skirt', 'trim', 'shoe', 'crown', 'cape', 'cape.trim']) for (const k of ['b', 'd', 'l']) SLOTS.push(t + '.' + k);
+  SLOTS.push('skin.b', 'skin.d', 'skin.blush', 'eye', 'eyeShine', 'mouth', 'crown.gem');
+  /** The saved picture a layer is (null: the figure has none, e.g. no cape). Everything that changes the layer's SHAPE, never its colours. */
+  function layerKey(C, name, view, pose, blink) {
+    const body = C.prince ? 'P' : 'F';
+    if (name === 'capeB' || name === 'capeF' || name === 'capeO') return C.cape ? [name, C.cape.style, view, pose].join('|') : null;
+    if (name === 'crown') return C.crown ? [name, C.crown.style, view, pose].join('|') : null;
+    if (name === 'hairB' || name === 'hairF') return [name, body, C.hairKind, view, pose].join('|');
+    if (name === 'head') return [name, body, view === 'up' ? C.hairKind : '', view, pose, view === 'down' && blink ? 1 : 0].join('|');
+    return [name, body, C.style, view, pose].join('|');                                                     // body
+  }
+  /** A frame built from the pack in this character's colours, or null when the pack lacks a layer of it. */
+  function renderPacked(C, view, F, blink, hurt, pose) {
+    if (!ArtPack.loaded) return null;
+    const layers = [];
+    for (const name of SEQ[view]) {
+      const key = layerKey(C, name, view, pose, blink);
+      if (key === null) continue;
+      const px = ArtPack.sprite('char', key);
+      if (!px) return null;
+      layers.push(px);
+    }
+    const canvas = SlotArt.canvasOf(W, H, SlotArt.compose(W, H, layers, SlotArt.lutOf(C, SLOTS), SlotArt.abgr(C.outline)));
+    return hurt ? hurtWash(canvas) : canvas;
+  }
+  /** What art-sweeps.js and the exporter use. */
+  const pack = {
+    SLOTS, SEQ, POSES, layerKey,
+    /** A character of this structure { prince, style, hairKind, crown: style | null, cape: style | null } in the colours of `colours`
+     *  ({ hair, skin, outfit, trim, crown: [color, gem], cape: [color, trim] }): the palette draw() would use. */
+    paletteOf(spec, colours) {
+      const L = { princess: !spec.prince, hairKind: spec.hairKind, hair: colours.hair, skin: colours.skin, outfit: colours.outfit, trim: colours.trim };
+      const W8 = {
+        outfit: spec.style === 'plain' ? null : { style: spec.style, color: colours.outfit, trim: colours.trim },
+        crown: spec.crown ? { style: spec.crown, color: colours.crown[0], gem: colours.crown[1] } : null,
+        cape: spec.cape ? { style: spec.cape, color: colours.cape[0], trim: colours.cape[1] } : null,
+      };
+      return palette(L, W8);
+    },
+    /** The layers of a frame painted in marker colours: { name: canvas }, only those in `only`, and only those this structure has. Stray pixels
+     *  (something painted outside every layer) are an error. */
+    layersOf(spec, view, pose, blink, only) {
+      const C = pack.paletteOf(spec, { hair: '#8a4b24', skin: '#f0c9a0', outfit: '#2f5fc0', trim: '#f2c14e', crown: ['#f7d24e', '#e53935'], cape: ['#b0262e', '#f5f1e6'] });
+      const probe = SlotArt.probeOf(C, SLOTS), canvases = {};
+      const cap = name => (canvases[name] || (canvases[name] = Object.assign(document.createElement('canvas'), { width: W, height: H }))).getContext('2d');
+      const P = painter(cap('stray'), cap);
+      paintFigure(P, probe, view, POSES[pose], !!blink);
+      const stray = canvases.stray && canvases.stray.getContext('2d').getImageData(0, 0, W, H).data;
+      if (stray) for (let i = 3; i < stray.length; i += 4) if (stray[i]) throw new Error('the painter drew outside every layer');
+      const out = {};
+      for (const name of only) { const key = layerKey(C, name, view, pose, blink); if (key !== null && canvases[name]) out[key] = canvases[name]; }
+      return out;
+    },
+    live(spec, colours, view, pose, blink, hurt) { return renderLive(pack.paletteOf(spec, colours), view, POSES[pose], !!blink, hurt); },
+    packed(spec, colours, view, pose, blink, hurt) { return renderPacked(pack.paletteOf(spec, colours), view, POSES[pose], !!blink, hurt, pose); },
+  };
 
   /**
    * Draws a character. L: CharacterLook.describe(...); wardrobe: { crown, outfit, cape } looks; dir: 'up'|'down'|'left'|'right';
@@ -502,9 +610,13 @@ const PixelCharacter = (() => {
     const F = anim.moving ? WALK[frame] : IDLE[frame];
     const blink = !anim.moving && ((anim.now + anim.seed * 977) % 3600) < 130;
     const view = dir === 'right' ? 'left' : dir, hurt = !!anim.hurt;
-    const key = `${JSON.stringify(L)}|${JSON.stringify(wardrobe)}|${view}|${anim.moving ? 'w' : 'i'}${frame}|${blink ? 1 : 0}|${hurt ? 1 : 0}`;
+    const pose = (anim.moving ? 'w' : 'i') + frame, key = `${JSON.stringify(L)}|${JSON.stringify(wardrobe)}|${view}|${pose}|${blink ? 1 : 0}|${hurt ? 1 : 0}`;
     let canvas = cache.get(key);
-    if (!canvas) { canvas = render(C, view, F, blink, hurt); cache.set(key, canvas); }
+    if (!canvas) {
+      canvas = renderPacked(C, view, F, blink, hurt, pose);                                       // from the art pack, in this character's colours ...
+      if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink, hurt); ArtPack.stats.painted++; }   // ... or painted
+      cache.set(key, canvas);
+    }
     const cut = Math.max(0, anim.cut | 0), w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
     ctx.save(); ctx.imageSmoothingEnabled = false;
     if (dir === 'right') { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.drawImage(canvas, 0, 0, W, H - cut, -w / 2, top, w, h); }
@@ -515,5 +627,5 @@ const PixelCharacter = (() => {
 
   /** Shared with the other pixel-art sprites (pixelPony.js). */
   const util = { hex, css, shade, light, mix, tones, outline };
-  return { draw, W, H, PX, util };
+  return { draw, W, H, PX, util, pack };
 })();

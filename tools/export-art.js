@@ -67,7 +67,7 @@ async function openGame(browser, url) {
       if (!ok) throw new Error('the written pack did not load');
       const r = await v.page.evaluate(() => window.__art.verify());
       console.log('verify:', JSON.stringify(r));
-      if (r.missing || r.different || r.wrongSize) { console.error('the pack does not match the painters'); failed = true; }
+      if (r.missing || r.different || r.wrongSize || (r.ponies && r.ponies.different) || (r.chars && r.chars.different)) { console.error('the pack does not match the painters'); failed = true; }
       await v.page.close();
     }
   } finally { await browser.close(); server.close(); }
