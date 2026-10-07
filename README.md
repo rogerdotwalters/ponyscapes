@@ -21,7 +21,7 @@ npm install
 npx wrangler login          # opens a browser once
 npm run deploy:relay        # 1. the relay Worker "realm-relay": note the address it prints, e.g. https://realm-relay.YOUR-NAME.workers.dev
 #   2. put that address in wrangler.toml:  RELAY_URL = "https://realm-relay.YOUR-NAME.workers.dev"
-npm run deploy:pages        # 3. the game on Pages, project "realm" (wrangler asks to create it the first time)
+npm run deploy:pages        # 3. the game on Pages, project "ponyscapes" (wrangler asks to create it the first time)
 ```
 
 **From the Cloudflare dashboard (Git, no terminal):**
@@ -31,7 +31,7 @@ npm run deploy:pages        # 3. the game on Pages, project "realm" (wrangler as
    *Deploy command* to `npx wrangler deploy -c relay/wrangler.toml`. Note its address (`https://realm-relay.YOUR-NAME.workers.dev`).
 3. Put that address in `wrangler.toml` (`RELAY_URL = "..."`), commit, and the site redeploys with multiplayer on.
 
-Check it at `https://realm.pages.dev/health`: `"relay": true` means multiplayer is on (`"via": "url"` or `"binding"`). Then press **Host a game** and share the code or link.
+Check it at `https://ponyscapes.pages.dev/health`: `"relay": true` means multiplayer is on (`"via": "url"` or `"binding"`). Then press **Host a game** and share the code or link.
 
 The error *"script realm-relay not found" (8000109)* means the site was bound to a relay Worker that does not exist yet. The binding is now
 off by default; if you want it (option b in `wrangler.toml`: the site talks to the rooms directly instead of through the relay's address),

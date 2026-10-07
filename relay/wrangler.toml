@@ -19,6 +19,6 @@ tag = "v1"
 new_sqlite_classes = ["RealmRoom"]      # (the free plan only supports SQLite-backed Durable Objects; the room never uses storage)
 
 [vars]
-# Comma-separated page origins allowed to open a relay socket DIRECTLY on this Worker (e.g. "https://realm.pages.dev").
+# Comma-separated page origins allowed to open a relay socket DIRECTLY on this Worker (e.g. "https://ponyscapes.pages.dev").
 # Leave empty to allow any. (Players on the Pages site go through its /ws function instead, which only accepts its own pages.)
 ALLOWED_ORIGINS = ""
