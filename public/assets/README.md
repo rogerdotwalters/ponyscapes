@@ -26,6 +26,7 @@ The game itself has no up / down artwork yet either: `AnimalSprite._drawUp` / `_
 | Picture | Anchor | Size it is drawn at |
 | --- | --- | --- |
 | Creature / character | feet at the **bottom centre** | its own pixel size x `scale` (the procedural pony is about 60 x 50 px, a character about 30 x 66 px) |
+| Creature portrait | a close-up painting of the animal (`sprites.portrait`) | fills its frame in the Pony Book and the Journal, cropped to fit and keeping the top (the face) |
 | Walk cycle | `frames` equal frames side by side in one strip, played at `fps` while moving (frame 0 when standing) | one frame |
 | Item icon | centred | 48 x 48 in the inventory (any square picture) |
 | On the ground | bottom centre on the spot | 26 px wide |

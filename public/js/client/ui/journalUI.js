@@ -41,13 +41,14 @@ class JournalUI {
     const g = this.game, lv = g.local.lv || defaultLevels(), E = LobbyUI.escape;
     const limit = (skill, who) => { const level = lv.s[skill] || 1, cap = Friendship.capFor(level), info = Friendship.info(cap), next = cap < Friendship.MAX_LEVEL ? ` &middot; <small>next colour at ${SkillDefs[skill].name} ${Friendship.skillFor(cap + 1)}</small>` : ' &middot; <small>the highest colour</small>';
       return `<div class="flimit"><span class="sglyph">${SKILL_GLYPH[skill]}</span><b>${SkillDefs[skill].name} ${level}</b> lets you be <i style="color:${info.color}">${info.name}</i> friends with ${who}${next}</div>`; };
-    const row = (id, name, sub, bond) => `<div class="frow"><canvas class="fheart" data-id="${E(id)}" width="240" height="56"></canvas><div class="finfo"><b>${E(name)}</b><small>${sub || (bond ? Friendship.info(bond.level).name + ' friends' : 'not met yet')}</small></div></div>`;
+    const row = (id, name, sub, bond, type) => `<div class="frow">${type ? `<canvas class="fportrait" data-type="${E(type)}" width="80" height="70"></canvas>` : ''}<canvas class="fheart" data-id="${E(id)}" width="240" height="56"></canvas><div class="finfo"><b>${E(name)}</b><small>${sub || (bond ? Friendship.info(bond.level).name + ' friends' : 'not met yet')}</small></div></div>`;
     const people = Object.values(g.npcs).map(n => { const def = Npcs.get(n.type); const b = g.friendOf(n.id); return row(n.id, n.name, (def ? def.role : '') + ' &middot; ' + (b ? Friendship.info(b.level).name + ' friends' : 'not met yet'), b); }).join('');
-    const animals = Object.keys(g.friends).filter(id => !g.npcs[id] && g.beingTypes[id]).map(id => { const d = AnimalDefs[g.beingTypes[id]], b = g.friendOf(id); return row(id, d ? d.name : 'Animal', b ? Friendship.info(b.level).name + ' friends' : '', b); }).join('');
+    const animals = Object.keys(g.friends).filter(id => !g.npcs[id] && g.beingTypes[id]).map(id => { const d = AnimalDefs[g.beingTypes[id]], b = g.friendOf(id); return row(id, d ? d.name : 'Animal', b ? Friendship.info(b.level).name + ' friends' : '', b, d && !d.pony ? g.beingTypes[id] : ''); }).join('');
     this.body.innerHTML = `<div class="jhead">How close can you get? <small>the colour is set by your skills</small></div>${limit('friendship', 'people')}${limit('animal_friendship', 'animals')}` +
       `<div class="flimit"><span class="sglyph">\u2766</span><b>Getting close</b> animals notice you <i>${Math.round(AnimalSenses.stealth(lv) * 100)}% later</i> &middot; <small>from Dexterity ${lv.a.dexterity || 1} and Animal Friendship ${lv.s.animal_friendship || 1}; higher-level animals have sharper senses</small></div>` +
       `<div class="jhead">People</div>${people || '<div class="gnone">Nobody in sight yet.</div>'}` +
       `<div class="jhead">Animals</div>${animals || '<div class="gnone">Pet, feed or spend time with an animal to make a friend. Monsters cannot be befriended.</div>'}`;
+    for (const canvas of this.body.querySelectorAll('canvas.fportrait')) if (typeof canvas.getContext === 'function') renderAnimalPortrait(canvas, canvas.dataset.type, null, 'right', { portrait: true });
     this._paintHearts();
   }
   _paintHearts() {

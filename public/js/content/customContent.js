@@ -13,7 +13,8 @@
  *   creatures:  { <creatureId>: { name, base, rarity, hp, wanderSpeed, ..., ring, weight, group, biomes, sprites } }
  *               `base` (for a new creature) is the built-in creature it copies: its stats, its behaviour and how it is drawn until it has images.
  *               rarity:  the LOWEST rarity one can be born with (ponies roll their own rarity at birth, never below this).
- *               sprites: { up, down, left, right, frames, fps, scale, anchorY, variants: { frost: { up, down, left, right } } }
+ *               sprites: { up, down, left, right, frames, fps, scale, anchorY, portrait, variants: { frost: { up, down, left, right } } }
+ *                        portrait: a close-up painting shown in the Pony Book and the Journal (any size, cropped to fit)
  *               ring: 0-4 (distance band from the village), weight: how common there (0 = never), group: [min, max] herd size,
  *               biomes: ['forest', 'jungle'] (optional: only in these biomes of its ring)
  *
@@ -36,7 +37,9 @@ window.PONYSCAPES_CONTENT = {
     shovel: { sprites: { icon: 'assets/items/shovel_icon.png', held: 'assets/items/shovel_held.png' } },
     fishing_rod: { sprites: { icon: 'assets/items/fishing_rod_icon.png', held: 'assets/items/fishing_rod_held.png' } }
   },
-  creatures: {},
+  creatures: {
+    sheep: { sprites: { portrait: 'assets/creatures/sheep_portrait.jpg' } }
+  },
   characters: {},
   settings: {}
 };

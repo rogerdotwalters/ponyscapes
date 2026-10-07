@@ -263,8 +263,10 @@ class AnimalSprite {
 /** A world facing angle that shows each screen direction (for portraits and the editor's previews). */
 const FACING_FOR_DIR = Object.freeze({ right: Math.PI / 4 - Math.PI / 2, left: Math.PI * 3 / 4, up: -Math.PI * 3 / 4, down: Math.PI / 4 });
 
-/** Draws one animal into a small canvas (the Pony Book portraits, the editor). `dir` picks the screen direction. */
+/** Draws one animal into a small canvas (the Pony Book portraits, the editor). `dir` picks the screen direction.
+ *  opts.portrait: show the creature's portrait painting (sprites.portrait) when it has one, the sprite until it has loaded. */
 function renderAnimalPortrait(canvas, type, look, dir = 'right', opts = {}) {
+  if (opts.portrait && !opts.procedural && SpriteRegistry.drawPortrait(canvas, type, () => canvas.isConnected && SpriteRegistry.drawPortrait(canvas, type))) return;
   const ctx = canvas.getContext('2d'), sprite = new AnimalSprite(new Gfx(ctx));
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
   const scale = canvas.height / 70;

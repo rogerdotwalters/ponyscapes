@@ -17,17 +17,19 @@ const SpriteRegistry = (() => {
   const MIRRORS = { left: 'right', right: 'left' };
   const images = new Map();                                  // src -> { img, ok }
 
-  /** The loaded image for a path / data URL, or null (it starts loading on first ask). */
-  function image(src) {
+  /** The loaded image for a path / data URL, or null (it starts loading on first ask). `onload` is called once it has loaded,
+   *  for a picture drawn once (a portrait in a panel) rather than every frame. */
+  function image(src, onload) {
     if (typeof src !== 'string' || !src) return null;
     let entry = images.get(src);
     if (!entry) {
-      entry = { img: new Image(), ok: false };
-      entry.img.onload = () => { entry.ok = entry.img.naturalWidth > 0; };
-      entry.img.onerror = () => { entry.ok = false; console.warn('sprite not found:', src); };
+      entry = { img: new Image(), ok: false, waiting: [] };
+      entry.img.onload = () => { entry.ok = entry.img.naturalWidth > 0; const w = entry.waiting; entry.waiting = []; if (entry.ok) w.forEach(fn => fn(entry.img)); };
+      entry.img.onerror = () => { entry.ok = false; entry.waiting = []; console.warn('sprite not found:', src); };
       entry.img.src = src;
       images.set(src, entry);
     }
+    if (!entry.ok && onload && entry.img.complete === false) entry.waiting.push(onload);
     return entry.ok ? entry.img : null;
   }
 
@@ -73,6 +75,24 @@ const SpriteRegistry = (() => {
     return picked ? drawSheet(ctx, picked, set, x, y, moving, now) : null;
   }
 
+  /** A creature's portrait path (its close-up painting for panels), if it has one. */
+  function portraitSrc(type) {
+    const def = AnimalDefs[type], set = def && ContentPack.isPlain(def.sprites) ? def.sprites : null;
+    return set && typeof set.portrait === 'string' && set.portrait ? set.portrait : null;
+  }
+
+  /** Paints a creature's portrait to fill a canvas (cropped to its shape, keeping the top: the face). Returns false when it has
+   *  none, or it has not loaded yet (`onload` then repaints once it has). */
+  function drawPortrait(canvas, type, onload) {
+    const img = image(portraitSrc(type), onload);
+    if (!img) return false;
+    const ctx = canvas.getContext('2d'), W = canvas.width, H = canvas.height, k = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    const sw = W / k, sh = H / k, sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - sh) * 0.3;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+    return true;
+  }
+
   /** Draws a player's body ('prince' | 'princess') from images, or returns null. */
   function drawCharacter(ctx, body, dir, x, y, moving, now) {
     const set = ContentPack.character(body), picked = pick(set, dir);
@@ -87,5 +107,5 @@ const SpriteRegistry = (() => {
   /** A worn item's overlay for a direction: { img, mirror } or null. */
   const wornImage = (id, dir) => { const s = itemSprites(id); return s && ContentPack.isPlain(s.worn) ? pick(s.worn, dir) : null; };
 
-  return { DIRS, image, dirOf, pick, drawSheet, creatureSet, drawCreature, drawCharacter, itemIconSrc, itemImage, wornImage };
+  return { DIRS, image, dirOf, pick, drawSheet, creatureSet, drawCreature, portraitSrc, drawPortrait, drawCharacter, itemIconSrc, itemImage, wornImage };
 })();

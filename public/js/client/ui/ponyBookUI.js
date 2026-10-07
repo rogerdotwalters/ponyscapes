@@ -72,7 +72,7 @@ class PonyBookUI {
     this.body.innerHTML = summary + (gentling ? animalsHtml + kindsHtml : kindsHtml + animalsHtml);
     this.body.querySelectorAll('canvas.portrait').forEach(canvas => {
       const pet = g.pets[Number(canvas.dataset.i)];
-      if (pet) renderAnimalPortrait(canvas, pet.type, pet.look);
+      if (pet) renderAnimalPortrait(canvas, pet.type, pet.look, 'right', { portrait: true });
     });
   }
   /** Top speed and how far to the next level (ponies you own): riding, work in the saddle, food and grooming all count. */

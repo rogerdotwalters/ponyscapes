@@ -163,30 +163,40 @@ const PixelCreatures = (() => {
     },
   });
 
-  /* ---- SHEEP: a woolly cloud on dark legs ---- */
+  /* ---- SHEEP (as in its portrait): a deep, round cream fleece in lumpy locks over short pale legs with dark hooves; a pale face
+   *      with a woolly topknot, a pink-lined ear and a pink nose ---- */
+  const SHEEP_FLEECE = [[18, 16, 11, 7.5], [9, 17, 5.5, 5.5], [26, 16, 5, 6.5], [16, 10, 8, 4.5], [23, 11, 5, 4], [6, 14, 2.2, 2.2]];
+  const inFleece = (x, y, k) => SHEEP_FLEECE.some(([cx, cy, rx, ry]) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < k);
   PixelCreatures.register({
-    id: 'sheep', W: 34, H: 26, ground: 24, anchor: 16, shadow: [13, 4],
-    palette: s => ({ wool: tones(s.color || '#efeadf'), face: tones('#3b3a3a') }),
+    id: 'sheep', W: 40, H: 30, ground: 28, anchor: 18, shadow: [14, 4],
+    palette: s => { const col = s.color || '#f2dfbf'; return { wool: tones(col), curl: shade(col, 0.82), deep: shade(col, 0.72), face: tones('#f7ecdd'), leg: tones('#e2cba6'), ear: '#ec9d9a', nose: '#d9837f', hoof: '#3a3330' }; },
     paint(P, C, F) {
-      const sw = F.swing;
-      for (const [x, d] of [[10, -sw], [21, sw]]) P.leg(x, 16, 24, d, 0, 2, { b: shade('#3b3a3a', 0.7), d: '#2a2929' });
-      const shorn = F.extra === 'shorn';
+      const sw = F.swing, shorn = F.extra === 'shorn', far = { b: shade(C.leg.b, 0.8), d: shade(C.leg.d, 0.8) };
+      const leg = (x, d, t) => { P.leg(x, 21, 28, d, 0, 3, t, C.hoof); P.rect(x + d, 27, 4, 1, C.hoof); };   // short, sturdy, a two-row dark hoof
+      leg(13, -sw, far); leg(24, sw, far);                                                                 // far legs
+      leg(9, sw, C.leg); leg(20, -sw, C.leg);                                                              // near legs (the fleece hangs over their tops)
       P.at(0, F.bob, () => {
-        if (shorn) {                                                                                       // shorn: a slim pink-grey body with a short fuzz
-          const skin = tones('#d9c2b8');
-          P.shape([[16, 13, 8.5, 4.5], [10, 13, 4, 4]], skin, { texture: false });
-          for (let y = 10; y < 17; y += 2) for (let x = 9 + (y % 4 ? 1 : 0); x < 24; x += 3) P.px(x, y, '#efe6dc');   // stubble
-          P.px(6, 11, '#efe6dc'); P.px(5, 10, '#efe6dc');                                                   // a little tuft left on its tail
+        if (shorn) {                                                                                       // shorn: a slim pinkish body with a short fuzz
+          const skin = tones('#e3cdbf');
+          P.shape([[18, 17, 9.5, 5], [11, 17, 4.5, 4.5], [25, 16, 4, 4]], skin, { texture: false });
+          for (let y = 13; y < 21; y += 2) for (let x = 10 + (y % 4 ? 1 : 0); x < 28; x += 3) P.px(x, y, '#f4ebe0');   // stubble
+          P.px(7, 15, '#f4ebe0'); P.px(6, 14, '#f4ebe0');                                                   // a little tuft left on its tail
         } else {
-          P.shape([[16, 12, 10, 6], [9, 13, 5, 5], [23, 13, 5, 5], [16, 8, 7, 4]], C.wool, { texture: false });
-          for (let y = 6; y < 18; y += 3) for (let x = 7 + (y % 2); x < 26; x += 4) { P.px(x, y, C.wool.d); P.px(x + 1, y - 1, C.wool.l); }   // curls
+          P.shape(SHEEP_FLEECE, C.wool, { texture: false, lit: 2 });
+          for (let r = 0, y = 7; y < 23; y += 3, r++) for (let x = 5 + (r % 2) * 3; x < 31; x += 6) {      // the locks: a shadowed curve under each, a lit tip on top
+            const lock = [[x, y + 1, C.curl], [x + 1, y + 2, C.curl], [x + 2, y + 2, y > 16 ? C.deep : C.curl], [x + 3, y + 1, C.curl], [x + 1, y, C.wool.l], [x + 2, y, C.wool.l]];
+            for (const [px, py, c] of lock) if (inFleece(px, py, 0.8)) P.px(px, py, c);
+          }
         }
       });
-      for (const [x, d] of [[8, sw], [19, -sw]]) P.leg(x, 16, 24, d, 0, 2, C.face);
-      P.at(0, F.bob + (!F.moving && F.i === 3 ? 2 : 0), () => {                                          // (it grazes now and then)
-        P.shape([[28, 11, 3.6, 3.4]], C.face, { texture: false }); P.row(9, 24, 25, C.face.d);        // head, ear
-        if (!shorn) P.shape([[27, 7, 2.4, 1.6]], C.wool, { texture: false });                            // woolly forehead
-        P.px(29, 10, '#e8e8e8'); P.px(31, 12, '#555');
+      P.at(0, F.bob + (!F.moving && F.i === 3 ? 4 : 0), () => {                                          // (it grazes now and then)
+        const hx = 32, hy = 10;
+        P.shape([[hx, hy, 4.5, 4.6], [hx + 3.5, hy + 3, 2.8, 2.6]], C.face, { texture: false, lit: 1 });   // the pale face, long in the muzzle
+        for (let y = hy - 3; y <= hy + 4; y++) P.px(Math.round(hx - 4.5 * Math.sqrt(Math.max(0, 1 - ((y - hy) / 4.6) ** 2))) + 1, y, C.curl);   // the back of the head, set off from the fleece
+        if (!shorn) { P.shape([[hx - 1.5, hy - 4, 3.6, 2.4]], C.wool, { texture: false }); P.px(hx - 3, hy - 3, C.curl); P.px(hx - 1, hy - 2, C.curl); P.px(hx + 1, hy - 3, C.curl); }   // the woolly topknot
+        P.rect(hx - 8, hy - 2, 4, 2, C.face.b); P.row(hy - 2, hx - 7, hx - 5, C.ear); P.px(hx - 8, hy - 1, C.face.d);   // the ear, sticking back, pink inside
+        P.eye(hx, hy - 1, F, '#241811'); P.px(hx + 1, hy - 1, '#241811'); P.px(hx, hy, '#5a3e2a'); P.px(hx - 1, hy - 2, C.face.d);   // a dark eye under its brow
+        P.px(hx + 6, hy + 2, C.nose); P.px(hx + 6, hy + 3, C.nose); P.px(hx + 5, hy + 2, C.nose); P.px(hx + 5, hy + 3, C.nose); P.row(hy + 5, hx + 3, hx + 5, C.face.d);   // pink nose, mouth
       });
     },
   });

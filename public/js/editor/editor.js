@@ -302,6 +302,7 @@
     for (const { id, cur } of rows) {
       const canvas = h('canvas', { width: 64, height: 64 }), custom = !isBuiltIn(tab, id), edited = !custom && !!draft[tab][id];
       if (tab === 'items') itemIconInto(canvas, id, cur);
+      else if (tab === 'creatures' && cur.sprites && cur.sprites.portrait) loadImage(cur.sprites.portrait).then(img => img && drawFitted(canvas, img, 1, false, true));
       else if (tab === 'creatures') { const src = cur.sprites && (cur.sprites.right || cur.sprites.left || cur.sprites.down || cur.sprites.up); if (src) loadImage(src).then(img => img && drawFitted(canvas, img, cur.sprites.frames || 1)); else creatureArtInto(canvas, id, cur, 'right', ''); }
       else { const src = cur.sprites && (cur.sprites.down || cur.sprites.right || cur.sprites.left); if (src) loadImage(src).then(img => img && drawFitted(canvas, img, cur.sprites.frames || 1)); else characterArtInto(canvas, id, 'down'); }
       const rarity = tab === 'characters' ? null : rarityOf(cur.rarity);
@@ -408,6 +409,8 @@
     parts.push(h('fieldset', {}, h('legend', {}, 'Pictures ', h('small', {}, '(feet at the bottom centre; a walk cycle is frames side by side)')), variantPick,
       ...directionSlots(cur, setPath2, Object.assign({ folder: 'creatures', framesPath: 'sprites.frames', art: (canvas, dir) => creatureArtInto(canvas, id, cur, dir, variant) }, o)),
       animationFields(cur, 'sprites', o)));
+    parts.push(h('fieldset', {}, h('legend', {}, 'Portrait ', h('small', {}, '(a close-up painting for the Pony Book and the Journal; any size, cropped to fit, keeping the top)')),
+      h('div', { class: 'slots' }, spriteSlot('Portrait', cur, 'sprites.portrait', Object.assign({ folder: 'creatures', centred: true, fallback: canvas => { creatureArtInto(canvas, id, cur, 'right', ''); return 'Empty: shows the sprite'; } }, o)))));
     return { cur, parts, custom };
   }
 
