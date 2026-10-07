@@ -13,7 +13,16 @@ const PixelPony = (() => {
   const cache = new LruCache(2000);
   const HOOF = { b: '#4a4148', l: '#7a6e74', d: '#2e282d' };
 
+  /** A pony's colours, worked out once per look (they used to be recomputed for every pony, every frame). A copy is returned: draw() sets
+   *  the frame's own fields (wings, flame frame...) on it. */
+  const palettes = new LruCache(500);
   function palette(look) {
+    const key = `${look.coat}|${look.mane.join()}|${look.mark}|${look.accessory}`;
+    let p = palettes.get(key);
+    if (!p) { p = makePalette(look); p.wing = tones(mix(look.coat, '#ffffff', 0.35)); palettes.set(key, p); }
+    return Object.assign({}, p);
+  }
+  function makePalette(look) {
     const coat = look.coat, m = look.mane;
     const manes = (m.length >= 3 ? m : [m[0], m[1] || light(m[0], 0.3), light(m[1] || m[0], 0.45)]).map(tones);   // (a rainbow mane has four)
     return {
@@ -417,7 +426,6 @@ const PixelPony = (() => {
     const C = palette(look), kind = anim.kind || {};
     C.wings = !!kind.wings; C.horn = !!kind.horn; C.flying = !!(kind.wings && anim.flying);
     C.wf = C.flying ? Math.floor(anim.now / 85) % 4 : 0;                                          // the wingbeat
-    C.wing = tones(mix(look.coat, '#ffffff', 0.35));
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 420 + anim.seed) % 4);
     const F = C.flying ? STAND[0] : anim.moving ? TROT[frame] : STAND[frame];

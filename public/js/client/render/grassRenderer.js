@@ -12,8 +12,16 @@ const GrassRenderer = (() => {
   const cache = new LruCache(8000);
   const hash = (a, b, c) => { let h = (a * 374761393 + b * 668265263 + c * 2246822519) | 0; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; };
 
-  /** The grass colours at a tile: [shadow, body, lit, tip], from its biome's ground and, for the meadow's own grass, the season. */
+  /** The grass colours at a tile: [shadow, body, lit, tip], from its biome's ground and, for the meadow's own grass, the season.
+   *  Worked out once per look and season (it used to be recomputed for every grass tile on screen, every frame). */
+  const palettes = new Map();
   function paletteOf(look, season) {
+    const key = look.id + '|' + season;
+    let p = palettes.get(key);
+    if (!p) { p = makePalette(look, season); palettes.set(key, p); }
+    return p;
+  }
+  function makePalette(look, season) {
     let base = look.pal[1];
     if (look.seasonal) base = season === 'autumn' ? mix(base, '#c9a046', 0.6) : season === 'winter' ? mix(base, '#dfe7ea', 0.55) : season === 'summer' ? mix(base, '#3f7a2e', 0.2) : light(base, 0.05);
     const tip = look.seasonal && (season === 'summer' || season === 'autumn') ? '#d9c48a' : light(base, 0.32);
