@@ -165,7 +165,7 @@ function launch(choice, query) {
     }
     window.ponyscapes = { game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
 
-    let mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
+    let attackShown = false, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
     /** The ridden pony's rarity abilities: a strip above the vitals (desktop) and the power button (touch), with cooldowns. */
     const showAbilities = () => {
       const list = game.abilityState(), text = list.map(a => `${a.ability.glyph} ${a.ability.name}${a.cooldown > 0 ? ' ' + Math.ceil(a.cooldown) + 's' : ''}`);
@@ -185,6 +185,7 @@ function launch(choice, query) {
       tickMs: TICK_MS,
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
+        tapToMove.tick();
         game.advanceRemoteClock(frameMs);
         game.streamWorld();
         renderer.render(game.getRenderState(alpha), frameMs, now);
@@ -193,6 +194,8 @@ function launch(choice, query) {
         const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health
         healthBar.update(game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); clockUI.update(game.hour()); seasonUI.update(Seasons.at(game.clockTick)); sleepUI.update();
         craftingUI.tick(frameMs); townUI.tick(frameMs); dialogueUI.tick(frameMs); shopUI.tick(frameMs); showAbilities();
+        const held = ItemDB.getTool(game.heldItemId()), armed = !!held && WEAPON_KINDS.includes(held.kind);       // a weapon in hand: the Use button becomes Attack
+        if (armed !== attackShown) { attackShown = armed; $('btnAct').textContent = armed ? 'Attack' : 'Use'; $('btnAct').classList.toggle('attack', armed); }
         const showRotate = !!game.buildTarget;                       // context buttons only show when they do something
         if (showRotate !== rotateShown) { rotateShown = showRotate; $('btnRot').style.display = showRotate ? '' : 'none'; }
         const ability = game.abilityHint(), abilityKey = ability ? ability.label + (ability.ready ? '+' : '-') : '';                 // the Fly button: only on a pegasus or alicorn

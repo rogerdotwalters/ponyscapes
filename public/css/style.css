@@ -134,6 +134,8 @@ canvas{display:block}
 #joyBase{position:absolute;--joy:108px;width:var(--joy);height:var(--joy);transform:translate(-50%,-50%);border-radius:50%;
   border:2px solid rgba(227,194,122,.6);background:rgba(15,28,43,.32);opacity:.6;pointer-events:none}
 #joyBase.active{opacity:.95}
+#touchUI.fixedStick #joyZone{pointer-events:none}
+#touchUI.fixedStick #joyBase{pointer-events:auto;touch-action:none;opacity:.8}
 #joyKnob{position:absolute;left:50%;top:50%;width:calc(var(--joy) * .5);height:calc(var(--joy) * .5);margin:calc(var(--joy) * -.25) 0 0 calc(var(--joy) * -.25);
   border-radius:50%;background:rgba(227,194,122,.7);border:2px solid rgba(255,240,200,.85)}
 .pbtn{position:absolute;pointer-events:auto;touch-action:none;border-radius:50%;padding:0;
@@ -532,3 +534,5 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .dlgOpts{display:flex;flex-direction:column;gap:6px}
 .dlgOpts button{padding:10px;min-height:44px;border-radius:9px;border:1.5px solid rgba(227,194,122,.55);background:rgba(10,18,28,.6);color:#f4e6c1;font:600 13px Georgia,serif;text-align:left}
 .dlgOpts button:active{background:rgba(227,194,122,.35)}
+
+.pbtn.attack{border-color:#e07a6a;color:#ffd6cf;background:rgba(80,20,20,.62)}

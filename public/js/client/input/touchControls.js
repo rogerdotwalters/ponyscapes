@@ -11,6 +11,7 @@ class TouchControls {
 
     this._bindJoystick();
     this._bindButtons();
+    Controls.listeners.push(() => this._applyMode()); this._applyMode();
 
     if (matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad/i.test(navigator.userAgent)) this.show();
     window.addEventListener('touchstart', () => { if (this.dom.root.hidden) this.show(); }, { passive: true, once: true });
@@ -30,24 +31,31 @@ class TouchControls {
 
   /* ---- joystick ---- */
   _bindJoystick() {
-    const zone = this.dom.zone;
-    zone.addEventListener('pointerdown', e => this._onDown(e));
-    zone.addEventListener('pointermove', e => this._onMove(e));
-    zone.addEventListener('pointerup', e => this._onUp(e));
-    zone.addEventListener('pointercancel', e => this._onUp(e));
+    for (const el of [this.dom.zone, this.dom.base]) {                 // (a fixed stick listens on its base only: taps elsewhere reach the game)
+      el.addEventListener('pointerdown', e => { e.stopPropagation(); this._onDown(e); });
+      el.addEventListener('pointermove', e => this._onMove(e));
+      el.addEventListener('pointerup', e => this._onUp(e));
+      el.addEventListener('pointercancel', e => this._onUp(e));
+    }
+  }
+  /** Fixed (default): the stick stays at its resting place and only a touch on it steers. Floating: the whole zone steers and the stick follows the thumb. */
+  _applyMode() {
+    this.dom.root.classList.toggle('fixedStick', Controls.fixedJoystick);
+    if (this.pointerId !== null) return;
+    this._placeBaseAtDefault();
   }
   _placeBaseAtDefault() {
-    if (this.dom.root.hidden || this.pointerId !== null) return;
+    if (this.pointerId !== null) return;
     this._setBase(this.defaultBase.x, this.defaultBase.y);
   }
   _setBase(x, y) { this.baseX = x; this.baseY = y; this.dom.base.style.left = x + 'px'; this.dom.base.style.top = y + 'px'; }
 
   _onDown(e) {
     if (this.pointerId !== null) return;
-    e.preventDefault(); this.dom.zone.setPointerCapture(e.pointerId);
+    e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId);
     this.pointerId = e.pointerId; this.touchDownAt = performance.now(); this.startX = e.clientX; this.startY = e.clientY;
     const r = this.dom.zone.getBoundingClientRect();
-    this._setBase(clamp(e.clientX - r.left, this.margin, r.width - this.margin), clamp(e.clientY - r.top, this.margin, r.height - this.margin));   // floating stick
+    if (!Controls.fixedJoystick) this._setBase(clamp(e.clientX - r.left, this.margin, r.width - this.margin), clamp(e.clientY - r.top, this.margin, r.height - this.margin));   // floating stick
     this.dom.base.classList.add('active'); this.joystick.active = true;
     this._onMove(e);
   }
@@ -66,7 +74,7 @@ class TouchControls {
     this.pointerId = null; this.joystick.active = false; this.joystick.magnitude = 0;
     this.dom.knob.style.transform = ''; this.dom.base.classList.remove('active');
     this._placeBaseAtDefault();
-    if (wasTap && e.type === 'pointerup') this.bus.emit('tap', { x: e.clientX, y: e.clientY });   // quick tap = tap-to-move
+    if (wasTap && e.type === 'pointerup' && !Controls.fixedJoystick) this.bus.emit('tap', { x: e.clientX, y: e.clientY });   // (floating stick only) a quick tap in the zone is a tap on the world
   }
 
   /* ---- buttons ---- */
@@ -79,7 +87,7 @@ class TouchControls {
     if (btnRelease) this._press(btnRelease, () => this.bus.emit('release'));
     this._press(btnRot, () => this.bus.emit('rotateBuild'));
     if (btnBag) this._press(btnBag, () => this.bus.emit('toggleInventory'));            // the backpack, one tap away
-    this._press(btnAct, () => { this.actionHeld = true; btnAct.classList.add('down'); }, () => { this.actionHeld = false; btnAct.classList.remove('down'); });
+    this._press(btnAct, () => { this.actionHeld = true; btnAct.classList.add('down'); }, () => setTimeout(() => { this.actionHeld = false; btnAct.classList.remove('down'); }, 120));   // (held for at least a couple of ticks: a very quick tap still counts)
   }
   _press(el, onDown, onUp) {
     el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); onDown(); });
