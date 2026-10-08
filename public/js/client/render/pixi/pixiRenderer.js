@@ -130,7 +130,7 @@ class PixiRenderer extends Renderer {
   /** Items that change picture all the time go to the small texture pages. */
   _poolOf(item) {
     if (item.kind === 'structure' || item.kind === 'built' || item.kind === 'doorLeaf' || item.kind === 'station' || item.kind === 'sapling' || item.kind === 'crop') return 'static';
-    if (item.kind === 'prop') { const t = item.prop.t; return t === 'tree' || t === 'bush' || t === 'stone' || t === 'flax' || t === 'chest' || t === 'clay' || t === 'barrel' || t === 'critter_home' || t === 'well' ? 'static' : 'dynamic'; }
+    if (item.kind === 'prop') { const t = item.prop.t; return t === 'tree' || t === 'bush' || t === 'hedge' || t === 'stone' || t === 'flax' || t === 'chest' || t === 'clay' || t === 'barrel' || t === 'critter_home' || t === 'well' ? 'static' : 'dynamic'; }
     return 'dynamic';
   }
 

@@ -59,7 +59,7 @@ class ClientGame {
     if (welcome.treasure) this.treasureMaps = welcome.treasure;
     if (welcome.built) BuildSystem.replaceAll(this.worldMap, welcome.built);
     if (welcome.floors) BuildSystem.replaceFloors(this.worldMap, welcome.floors);
-    if (welcome.farm) this.worldMap.farm = welcome.farm;
+    if (welcome.farm) { this.worldMap.farm = welcome.farm; }
     if (welcome.weather) this.weather = welcome.weather;
     if (welcome.stockpiles) Stockpiles.replaceAll(this.worldMap, welcome.stockpiles);
     applyTreeStates(this.worldMap, welcome.trees || {});
@@ -371,7 +371,7 @@ class ClientGame {
     applyForageStates(this.worldMap, snapshot.forage || {});
     if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
-    if (snapshot.farm) { this.worldMap.farm = snapshot.farm; Groves.sync(this.worldMap); }      // (a sapling that has grown stands as a tree)                          // the fields (farming.js)
+    if (snapshot.farm) { this.worldMap.farm = snapshot.farm; Groves.sync(this.worldMap); Hedges.sync(this.worldMap); }      // (a sapling that has grown stands as a tree)                          // the fields (farming.js)
     if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
     if (snapshot.inventory) { const coins = this.inventory.purse; this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.inventory.purse = coins; this.events.emit('inventoryChanged'); }
     if (snapshot.questLog) this._applyQuestLog(snapshot.questLog);

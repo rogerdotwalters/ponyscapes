@@ -63,7 +63,7 @@ const GrassRenderer = (() => {
       if (cx < minX - TILE_HALF_W || cx > maxX + TILE_HALF_W || cy < minY || cy > maxY + 40) continue;
       const level = Grass.levelAt(map, tx, ty, tick);
       if (!level) continue;
-      if (floors[tileKey(tx, ty)] || map.built[tileKey(tx, ty)] || farm['g' + tx + ',' + ty] || farm[tx * 2 + ',' + ty * 2] || farm[(tx * 2 + 1) + ',' + (ty * 2 + 1)]) continue;   // (paved, built on, tilled or planted)
+      if (floors[tileKey(tx, ty)] || map.built[tileKey(tx, ty)] || farm['g' + tx + ',' + ty] || farm['h' + tx + ',' + ty] || farm[tx * 2 + ',' + ty * 2] || farm[(tx * 2 + 1) + ',' + (ty * 2 + 1)]) continue;   // (paved, built on, tilled or planted)
       const h = k => hash(tx, ty, k), wx = tx + 0.5 + (h(1) - 0.5) * 0.46, wy = ty + 0.5 + (h(2) - 0.5) * 0.46;
       let push = 0, under = false, isNear = false;
       for (const m of close) {

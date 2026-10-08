@@ -66,7 +66,7 @@ class WeatherFx {
   }
 
   /** Draw over the finished picture (ctx is the screen canvas; w and h its size in device pixels; dpr = device pixels per CSS pixel). */
-  draw(ctx, w, h, dt, dpr = 1) {
+  draw(ctx, w, h, dt, dpr = 1, camera = null) {
     this.update(dt);
     const c = this.cur, kind = this.game.map.kind;
     if (kind === 'cave') return;
@@ -75,7 +75,7 @@ class WeatherFx {
     if (outdoors) {
       const day = DayCycle.daylight(this.game.hour()), veil = Math.min(0.46, c.rain * 0.36 + c.snow * 0.12 + c.lightning * 0.14 + c.wind * 0.04) * (0.4 + 0.6 * day);
       if (veil > 0.005) { ctx.fillStyle = `rgba(34,46,70,${veil.toFixed(3)})`; ctx.fillRect(0, 0, w, h); }
-      if (c.rain > 0.02) this._rain(ctx, w, h, dt, dpr);
+      if (c.rain > 0.02) this._rain(ctx, w, h, dt, dpr, camera); else this.splashes.length = 0;
       if (c.snow > 0.02) this._snow(ctx, w, h, dt, dpr);
       if (c.wind > 0.35) this._leaves(ctx, w, h, dt, dpr);
     }
@@ -83,7 +83,7 @@ class WeatherFx {
   }
 
   /** Rain: streaks that fall faster and thicker as it gets heavier, slanted by the wind; splashes where they land. */
-  _rain(ctx, w, h, dt, dpr) {
+  _rain(ctx, w, h, dt, dpr, cam) {
     const c = this.cur, want = Math.min(520, Math.round(c.rain * 260 * (w * h) / (1280 * 720 * dpr * dpr))), slant = this.windX() * 0.55;
     while (this.drops.length < want) this.drops.push({ x: Math.random() * (w + h * 0.6) - h * 0.3, y: Math.random() * h, v: 0.8 + Math.random() * 0.5, len: 0.7 + Math.random() * 0.6 });
     if (this.drops.length > want) this.drops.length = want;
@@ -93,13 +93,30 @@ class WeatherFx {
     for (const d of this.drops) {
       const vy = fall * d.v, vx = vy * slant;
       d.x += vx * dt; d.y += vy * dt;
-      if (d.y > h) { if (Math.random() < 0.35 && this.splashes.length < 90) this.splashes.push({ x: d.x, y: h * (0.35 + Math.random() * 0.65), age: 0 }); d.y -= h + long; d.x = Math.random() * (w + h * 0.6) - h * 0.3; }
+      if (d.y > h) { if (cam && Math.random() < 0.35 && this.splashes.length < 90) this._splash(cam, d.x, h * (0.35 + Math.random() * 0.65)); d.y -= h + long; d.x = Math.random() * (w + h * 0.6) - h * 0.3; }
       ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - slant * long * d.len, d.y - long * d.len);
     }
     ctx.stroke();
-    this.splashes = this.splashes.filter(s => (s.age += dt) < 0.28);
-    ctx.lineWidth = dpr; ctx.strokeStyle = 'rgba(210,228,248,.4)';
-    for (const s of this.splashes) { const r = (2 + s.age * 22) * dpr; ctx.globalAlpha = 1 - s.age / 0.28; ctx.beginPath(); ctx.ellipse(s.x, s.y, r, r * 0.45, 0, 0, Math.PI * 2); ctx.stroke(); }
+    this._drawSplashes(ctx, dt, cam);
+  }
+
+  /** A splash lands on the ground at a screen spot: remember it in WORLD pixels (snapped to the art's pixel grid) so it stays put as the camera moves. */
+  _splash(cam, sx, sy) {
+    const s = cam.scale, offX = Math.round((cam.w / 2 - cam.x) * s), offY = Math.round((cam.h / 2 - cam.y) * s), PX = 1.25;
+    this.splashes.push({ x: Math.round((sx - offX) / s / PX) * PX, y: Math.round((sy - offY) / s / PX) * PX, age: 0 });
+  }
+
+  /** Splashes as little pixel rings (a dot, then a small diamond, then a wider one), squashed to sit flat on the ground like the world's own art. */
+  _drawSplashes(ctx, dt, cam) {
+    this.splashes = this.splashes.filter(p => (p.age += dt) < 0.3);
+    if (!cam || !this.splashes.length) return;
+    const s = cam.scale, offX = Math.round((cam.w / 2 - cam.x) * s), offY = Math.round((cam.h / 2 - cam.y) * s), b = Math.max(1, Math.round(1.25 * s));
+    const rings = [[[0, 0]], [[-1, 0], [1, 0], [0, -1], [0, 1]], [[-2, 0], [2, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]];
+    ctx.fillStyle = 'rgba(214,232,250,.75)';
+    for (const p of this.splashes) {
+      const bx = Math.round(p.x * s) + offX, by = Math.round(p.y * s) + offY;
+      for (const [dx, dy] of rings[Math.min(2, Math.floor(p.age / 0.1))]) ctx.fillRect(bx + dx * b, by + dy * b, b, b);
+    }
     ctx.globalAlpha = 1;
   }
 

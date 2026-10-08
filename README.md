@@ -82,6 +82,10 @@ tools/bundle.py       packs the game into one self-contained HTML file
 * **Wind.** Sways the grass, trees and crops, slants the rain and pushes particles. **Effects:** rain streaks and splashes, snowflakes, blown leaves, a grey veil under clouds, and audio per layer.
 * **Testing.** `?weather=thunderstorm` starts a solo/hosted game under that sky; the host can call up any weather (or hand it back to the season) in Menu > Dev settings > Weather. Volume: Menu > Controls > Mouse & touch > Weather sounds.
 
+## Hedges
+
+`public/js/shared/hedges.js`. Buy or craft a **Hedge Cutter** (General Store, or stone + string + plank). **Use** it beside a berry bush to cut it down: you get a **Hedge Bush** (and the berries, if it was ripe) and the wild bush is a low stub for a few minutes. Hold the Hedge Bush and press the interact key on open grass or dirt (next to your home, along a path) to plant it as a solid, **trimmed** hedge. **Use** the cutter on a planted hedge to trim it into the next shape (block, ball, tiers); a **shovel** digs it up again. Hedges are saved with the farm table (`h<tx>,<ty>` keys) and sent to every player.
+
 ## Controls
 
 * **Mouse / touch** (not rebindable): left click or tap uses what is in your hand where you point (water, plant, hoe, chop, swing or shoot a weapon; hold the mouse button to repeat). On a villager it talks (a window offers their shop, any quests and gifts; with nothing to offer they just say hello). On an animal it feeds it (food in hand), ropes it (lasso in hand), attacks it (weapon in hand) or pets it. **Right click** throws the lasso in the lasso slot at the animal under the pointer; phones keep the **Lasso** button. Swords sweep a 120 degree fan and hit every animal in it.

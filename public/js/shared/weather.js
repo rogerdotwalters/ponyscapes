@@ -176,7 +176,7 @@ class WeatherSystem {
     if (this.wet.day !== today) this.wet = { day: today, plots: {} };                           // (a new day: the soil starts to dry)
     let changed = false;
     for (const key in farm) {
-      if (Groves.isKey(key) || Grass.isKey(key)) continue;                                      // saplings and cut grass are not fields
+      if (Groves.isKey(key) || Grass.isKey(key) || Hedges.isKey(key)) continue;                                      // saplings and cut grass are not fields
       const plot = farm[key];
       if (plot.w === today) continue;
       const i = key.indexOf(','), cx = +key.slice(0, i), cy = +key.slice(i + 1);

@@ -2,6 +2,7 @@
 /* DATA - special items. One line per entry. Quest items and oddities that do not fit another table. Written out in full. */
 const SpecialItems = new Registry('special items', { required: ['name', 'maxStack'] });
 SpecialItems.registerAll([
+  { id: 'hedge_bush', name: 'Hedge Bush', maxStack: 20, kind: 'hedge', hedge: true, color: '#3f7d3a' },       // cut from a berry bush with a hedge cutter; planted with the interact key (hedges.js)
   { id: 'jug', name: 'Wooden Jug', maxStack: 5, kind: 'jug', price: [['gold_coin', 2]] },
   { id: 'message_bottle', name: 'Message in a Bottle', maxStack: 5, kind: 'treasure', use: { opensAny: [['treasure_map', 3], ['dungeon_scroll', 2]] } },
   { id: 'treasure_map', name: 'Treasure Map', maxStack: 5, kind: 'treasure', use: { reveals: true } },

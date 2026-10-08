@@ -81,7 +81,7 @@ const SaveData = {
       out.treeStates[k] = { hp: SaveData._int(s.hp, 0, TreeDef.maxHp, TreeDef.maxHp), alive: s.alive !== false };
     }
     n = 0;
-    for (const k of Object.keys(SaveData._plain(data.forageStates) ? data.forageStates : {})) if (keyOk(k) && ++n <= SaveData.MAX_STATE_ENTRIES) out.forageStates[k] = { ripe: false };
+    for (const [k, st] of Object.entries(SaveData._plain(data.forageStates) ? data.forageStates : {})) if (keyOk(k) && ++n <= SaveData.MAX_STATE_ENTRIES) out.forageStates[k] = SaveData._plain(st) && st.cut ? { ripe: false, cut: 1 } : { ripe: false };
     const queue = (list, into) => { if (!Array.isArray(list)) return; for (const r of list.slice(0, SaveData.MAX_STATE_ENTRIES)) if (SaveData._plain(r) && Number.isInteger(r.tx) && Number.isInteger(r.ty) && Number.isInteger(r.atTick)) into.push({ tx: r.tx, ty: r.ty, atTick: r.atTick }); };
     out.hostilesOff = data.hostilesOff === true;
     if (Array.isArray(data.bossesDefeated)) out.bossesDefeated = [...new Set(data.bossesDefeated.filter(r => Number.isInteger(r) && r >= 0 && r < Rings.size))];
@@ -101,6 +101,7 @@ const SaveData = {
     for (const [k, tile] of Object.entries(out.built)) if (Stockpiles.isStockpile(tile.c) && !out.stockpiles.piles[k]) out.stockpiles.piles[k] = { items: {} };
     for (const [k, f] of Object.entries(SaveData._plain(data.farm) ? data.farm : {})) {                // the fields: plots on half-tile cells
       if (/^c-?\d{1,7},-?\d{1,7}$/.test(k) && SaveData._plain(f) && Number.isFinite(f.t)) { out.farm[k] = { t: Math.max(0, Math.round(f.t)) }; continue; }   // cut grass (grass.js)
+      if (/^h-?\d{1,7},-?\d{1,7}$/.test(k) && SaveData._plain(f)) { out.farm[k] = { s: SaveData._int(f.s, 0, 2, 0), v: SaveData._int(f.v, 0, 7, 0) }; continue; }   // a planted hedge (hedges.js)
       if (/^g-?\d{1,7},-?\d{1,7}$/.test(k) && SaveData._plain(f) && typeof TreeSpecies !== 'undefined' && TreeSpecies.has(f.t)) {   // a planted sapling / grown tree (groves.js)
         out.farm[k] = { t: f.t, d: SaveData._int(f.d, 0, 999, 0) }; if (f.g) out.farm[k].g = 1; continue;
       }

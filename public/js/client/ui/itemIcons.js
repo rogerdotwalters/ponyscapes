@@ -325,6 +325,11 @@ const ItemIcons = (() => {
       }
       ctx.fillStyle = '#8a5a32'; ctx.fillRect(9, 26, 30, 4); ctx.fillStyle = '#a8763f'; ctx.fillRect(9, 26, 30, 1.5);
     },
+    hedge_cutter(ctx) {                                                            // long-bladed shears with wooden handles
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(8, 42); ctx.lineTo(19, 29); ctx.moveTo(15, 44); ctx.lineTo(24, 30); ctx.stroke();
+      for (const [x0, y0, x1, y1] of [[19, 29, 42, 8], [24, 30, 44, 14]]) { ctx.strokeStyle = '#8d949e'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.strokeStyle = '#d6dbe2'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0 + 1, y0 - 1); ctx.lineTo(x1, y1 - 1); ctx.stroke(); }
+      ctx.fillStyle = '#3b3f46'; ctx.beginPath(); ctx.arc(22, 30, 2, 0, Math.PI * 2); ctx.fill();
+    },
     sickle(ctx) {                                                                  // a wooden grip and a crescent blade
       ctx.lineCap = 'round'; ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(10, 42); ctx.lineTo(20, 30); ctx.stroke();
       ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(28, 18, 13, Math.PI * 0.75, Math.PI * 2.05); ctx.stroke();
@@ -391,6 +396,18 @@ const ItemIcons = (() => {
     },
     log(ctx) { PixelLogs.icon(ctx); }                                       // the pixel-art log (pixelProps.js)
   };
+  /** A cut bush ready to plant: a dithered green block of hedge on a wrapped root ball. */
+  function hedgePainter(def) {
+    const leaf = def.color || '#3f7d3a', dark = shadeHex(leaf, 0.62), lite = shadeHex(leaf, 1.35);
+    return ctx => {
+      ctx.fillStyle = '#a8794a'; ctx.beginPath(); ctx.ellipse(24, 39, 12, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(14, 38); ctx.lineTo(34, 38); ctx.stroke();
+      ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(20,30,15,.85)'; ctx.lineWidth = 2;
+      const face = (pts, fill) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.stroke(); };
+      face([[24, 8], [40, 15], [24, 22], [8, 15]], lite); face([[8, 15], [24, 22], [24, 38], [8, 31]], leaf); face([[24, 22], [40, 15], [40, 31], [24, 38]], dark);
+      ctx.fillStyle = 'rgba(255,255,255,.22)'; for (const [x, y] of [[20, 13], [28, 12], [24, 16], [14, 24], [18, 31], [31, 27], [34, 22]]) ctx.fillRect(x, y, 2, 2);
+    };
+  }
   /** A sapling ready to plant: a little tree of its kind on a wrapped root ball. */
   function saplingPainter(def) {
     const pine = TreeSpecies.get(def.sapling) && TreeSpecies.get(def.sapling).look === 'pine', leaf = def.color || '#5f9c4a', dark = shadeHex(leaf, 0.7);
@@ -558,7 +575,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def && def.sapling ? saplingPainter(def) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def && def.hedge ? hedgePainter(def) : def && def.sapling ? saplingPainter(def) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d'));
     return (cache[key] = canvas.toDataURL());
   }

@@ -5,17 +5,18 @@
 
 const forageAt = (map, tx, ty) => { const p = map.propAt(tx, ty); return p && ForageDefs[forageKind(p)] ? p : null; };
 
-function setForageState(map, tx, ty, ripe) {
+/** ripe: it can be picked. cut: a bush the hedge cutter cut down (hedges.js): a low stub until it regrows. */
+function setForageState(map, tx, ty, ripe, cut = false) {
   const key = tileKey(tx, ty);
-  if (ripe) delete map.forageStates[key]; else map.forageStates[key] = { ripe: false };
+  if (ripe) delete map.forageStates[key]; else map.forageStates[key] = cut ? { ripe: false, cut: 1 } : { ripe: false };
   const prop = map.peekPropAt(tx, ty);
-  if (prop && ForageDefs[forageKind(prop)]) prop.ripe = ripe;
+  if (prop && ForageDefs[forageKind(prop)]) { prop.ripe = ripe; prop.cut = !ripe && !!cut; }
 }
 
 /** Client side: adopt the server's list of picked props. */
 function applyForageStates(map, states) {
   for (const key of Object.keys(map.forageStates)) if (!(key in states)) setForageState(map, keyTileX(key), keyTileY(key), true);
-  for (const key of Object.keys(states)) if (!map.forageStates[key]) setForageState(map, keyTileX(key), keyTileY(key), false);
+  for (const key of Object.keys(states)) { const now = map.forageStates[key]; if (!now || !!now.cut !== !!states[key].cut) setForageState(map, keyTileX(key), keyTileY(key), false, !!states[key].cut); }
 }
 const collectForageStates = map => JSON.parse(JSON.stringify(map.forageStates));
 
@@ -44,6 +45,13 @@ class ForageSystem {
   pick(tx, ty, prop) {
     setForageState(this.map, tx, ty, false);
     this.regrows.push({ tx, ty, atTick: this.getTick() + secondsToTicks(ForageDefs[forageKind(prop)].regrowSeconds) });
+  }
+
+  /** The hedge cutter cut this bush down: no berries, and a long wait before it grows back. */
+  cut(tx, ty, seconds) {
+    this.regrows = this.regrows.filter(r => !(r.tx === tx && r.ty === ty));
+    setForageState(this.map, tx, ty, false, true);
+    this.regrows.push({ tx, ty, atTick: this.getTick() + secondsToTicks(seconds) });
   }
 
   update(tick) {

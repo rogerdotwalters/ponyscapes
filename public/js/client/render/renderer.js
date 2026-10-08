@@ -109,7 +109,7 @@ class Renderer {
   /** The sky (weatherFx.js), painted in screen space on whatever surface is on top now. */
   _drawWeather(frameMs) {
     const fx = this.effects.weather; if (!fx) return;
-    fx.draw(this.ctx, this.canvas.width, this.canvas.height, frameMs / 1000, this.camera.dpr);
+    fx.draw(this.ctx, this.canvas.width, this.canvas.height, frameMs / 1000, this.camera.dpr, this.camera);
     this.camera.applyTransform(this.ctx);
   }
 
@@ -276,7 +276,11 @@ class Renderer {
         const fall = this.effects.fall(item.key, now);                                  // just felled: the tree topples, then breaks into logs
         if (fall) PropSprites.drawFallingTree(g, item.gx, item.gy, prop.v, fall.angle, fall.alpha, this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));
       }
-    } else if (prop.t === 'bush') PropSprites.drawBush(g, item.gx, item.gy, prop);
+    } else if (prop.t === 'bush') {
+      for (const id in this.players || {}) { const q = this.players[id]; if (q && !q.flying && Math.hypot(q.x - prop.x, q.y - prop.y) < 0.55) { this.effects.rustle(item.key, prop.x, prop.y); break; } }      // brushing past shakes it, as a tree shakes when chopped
+      PropSprites.drawBush(g, item.gx, item.gy, prop, this.effects.treeShakeX(item.key, now, 2.5), this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));
+    }
+    else if (prop.t === 'hedge') { if (prop.alive) PropSprites.drawHedge(g, item.gx, item.gy, prop, this.effects.treeShakeX(item.key, now, 1.2), this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y))); }
     else if (prop.t === 'stone') { if (prop.ripe) PropSprites.drawStone(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'flax') PropSprites.drawFlax(g, item.gx, item.gy, prop);
     else if (prop.t === 'chest') PropSprites.drawChest(g, item.gx, item.gy, !!(this.game.local && this.game.local.looted));
