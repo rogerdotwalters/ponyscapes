@@ -2,9 +2,9 @@
 /* CLIENT - what a tap (phone) or a click (mouse) DOES.
  *   Holding a finger down HIGHLIGHTS what is under it (a villager, an animal, or the spot); lifting the finger acts on it. A mouse click acts at once.
  *   a villager       Talk: the dialogue window offers their shop or quests, or they just say hello
- *   an animal        lasso in hand: rope it; food: feed it; brush: groom it; anything else: pet it. A weapon only attacks a HOSTILE monster:
- *                    a weapon never attacks a friendly animal by itself (use the Attack button / E for that)
- *   the ground, etc. use what is in your hand where you pointed (water, plant, hoe, chop, build...). A weapon does nothing on a touch screen (Attack button).
+ *   an animal        food: feed it; brush: groom it; anything else: pet it. A tap or click NEVER attacks or ropes anything: weapons swing with the
+ *                    Attack button (or E / Space), the lasso is thrown with the Lasso button / L / right click (PC)
+ *   the ground, etc. bare ground far away: walk; close by: use the tool in your hand (water, plant, hoe, chop, build...); a weapon or lasso in hand: just walk
  *   right click      throw the lasso in the lasso slot at what is under the pointer (PC)
  * Out of reach: nothing happens - unless Controls.walkToAct is on, then you walk there first and the action follows.
  * The client only says WHAT was pointed at (an aim point, an id); the server checks reach and decides. */
@@ -12,6 +12,7 @@ const MARKER_LINGER_MS = 300;
 const PICK_LIFT_PX = { npc: 22, animal: 10 };                   // sprites stand above their feet: also test a point this far (logical px) below the tap
 const PICK_SLACK = { npc: 0.55, animal: 0.5 };                  // tiles beyond the body that still count as "on" it
 const WEAPON_KINDS = ['knife', 'spear', 'sword', 'bow'];
+const BUTTON_ONLY_KINDS = WEAPON_KINDS.concat('leash');         // attacking and roping are never done by a tap or click: the Attack / Lasso buttons and keys (and right click on PC) do them
 const NOT_OBJECTS = ['drink', 'fill', 'dismount'];             // (water only counts when you press the key beside it: a tap near the shore must not send you drinking)
 const WALK_GIVE_UP_MS = 10000;                                  // walking to an action: give up after this long
 
@@ -116,14 +117,13 @@ class TapActions {
   /** What would happen and whether we are close enough already: { action: 'talk'|'aim'|'act'|'interact'|'move'|'none', ready, act?, repeat? }.
    *  'move' = walk there (bare ground). People, animals, doors, stockpiles, crops, shop counters... are acted on once in reach (walking first if Controls.walkToAct). */
   _plan(thing, mouse) {
-    const game = this.game, me = game.local, held = game.heldItemId(), tool = ItemDB.getTool(held), weapon = !!tool && WEAPON_KINDS.includes(tool.kind);
+    const game = this.game, me = game.local, held = game.heldItemId(), tool = ItemDB.getTool(held);
     const dist = Math.hypot(thing.x - me.x, thing.y - me.y), within = reach => ({ ready: dist <= reach });
     if (thing.type === 'npc') return Object.assign({ action: 'talk' }, within(CONFIG.sim.friendship.reach + 0.4));
     if (thing.type === 'animal') {
       const a = thing.animal, def = AnimalDefs[a.type], near = CONFIG.sim.friendship.petReach + def.radius + 0.3;
-      if (tool && tool.kind === 'leash') return Object.assign({ action: 'aim' }, within(tool.reach + def.radius));         // a lasso in hand: rope it
       if (tool && tool.kind === 'brush') return Object.assign({ action: 'aim' }, within(tool.reach + def.radius));
-      if (weapon && def.hostile) return Object.assign({ action: 'aim' }, within(tool.reach + def.radius + 0.4));           // a weapon: only monsters get attacked by a tap
+      if (def.hostile) return { action: 'none' };                                                                          // (a tap never attacks a monster either: use Attack)
       const food = held && game.inventory.has(held, 1) && ItemDefs[held] && ItemDefs[held].food;
       return Object.assign({ action: 'act', act: food || ItemDB.isApple(held) || Wants.accepts(a, held) ? 'feed' : 'pet' }, within(near));
     }
@@ -132,7 +132,7 @@ class TapActions {
       return { action: 'interact', ready: !!real && real.kind === thing.kind };
     }
     // bare ground
-    if (weapon) return mouse ? { action: 'aim', ready: true, repeat: true } : { action: Controls.tapToMove ? 'move' : 'none' };     // (a click on PC swings; on touch use Attack)
+    if (BUTTON_ONLY_KINDS.includes(tool && tool.kind)) return { action: Controls.tapToMove ? 'move' : 'none' };                  // a weapon or lasso in hand: a tap just walks
     if (tool) { const ok = dist <= tool.reach + 0.8; return ok ? { action: 'aim', ready: true, repeat: true } : { action: Controls.tapToMove ? 'move' : 'none' }; }   // water, hoe, axe...: use it close by, walk when far
     return Controls.tapToMove ? { action: 'move' } : { action: 'interact', ready: dist <= 2.0 };                           // seeds, saplings, doors...
   }

@@ -34,8 +34,8 @@ const CONTROL_ACTIONS = [
 
 /** What the pointer does (not rebindable). Shown on the Controls window. */
 const CONTROL_POINTER_HELP = [
-  ['Left click / tap', 'Bare ground far away: walk there. Close by: use what is in your hand (water, plant, hoe, chop, build). A villager, animal, door, stockpile, crop, shop counter...: walk to it and do its action. Hold a finger down to highlight what is under it; lift to act. Hold the mouse button to keep using a tool.'],
-  ['Weapons', 'A weapon in hand never attacks by itself, except against hostile monsters you tap. The Use button becomes Attack on a phone; on PC use E / Space or click.'],
+  ['Left click / tap', 'Bare ground far away: walk there. Close by: use the tool in your hand (water, plant, hoe, chop, build; a weapon or lasso just walks). A villager, animal, door, stockpile, crop, shop counter...: walk to it and do its action. Hold a finger down to highlight what is under it; lift to act. Hold the mouse button to keep using a tool.'],
+  ['Attacking and roping', 'A tap or left click never attacks or ropes anything. Attack: the Attack button (the Use button while a weapon is in hand), or E / Space. Rope: the Lasso button, L, or right click on PC.'],
   ['On a villager', 'Talk: a window offers their shop or quests, or they just say hello.'],
   ['On an animal', 'Hold food to feed it, a lasso to rope it, a weapon to attack; otherwise you pet it.'],
   ['Right click', 'Throw your lasso at the animal under the pointer (PC). Phones have a Lasso button.'],
