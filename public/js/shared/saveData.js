@@ -191,7 +191,7 @@ const SaveData = {
       xp: { s: Object.assign({}, xp.s), a: Object.assign({}, xp.a) },
       maps: (server.treasureMaps[id] || []).map(m => Object.assign({ key: m.key, tx: m.tx, ty: m.ty }, m.kind === 'dungeon' ? { kind: 'dungeon', ring: m.ring } : {})),
       looted: !!p.looted, appearance: p.appearance ? p.appearance.slice() : null,
-      book: { types: Object.keys(server.everTamed[id] || {}), variants: Object.keys(server.everVariants[id] || {}).map(Number) },
+      book: { types: Object.keys(server.everTamed[id] || {}), variants: Object.keys(server.everVariants[id] || {}).map(Number), leashed: Object.assign({}, server.leashLog[id]) },
       pets, friends: server.friendship.exportFor(id)                      // hearts with the villagers (hearts with a pet travel with the pet)
     };
   },
@@ -201,7 +201,7 @@ const SaveData = {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION) return null;
     const N = SaveData._num, I = SaveData._int, S = CONFIG.sim;
     const out = { v: data.v, x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0),
-      appearance: CharacterLook.sanitize(data.appearance), inventory: [], gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [] }, pets: [] };
+      appearance: CharacterLook.sanitize(data.appearance), inventory: [], gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [], leashed: {} }, pets: [] };
     const source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
     const refund = (id, count) => { const old = LEGACY_ITEMS[id]; if (old) refunds.push({ id: old[0], count: old[1] * count }); else if (ItemDefs[id]) refunds.push({ id, count }); };
     const savedGear = SaveData._plain(data.gear) ? data.gear : {};
@@ -231,6 +231,7 @@ const SaveData = {
     if (Array.isArray(data.maps)) for (const m of data.maps.slice(0, SaveData.MAX_MAPS)) if (SaveData._plain(m) && Number.isInteger(m.tx) && Number.isInteger(m.ty)) out.maps.push(m.kind === 'dungeon' && Number.isInteger(m.ring) && m.ring >= 0 && m.ring < Rings.size ? { key: 'cave' + m.ring, tx: m.tx, ty: m.ty, kind: 'dungeon', ring: m.ring } : { key: tileKey(m.tx, m.ty), tx: m.tx, ty: m.ty });
     if (SaveData._plain(data.book)) {
       for (const t of Array.isArray(data.book.types) ? data.book.types : []) if (AnimalDefs[t] && AnimalDefs[t].pony) out.book.types.push(t);
+      if (SaveData._plain(data.book.leashed)) for (const t in data.book.leashed) if (AnimalDefs[t] && Number.isFinite(data.book.leashed[t])) out.book.leashed[t] = clamp(Math.floor(data.book.leashed[t]), 0, 1e6);
       for (const v of Array.isArray(data.book.variants) ? data.book.variants : []) if (Number.isInteger(v) && v >= 0 && v < PonyVariants.length) out.book.variants.push(v);
     }
     if (Array.isArray(data.pets)) for (const q of data.pets.slice(0, SaveData.MAX_PETS)) {
@@ -255,6 +256,7 @@ const SaveData = {
     server._applyLevels(id, server.progress.levels(id));
     p.hp = Math.min(c.hp, p.maxHp); p.hunger = c.hunger; p.thirst = c.thirst;
     server.treasureMaps[id] = c.maps; server.treasureRev[id]++;
+    server.leashLog[id] = Object.assign({}, c.book.leashed);
     server.everTamed[id] = Object.fromEntries(c.book.types.map(t => [t, true])); server.everVariants[id] = Object.fromEntries(c.book.variants.map(v => [v, true]));
     const spot = SaveData.safeSpot(server, c.x, c.y, p.slot);
     p.x = spot.x; p.y = spot.y; p.vx = p.vy = 0; p.ack = 0; server.map.ensureAround(p.x, p.y, SERVER_STREAM_RADIUS);

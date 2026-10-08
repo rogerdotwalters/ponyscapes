@@ -142,9 +142,10 @@ function strikeAnimal(deps, id, animalId, damage) {
 }
 
 /** The knife and the spear: melee against animals. Kills drop meat, hide, wool or antler straight into the hunter's inventory. */
+const SWEEP_HALF_ANGLE = 1.05;                 // a sword sweep covers a 120 degree fan in front of you
 class HuntHandler {
-  /** @param {{animals:AnimalSystem, getInventory, emit, markInventoryChanged}} deps */
-  constructor(deps) { Object.assign(this, deps); this.deps = deps; }
+  /** @param {{animals:AnimalSystem, getInventory, emit, markInventoryChanged}} deps  @param {{sweep:boolean}} opts sweep: hit EVERY animal in the fan, not just the nearest (swords). */
+  constructor(deps, { sweep = false } = {}) { Object.assign(this, deps); this.deps = deps; this.sweep = sweep; }
 
   find(p, tool) {
     const hit = this.animals.nearestInReach(p, tool.reach);
@@ -156,7 +157,12 @@ class HuntHandler {
     return !!a && Math.hypot(a.x - p.x, a.y - p.y) - AnimalDefs[a.type].radius <= tool.reach + IMPACT_REACH_SLACK;
   }
 
-  apply(id, target, tool) { strikeAnimal(this.deps, id, target.ref, tool.damage); }
+  apply(id, target, tool) {
+    strikeAnimal(this.deps, id, target.ref, tool.damage);
+    if (!this.sweep) return;
+    const p = this.getPlayer(id);
+    for (const other of this.animals.inArc(p, tool.reach, SWEEP_HALF_ANGLE)) if (other.id !== target.ref && this.animals.animals[other.id]) strikeAnimal(this.deps, id, other.id, tool.damage);
+  }
 }
 
 /** The bow: needs arrows; the arrow flies instantly to the nearest animal in front of you (within ~30 degrees). */
@@ -218,7 +224,7 @@ class FishingHandler {
   }
 }
 
-/** The lasso: THROW it at a tameable animal up to 5 tiles away (inside a cone in front of you). It may miss: calm, lured animals
+/** The lasso: THROW it at any friendly animal (not a monster or a guardian) up to 5+ tiles away (the one you click / tap, else inside a cone in front of you). A caught animal that is not a wild pony stays on the rope until you untie it; how many you can hold grows with your level (Skills.leashCap). It may miss: calm, lured animals
  *  are easy, running ones hard, and Horsemanship helps. A caught deer or sheep is simply yours; a caught wild PONY follows you
  *  on the rope but must be led to a stable or closed pen and fed apples before it settles and becomes your pet. */
 class LeashHandler {
@@ -227,7 +233,9 @@ class LeashHandler {
 
   find(p, tool) {
     const hit = this.animals.nearestLassoable(p, tool.reach);
-    if (!hit) { this.emit({ type: 'notice', to: p.id, text: 'Nothing to lasso in front of you (ponies come to apples)' }); return null; }
+    if (!hit) { this.emit({ type: 'notice', to: p.id, text: 'Nothing to lasso there (ponies come to apples)' }); return null; }
+    const cap = Skills.leashCap(p.lv), mine = hit.animal.owner === p.id;
+    if (!mine && this.animals.leashedCount(p.id) >= cap) { this.emit({ type: 'notice', to: p.id, text: `Your rope is full: ${cap} animals at most (it grows with Animal Friendship and Horsemanship). Untie one first` }); return null; }
     return { ref: hit.id, x: hit.animal.x, y: hit.animal.y };
   }
 
@@ -235,7 +243,7 @@ class LeashHandler {
     const a = this.animals.animals[target.ref];
     if (!a || a.captor || a.rider) return false;
     const def = AnimalDefs[a.type], free = !a.owner || (a.owner === p.id && !a.leashed);
-    return def.tameable && free && Math.hypot(a.x - p.x, a.y - p.y) - def.radius <= tool.reach + 1.2;     // it may have moved while the loop was in the air
+    return canBefriendAnimal(a.type) && free && Math.hypot(a.x - p.x, a.y - p.y) - def.radius <= tool.reach + 1.2;     // it may have moved while the loop was in the air
   }
 
   apply(id, target) {
@@ -270,13 +278,14 @@ class LeashHandler {
       this.animals.capture(target.ref, id);
       this.award(id, 'horsemanship', Math.round(40 * AnimalLevels.xpFactor(a.level)));
       const need = AnimalLevels.applesNeeded(def, a.level);
+      this.onLeashed(id, a);
       this.emit({ type: 'caught', to: id, x: a.x, y: a.y, animal: a.type, id: a.id, need });
       this.emit({ type: 'notice', to: id, text: `Caught! Lead it to a stable or a fenced pen and feed it ${need} apples` });
       return;
     }
     const tamed = this.animals.tame(target.ref, id);
     this.award(id, 'horsemanship', def.pony ? 20 : 25);
-    this.onTamed(id, tamed);
+    this.onTamed(id, tamed); this.onLeashed(id, tamed);
     this.emit({ type: 'tamed', to: id, x: tamed.x, y: tamed.y, animal: tamed.type, id: tamed.id });
   }
 }

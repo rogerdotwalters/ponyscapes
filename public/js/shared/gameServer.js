@@ -66,6 +66,7 @@ class GameServer {
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
+    this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
     this.tools = new ToolSystem({ handlers: this._createToolHandlers(), heldFor: (id, p, inventory, input) => this._heldFor(id, p, inventory, input),
@@ -182,7 +183,8 @@ class GameServer {
     const hunt = new HuntHandler(deps), grass = new GrassCutHandler(Object.assign({}, deps, { cutGrass: (id, tiles) => this._cutGrass(id, tiles) }));
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
     deps.onTamed = (ownerId, animal) => this._remember(ownerId, animal);
-    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: withGrass(hunt, grass), spear: hunt, sword: withGrass(hunt, grass), sickle: grass, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: withGrass(new ShearHandler(deps), grass), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
+    deps.onLeashed = (ownerId, animal) => this._logLeash(ownerId, animal);
+    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: withGrass(hunt, grass), spear: hunt, sword: withGrass(new HuntHandler(deps, { sweep: true }), grass), sickle: grass, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: withGrass(new ShearHandler(deps), grass), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
   }
 
   /* ---- membership ---- */
@@ -214,7 +216,7 @@ class GameServer {
     [this.players, this.inputQueues, this.inventories, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
       .forEach(t => delete t[id]);
     delete this.ringsSentRev[id]; delete this.settingsSentRev[id];
-    delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
+    delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id]; delete this.leashLog[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
   }
   /** Everyone playing: their ids, in seat order. */
   humanIds() { return Object.keys(this.inputQueues).sort(); }
@@ -275,6 +277,8 @@ class GameServer {
       case 'unequip': this._handleUnequip(id, inventory, cmd.slot); break;
       case 'emote': this._handleEmote(id, cmd.id); break;
       case 'release': this._handleRelease(id, cmd); break;
+      case 'talkTo': this._talkTo(id, cmd.npc, cmd.act === 'gift' ? 'gift' : 'talk'); break;                                                       // a click / tap on a villager (tapActions.js)
+      case 'animalAct': this._animalAct(id, cmd.animal, cmd.act === 'feed' ? 'feed' : 'pet'); break;       // ...and on an animal
       case 'tradeRequest': this.trade.request(id, cmd.target); break;
       case 'tradeAccept': this.trade.accept(id); break;
       case 'tradeCancel': this.trade.cancel(id); break;
@@ -730,6 +734,11 @@ class GameServer {
     const pet = this.animals.release(def.creature, x, y, id, undefined, { grid: gridOf(p) });
     this.pendingEvents.push({ type: 'released', to: id, x: pet.x, y: pet.y, animal: def.creature });
   }
+
+  /** Every rope put on an animal is counted per kind (future quests ask for it); what is on a rope right now is `leashedNow`. */
+  _logLeash(ownerId, animal) { const log = this.leashLog[ownerId] = this.leashLog[ownerId] || {}; log[animal.type] = (log[animal.type] || 0) + 1; }
+  /** The animals on a rope for this player right now: [{ id, type, level }]. */
+  leashedNow(ownerId) { return Object.values(this.animals.animals).filter(a => (a.owner === ownerId && a.leashed) || a.captor === ownerId).map(a => ({ id: a.id, type: a.type, level: a.level })); }
 
   /** The Pony Book remembers every kind (and every biome variety) of pony you have ever kept. */
   _remember(ownerId, animal) {

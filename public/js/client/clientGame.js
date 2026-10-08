@@ -117,6 +117,10 @@ class ClientGame {
     if (!lasso) { this.events.emit('notice', { to: this.myId, text: 'Your lasso slot is empty: put a lasso in it (Gear)' }); return; }
     this.lassoQueued = true;
   }
+  /** A tap / click on an animal: feed it what you hold (act 'feed') or pet it. The server checks the reach. */
+  animalAct(animalId, act) { this.net.sendCommand({ type: 'animalAct', animal: animalId, act }); }
+  /** A tap / click on a villager: say hello (act 'talk') or give them what you hold (act 'gift'). */
+  talkTo(npcId, act = 'talk') { this.net.sendCommand({ type: 'talkTo', npc: npcId, act }); }
   craft(recipeId) { this.net.sendCommand({ type: 'craft', recipe: recipeId }); }
 
   /* ---- wardrobe, emotes, trading (all decided by the server) ---- */
@@ -284,7 +288,7 @@ class ClientGame {
 
   /* ---- fixed tick: predict locally, then send the same input to the server ---- */
   predict(rawInput) {
-    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, power: this.powerQueued, lasso: this.lassoQueued }));
+    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, power: this.powerQueued, lasso: this.lassoQueued || !!rawInput.lasso }));
     this.interactQueued = false; this.powerQueued = 0; this.lassoQueued = false;
     this.prevLocal = clonePlayer(this.local);
     this._stepLocal(this.local, this.localBoat, input);

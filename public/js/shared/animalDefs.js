@@ -65,7 +65,7 @@ const PET_HOME_RADIUS = 5;                        // a pet that is not on a leas
 const PICKUP_RANGE = 1.1, UNTIE_RANGE = 1.8, TAME_SPEED_BONUS = 1.2;
 
 /** The lasso: thrown at a tameable animal within LASSO_RANGE tiles and LASSO_HALF_ANGLE radians of where you face. */
-const LASSO_HALF_ANGLE = 0.55, LASSO_CLOSE = 1.8;          // inside LASSO_CLOSE tiles the cone does not matter
+const LASSO_HALF_ANGLE = 0.55, LASSO_CLOSE = 1.8, LASSO_AIM_SLACK = 0.9;   // (LASSO_AIM_SLACK: how far from a click / tap an animal may be and still be the one meant)          // inside LASSO_CLOSE tiles the cone does not matter
 /** Catch chance by what the animal is doing, before distance and Horsemanship. */
 const LASSO_BASE_CHANCE = { lured: 0.92, idle: 0.65, wander: 0.55, follow: 0.55, flee: 0.28 };
 /** A caught (leashed, not yet tamed) wild pony breaks free after this long outside a stable or pen. */
