@@ -5,17 +5,17 @@
 # The site publishes WITHOUT the relay (solo and offline play always work). To switch multiplayer on, deploy the relay Worker first
 # (`npm run deploy:relay`, or in the dashboard: Workers & Pages > Create > Import a repository, this repo, deploy command
 # `npx wrangler deploy -c relay/wrangler.toml`), then do ONE of these and redeploy this site:
-#   a) set RELAY_URL below to the relay's address, e.g. "https://realm-relay.YOUR-NAME.workers.dev"  (simplest), or
+#   a) set RELAY_URL below to the relay's address, e.g. "https://ponyscapes-relay.YOUR-NAME.workers.dev"  (simplest), or
 #   b) uncomment the [[durable_objects.bindings]] block below (binds straight to the relay's rooms).
-# Do not uncomment (b) before the relay Worker exists: Cloudflare refuses to publish ("script realm-relay not found", error 8000109).
+# Do not uncomment (b) before the relay Worker exists: Cloudflare refuses to publish ("script ponyscapes-relay not found", error 8000109).
 name = "ponyscapes"                  # the Pages project: https://ponyscapes.pages.dev
 pages_build_output_dir = "public"
 compatibility_date = "2025-09-01"
 
 [vars]
-RELAY_URL = ""                     # e.g. "https://realm-relay.YOUR-NAME.workers.dev" once the relay Worker is deployed
+RELAY_URL = ""                     # e.g. "https://ponyscapes-relay.YOUR-NAME.workers.dev" once the relay Worker is deployed
 
 # [[durable_objects.bindings]]
 # name = "ROOMS"
-# class_name = "RealmRoom"
-# script_name = "realm-relay"      # the relay Worker's name in relay/wrangler.toml
+# class_name = "PonyscapesRoom"
+# script_name = "ponyscapes-relay"      # the relay Worker's name in relay/wrangler.toml

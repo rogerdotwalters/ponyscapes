@@ -1,8 +1,8 @@
 # The multiplayer RELAY: a Worker with one Durable Object per room. It copies messages between a host and up to 3 friends and stores nothing.
 # Deploy it once (npm run deploy:relay). The Cloudflare Pages site (../wrangler.toml) binds to its Durable Object, so the game on Pages
 # opens its WebSockets on its own address (/ws) and needs no relay URL.
-# This Worker ALSO serves the game itself, so it works on its own as an all-in-one alternative to Pages: https://realm-relay.NAME.workers.dev
-name = "realm-relay"
+# This Worker ALSO serves the game itself, so it works on its own as an all-in-one alternative to Pages: https://ponyscapes-relay.NAME.workers.dev
+name = "ponyscapes-relay"
 main = "../src/index.js"
 compatibility_date = "2025-09-01"
 
@@ -12,11 +12,11 @@ binding = "ASSETS"
 
 [[durable_objects.bindings]]
 name = "ROOMS"
-class_name = "RealmRoom"
+class_name = "PonyscapesRoom"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["RealmRoom"]      # (the free plan only supports SQLite-backed Durable Objects; the room never uses storage)
+new_sqlite_classes = ["PonyscapesRoom"]      # (the free plan only supports SQLite-backed Durable Objects; the room never uses storage)
 
 [vars]
 # Comma-separated page origins allowed to open a relay socket DIRECTLY on this Worker (e.g. "https://ponyscapes.pages.dev").

@@ -1,4 +1,4 @@
-// Realm relay: a Worker that routes WebSockets to one Durable Object per room, and serves the game's static files.
+// Ponyscapes relay: a Worker that routes WebSockets to one Durable Object per room, and serves the game's static files.
 import { DurableObject } from 'cloudflare:workers';
 import RelayProtocol from './relayProtocol.js';
 import { RelayLogic } from './relayLogic.js';
@@ -6,7 +6,7 @@ import { RelayLogic } from './relayLogic.js';
 /** Token bucket per client socket: a burst of 120 frames, then 80 a second (the game sends about 20 a second). */
 const BURST = 120, REFILL_PER_SECOND = 80;
 
-export class RealmRoom extends DurableObject {
+export class PonyscapesRoom extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     // keep-alive: the relay answers "ping" itself, without waking this object (and without it being billed as a request)
@@ -72,6 +72,6 @@ export default {
     }
     if (url.pathname === '/health') return json({ ok: true, protocol: RelayProtocol.VERSION, maxPlayers: RelayProtocol.MAX_PLAYERS });
     if (env.ASSETS) return env.ASSETS.fetch(request);
-    return new Response('Realm relay is running. Connect a WebSocket to /ws?room=CODE&role=host|client.', { status: 200 });
+    return new Response('Ponyscapes relay is running. Connect a WebSocket to /ws?room=CODE&role=host|client.', { status: 200 });
   }
 };
