@@ -37,6 +37,7 @@ class Renderer {
     for (const prop of chunk.props) {
       items.push({ kind: 'prop', depth: prop.x + prop.y, prop, key: tileKey(Math.floor(prop.x), Math.floor(prop.y)), gx: isoX(prop.x, prop.y), gy: isoY(prop.x, prop.y) });
     }
+    items.sort((a, b) => a.depth - b.depth);                                          // (sorted once here: the frame only merges sorted lists)
     return (chunk.renderItems = items);
   }
 
@@ -44,7 +45,7 @@ class Renderer {
    *  chunks so the painter's algorithm can slot players in front of / behind each part of it correctly. */
   rebuildBuilt() {
     const map = this.game.map;
-    this.builtItems = [];
+    this.builtItems = []; this.builtVersion = (this.builtVersion || 0) + 1;
     for (const key of Object.keys(map.built)) {
       const tx = keyTileX(key), ty = keyTileY(key);
       for (const slot of Object.keys(map.built[key])) {
@@ -64,6 +65,7 @@ class Renderer {
         }
       }
     }
+    this.builtItems.sort((a, b) => a.depth - b.depth);
   }
 
   render(state, frameMs, now) {
@@ -151,35 +153,62 @@ class Renderer {
     if (typeof ctx.cut === 'function') ctx.cut();
   }
 
-  _sortedWorldItems(state, b, tiles) {
-    const visible = s => s.gx > b.minX - 70 && s.gx < b.maxX + 70 && s.gy > b.minY - 20 && s.gy < b.maxY + 230;
-    const items = this.builtItems.filter(visible);
-    for (let cy = tiles.ty0 >> CHUNK_SHIFT; cy <= tiles.ty1 >> CHUNK_SHIFT; cy++) for (let cx = tiles.tx0 >> CHUNK_SHIFT; cx <= tiles.tx1 >> CHUNK_SHIFT; cx++) {
-      for (const item of this._chunkItems(this.game.map.chunk(cx, cy))) if (visible(item)) items.push(item);
-    }
-    const target = this.game.buildTarget;
-    if (target) items.push({ kind: 'ghost', depth: target.tx + target.ty + 1, target, gx: (target.tx - target.ty) * TILE_HALF_W, gy: (target.tx + target.ty + 1) * TILE_HALF_H });
-    for (const id in state.animals) { const a = state.animals[id]; items.push({ kind: 'animal', depth: a.x + a.y - (a.rider ? 0.05 : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider
-    for (const id in (state.npcs || {})) { const n = state.npcs[id]; items.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
-    for (const gr of this.nearGrass || []) items.push({ kind: 'grass', depth: gr.depth, draw: gr.draw });   // the grass around people's feet
-    const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
-    if (farm) for (const key in farm) {
+  /** Everything that never moves (the chunks' structures and props, the player-built walls), depth-sorted. It is merged and sorted again only when the
+   *  chunks in view, a chunk's list or the built walls change, not every frame. */
+  _staticSorted(tiles) {
+    const lists = [], sig = [this.builtVersion, tiles.tx0 >> CHUNK_SHIFT, tiles.tx1 >> CHUNK_SHIFT, tiles.ty0 >> CHUNK_SHIFT, tiles.ty1 >> CHUNK_SHIFT, this.game.map];
+    for (let cy = tiles.ty0 >> CHUNK_SHIFT; cy <= tiles.ty1 >> CHUNK_SHIFT; cy++) for (let cx = tiles.tx0 >> CHUNK_SHIFT; cx <= tiles.tx1 >> CHUNK_SHIFT; cx++) lists.push(this._chunkItems(this.game.map.chunk(cx, cy)));
+    const c = this._staticCache;
+    if (c && c.sig.length === sig.length && c.sig.every((v, i) => v === sig[i]) && c.lists.length === lists.length && c.lists.every((l, i) => l === lists[i])) return c.items;
+    const items = this.builtItems.slice();
+    for (const l of lists) for (const item of l) items.push(item);
+    items.sort((a, b2) => a.depth - b2.depth);
+    this._staticCache = { sig, lists, items };
+    return items;
+  }
+
+  /** The crops and saplings of the fields, indexed once per farm table (the client is handed a whole new table whenever a field changes). */
+  _farmItems(farm) {
+    if (this._farmIndex && this._farmIndex.farm === farm) return this._farmIndex.list;
+    const list = [];
+    for (const key in farm) {
       const plot = farm[key];
       if (Groves.isKey(key)) {                                                       // a sapling growing (groves.js); a grown one is a tree prop
         if (plot.g) continue;
-        const [tx, ty] = Groves.tileOf(key); if (tx < tiles.tx0 || tx > tiles.tx1 || ty < tiles.ty0 || ty > tiles.ty1) continue;
-        items.push({ kind: 'sapling', depth: tx + ty + 0.9, gx: isoX(tx + 0.5, ty + 0.5), gy: isoY(tx + 0.5, ty + 0.5), plot, tx, ty });
+        const [tx, ty] = Groves.tileOf(key);
+        list.push({ kind: 'sapling', depth: tx + ty + 0.9, gx: isoX(tx + 0.5, ty + 0.5), gy: isoY(tx + 0.5, ty + 0.5), plot, tx, ty });
         continue;
       }
       if (!plot.c) continue;
       const i = key.indexOf(','), wx = (+key.slice(0, i) + 0.5) / 2, wy = (+key.slice(i + 1) + 0.5) / 2, tx = Math.floor(wx), ty = Math.floor(wy);
-      if (tx < tiles.tx0 || tx > tiles.tx1 || ty < tiles.ty0 || ty > tiles.ty1) continue;
-      items.push({ kind: 'crop', depth: wx + wy - 0.1, gx: isoX(wx, wy), gy: isoY(wx, wy), plot });
+      list.push({ kind: 'crop', depth: wx + wy - 0.1, gx: isoX(wx, wy), gy: isoY(wx, wy), plot, tx, ty });
     }
-    for (const id in (state.drops || {})) { const d = state.drops[id]; items.push({ kind: 'drop', depth: d.x + d.y - 0.3, gx: isoX(d.x, d.y), gy: isoY(d.x, d.y), drop: d }); }   // items dropped on the ground
-    for (const id in state.boats) { const boat = state.boats[id]; items.push({ kind: 'boat', depth: boat.x + boat.y - 0.25, id, boat }); }   // under its rider
-    for (const id in state.players) { const p = state.players[id]; items.push({ kind: 'player', depth: p.x + p.y + (p.lift || 0) * 4, id, p }); }
-    return items.sort((a, b2) => a.depth - b2.depth);        // painter's algorithm on x + y
+    this._farmIndex = { farm, list };
+    return list;
+  }
+
+  _sortedWorldItems(state, b, tiles) {
+    const visible = s => s.gx > b.minX - 70 && s.gx < b.maxX + 70 && s.gy > b.minY - 20 && s.gy < b.maxY + 230;
+    const still = [];
+    for (const item of this._staticSorted(tiles)) if (visible(item)) still.push(item);       // (filtering keeps the order)
+    const moving = [];
+    const target = this.game.buildTarget;
+    if (target) moving.push({ kind: 'ghost', depth: target.tx + target.ty + 1, target, gx: (target.tx - target.ty) * TILE_HALF_W, gy: (target.tx + target.ty + 1) * TILE_HALF_H });
+    for (const id in state.animals) { const a = state.animals[id]; moving.push({ kind: 'animal', depth: a.x + a.y - (a.rider ? 0.05 : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider
+    for (const id in (state.npcs || {})) { const n = state.npcs[id]; moving.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
+    for (const gr of this.nearGrass || []) moving.push({ kind: 'grass', depth: gr.depth, draw: gr.draw });   // the grass around people's feet
+    const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
+    if (farm) for (const item of this._farmItems(farm)) if (item.tx >= tiles.tx0 && item.tx <= tiles.tx1 && item.ty >= tiles.ty0 && item.ty <= tiles.ty1) moving.push(item);
+    for (const id in (state.drops || {})) { const d = state.drops[id]; moving.push({ kind: 'drop', depth: d.x + d.y - 0.3, gx: isoX(d.x, d.y), gy: isoY(d.x, d.y), drop: d }); }   // items dropped on the ground
+    for (const id in state.boats) { const boat = state.boats[id]; moving.push({ kind: 'boat', depth: boat.x + boat.y - 0.25, id, boat }); }   // under its rider
+    for (const id in state.players) { const p = state.players[id]; moving.push({ kind: 'player', depth: p.x + p.y + (p.lift || 0) * 4, id, p }); }
+    moving.sort((a, b2) => a.depth - b2.depth);                                      // painter's algorithm on x + y: sort the few that move, then merge
+    const out = new Array(still.length + moving.length);
+    let i = 0, j = 0, k = 0;
+    while (i < still.length && j < moving.length) out[k++] = still[i].depth <= moving[j].depth ? still[i++] : moving[j++];
+    while (i < still.length) out[k++] = still[i++];
+    while (j < moving.length) out[k++] = moving[j++];
+    return out;
   }
 
   _drawItem(item, now) {
