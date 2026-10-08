@@ -97,9 +97,9 @@ class TapActions {
     if (!thing) return false;
     const plan = this._plan(thing, mouse);
     if (plan.action === 'none') return false;
-    if (plan.action === 'move') { if (!game.riding) this.walkTo(thing); return false; }
+    if (plan.action === 'move') { if (!game.local.boat) this.walkTo(thing); return false; }
     if (!plan.ready && !arrived) {
-      if (Controls.walkToAct && !game.riding) { this._walkThen(desc); return false; }
+      if (Controls.walkToAct && !game.local.boat) { this._walkThen(desc); return false; }
       game.events.emit('notice', { to: game.myId, text: thing.type === 'npc' ? `Walk closer to talk to ${thing.npc.name}` : 'Too far away: walk closer' });
       return false;
     }
