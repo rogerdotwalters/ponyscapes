@@ -96,7 +96,7 @@ class LobbyUI {
     });
     // hair: six chips, each with the head in that style
     const chips = this.$('#hairChips'); chips.innerHTML = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       const b = document.createElement('button'); b.type = 'button'; b.appendChild(thumb(60, 44)); const label = document.createElement('span'); b.appendChild(label);
       b.onclick = () => { T.look[1] = i; refresh(); }; chips.appendChild(b);
     }
@@ -106,7 +106,7 @@ class LobbyUI {
     textChips('shirtStyles', 9); textChips('pantsStyles', 10);
     const refresh = () => {
       const l = T.look, kind = l[0] === 1 ? 'princess' : 'prince';
-      seg.querySelectorAll('button').forEach((b, i) => { b.classList.toggle('on', i === l[0]); const look = l.slice(); look[0] = i; if (i !== l[0]) look[1] = Math.min(look[1], 5); renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: 'down', crop: 22 }); });
+      seg.querySelectorAll('button').forEach((b, i) => { b.classList.toggle('on', i === l[0]); const look = l.slice(); look[0] = i; if (i !== l[0]) look[1] = Math.min(look[1], 7); renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: 'down', crop: 22 }); });
       chips.querySelectorAll('button').forEach((b, i) => { const look = l.slice(); look[1] = i; b.classList.toggle('on', i === l[1]); b.querySelector('span').textContent = P.hairStyleNames[kind][i]; renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: i === 2 && kind === 'princess' ? 'left' : 'down', crop: 22 }); });
       for (const [id, idx] of [['hairColors', 2], ['skinColors', 3], ['outfitColors', 4], ['trimColors', 5], ['pantsColors', 6], ['eyeColors', 7], ['shoeColors', 8]]) T.root.querySelectorAll('#' + id + ' button').forEach((b, i) => b.classList.toggle('on', i === l[idx]));
       this.$('#pantsLabel').textContent = kind === 'princess' ? 'Skirt' : 'Pants'; this.$('#pantsStyleLabel').textContent = kind === 'princess' ? 'Skirt style' : 'Pants style';

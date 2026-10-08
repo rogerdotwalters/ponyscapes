@@ -6,8 +6,8 @@
 const CharacterPalette = Object.freeze({
   bodies:     Object.freeze(['Prince', 'Princess']),
   // Each body has its OWN six hair styles. The look stores just the index (0-5); the body decides which style that is.
-  hairKinds:      Object.freeze({ prince: Object.freeze(['short', 'swept', 'spiky', 'medium', 'tied', 'curly']), princess: Object.freeze(['bob', 'long', 'ponytail', 'braid', 'curly', 'bun']) }),
-  hairStyleNames: Object.freeze({ prince: Object.freeze(['Short', 'Swept back', 'Spiky', 'Shoulder-length', 'Tied back', 'Curly']), princess: Object.freeze(['Bob', 'Long', 'Ponytail', 'Braid', 'Curly', 'Bun']) }),
+  hairKinds:      Object.freeze({ prince: Object.freeze(['short', 'quiff', 'spiky', 'medium', 'manbun', 'afro', 'buzz', 'mohawk']), princess: Object.freeze(['bob', 'long', 'ponytail', 'braid', 'curly', 'bun', 'pixie', 'pigtails']) }),
+  hairStyleNames: Object.freeze({ prince: Object.freeze(['Side part', 'Quiff', 'Spiky', 'Shoulder-length', 'Man bun', 'Afro', 'Buzz cut', 'Mohawk']), princess: Object.freeze(['Bob', 'Long', 'Ponytail', 'Braid', 'Curly', 'Top knot', 'Pixie cut', 'Pigtails']) }),
   hairStyles: Object.freeze(['Bob', 'Long', 'Ponytail', 'Braid', 'Curly', 'Bun']),      // (the princess list, kept for older callers)
   hairColors: Object.freeze(['#2b2321', '#5a3a22', '#8a4b24', '#a23d1f', '#e3c068', '#efe6c8', '#c0392b', '#b9bcc4', '#3b6fd1', '#e86aa6', '#e8832e', '#3fb872', '#8a5be0', '#2fb8c9', '#1b1b2a', '#c9a27a']),
   skins:      Object.freeze(['#f6d9bf', '#f0c9a0', '#e2a97e', '#c98b5b', '#a56b3f', '#7a4a2a', '#fbe8da', '#553220']),
@@ -30,7 +30,7 @@ const CharacterPalette = Object.freeze({
 const CharacterLook = {
   PRINCE: 0, PRINCESS: 1,
   /** How many choices each of the six slots has. */
-  SIZES: Object.freeze([2, 6, 16, 8, 18, 12, 14, 10, 10, 3, 3]),
+  SIZES: Object.freeze([2, 8, 16, 8, 18, 12, 14, 10, 10, 3, 3]),
   /** A different-looking default for each seat (?solo=1 uses these). */
   defaultFor(slot) { return [[0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0], [1, 1, 4, 0, 3, 1, 9, 3, 3, 0, 0], [0, 2, 2, 3, 2, 0, 4, 5, 1, 1, 1], [1, 5, 6, 2, 1, 2, 1, 1, 8, 2, 2]][((slot | 0) % 4 + 4) % 4].slice(); },
   random(rng = Math.random) { return CharacterLook.SIZES.map(n => Math.floor(rng() * n)); },
