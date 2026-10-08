@@ -48,7 +48,7 @@ async function open(browser, renderer, sc, fake) {
         await page.screenshot({ path: path.join(out, `${name}-${renderer}-full.png`) });                  // (real time: not diffable, but what a player sees, UI included)
         row.fps = await page.evaluate(() => new Promise(res => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 > 3000) res(n / ((performance.now() - t0) / 1000)); else requestAnimationFrame(f); }; requestAnimationFrame(f); }));
         const perf = await page.evaluate(() => window.ponyscapes.renderer.perf());
-        row.fps = +row.fps.toFixed(1); row.cpuMsAvg = +perf.avg.toFixed(2); row.cpuMsP95 = +perf.p95.toFixed(2); row.errors = row.errors.concat(errors); await page.close(); }
+        row.fps = +row.fps.toFixed(1); row.cpuMsAvg = +perf.avg.toFixed(2); row.cpuMsP95 = +perf.p95.toFixed(2); row.errors = (row.errors || []).concat(errors); await page.close(); }
       results.push(row);
     }
   }
