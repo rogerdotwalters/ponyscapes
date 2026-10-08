@@ -75,7 +75,7 @@ class TradeSystem {
       for (const id of [s.a, s.b]) this.notice(id, 'Trade failed: ' + problem);
       return;
     }
-    for (const id of [s.a, s.b]) { this.inventories[id].slots = trials[id].slots; this.markInventoryChanged(id); this.emit({ type: 'tradeDone', to: id }); }
+    for (const id of [s.a, s.b]) { this.inventories[id].adopt(trials[id]); this.markInventoryChanged(id); this.emit({ type: 'tradeDone', to: id }); }
     this.sessions = this.sessions.filter(x => x !== s);
     this._touch(s);
   }

@@ -109,6 +109,10 @@
   <div id="controlsTabs" class="subtabs"></div>
   <div id="controlsBody" class="scrollable"></div>
 </div>
+<div id="puzzlePanel" hidden>
+  <header><span id="puzzleTitle">Puzzle</span><button id="puzzleClose" tabindex="-1">&#x2715;</button></header>
+  <div id="puzzleBody"></div>
+</div>
 <div id="dialoguePanel" hidden>
   <header><span id="dialogueTitle">Villager</span><button id="dialogueClose" tabindex="-1">&#x2715;</button></header>
   <div id="dialogueBody"></div>
@@ -259,6 +263,15 @@
 <script src="js/data/npcs/guard.js" defer></script>
 <script src="js/data/npcs/carpenter.js" defer></script>
 <script src="js/data/npcs/veterinarian.js" defer></script>
+<script src="js/data/puzzles/registry.js" defer></script>
+<script src="js/data/puzzles/rune_stone.js" defer></script>
+<script src="js/data/puzzles/pond_dial.js" defer></script>
+<script src="js/data/puzzles/broken_tablet.js" defer></script>
+<script src="js/data/quests/registry.js" defer></script>
+<script src="js/data/quests/elder_stone.js" defer></script>
+<script src="js/data/quests/baker_eggs.js" defer></script>
+<script src="js/data/quests/elder_dial.js" defer></script>
+<script src="js/data/quests/guard_tablet.js" defer></script>
 <script src="js/data/buildings/registry.js" defer></script>
 <script src="js/data/buildings/carpenter.js" defer></script>
 <script src="js/data/buildings/veterinary.js" defer></script>
@@ -329,6 +342,8 @@
 <script src="js/shared/sleepSystem.js" defer></script>
 <script src="js/shared/wildPonies.js" defer></script>
 <script src="js/shared/wantSystem.js" defer></script>
+<script src="js/shared/puzzles.js" defer></script>
+<script src="js/shared/questSystem.js" defer></script>
 <script src="js/shared/gameServer.js" defer></script>
 <script src="js/shared/serverOwned.js" defer></script>
 <script src="js/shared/tapActions.js" defer></script>
@@ -397,6 +412,7 @@
 <meta name="lazy-script" content="js/client/render/creatures/boar.js">
 <script src="js/client/render/heartMeter.js" defer></script>
 <script src="js/client/render/wantBubble.js" defer></script>
+<script src="js/client/render/questSprites.js" defer></script>
 <script src="js/client/render/animalSprite.js" defer></script>
 <script src="js/client/render/lighting.js" defer></script>
 <script src="js/client/render/effects.js" defer></script>
@@ -410,6 +426,7 @@
 <script src="js/client/ui/settingsUI.js" defer></script>
 <script src="js/client/ui/controlsUI.js" defer></script>
 <script src="js/client/ui/dialogueUI.js" defer></script>
+<script src="js/client/ui/puzzleUI.js" defer></script>
 <script src="js/client/ui/panelGroup.js" defer></script>
 <script src="js/client/ui/vitalsUI.js" defer></script>
 <script src="js/client/ui/sleepUI.js" defer></script>

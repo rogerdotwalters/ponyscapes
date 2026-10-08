@@ -48,6 +48,7 @@ const SaveData = {
       stockpiles: Stockpiles.exportState(m),
       farm: JSON.parse(JSON.stringify(m.farm || {})), farmDay: server.farmDay,      // the fields, and the last day they grew (farming.js)
       interiors: server.interiors.exportState(),                               // whose home is which room
+      quests: server.quests.exportState(),                                     // the world's quest log (questSystem.js)
       wants: server.wants.exportState(),                                       // bosses being appeased (lost cubs brought home)
       pets: server._exportOwnedPets(),                                         // every player's ponies and pets, by owner key (they wait in the world for them)
       drops: Object.values(server.drops).map(d => ({ item: d.item, count: d.count, x: d.x, y: d.y, grid: d.grid || undefined })),
@@ -60,7 +61,7 @@ const SaveData = {
   /** Validate a saved world. Returns a clean copy, or null if it is not a world at all. */
   sanitizeWorld(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION || !Number.isInteger(data.seed)) return null;
-    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {}, rooms: {} }, farm: {}, farmDay: Number.isInteger(data.farmDay) && data.farmDay >= 0 ? data.farmDay : undefined, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null, wants: data.wants && typeof data.wants === 'object' ? JSON.parse(JSON.stringify(data.wants)) : null };
+    const out = { v: data.v, seed: data.seed, tick: SaveData._int(data.tick, 0, 2 ** 40, 0), clockHours: Number.isFinite(data.clockHours) && data.clockHours >= 0 ? data.clockHours : null, built: {}, floors: {}, treasureDug: {}, treeStates: {}, forageStates: {}, treeRespawns: [], forageRegrows: [], bossesDefeated: [], stockpiles: { piles: {}, levels: {}, rooms: {} }, farm: {}, farmDay: Number.isInteger(data.farmDay) && data.farmDay >= 0 ? data.farmDay : undefined, pets: [], drops: [], interiors: data.interiors && typeof data.interiors === 'object' ? JSON.parse(JSON.stringify(data.interiors)) : null, wants: data.wants && typeof data.wants === 'object' ? JSON.parse(JSON.stringify(data.wants)) : null, quests: QuestSystem.sanitize(data.quests) };
     const keyOk = k => /^-?\d+$/.test(k);
     let n = 0;
     for (const [k, tile] of Object.entries(SaveData._plain(data.built) ? data.built : {})) {
@@ -169,6 +170,7 @@ const SaveData = {
     if (world.clockHours !== null && world.clockHours !== undefined) GameSettings.setClock(world.tick, world.clockHours);   // the time of day carries on where it was
     if (world.interiors) server.interiors.restore(world.interiors);
     if (world.wants) server.wants.restore(world.wants);
+    if (world.quests) server.quests.restore(world.quests);
     server.trees.respawns = world.treeRespawns.map(r => Object.assign({}, r));
     server.forage.regrows = world.forageRegrows.map(r => Object.assign({}, r));
     server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;
@@ -187,7 +189,7 @@ const SaveData = {
     return {
       v: SaveData.VERSION, savedAt: Date.now(),
       x: spot.x, y: spot.y, hp: p.hp, hunger: p.hunger, thirst: p.thirst, sel: p.sel,
-      inventory: inventory.toJSON(), gear: Object.assign({}, p.gear),
+      inventory: inventory.toJSON(), coins: inventory.purse || 0, gear: Object.assign({}, p.gear),
       xp: { s: Object.assign({}, xp.s), a: Object.assign({}, xp.a) },
       maps: (server.treasureMaps[id] || []).map(m => Object.assign({ key: m.key, tx: m.tx, ty: m.ty }, m.kind === 'dungeon' ? { kind: 'dungeon', ring: m.ring } : {})),
       looted: !!p.looted, appearance: p.appearance ? p.appearance.slice() : null,
@@ -201,7 +203,7 @@ const SaveData = {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION) return null;
     const N = SaveData._num, I = SaveData._int, S = CONFIG.sim;
     const out = { v: data.v, x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0),
-      appearance: CharacterLook.sanitize(data.appearance), inventory: [], gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [], leashed: {} }, pets: [] };
+      appearance: CharacterLook.sanitize(data.appearance), inventory: [], coins: I(data.coins, 0, 999999, 0), gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [], leashed: {} }, pets: [] };
     const source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
     const refund = (id, count) => { const old = LEGACY_ITEMS[id]; if (old) refunds.push({ id: old[0], count: old[1] * count }); else if (ItemDefs[id]) refunds.push({ id, count }); };
     const savedGear = SaveData._plain(data.gear) ? data.gear : {};
@@ -248,7 +250,7 @@ const SaveData = {
   importCharacter(server, id, data) {
     const c = SaveData.sanitizeCharacter(data), p = server.players[id];
     if (!c || !p) return false;
-    server.inventories[id] = Inventory.fromJSON(c.inventory); server.inventoryRev[id]++;
+    server.inventories[id] = Inventory.fromJSON(c.inventory).openPurse(c.coins); server.inventoryRev[id]++;
     for (const k of Object.keys(p.gear)) delete p.gear[k];
     Object.assign(p.gear, c.gear);
     p.sel = c.sel; p.looted = c.looted; if (c.appearance) p.appearance = c.appearance;

@@ -47,7 +47,7 @@ Object.assign(GameServer.prototype, {
     let left = trialInv.add(itemId, 1);
     if (left && trialPack) left = trialPack.add(itemId, left);
     if (left) { this._notice(id, 'No room in your bag for it'); return; }
-    inventory.slots = trialInv.slots; if (pack) pack.slots = trialPack.slots;
+    inventory.adopt(trialInv); if (pack) pack.slots = trialPack.slots;
     this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'bought', to: id, item: itemId, x: p.x, y: p.y });
     this._notice(id, `You bought the ${ItemDefs[itemId].name}` + (Bags.isPlayerBag(itemId) ? ': wear it from your bag (Wear bag) or Gear' : Bags.isPonyBag(itemId) ? ': put it on your pony from your bag (Put on pony)' : ''));

@@ -11,6 +11,7 @@ Object.assign(GameServer.prototype, {
     if (Math.hypot(npc.x - p.x, npc.y - p.y) > CONFIG.sim.friendship.reach + TAP_TALK_SLACK) { this._notice(id, `Get closer to talk to ${npc.name}`); return; }
     if (act === 'gift') { if (p.held) this.friendship.act(id, npc, 'gift', p.held); return; }
     const result = this.friendship.act(id, npc, 'talk');
+    this.quests.onTalk(id, npc);                                                       // (a quest may be waiting for someone to speak to them)
     if (!result || result.cooling) this.npcs.speak(npc, npc.lineFor(id, p.name || 'friend'));        // (hearts come once in a while; a hello is always answered)
   },
 

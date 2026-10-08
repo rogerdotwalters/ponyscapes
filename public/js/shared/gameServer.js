@@ -31,7 +31,7 @@ class GameServer {
     this.tick = 0;
     this.rng = mulberry32(seed ^ 0x9e3779b9);
     this.players = {}; this.inputQueues = {};
-    this.inventories = {}; this.inventoryRev = {}; this.inventorySentRev = {}; this.packSent = {}; this.packCheck = {};
+    this.inventories = {}; this.coinsSent = {}; this.inventoryRev = {}; this.inventorySentRev = {}; this.packSent = {}; this.packCheck = {};
     this.builtRev = 1; this.builtSentRev = {}; this.floorsRev = 1; this.floorsSentRev = {};
     this.stockRev = 1; this.stockSentRev = {}; this.carryNoticeAt = {};
     this.playerKeys = {}; this.keyTokens = {}; this.tokenKeys = {}; this.tokenSeq = 0; this.petsClaimed = {};   // who owns what across seats (serverOwned.js): seat id -> player key, key <-> away token
@@ -64,6 +64,7 @@ class GameServer {
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
     this.sleep = new SleepSystem(this);                                      // bedtime, the forced sleep and skipping the night (sleepSystem.js)
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
+    this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
@@ -208,12 +209,12 @@ class GameServer {
   removePlayer(id) {
     this._dismount(id, this.players[id]);
     this._parkPets(id);                                                  // their ponies stay in the world, waiting for them (serverOwned.js)
-    this.friendship.forget(id);                                          // the next person to sit here must not inherit these friendships
+    this.friendship.forget(id); this.quests.forget(id);                                          // the next person to sit here must not inherit these friendships
     this.trade.cancel(id, 'Trade cancelled: player left');
     delete this.playerKeys[id]; delete this.petsClaimed[id];
     const boat = this.boats[this.players[id] && this.players[id].boat];
     if (boat) boat.occupant = '';
-    [this.players, this.inputQueues, this.inventories, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
+    [this.players, this.inputQueues, this.inventories, this.coinsSent, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
       .forEach(t => delete t[id]);
     delete this.ringsSentRev[id]; delete this.settingsSentRev[id];
     delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id]; delete this.leashLog[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
@@ -268,6 +269,10 @@ class GameServer {
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
+      case 'questAccept': if (typeof cmd.quest === 'string') this.quests.accept(id, cmd.quest); break;       // at a villager's dialogue window (questSystem.js)
+      case 'questDeliver': if (typeof cmd.quest === 'string') this.quests.deliver(id, cmd.quest); break;
+      case 'puzzleSolve': if (typeof cmd.node === 'string') this.quests.solve(id, cmd.node, cmd.moves); break;   // the client played a puzzle: replay its moves
+      case 'dropCoins': this._dropCoins(id, cmd.count); break;                                              // coins out of the purse onto the ground (serverOwned.js)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
       case 'equip': this._handleEquip(id, inventory, cmd.from); break;
       case 'packMove': this._packMove(id, inventory, cmd); break;                                           // between your bag and your pony's pack (packSystem.js)
@@ -590,7 +595,8 @@ class GameServer {
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
     this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick);
-    this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick);
+    this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick); this.quests.update(this.tick);
+    if (this.tick % 4 === 0) this._gatherCoins();                                     // coins on the ground jump into purses nearby
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)
     this._streamWorld();
   }
@@ -968,6 +974,13 @@ class GameServer {
     if (this.inventorySentRev[id] === this.inventoryRev[id]) return null;
     this.inventorySentRev[id] = this.inventoryRev[id];
     return this.inventories[id].toJSON();
+  }
+  /** Private: the coins in the player's purse, only when the number changed since last sent (else null). */
+  coinsUpdateFor(id) {
+    const coins = this.inventories[id].purse || 0;
+    if (this.coinsSent[id] === coins) return null;
+    this.coinsSent[id] = coins;
+    return coins;
   }
   /** Which rings are open and which guardians are down, only when that changed since last sent (else null). */
   ringsUpdateFor(id) {
