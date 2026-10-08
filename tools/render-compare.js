@@ -8,7 +8,7 @@
 const { chromium } = require('playwright');
 const fs = require('fs'), path = require('path');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-const base = arg('base', 'http://localhost:8123'), out = arg('out', 'shots'), only = arg('scene', ''), bench = arg('bench', '1') === '1';
+const base = arg('base', 'http://localhost:8123'), out = arg('out', 'shots'), only = arg('scene', ''), bench = arg('bench', '1') === '1', shots = arg('shots', '1') === '1';
 const W = +arg('w', 1280), H = +arg('h', 720);
 const SCENES = require('./render-scenes.js');
 
@@ -39,7 +39,7 @@ async function open(browser, renderer, sc, fake) {
     if (only && only !== name) continue;
     for (const renderer of ['canvas', 'pixi']) {
       const row = { scene: name, renderer };
-      { const { page, errors } = await open(browser, renderer, sc, true);                    // the deterministic frame: the game's canvas, read back right after drawing
+      if (shots) { const { page, errors } = await open(browser, renderer, sc, true);                    // the deterministic frame: the game's canvas, read back right after drawing
         const png = await page.evaluate(() => { const { game, renderer } = window.ponyscapes; renderer.camera.initialised = false; for (let i = 0; i < 40; i++) renderer.render(game.getRenderState(1), 16, 5000); window.__cam = [renderer.camera.x, renderer.camera.y, renderer.camera.scale]; return document.getElementById('game').toDataURL('image/png'); });
         row.camera = await page.evaluate(() => window.__cam);   // (40 draws: bakes everything, settles the camera)
         fs.writeFileSync(path.join(out, `${name}-${renderer}.png`), Buffer.from(png.split(',')[1], 'base64')); row.errors = errors; await page.close(); }
