@@ -148,7 +148,7 @@ Object.assign(GameServer.prototype, {
     const farm = this._farm(), season = Seasons.indexOfDay(prev + 1);
     for (const [key, plot] of Object.entries(farm)) {
       if (Groves.isKey(key)) { this._growGrove(key, plot); continue; }
-      if (Grass.isKey(key)) continue;                                                               // cut grass (grass.js): it grows back by itself                              // a planted sapling (groves.js): it grows every day
+      if (Grass.isKey(key) || Hedges.isKey(key)) continue;                                                               // cut grass (grass.js): it grows back by itself                              // a planted sapling (groves.js): it grows every day
       const watered = plot.w === prev;
       if (plot.c && !plot.dead) {
         if (!Farming.inSeason(plot.c, season)) plot.dead = true;                                     // its season is over

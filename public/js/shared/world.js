@@ -192,6 +192,7 @@ function generateChunk(world, cx, cy) {
   }
   const tileOf = (tx, ty) => (tx >= x0 && tx < x0 + CHUNK_SIZE && ty >= y0 && ty < y0 + CHUNK_SIZE)
     ? chunk.tiles[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] : T.tile(tx, ty);
+  if (typeof Hedges !== 'undefined') Hedges.intoChunk(world, chunk);                          // the hedges players planted here
   if (typeof Groves !== 'undefined') Groves.intoChunk(world, chunk);                         // the trees players planted and grew here
   if (chunk.tiles.includes(TILE.WATER) || chunk.tiles.includes(TILE.SHALLOW)) chunk.boatSpot = T.boatSpot(cx, cy, tileOf);
   const group = T.animalGroup(cx, cy, tileOf, (tx, ty) => chunk.propIndex[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] < 0 && chunk.obj[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] === OBJ.NONE);
@@ -245,7 +246,7 @@ function addForageable(world, chunk, li, tx, ty) {
 function withSavedState(world, tx, ty, prop) {
   const key = tileKey(tx, ty), tree = world.treeStates[key], forage = world.forageStates[key];
   if (tree && prop.t === 'tree') { prop.hp = tree.hp; prop.alive = tree.alive; }
-  if (forage && ForageDefs[forageKind(prop)]) prop.ripe = forage.ripe;
+  if (forage && ForageDefs[forageKind(prop)]) { prop.ripe = forage.ripe; prop.cut = !!forage.cut; }
   return prop;
 }
 

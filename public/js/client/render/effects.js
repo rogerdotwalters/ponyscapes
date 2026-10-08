@@ -15,6 +15,9 @@ class Effects {
     game.events.on('watered', e => this._burst(e.x, e.y, 8, SPLASH_COLORS, 5));
     game.events.on('planted', e => this._burst(e.x, e.y, 6, ['#5fae4e', '#8fd06e', '#7a5a33'], 8));
     game.events.on('harvested', e => this._burst(e.x, e.y, 14, [e.color || '#e59a2e', '#5fae4e', '#fff2b0'], 16));
+    game.events.on('cut', e => { this.shakeStart[e.key] = performance.now(); this._burst(e.x, e.y, 16, LEAF_COLORS, 14); });        // a bush cut down with the hedge cutter (hedges.js)
+    game.events.on('trim', e => { this.shakeStart[e.key] = performance.now(); this._burst(e.x, e.y, 12, LEAF_COLORS, 22); });        // a hedge trimmed into a new shape
+    game.events.on('dugHedge', e => { this._burst(e.x, e.y, 10, DUST_COLORS, 10); this._burst(e.x, e.y, 6, LEAF_COLORS, 12); });
     game.events.on('strike', e => { this._burst(e.x, e.y, 26, ['#ffffff', '#cfe3ff', '#ffe9a0', '#7fa8ff'], 22); this._burst(e.x, e.y, 10, DUST_COLORS, 6); });   // lightning hits (weather.js)
     game.events.on('burn', e => { this._burst(e.x, e.y, 3, ['#ff9a2a', '#ffd24a', '#ff5a1a'], 8); this._burst(e.x, e.y, 1, ['#6b6b72', '#8a8a92'], 22); });   // the little fire it leaves
     game.events.on('gain', e => this._onGain(e));

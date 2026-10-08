@@ -54,8 +54,11 @@ const PropSprites = {
   /** Berry bush (retro pixel art, pixelProps.js): a leafy mound; ripe bushes carry berries in the colour of their berry type, picked ones look dry. */
   drawBush(g, sx, sy, bush, shakeX, biome) {
     const def = ItemDB.get(bush.berry);
-    PixelProps.drawBush(g.ctx, sx, sy, bush.v | 0, !!bush.ripe, def ? def.color : '#c33', shakeX || 0, TREE_TINT[biome] || PropSprites.seasonTint);
+    PixelProps.drawBush(g.ctx, sx, sy, bush.v | 0, !!bush.ripe, def ? def.color : '#c33', shakeX || 0, TREE_TINT[biome] || PropSprites.seasonTint, !!bush.cut);
   },
+
+  /** A planted, trimmed hedge (hedges.js): prop.s is its trim (0 block, 1 ball, 2 tiers). */
+  drawHedge(g, sx, sy, hedge, shakeX, biome) { PixelProps.drawHedge(g.ctx, sx, sy, hedge.v | 0, hedge.s | 0, shakeX || 0, TREE_TINT[biome] || PropSprites.seasonTint); },
 
   /** Flax: slender green stalks with small blue flowers. Harvested plants are bare stubs. */
   drawFlax(g, sx, sy, plant) {

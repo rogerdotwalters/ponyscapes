@@ -178,7 +178,8 @@ class GameServer {
       pickUp: (id, found) => this._pickUp(id, found), digTreasure: (id, site) => this._digTreasure(id, site),
       mapSitesOf: id => this.treasureMaps[id],
       dropOnGround: (item, count, x, y, grid) => this._dropOnGround(item, count, x, y, grid),
-      tick: () => this.tick,
+      tick: () => this.tick, forage: this.forage,
+      cutBush: (id, found) => this._cutBush(id, found), trimHedge: (id, found) => this._trimHedge(id, found), digHedge: (id, found) => this._digHedge(id, found),
       till: (id, cx, cy) => this._till(id, cx, cy), water: (id, cx, cy) => this._water(id, cx, cy),
       later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
@@ -186,7 +187,7 @@ class GameServer {
     this.toolDeps = deps;                                                     // (pony abilities strike animals the way weapons do)
     deps.onTamed = (ownerId, animal) => this._remember(ownerId, animal);
     deps.onLeashed = (ownerId, animal) => this._logLeash(ownerId, animal);
-    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: withGrass(hunt, grass), spear: hunt, sword: withGrass(new HuntHandler(deps, { sweep: true }), grass), sickle: grass, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: new ShovelHandler(deps), shears: withGrass(new ShearHandler(deps), grass), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
+    return { brush: new GroomHandler(deps), leash: new LeashHandler(deps), axe: new TreeHarvestHandler(deps), hammer: new DemolishHandler(deps), knife: withGrass(hunt, grass), spear: hunt, sword: withGrass(new HuntHandler(deps, { sweep: true }), grass), sickle: grass, bow: new BowHandler(deps), rod: new FishingHandler(deps), shovel: withHedgeDig(new ShovelHandler(deps), new HedgeDigHandler(deps)), hedge: new HedgeCutterHandler(deps), shears: withGrass(new ShearHandler(deps), grass), hoe: new HoeHandler(deps), water: new WaterHandler(deps) };
   }
 
   /* ---- membership ---- */

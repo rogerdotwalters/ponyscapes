@@ -280,6 +280,7 @@ class Renderer {
       for (const id in this.players || {}) { const q = this.players[id]; if (q && !q.flying && Math.hypot(q.x - prop.x, q.y - prop.y) < 0.55) { this.effects.rustle(item.key, prop.x, prop.y); break; } }      // brushing past shakes it, as a tree shakes when chopped
       PropSprites.drawBush(g, item.gx, item.gy, prop, this.effects.treeShakeX(item.key, now, 2.5), this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));
     }
+    else if (prop.t === 'hedge') { if (prop.alive) PropSprites.drawHedge(g, item.gx, item.gy, prop, this.effects.treeShakeX(item.key, now, 1.2), this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y))); }
     else if (prop.t === 'stone') { if (prop.ripe) PropSprites.drawStone(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'flax') PropSprites.drawFlax(g, item.gx, item.gy, prop);
     else if (prop.t === 'chest') PropSprites.drawChest(g, item.gx, item.gy, !!(this.game.local && this.game.local.looted));

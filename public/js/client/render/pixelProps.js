@@ -178,14 +178,14 @@ const PixelProps = (() => {
   const DRY = ['#3d3a1c', '#55512a', '#6e6a36', '#878240', '#a09a52', '#bbb46c'];                  // a picked bush: dry and olive
   const BUSH_SHAPES = [[[22, 20, 15, 10], [11, 24, 9, 6], [33, 24, 9, 6], [22, 13, 10, 7]], [[22, 19, 16, 10], [10, 23, 8, 6], [34, 22, 8, 7], [17, 13, 8, 6], [28, 12, 8, 6]], [[22, 21, 14, 9], [12, 21, 9, 7], [32, 24, 10, 6], [24, 13, 11, 7]]];
   const BERRY_SPOTS = [[11, 22], [18, 14], [27, 11], [34, 21], [22, 22], [30, 17], [14, 17], [24, 27], [8, 26], [36, 26]];
-  function bushArt(variant, tint, berry, ripe) {
-    const v = variant % 3, key = `b|${v}|${tint || ''}|${ripe ? berry : 'dry'}`;
+  function bushArt(variant, tint, berry, ripe, cut) {
+    const v = variant % 3, key = `b|${v}|${tint || ''}|${cut ? 'cut' : ripe ? berry : 'dry'}`;
     if (cache.has(key)) return cache.get(key);
-    const pal = (ripe ? LEAF : DRY).map(c => ripe ? tinted(c, tint) : c);
+    const pal = (ripe || cut ? LEAF : DRY).map(c => ripe || cut ? tinted(c, tint) : c);
     const T = canvas(BW, BH), tc = T.getContext('2d'), C = canvas(BW, BH), cc = C.getContext('2d');
     const stem = v === 1 ? [[17, 31, 19, 26], [26, 31, 25, 25], [22, 31, 22, 27]] : [[18, 31, 18, 26], [23, 31, 24, 26], [28, 31, 29, 27]];
     for (const [x0, y0, x1, y1] of stem) for (let s = 0; s <= 6; s++) { tc.fillStyle = s % 3 === 2 ? BARK[1] : BARK[0]; tc.fillRect(Math.round(x0 + (x1 - x0) * s / 6), Math.round(y0 + (y1 - y0) * s / 6), 1, 1); }   // twigs under the foliage
-    litBlob(cc, BUSH_SHAPES[v], 1, pal, { noise: 0.6, clumps: 0.05 });
+    litBlob(cc, cut ? [[22, 27, 11, 4], [22, 25, 8, 3]] : BUSH_SHAPES[v], 1, pal, cut ? { noise: 0.25 } : { noise: 0.6, clumps: 0.05 });          // (a bush the hedge cutter cut down: a low, flat-topped stub)
     if (ripe) BERRY_SPOTS.forEach(([bx, by], i) => {
       if ((i + v) % 4 === 3) return;                                                               // a little variation between bushes
       cc.fillStyle = shade(berry, 0.45); cc.fillRect(bx - 1, by - 1, 4, 4);                         // a dark rim, so every colour shows among the leaves
@@ -197,8 +197,8 @@ const PixelProps = (() => {
     return art;
   }
   /** A berry bush at (sx, sy); the foliage sways by shakeX (wind, picking, brushing past). */
-  function drawBush(ctx, sx, sy, variant, ripe, berry, shakeX, tint) {
-    const art = bushArt(variant, tint, berry, ripe), u = PX, left = sx - BAX * u, top = sy - BGROUND * u;
+  function drawBush(ctx, sx, sy, variant, ripe, berry, shakeX, tint, cut) {
+    const art = bushArt(variant, tint, berry, ripe, cut), u = PX, left = sx - BAX * u, top = sy - BGROUND * u;
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(sx + 3, sy + 2, 19, 7, 0, 0, Math.PI * 2); ctx.fill();
     ctx.save(); ctx.imageSmoothingEnabled = false;
     ctx.drawImage(art.trunk, left, top, art.w * u, art.h * u);
@@ -206,7 +206,48 @@ const PixelProps = (() => {
     ctx.restore();
   }
 
-  return { drawTree, drawBush, drawSapling, drawFalling, drawStump, tinted, treeArt, stumpArt };
+  /* ---- hedges: a berry bush cut down and planted, TRIMMED: a neat block, a round ball or tiers, in the same dithered leaves (no berries). ---- */
+  const HW = 48, HH = 50, HGROUND = 45, HAX = 24;
+  function hedgeArt(variant, style, tint) {
+    const key = `h|${style}|${variant % 4}|${tint || ''}`;
+    if (cache.has(key)) return cache.get(key);
+    const pal = LEAF.map(c => tinted(c, tint)), T = canvas(HW, HH), tc = T.getContext('2d'), C = canvas(HW, HH), cc = C.getContext('2d');
+    const stub = (x0, y0, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x < x0 + 3; x++) { tc.fillStyle = x === x0 ? BARK[3] : x === x0 + 2 ? BARK[0] : BARK[1]; tc.fillRect(x, y, 1, 1); } };
+    if (style === 0) {                                                                              // a neat block: top and two faces, clipped square
+      const top = 14, hgt = 18, hw = 17, hh = 8.5, cy = top + hh, put = (x, y, i) => { const j = Math.max(0, Math.min(pal.length - 1, i)); cc.fillStyle = pal[j]; cc.fillRect(x, y, 1, 1); };
+      for (let y = 0; y < HH; y++) for (let x = 0; x < HW; x++) {
+        const dx = x + 0.5 - HAX, dy = y + 0.5 - cy, inTop = Math.abs(dx) / hw + Math.abs(dy) / hh <= 1;
+        const edge = cy + hh * (1 - Math.abs(dx) / hw);                                             // y of the diamond's lower edge at this column
+        const inSide = Math.abs(dx) < hw && y + 0.5 > edge && y + 0.5 <= edge + hgt;
+        if (!inTop && !inSide) continue;
+        const dither = BAYER[(x & 1) + (y & 1) * 2], grain = (hash(Math.floor(x / 3), Math.floor(y / 2) + variant) - 0.5) * 1.1;
+        if (inTop) put(x, y, Math.floor((0.62 - dy / hh * 0.2 - dx / hw * 0.1) * 5 + dither * 0.9 + grain * 0.8));
+        else put(x, y, Math.floor((dx < 0 ? 2.3 : 1.2) + dither * 0.9 + grain) - ((y + 0.5 - edge) / hgt > 0.8 ? 1 : 0));
+      }
+      for (let k = 0; k < 14; k++) { const x = 8 + Math.floor(hash(k, variant) * 32), y = 20 + Math.floor(hash(variant, k + 9) * 22); if (cc.getImageData(x, y, 1, 1).data[3]) { cc.fillStyle = pal[5]; cc.fillRect(x, y, 2, 1); cc.fillStyle = pal[0]; cc.fillRect(x, y + 1, 2, 1); } }   // clipped leaf ends
+    } else if (style === 1) {                                                                       // a round ball on a short stem
+      stub(23, 38, HGROUND);
+      litBlob(cc, [[HAX, 24, 15, 15]], 1, pal, { noise: 0.35, clumps: 0.025 });
+    } else {                                                                                        // tiers, widest at the bottom
+      stub(23, 40, HGROUND);
+      litBlob(cc, [[HAX, 34, 16, 8], [HAX, 25, 12, 7], [HAX, 17, 8, 6], [HAX, 11, 4, 4]], 1, pal, { noise: 0.3, clumps: 0.02 });
+    }
+    outline(tc, '#1e140c', HW, HH); outline(cc, '#14261a', HW, HH);
+    const art = { trunk: T, crown: C, w: HW, h: HH };
+    cache.set(key, art);
+    return art;
+  }
+  /** A trimmed hedge at (sx, sy); style 0 block, 1 ball, 2 tiers. It barely sways (it is clipped and dense). */
+  function drawHedge(ctx, sx, sy, variant, style, shakeX, tint) {
+    const art = hedgeArt(variant, style, tint), u = PX, left = sx - HAX * u, top = sy - HGROUND * u;
+    ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(sx + 3, sy + 2, style === 0 ? 24 : 19, style === 0 ? 10 : 7.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(art.trunk, left, top, art.w * u, art.h * u);
+    ctx.drawImage(art.crown, left + Math.round(shakeX / u) * u, top, art.w * u, art.h * u);
+    ctx.restore();
+  }
+
+  return { drawTree, drawBush, drawHedge, drawSapling, drawFalling, drawStump, tinted, treeArt, stumpArt };
 })();
 
 /* ---- LOGS: a cut log lying on the ground (and the log's icon) ---- */

@@ -12,6 +12,8 @@ Tools.registerAll([
   /* ---- farming (farming.js): a hoe tills the ground (a half tile in front of you), a watering can waters what grows there ---- */
   { id: 'hoe', name: 'Hoe', price: [['gold_coin', 3]], craft: [['plank', 2], ['stone', 1]], tool: { kind: 'hoe', damage: 0, reach: 1, swingTime: 0.5, impactTime: 0.3 } },
   { id: 'watering_can', name: 'Watering Can', price: [['gold_coin', 3]], craft: [['plank', 3], ['string', 1]], tool: { kind: 'water', damage: 0, reach: 1, swingTime: 0.6, impactTime: 0.35 } },
+  /* ---- the hedge cutter (hedges.js): Use beside a berry bush to cut it down (a Hedge Bush to plant, and its berries); Use on a planted hedge to trim it into the next shape ---- */
+  { id: 'hedge_cutter', name: 'Hedge Cutter', price: [['gold_coin', 4]], craft: [['stone', 2], ['string', 1], ['plank', 1]], tool: { kind: 'hedge', damage: 0, reach: 1.3, swingTime: 0.55, impactTime: 0.3 } },
   { id: 'fishing_rod', name: 'Fishing Rod', tool: { kind: 'rod', damage: 0, reach: 3, swingTime: 1.2, impactTime: 0.9 } },
   /* ---- lassos: they live in the LASSO SLOT (thrown with L). A better lasso reaches farther, lands more often and catches rarer ponies (a pony kind's lassoTier).
    *      Each one is made at the crafting table from the one before it (the equipped one counts), so a lasso is UPGRADED rather than replaced. ---- */

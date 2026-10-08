@@ -24,7 +24,7 @@ const ResourceTypes = Object.freeze({
   stone: Object.freeze({ id: 'stone', name: 'Stone', stockpile: 'stockpile_stone' }),
   clay:  Object.freeze({ id: 'clay',  name: 'Clay',  stockpile: 'stockpile_clay' })
 });
-const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash', 'brush', 'shears', 'hoe', 'water', 'sickle']);
+const ToolKinds = Object.freeze(['axe', 'hammer', 'knife', 'spear', 'bow', 'rod', 'sword', 'shovel', 'leash', 'brush', 'shears', 'hoe', 'water', 'sickle', 'hedge']);
 const ItemEquipSlots = Object.freeze(['crown', 'outfit', 'cape']);                     // the wardrobe slots (equipment.js)
 /** Fields any table entry may carry through to its item: rarity, resource type, where it lies about, a crafting recipe, your pictures. */
 const ITEM_EXTRAS = ['rarity', 'resource', 'spawns', 'craft', 'sprites', 'lasso', 'groom', 'price', 'color', 'dye', 'apple'];
