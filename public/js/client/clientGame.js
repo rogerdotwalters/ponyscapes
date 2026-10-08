@@ -101,6 +101,8 @@ class ClientGame {
   ponyBagOff(index) { this.net.sendCommand({ type: 'ponyBagOff', index }); }
   /** At a shop counter: buy one of this item. */
   buy(item) { this.net.sendCommand({ type: 'buy', item }); }
+  /** At a shop counter: sell this many of an item from your bag. */
+  sell(item, count) { this.net.sendCommand({ type: 'sell', item, count }); }
   _applyPack(wire) {
     this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
     this.events.emit('packChanged');

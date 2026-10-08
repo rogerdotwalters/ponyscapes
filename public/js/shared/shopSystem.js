@@ -2,13 +2,33 @@
 /* SHARED - shops. A building whose data has `shop: [item ids]` sells those items at its shop counter (any furniture with `shop: true`, like the
  * Shop Counter). Walk up to the counter and press the interact key: the Shop window lists what is for sale and what it costs (each item's
  * `price` in its data table, in gold coins). Buying is decided by the server: it takes the coins from your bag (and then from the pack of
- * the pony beside you) and puts what you bought in your bag (or that pack). The General Store sells bags (data/items/bags.js). */
+
+ * the pony beside you) and puts what you bought in your bag (or that pack). The General Store sells bags (data/items/bags.js).
+ * SELLING: the same counter buys what is in your bag for gold coins: an item's `sell` (coins each, 0 = not wanted), else half its shop price,
+ * else the table below, else 1 coin. Coins, carried creatures and quest items are never bought. */
+const SELL_VALUES = Object.freeze({
+  log: 1, plank: 2, stone: 1, hide: 2, wool: 2, bone: 1, antler: 2, hay: 1, rope: 2, clay: 1, brick: 2, string: 1, linen: 3, arrow: 1, coffee_beans: 2, bamboo: 1,
+  claw: 3, fang: 3, feather: 1, chitin: 4, dragon_scale: 25, golden_apple: 6, crystal_apple: 8, pink_apple: 3, egg: 1, fried_egg: 2, jug_water: 1, message_bottle: 4,
+  rabbit_meat: 2, venison: 3, mutton: 3, chicken_meat: 2, bear_meat: 4, raw_fish: 2, banana: 1, cocoa_pod: 2, sugar_cane: 1, torch: 1
+});
+const NEVER_BOUGHT = new Set(['gold_coin', 'bear_cub', 'dungeon_scroll', 'treasure_map']);
 const SHOP_REACH = 1.4;
 const Shops = {
   /** What a building site sells: [item ids] that exist and have a price. */
   stock(site) { const list = site && site.def && Array.isArray(site.def.shop) ? site.def.shop : []; return list.filter(id => ItemDefs[id] && Array.isArray(ItemDefs[id].price) && ItemDefs[id].price.length); },
   /** An item's price: [[item, count]...]. */
   price: id => (ItemDefs[id] && ItemDefs[id].price) || [],
+  /** What the shop pays for one of this item (0: not bought). */
+  sellValue(id) {
+    const d = ItemDefs[id];
+    if (!d || NEVER_BOUGHT.has(id) || d.kind === 'creature' || d.creature) return 0;
+    if (Number.isFinite(d.sell)) return Math.max(0, Math.floor(d.sell));
+    const coins = Array.isArray(d.price) && d.price.find(([item]) => item === 'gold_coin');
+    if (coins) return Math.max(1, Math.floor(coins[1] / 2));
+    if (SELL_VALUES[id]) return SELL_VALUES[id];
+    if (/^cook/.test(id)) return 3;
+    return 1;
+  },
   /** Pure (client + server): a shop counter within reach of p in this room? { site, dist } or null. */
   counterNear(map, p) {
     if (!map || map.kind !== 'room' || !map.plan || !map.plan.layout) return null;
@@ -32,8 +52,20 @@ function findShopInteraction(map, p) {
 Interactions.extra.push(findShopInteraction);
 InteractionHandlers.shop = (server, id, p, action) => server.pendingEvents.push({ type: 'shop', to: id, site: action.site, items: Shops.stock(BuildingSites.list[action.site]) });
 
-/** Server side: buying. Added to GameServer. */
+/** Server side: buying and selling. Added to GameServer. */
 Object.assign(GameServer.prototype, {
+  /** Sell some of an item from your bag at the counter for gold coins. */
+  _sell(id, itemId, count) {
+    const p = this.players[id], inventory = this.inventories[id], near = p && Shops.counterNear(this.mapOf(p), p);
+    if (!near) { this._notice(id, 'Walk up to the shop counter to sell'); return; }
+    const value = Shops.sellValue(itemId), n = Math.min(clamp(count | 0, 1, 9999), inventory.count(itemId));
+    if (!value || n <= 0) { this._notice(id, value ? `You have no ${ItemDefs[itemId].name.toLowerCase()} to sell` : 'The shop does not want that'); return; }
+    const trial = inventory.clone(); trial.remove(itemId, n);
+    if (trial.add('gold_coin', n * value)) { this._notice(id, 'No room in your bag for the coins'); return; }
+    inventory.slots = trial.slots; this.inventoryRev[id]++;
+    this.pendingEvents.push({ type: 'gain', to: id, item: 'gold_coin', count: n * value });
+    this._notice(id, `Sold ${n} ${ItemDefs[itemId].name} for ${n * value} coin${n * value === 1 ? '' : 's'}`);
+  },
   _buy(id, itemId) {
     const p = this.players[id], inventory = this.inventories[id], near = p && Shops.counterNear(this.mapOf(p), p);
     if (!near) { this._notice(id, 'Walk up to the shop counter to buy'); return; }
