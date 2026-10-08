@@ -403,6 +403,7 @@ const PixelBuildings = (() => {
     cliff: { base: '#8f8574', moss: '#58853a', mossLight: '#78a24c', grass: ['#5f9c4a', '#68a652', '#589145'], heights: [24, 46, 70] },
     cave:  { base: '#4f5568', moss: '#3b4a5a', mossLight: '#5a6a80', grass: ['#2b2f3a', '#30343f', '#272b35'], heights: [9, 47, 47] }     // (cave: [low wall, tall wall])
   };
+  ROCK.mouth = ROCK.cliff;                                                          // (a cave mouth is a block of cliff with an opening cut in its south face)
   const ROCK_VARIANTS = 6, BAYER4 = [0, 0.5, 0.75, 0.25];
   /** Uneven courses of rock, from the ground up: each 5-11 art pixels tall (the same for every tile, so the layers run on across a whole cliff). */
   const COURSES = (() => { const out = []; let z = 0; for (let r = 0; z < 120; r++) { out.push(z); z += 5 + Math.floor(hash(r, 91) * 7); } return out; })();
@@ -440,11 +441,31 @@ const PixelBuildings = (() => {
     if (m > 0.62) return n < 0.5 ? R.moss : R.mossLight;                                                         // moss on bare rock
     return n < 0.12 ? shade(R.base, 0.82) : n > 0.9 ? light(R.base, 0.14) : shade(R.base, 0.98 + (m - 0.5) * 0.1);          // worn rock, broken only by a few chips
   }
+  /** The cave mouth cut into a block's south face (x across it 0..1, z up in art px): a dark arched opening, a rim of lit voussoir stones round it and a keystone,
+   *  rubble at its foot and a faint glow deep inside. null = the plain rock face. */
+  function mouthAt(R, x, z, k) {
+    const p = (x - 0.5) / 0.4, a = Math.abs(p), top = 15 + 17 * Math.sqrt(Math.max(0, 1 - Math.min(1, a) * Math.min(1, a)));
+    if (a <= 1 && z < top) {
+      const glow = Math.max(0, 1 - Math.hypot(p * 1.2, (z - 10) / 14)), n = hash(Math.floor(x * 40), Math.floor(z), 61);
+      if (glow > 0.45 && n < glow) return '#16323c';
+      if (z < 2.2 && n < 0.45) return '#2b2f3a';                                         // grit on the floor of the opening
+      return z > top - 4 ? '#05050a' : n < 0.1 ? '#0e1018' : '#090a10';
+    }
+    const reach = a <= 1.32 ? top + 4 - Math.max(0, a - 1) * 6 : 0;                         // the rim: a band of stones round the arch
+    if (a <= 1.34 && z < reach && (a > 1 || z >= top)) {
+      const seg = Math.floor(Math.atan2(z - 6, p * 14) * 6), ring = hash(seg, 3, 62);
+      const key = a < 0.14 && z >= top;                                                    // the keystone at the crown
+      let c = key ? light(R.base, 0.3) : tones(R.base, k * 1.12)[Math.floor(ring * 3) + 1];
+      if (hash(Math.floor(x * 60), Math.floor(z), 63) < 0.1) c = shade(c, 0.8);
+      return z >= top + 3.2 || a > 1.28 ? shade(c, 0.66) : c;                             // a dark outer edge to the rim
+    }
+    return null;
+  }
   /** A picture of one tile of rock: { canvas, minX, minY }. style: 'cliff' (level 0-2: a rise, a ridge, a bluff) or 'cave' (level 0: a low wall, 1: a tall one). */
   function rockArt(style, level, variant) {
     const key = `rock|${style}|${level}|${variant}`;
     if (cache.has(key)) return cache.get(key);
-    const R = ROCK[style], H = R.heights[level], M = 3, minX = Math.floor(-1.1 * HWa) - M, maxX = Math.ceil(1.1 * HWa) + M, minY = Math.floor(-H - 0.6 * HHa) - M, maxY = Math.ceil(2.05 * HHa) + M;
+    const R = ROCK[style], look = style === 'mouth' ? 'cliff' : style, H = R.heights[level], M = 3, minX = Math.floor(-1.1 * HWa) - M, maxX = Math.ceil(1.1 * HWa) + M, minY = Math.floor(-H - 0.6 * HHa) - M, maxY = Math.ceil(2.05 * HHa) + M;
     const canvas = document.createElement('canvas'); canvas.width = maxX - minX; canvas.height = maxY - minY;
     const g = canvas.getContext('2d');
     for (let py = 0; py < canvas.height; py++) for (let px = 0; px < canvas.width; px++) {
@@ -452,7 +473,8 @@ const PixelBuildings = (() => {
       let best = null; for (const hit of hits) if (hit && (!best || hit.n > best.n)) best = hit;
       if (!best) continue;
       const east = best.side === 'e', u = (east ? 1 - best.y : best.x) * LEN + variant * 17;
-      let c = best.mat === 'top' ? rockTop(R, style, level, best.x, best.y, variant) : rockAt(R, style, u, best.z, east ? 0.78 : 1, variant, H);
+      let c = best.mat === 'top' ? rockTop(R, look, level, best.x, best.y, variant) : rockAt(R, look, u, best.z, east ? 0.78 : 1, variant, H);
+      if (style === 'mouth' && best.side === 's') c = mouthAt(R, best.x, best.z, 1) || c;
       if (best.mat === 'top' && (best.x > 0.93 || best.y > 0.93)) c = shade(c, 0.8);                           // the lip of the top edge
       g.fillStyle = c; g.fillRect(px, py, 1, 1);
     }

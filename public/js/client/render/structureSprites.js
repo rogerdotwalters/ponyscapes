@@ -8,7 +8,7 @@ const StructureSprites = (() => {
     if (item.o >= INTERIOR_OBJ_BASE) InteriorSprites.wall(g, item.o, cx, cy, item);          // a room's wall (low ones at the front)
     else if (item.o === OBJ.WALL) drawWall(g, cx, cy, item);
     else if (item.o === OBJ.TOWER) drawTower(g, cx, cy, item);
-    else if (isCliffObj(item.o) || isCaveRockObj(item.o)) drawRock(g, cx, cy, item);
+    else if (isCliffObj(item.o) || isCaveRockObj(item.o) || item.o === OBJ.CAVEMOUTH) drawRock(g, cx, cy, item);
     else drawHouse(g, item, cx, cy);
   }
 
@@ -28,7 +28,8 @@ const StructureSprites = (() => {
   /** A cliff / hill tile (layers/caveSites.js) or the wall of a room dungeon's cave: ray-cast pixel rock (pixelBuildings.js), the same craft as the village walls. */
   function drawRock(g, cx, cy, item) {
     const o = item.o;
-    if (isCaveRockObj(o)) PixelBuildings.drawRock(g.ctx, 'cave', o === OBJ.CAVEROCK_LOW ? 0 : 1, item.tx, item.ty, cx, cy);
+    if (o === OBJ.CAVEMOUTH) PixelBuildings.drawRock(g.ctx, 'mouth', 1, item.tx, item.ty, cx, cy);
+    else if (isCaveRockObj(o)) PixelBuildings.drawRock(g.ctx, 'cave', o === OBJ.CAVEROCK_LOW ? 0 : 1, item.tx, item.ty, cx, cy);
     else PixelBuildings.drawRock(g.ctx, 'cliff', o - OBJ.CLIFF1, item.tx, item.ty, cx, cy);
   }
 

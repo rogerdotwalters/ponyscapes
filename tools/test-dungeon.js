@@ -47,7 +47,8 @@ test('cliff and cave stamps: same on every call, dry land, cave mouth open and r
     assert.strictEqual(run('new TerrainGenerator(' + seed + ').caveSites.list().map(p => p.id + p.x0 + "," + p.y0 + p.flip).join("|")'), list);
     const cave = run('T.caveSites.caves()[0]');
     assert(cave, 'seed ' + seed + ' has a cave');
-    assert.strictEqual(run(`T.caveSites.objAt(${Math.floor(cave.x)}, ${Math.floor(cave.y)})`), 0);
+    assert.strictEqual(run(`T.caveSites.objAt(${Math.floor(cave.x)}, ${Math.floor(cave.y)})`), run('OBJ.CAVEMOUTH'));         // the mouth is a block of the cliff face
+    assert.strictEqual(run(`T.caveSites.objAt(${Math.floor(cave.x)}, ${Math.floor(cave.y) + 1})`), 0);                // ... with open yard in front of it
     // from the yard in front of the mouth you can walk to open land 20 tiles away, through chunks the way the game builds them
     const reach = run(`(() => { const w = new World(${seed}), mx = ${Math.floor(cave.x)}, my = ${Math.floor(cave.y)};
       const seen = new Set([mx + ',' + my + 1]), q = [[mx, my + 2]], key = (x, y) => x + ',' + y; seen.add(key(mx, my + 2));
@@ -56,10 +57,10 @@ test('cliff and cave stamps: same on every call, dry land, cave mouth open and r
       return false; })()`);
     assert(reach, 'seed ' + seed + ': the yard in front of the cave is boxed in');
     const w = run(`(() => { const w = new World(${seed}); w.ensureAround(${cave.x}, ${cave.y}, 2);
-      const prop = w.propAt(${Math.floor(cave.x)}, ${Math.floor(cave.y)});
+      const mouthSolid = w.isSolid(${Math.floor(cave.x)}, ${Math.floor(cave.y)}), yardOpen = !w.isSolid(${Math.floor(cave.x)}, ${Math.floor(cave.y) + 1});
       let cliffs = 0, solid = 0; for (const p of T.caveSites.list()) for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) { const o = T.caveSites.objAt(p.x0 + x, p.y0 + y); if (o) { cliffs++; if (w.isSolid(p.x0 + x, p.y0 + y)) solid++; } }
-      return { prop: prop && { t: prop.t, dungeon: prop.dungeon }, cliffs, solid }; })()`);
-    assert.strictEqual(JSON.stringify(w.prop), JSON.stringify({ t: 'cave', dungeon: 'cavern' }));
+      return { mouthSolid, yardOpen, cliffs, solid }; })()`);
+    assert(w.mouthSolid && w.yardOpen, 'seed ' + seed);
     assert(w.cliffs > 100);
     run('for (const p of T.caveSites.list()) for (let y = -1; y <= p.h; y++) for (let x = -1; x <= p.w; x++) { const t = T.baseTile(p.x0 + x, p.y0 + y); if (t === TILE.WATER || t === TILE.SHALLOW) throw new Error("stamp on water at " + (p.x0 + x) + "," + (p.y0 + y)); }');
   }
