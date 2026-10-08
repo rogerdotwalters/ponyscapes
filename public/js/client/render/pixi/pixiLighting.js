@@ -43,7 +43,8 @@ class PixiLighting {
       if (!s) { s = new PIXI.Sprite(this.cutTex); s.anchor.set(0.5); s.blendMode = 'erase'; this.cuts[n] = s; this.scene.addChild(s); }
       n++; s.visible = true; s.position.set(x, y); s.width = 2 * rx; s.height = 2 * rx * squash; s.alpha = strength;
     };
-    cut(playerX, playerY, LIGHT_RADIUS * scale, 0.78, 1);                                          // the soft pool you always carry
+    const own = playerPool(scale);
+    if (own.strength > 0.01) cut(playerX, playerY, own.radius, own.strength, 1);                    // the soft pool you always carry
     for (const l of lights) cut(l.x, l.y, l.radius, Math.min(1, 0.9 + (l.flick - 1) * 0.6), 0.5);
     for (let i = n; i < this.cuts.length; i++) this.cuts[i].visible = false;
     this.r.app.renderer.render({ container: this.scene, target: this.rt, clear: true, clearColor: [0, 0, 0, 0] });

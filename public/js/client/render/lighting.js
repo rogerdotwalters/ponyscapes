@@ -5,15 +5,18 @@
 const LIGHT_RADIUS = 300, TILE_TO_SCREEN = Math.SQRT2;       // a light of r tiles reaches r * sqrt2 * half-tile-width pixels sideways
 
 /** How dark the night is, as the overlay's opacity at midnight. A per-player preference (Menu > Night darkness), kept in this browser. */
-const NightSetting = (() => {
-  const KEY = 'ponyscapes.nightDarkness', MIN = 0.35, MAX = 0.95, DEFAULT = 0.76;
+const makeSetting = (key, MIN, MAX, DEFAULT) => {
   let v = DEFAULT;
-  try { const raw = parseFloat(localStorage.getItem(KEY)); if (raw >= MIN && raw <= MAX) v = raw; } catch (e) { /* private window: the default */ }
+  try { const raw = parseFloat(localStorage.getItem(key)); if (raw >= MIN && raw <= MAX) v = raw; } catch (e) { /* private window: the default */ }
   return {
     MIN, MAX, DEFAULT, get value() { return v; },
-    set(x) { v = Math.min(MAX, Math.max(MIN, x)); try { localStorage.setItem(KEY, String(v)); } catch (e) { /* lasts this session */ } }
+    set(x) { v = Math.min(MAX, Math.max(MIN, x)); try { localStorage.setItem(key, String(v)); } catch (e) { /* lasts this session */ } }
   };
-})();
+};
+const NightSetting = makeSetting('ponyscapes.nightDarkness', 0.35, 0.95, 0.76);
+/** How much light you carry with you (Menu > Your own light): 0 = none, 1 = a little more than the game used to give. The pool's size and strength both follow it. */
+const PlayerLightSetting = makeSetting('ponyscapes.playerLight', 0, 1, 0.3);
+const playerPool = scale => { const v = PlayerLightSetting.value; return { radius: LIGHT_RADIUS * scale * (0.45 + 0.55 * v), strength: 0.9 * v }; };
 
 /** The colour of each kind of light, and how hard it flickers (a torch gutters, a lantern burns steadily). */
 const LIGHT_LOOK = {
@@ -61,7 +64,8 @@ class Lighting {
       gr.addColorStop(0, `rgba(0,0,0,${strength})`); gr.addColorStop(0.55, `rgba(0,0,0,${strength * 0.6})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
       m.fillStyle = gr; m.fillRect(-rx, -rx, 2 * rx, 2 * rx); m.restore();
     };
-    cut(px, py, LIGHT_RADIUS * scale, 0.78, 1);                       // the soft pool you always carry
+    const own = playerPool(scale);
+    if (own.strength > 0.01) cut(px, py, own.radius, own.strength, 1);   // the soft pool you always carry
     for (const l of lights) cut(l.x, l.y, l.radius, Math.min(1, 0.9 + (l.flick - 1) * 0.6), 0.5);
     m.globalCompositeOperation = 'source-over';
     ctx.drawImage(layer, 0, 0);
