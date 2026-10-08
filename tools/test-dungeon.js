@@ -124,4 +124,24 @@ test('going back a room arrives beside the exit you left by; the first entrance 
   assert.strictEqual(JSON.stringify(out), JSON.stringify({ grid: 'dungeon:0:0', nearExit: true, out: '' }));
 });
 
+test('cave walls: rock blocks only where wall meets floor, solid everywhere, low on the south / east side', () => {
+  const r = run(`(() => { const w = new GameServer(4242).grids.get('dungeon:0:0'), P = w.plan, R = P.room; let blocks = 0, bad = 0, low = 0, tall = 0, deep = 0;
+    for (let y = -2; y <= R.h + 1; y++) for (let x = -2; x <= R.w + 1; x++) { const o = P.objAt(x, y), floor = R.walkable(x, y);
+      if (floor && o) bad++; if (!floor && !P.solidAt(x, y)) bad++;
+      if (o) { blocks++; if (o === OBJ.CAVEROCK_LOW) low++; else if (o === OBJ.CAVEROCK_TALL) tall++; else bad++; if (R.walkable(x, y - 1) && o !== OBJ.CAVEROCK_LOW) bad++; }
+      if (!floor && !o) deep++; }
+    return { blocks, bad, low, tall, deep }; })()`);
+  assert.strictEqual(r.bad, 0); assert(r.low > 20 && r.tall > 20 && r.deep > 100, JSON.stringify(r));
+});
+
+test('debug teleport: village, cave mouth and each dungeon room (host only)', () => {
+  const r = run(`(() => { const s = new GameServer(4242), id = s.addPlayer(), p = s.players[id], out = [], mouth = s.map.terrain.caveSites.caves()[0];
+    for (const to of ['cave', 'room:2', 'room:0', 'village', 'room:9']) { s.receiveCommand(id, { type: 'debugTeleport', to }); out.push(p.grid + '@' + Math.round(p.x) + ',' + Math.round(p.y)); }
+    s.receiveCommand(id, { type: 'debugTeleport', to: 'room:1' }); s.hostId = 'someone else'; const before = p.grid; s.receiveCommand(id, { type: 'debugTeleport', to: 'cave' });
+    return { out, mouth: [Math.round(mouth.x), Math.round(mouth.y + 1.6)], refused: p.grid === before }; })()`);
+  assert.strictEqual(r.out[0], '@' + r.mouth.join(',')); assert.strictEqual(r.out[1].split('@')[0], 'dungeon:0:2'); assert.strictEqual(r.out[2].split('@')[0], 'dungeon:0:0');
+  assert.strictEqual(r.out[3].split('@')[0], ''); assert.strictEqual(r.out[4].split('@')[0], '');                      // (room:9 does not exist: you stay where you were)
+  assert(r.refused);
+});
+
 console.log(process.exitCode ? 'FAILED' : `all ${passed} checks passed`);

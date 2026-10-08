@@ -93,6 +93,22 @@ class DungeonSystem {
     s._notice(id, `${def.name}: room ${next + 1} of ${def.rooms.length}`);
   }
 
+  /** Testing aid (the host, Dev settings): 'village', 'cave' (the first dungeon's mouth) or 'room:<n>' (inside its room n, as if you had walked in). */
+  debugTeleport(id, p, to) {
+    const s = this.server, mouth = s.map.terrain.caveSites.caves()[0], room = /^room:(\d{1,2})$/.exec(to);
+    if (p.flying) { p.flying = false; p.flyT = 0; }
+    if (to === 'village') { const at = Village.spawns[0]; s._moveToGrid(id, p, '', at.x, at.y); p.returnTo = null; }
+    else if (to === 'cave' && mouth) { s._moveToGrid(id, p, '', mouth.x, mouth.y + 1.6); p.returnTo = null; }
+    else if (room && mouth) {
+      const world = s.grids.get(Grids.dungeon(0, Number(room[1])));
+      if (world.kind !== 'dungeon') { s._notice(id, 'No such room'); return; }
+      p.returnTo = { x: mouth.x, y: mouth.y + 1.6 };
+      const at = world.plan.entryPoint();
+      s._moveToGrid(id, p, world.grid, at.x, at.y); this.populate(world);
+    } else return;
+    s._notice(id, 'Teleported');
+  }
+
   /** Out of the dungeon, back to the cave mouth. */
   leaveDungeon(id, p, d) {
     const s = this.server, mouth = s.map.terrain.caveSites.caves().find(c => c.index === d), back = p.returnTo || (mouth ? { x: mouth.x, y: mouth.y + 1.6 } : { x: 20.5, y: 26.5 });

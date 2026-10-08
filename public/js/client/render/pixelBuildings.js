@@ -398,6 +398,76 @@ const PixelBuildings = (() => {
     cache.set(key, out);
     return out;
   }
+  /* ---- rock: cliffs and hills on the overworld, the walls of a cave. One tile each, ray-cast like the village walls, in hewn, layered blocks ---- */
+  const ROCK = {
+    cliff: { base: '#8f8574', moss: '#58853a', mossLight: '#78a24c', grass: ['#5f9c4a', '#68a652', '#589145'], heights: [24, 46, 70] },
+    cave:  { base: '#4f5568', moss: '#3b4a5a', mossLight: '#5a6a80', grass: ['#2b2f3a', '#30343f', '#272b35'], heights: [9, 47, 47] }     // (cave: [low wall, tall wall])
+  };
+  const ROCK_VARIANTS = 6, BAYER4 = [0, 0.5, 0.75, 0.25];
+  /** Uneven courses of rock, from the ground up: each 5-11 art pixels tall (the same for every tile, so the layers run on across a whole cliff). */
+  const COURSES = (() => { const out = []; let z = 0; for (let r = 0; z < 120; r++) { out.push(z); z += 5 + Math.floor(hash(r, 91) * 7); } return out; })();
+  const courseAt = v => { let r = 0; while (r + 1 < COURSES.length && COURSES[r + 1] <= v) r++; return r; };
+  /** The face of a rock block at (u along, v up): rough, uneven courses of big blocks with a lit top lip, a soft joint, chips, cracks and weathering; moss at the top of a cliff. */
+  function rockAt(R, style, u, v, k, variant, H) {
+    const row = courseAt(v), z0 = COURSES[row], z1 = COURSES[row + 1], bw = 11 + Math.floor(hash(row, 5, 3) * 16), off = hash(row, variant, 4) * 40, col = Math.floor((u + off) / bw);
+    const inRow = v - z0, inCol = frac((u + off) / bw) * bw, rowH = z1 - z0;
+    const lowest = 1 - v / H, dither = BAYER4[(Math.floor(u) & 1) + (Math.floor(v) & 1) * 2];
+    let c;
+    if (inRow < 1 || (inCol < 1 && hash(row, col, variant + 5) < 0.85)) c = shade(R.base, 0.66 * k);              // a joint (a block now and then runs on into the next)
+    else {
+      c = tones(R.base, k)[Math.min(3, Math.floor(hash(row, col, variant) * 3.4 + (hash(Math.floor(u / 3), Math.floor(v / 2), variant + 3) - 0.5) * 0.9))];   // each block a tone, mottled
+      if (inRow > rowH - 1.8 && hash(Math.floor(u / 2), row, variant + 12) < 0.7) c = light(c, 0.12);             // the lit lip along the top of the course
+      else if (inRow < 2.6 && hash(Math.floor(u / 2), row, variant + 13) < 0.5) c = shade(c, 0.88);               // the shadowed foot of it
+      if (hash(Math.floor(u), Math.floor(v), variant + 9) < 0.08) c = shade(c, 0.8);                               // speckle
+      else if (hash(Math.floor(u), Math.floor(v), variant + 10) < 0.04) c = light(c, 0.14);
+    }
+    if (lowest > 0.55 && dither < (lowest - 0.55) * 1.1) c = shade(c, 0.86);                                       // dithered shade towards the foot
+    if (hash(Math.floor((u + off * 2) / 13), row, variant + 21) < 0.07 && Math.floor(u + off) % 13 < 2 && inRow > 1) c = shade(R.base, 0.46 * k);   // a crack
+    if (style === 'cliff' && v > H - 8) {                                                                         // moss spilling down from the top
+      const reach = 2 + hash(Math.floor(u / 3), variant, 6) * 6;
+      if (H - v < reach) c = hash(Math.floor(u), Math.floor(v), 7) < 0.8 ? (hash(Math.floor(u / 2), Math.floor(v), 8) < 0.5 ? shade(R.moss, k) : shade(R.mossLight, k)) : c;
+    }
+    return v < 1.3 ? shade(c, 0.62) : c;                                                                          // the foot, in shadow
+  }
+  /** The top of a block: grass on the low rise of a cliff, else mossy rock (a cave's: dark worn stone). */
+  function rockTop(R, style, level, x, y, variant) {
+    const n = hash(Math.floor(x * 9), Math.floor(y * 9), variant + 31), m = hash(Math.floor(x * 5), Math.floor(y * 5), variant + 41);
+    if (style === 'cave') return R.grass[n < 0.3 ? 2 : n < 0.8 ? 0 : 1];
+    if (level === 0) {                                                                                           // a grassy hill: tufts and a few flowers
+      if (n > 0.93) return '#3d6e2e'; if (n < 0.04) return '#9bd06a'; if (n > 0.9 && m > 0.7) return ['#ffffff', '#ffe066'][m > 0.85 ? 1 : 0];
+      return R.grass[Math.floor(m * 3 + n) % 3];
+    }
+    if (m > 0.62) return n < 0.5 ? R.moss : R.mossLight;                                                         // moss on bare rock
+    return n < 0.12 ? shade(R.base, 0.82) : n > 0.9 ? light(R.base, 0.14) : shade(R.base, 0.98 + (m - 0.5) * 0.1);          // worn rock, broken only by a few chips
+  }
+  /** A picture of one tile of rock: { canvas, minX, minY }. style: 'cliff' (level 0-2: a rise, a ridge, a bluff) or 'cave' (level 0: a low wall, 1: a tall one). */
+  function rockArt(style, level, variant) {
+    const key = `rock|${style}|${level}|${variant}`;
+    if (cache.has(key)) return cache.get(key);
+    const R = ROCK[style], H = R.heights[level], M = 3, minX = Math.floor(-1.1 * HWa) - M, maxX = Math.ceil(1.1 * HWa) + M, minY = Math.floor(-H - 0.6 * HHa) - M, maxY = Math.ceil(2.05 * HHa) + M;
+    const canvas = document.createElement('canvas'); canvas.width = maxX - minX; canvas.height = maxY - minY;
+    const g = canvas.getContext('2d');
+    for (let py = 0; py < canvas.height; py++) for (let px = 0; px < canvas.width; px++) {
+      const X = px + minX + 0.5, Y = py + minY + 0.5, hits = [faceS(X, Y, 1, 0, 1, 0, H, 'rock'), faceE(X, Y, 1, 0, 1, 0, H, 'rock'), top(X, Y, H, 0, 1, 0, 1, 'top')];
+      let best = null; for (const hit of hits) if (hit && (!best || hit.n > best.n)) best = hit;
+      if (!best) continue;
+      const east = best.side === 'e', u = (east ? 1 - best.y : best.x) * LEN + variant * 17;
+      let c = best.mat === 'top' ? rockTop(R, style, level, best.x, best.y, variant) : rockAt(R, style, u, best.z, east ? 0.78 : 1, variant, H);
+      if (best.mat === 'top' && (best.x > 0.93 || best.y > 0.93)) c = shade(c, 0.8);                           // the lip of the top edge
+      g.fillStyle = c; g.fillRect(px, py, 1, 1);
+    }
+    const out = { canvas, minX, minY };
+    cache.set(key, out);
+    return out;
+  }
+  /** Draw a tile of rock standing on tile (tx, ty) (its ground centre at cx, cy in world pixels). The variant comes from the tile, so the face never repeats in rows. */
+  function drawRock(ctx, style, level, tx, ty, cx, cy) {
+    const A = rockArt(style, level, Math.floor(hash(tx, ty, 77) * ROCK_VARIANTS)), smooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(A.canvas, cx + A.minX * ART, cy - TILE_HALF_H + A.minY * ART, A.canvas.width * ART, A.canvas.height * ART);
+    ctx.imageSmoothingEnabled = smooth;
+  }
+
   /** Draw a tile of wall or a watchtower standing on tile (tx, ty) (its ground centre at cx, cy in world pixels). */
   function drawPiece(ctx, kind, cx, cy, tx, ty) {
     const A = pieceArt(kind, tx === undefined ? null : kindAt(tx, ty + 1), tx === undefined ? null : kindAt(tx + 1, ty)), ox = cx, oy = cy - TILE_HALF_H, smooth = ctx.imageSmoothingEnabled;   // (the art's origin: the tile's north corner)
@@ -431,5 +501,5 @@ const PixelBuildings = (() => {
   /** How tall the ground floor is in world pixels (the name banner floats above the door). */
   const groundFloorHeight = () => F * ART;
 
-  return { art, pieceArt, drawTile, drawPiece, signAt, groundFloorHeight, useGround, ART };
+  return { art, pieceArt, rockArt, drawRock, drawTile, drawPiece, signAt, groundFloorHeight, useGround, ART };
 })();

@@ -268,6 +268,7 @@ class GameServer {
           GameSettings.setClock(this.tick, Math.floor(GameSettings.totalHours(this.tick) / 24) * 24 + Math.min(23.99, Math.max(0, cmd.hour))); this.adminRev++;
         }
         break;   // the Admin page: speed, day split, time (sent to everyone)
+      case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;

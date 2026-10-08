@@ -8,7 +8,7 @@ const StructureSprites = (() => {
     if (item.o >= INTERIOR_OBJ_BASE) InteriorSprites.wall(g, item.o, cx, cy, item);          // a room's wall (low ones at the front)
     else if (item.o === OBJ.WALL) drawWall(g, cx, cy, item);
     else if (item.o === OBJ.TOWER) drawTower(g, cx, cy, item);
-    else if (isCliffObj(item.o)) drawCliff(g, cx, cy, item);
+    else if (isCliffObj(item.o) || isCaveRockObj(item.o)) drawRock(g, cx, cy, item);
     else drawHouse(g, item, cx, cy);
   }
 
@@ -25,21 +25,11 @@ const StructureSprites = (() => {
     ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Bx, By); ctx.lineTo(Bx, By - height); ctx.stroke();
   }
 
-  /** A cliff / hill tile (layers/caveSites.js): layered rock, 1 = a low grassy rise, 2 = a ridge, 3 = a bluff. Neighbours share a seamless top; each tile is
-   *  shaded a little differently so the face reads as rough rock, with strata lines across it. */
-  const CLIFF_HEIGHT = { [OBJ.CLIFF1]: 34, [OBJ.CLIFF2]: 66, [OBJ.CLIFF3]: 98 };
-  function drawCliff(g, cx, cy, item) {
-    const ctx = g.ctx, h = CLIFF_HEIGHT[item.o], n = hash2(item.tx, item.ty), f = 0.9 + n * 0.2;
-    const Lx = cx - TILE_HALF_W, Rx = cx + TILE_HALF_W, By = cy + TILE_HALF_H;
-    const top = item.o === OBJ.CLIFF1 ? '#78995a' : item.o === OBJ.CLIFF2 ? '#8c9a68' : '#9b9a86';       // grassy on the low rise, mossy rock higher up
-    g.polygon([Lx, cy, cx, By, cx, By - h, Lx, cy - h], shadeHex('#857f72', f));
-    g.polygon([cx, By, Rx, cy, Rx, cy - h, cx, By - h], shadeHex('#625d53', f));
-    g.polygon([cx, cy - TILE_HALF_H - h, Rx, cy - h, cx, By - h, Lx, cy - h], shadeHex(top, 0.94 + n * 0.12));
-    ctx.strokeStyle = 'rgba(30,25,20,.25)'; ctx.lineWidth = 1; ctx.beginPath();
-    for (let y = 11 + Math.floor(n * 5); y < h; y += 13) { ctx.moveTo(Lx, cy - y); ctx.lineTo(cx, By - y); ctx.lineTo(Rx, cy - y); }                   // strata
-    ctx.stroke();
-    if (n > 0.55) { ctx.strokeStyle = 'rgba(20,16,12,.3)'; ctx.beginPath(); const x = cx + (n - 0.75) * 30; ctx.moveTo(x, By - h * 0.8); ctx.lineTo(x + 3, By - h * 0.55); ctx.lineTo(x - 2, By - h * 0.3); ctx.stroke(); }   // a crack
-    if (item.o === OBJ.CLIFF1) g.ellipse(cx + (n - 0.5) * 20, cy - h, 6, 2.6, 'rgba(60,100,40,.55)');                                       // a tuft of grass on the rise
+  /** A cliff / hill tile (layers/caveSites.js) or the wall of a room dungeon's cave: ray-cast pixel rock (pixelBuildings.js), the same craft as the village walls. */
+  function drawRock(g, cx, cy, item) {
+    const o = item.o;
+    if (isCaveRockObj(o)) PixelBuildings.drawRock(g.ctx, 'cave', o === OBJ.CAVEROCK_LOW ? 0 : 1, item.tx, item.ty, cx, cy);
+    else PixelBuildings.drawRock(g.ctx, 'cliff', o - OBJ.CLIFF1, item.tx, item.ty, cx, cy);
   }
 
   function drawWall(g, cx, cy, item) { PixelBuildings.drawPiece(g.ctx, 'wall', cx, cy, item && item.tx, item && item.ty); }                    // crenellated fieldstone (pixelBuildings.js)

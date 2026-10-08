@@ -23,6 +23,7 @@ class SettingsUI {
     this._createNightLook();
     this._createFarming();
     this._createWeather();
+    this._createTeleport();
     this._createAnimals();
     this._createBiomes();
     this._createTrees();
@@ -193,6 +194,16 @@ class SettingsUI {
     const deer = AnimalDefs.deer, base = deer ? deer.detect.walk : 6, sharp = lv => (d.animalSense / 100) * (1 + d.senseLevelScale / 100 * (lv - 1));
     const stealth = n => Math.min(d.stealthCap / 100, ((n - 1) * d.stealthDex + (n - 1) * d.stealthFriend) / 1000), t = v => v.toFixed(1);
     o('preview').textContent = `A deer notices you from: level 1 \u2192 ${t(base * sharp(1))} tiles (new player), ${t(base * sharp(1) * (1 - stealth(30)))} (Dexterity and Animal Friendship 30) \u00b7 level 10 \u2192 ${t(base * sharp(10))} / ${t(base * sharp(10) * (1 - stealth(30)))} tiles`;
+  }
+
+  /* ---- teleport: jump to the cave mouth or into a dungeon room (testing; the host's own character) ---- */
+  _createTeleport() {
+    const el = document.createElement('div'), rooms = Dungeons.all()[0] ? Dungeons.all()[0].rooms : []; el.className = 'admBox';
+    el.innerHTML = '<div class="gtitle">Teleport <small>(testing: moves you, and the pony with you)</small></div><div class="admRow" style="flex-wrap:wrap;gap:6px">' +
+      '<button data-tp="village" tabindex="-1">Village</button><button data-tp="cave" tabindex="-1">Cave mouth</button>' +
+      rooms.map((r, i) => `<button data-tp="room:${i}" tabindex="-1">Dungeon room ${i + 1}</button>`).join('') + '</div>';
+    el.addEventListener('click', e => { const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp); });
+    this.body.appendChild(el);
   }
 
   /* ---- weather: see today's, or call up any sky to test it (the season's table normally chooses) ---- */
