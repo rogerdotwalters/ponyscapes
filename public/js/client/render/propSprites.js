@@ -51,23 +51,10 @@ const PropSprites = {
 
   drawStump(g, sx, sy) { PixelProps.drawStump(g.ctx, sx, sy); },
 
-  /** Berry bush: leafy mound; ripe bushes carry berries in the colour of their berry type. */
-  drawBush(g, sx, sy, bush) {
-    const ctx = g.ctx, ripe = bush.ripe, def = ItemDB.get(bush.berry), berry = def ? def.color : '#c33';
-    ctx.save(); ctx.translate(sx, sy);
-    g.ellipse(3, 2, 19, 8, 'rgba(0,0,0,.25)');
-    const leaf = ripe ? ['#2f6f36', '#3b8341', '#4a9a4c'] : ['#6b7a3c', '#7d8c46', '#8d9a52'];     // picked bushes look dry
-    g.ellipse(-11, -8, 12, 9, leaf[0]); g.ellipse(11, -8, 12, 9, leaf[0]);
-    g.ellipse(0, -13, 15, 12, leaf[1]); g.ellipse(-3, -17, 9, 6, leaf[2]);
-    if (ripe) {
-      const spots = [[-12, -8], [-5, -16], [4, -19], [11, -9], [-1, -9], [7, -14], [-9, -14], [2, -5]];
-      spots.forEach(([bx, by], i) => {
-        if ((i + bush.v) % 5 === 4) return;                      // a little variation between bushes
-        g.ellipse(bx, by, 3.2, 3.2, berry);
-        g.ellipse(bx - 1, by - 1, 1, 1, 'rgba(255,255,255,.55)');
-      });
-    }
-    ctx.restore();
+  /** Berry bush (retro pixel art, pixelProps.js): a leafy mound; ripe bushes carry berries in the colour of their berry type, picked ones look dry. */
+  drawBush(g, sx, sy, bush, shakeX, biome) {
+    const def = ItemDB.get(bush.berry);
+    PixelProps.drawBush(g.ctx, sx, sy, bush.v | 0, !!bush.ripe, def ? def.color : '#c33', shakeX || 0, TREE_TINT[biome] || PropSprites.seasonTint);
   },
 
   /** Flax: slender green stalks with small blue flowers. Harvested plants are bare stubs. */

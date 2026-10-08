@@ -18,7 +18,7 @@ class Effects {
     game.events.on('strike', e => { this._burst(e.x, e.y, 26, ['#ffffff', '#cfe3ff', '#ffe9a0', '#7fa8ff'], 22); this._burst(e.x, e.y, 10, DUST_COLORS, 6); });   // lightning hits (weather.js)
     game.events.on('burn', e => { this._burst(e.x, e.y, 3, ['#ff9a2a', '#ffd24a', '#ff5a1a'], 8); this._burst(e.x, e.y, 1, ['#6b6b72', '#8a8a92'], 22); });   // the little fire it leaves
     game.events.on('gain', e => this._onGain(e));
-    game.events.on('pick', e => this._burst(e.x, e.y, 9, e.prop === 'stone' ? DUST_COLORS : LEAF_COLORS, 12));
+    game.events.on('pick', e => { if (e.prop === 'bush') this.shakeStart[e.key] = performance.now(); this._burst(e.x, e.y, 9, e.prop === 'stone' ? DUST_COLORS : LEAF_COLORS, 12); });   // (a picked bush shakes like a chopped tree)
     game.events.on('eat', e => this._float(e, `Yum! +${e.hunger} hunger`));
     game.events.on('drink', e => this._float(e, `+${e.thirst} thirst`));
     game.events.on('fill', e => this._float(e, 'Jug filled'));
@@ -81,9 +81,15 @@ class Effects {
     if (e.by === this.game.myId) this._float({ to: e.by }, ability.glyph + ' ' + ability.name);
   }
 
-  treeShakeX(treeIndex, now) {
+  treeShakeX(treeIndex, now, sway = 4) {
     const age = now - (this.shakeStart[treeIndex] || -Infinity);
-    return (age < SHAKE_MS ? Math.sin(age * 0.06) * SHAKE_PIXELS * (1 - age / SHAKE_MS) : 0) + this.sway(treeIndex, now, 4);   // (a chopped tree shakes; in a wind they all lean and flutter)
+    return (age < SHAKE_MS ? Math.sin(age * 0.06) * SHAKE_PIXELS * (1 - age / SHAKE_MS) : 0) + this.sway(treeIndex, now, sway);   // (a chopped tree shakes; in a wind they all lean and flutter)
+  }
+  /** Something walked into a bush: it shakes (once its last shake has mostly died down) and a leaf or two drops. */
+  rustle(key, x, y) {
+    const now = performance.now();
+    if (now - (this.shakeStart[key] || -Infinity) < SHAKE_MS * 0.8) return;
+    this.shakeStart[key] = now; this._burst(x, y, 3, LEAF_COLORS, 16);
   }
   /** How far something rooted in the ground leans in the wind right now (whole pixels; 0 in a calm). */
   sway(key, now, amount) { return this.weather ? this.weather.sway(key, now, amount) : 0; }

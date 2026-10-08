@@ -173,7 +173,40 @@ const PixelProps = (() => {
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(c, sx - 11 * u, sy - 14 * u, 22 * u, 16 * u); ctx.restore();
   }
 
-  return { drawTree, drawSapling, drawFalling, drawStump, tinted, treeArt, stumpArt };
+  /* ---- berry bushes: a low mound of dithered leaves over a few dark stems, berries as outlined pixel blobs. The foliage is its own canvas, so it alone sways. ---- */
+  const BW = 44, BH = 34, BGROUND = 31, BAX = 22;
+  const DRY = ['#3d3a1c', '#55512a', '#6e6a36', '#878240', '#a09a52', '#bbb46c'];                  // a picked bush: dry and olive
+  const BUSH_SHAPES = [[[22, 20, 15, 10], [11, 24, 9, 6], [33, 24, 9, 6], [22, 13, 10, 7]], [[22, 19, 16, 10], [10, 23, 8, 6], [34, 22, 8, 7], [17, 13, 8, 6], [28, 12, 8, 6]], [[22, 21, 14, 9], [12, 21, 9, 7], [32, 24, 10, 6], [24, 13, 11, 7]]];
+  const BERRY_SPOTS = [[11, 22], [18, 14], [27, 11], [34, 21], [22, 22], [30, 17], [14, 17], [24, 27], [8, 26], [36, 26]];
+  function bushArt(variant, tint, berry, ripe) {
+    const v = variant % 3, key = `b|${v}|${tint || ''}|${ripe ? berry : 'dry'}`;
+    if (cache.has(key)) return cache.get(key);
+    const pal = (ripe ? LEAF : DRY).map(c => ripe ? tinted(c, tint) : c);
+    const T = canvas(BW, BH), tc = T.getContext('2d'), C = canvas(BW, BH), cc = C.getContext('2d');
+    const stem = v === 1 ? [[17, 31, 19, 26], [26, 31, 25, 25], [22, 31, 22, 27]] : [[18, 31, 18, 26], [23, 31, 24, 26], [28, 31, 29, 27]];
+    for (const [x0, y0, x1, y1] of stem) for (let s = 0; s <= 6; s++) { tc.fillStyle = s % 3 === 2 ? BARK[1] : BARK[0]; tc.fillRect(Math.round(x0 + (x1 - x0) * s / 6), Math.round(y0 + (y1 - y0) * s / 6), 1, 1); }   // twigs under the foliage
+    litBlob(cc, BUSH_SHAPES[v], 1, pal, { noise: 0.6, clumps: 0.05 });
+    if (ripe) BERRY_SPOTS.forEach(([bx, by], i) => {
+      if ((i + v) % 4 === 3) return;                                                               // a little variation between bushes
+      cc.fillStyle = shade(berry, 0.45); cc.fillRect(bx - 1, by - 1, 4, 4);                         // a dark rim, so every colour shows among the leaves
+      cc.fillStyle = berry; cc.fillRect(bx, by, 2, 2); cc.fillStyle = shade(berry, 0.78); cc.fillRect(bx + 1, by + 1, 1, 1); cc.fillStyle = light(berry, 0.55); cc.fillRect(bx, by, 1, 1);
+    });
+    outline(tc, '#1e140c', BW, BH); outline(cc, '#14261a', BW, BH);
+    const art = { trunk: T, crown: C, w: BW, h: BH };
+    cache.set(key, art);
+    return art;
+  }
+  /** A berry bush at (sx, sy); the foliage sways by shakeX (wind, picking, brushing past). */
+  function drawBush(ctx, sx, sy, variant, ripe, berry, shakeX, tint) {
+    const art = bushArt(variant, tint, berry, ripe), u = PX, left = sx - BAX * u, top = sy - BGROUND * u;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(sx + 3, sy + 2, 19, 7, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(art.trunk, left, top, art.w * u, art.h * u);
+    ctx.drawImage(art.crown, left + Math.round(shakeX / u) * u, top, art.w * u, art.h * u);
+    ctx.restore();
+  }
+
+  return { drawTree, drawBush, drawSapling, drawFalling, drawStump, tinted, treeArt, stumpArt };
 })();
 
 /* ---- LOGS: a cut log lying on the ground (and the log's icon) ---- */
