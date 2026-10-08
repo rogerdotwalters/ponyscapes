@@ -128,15 +128,23 @@ class Effects {
     }
   }
 
+  /** Move the particles on by dt seconds (draw() and the Pixi backend both do this, then draw them their own way). */
+  advanceParticles(dt) {
+    this.particles = this.particles.filter(p => (p.age += dt) < p.life);
+    for (const p of this.particles) { p.vy += 320 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+  }
+
   draw(g, frameMs) {
     const ctx = g.ctx, dt = frameMs / 1000;
-    this.particles = this.particles.filter(p => (p.age += dt) < p.life);
-    for (const p of this.particles) {
-      p.vy += 320 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
-      ctx.globalAlpha = 1 - p.age / p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size);
-    }
+    this.advanceParticles(dt);
+    for (const p of this.particles) { ctx.globalAlpha = 1 - p.age / p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }
     ctx.globalAlpha = 1;
+    this.drawStrokes(g, dt);
+  }
 
+  /** Arrows, lassos and floating text (everything but the particles). */
+  drawStrokes(g, dt) {
+    const ctx = g.ctx;
     this.arrows = this.arrows.filter(a => (a.age += dt) < 0.28);          // an arrow in flight: a short bright streak
     for (const a of this.arrows) {
       const t = Math.min(1, a.age / 0.18), hx = a.x0 + (a.x1 - a.x0) * t, hy = a.y0 + (a.y1 - a.y0) * t, tx = a.x0 + (a.x1 - a.x0) * Math.max(0, t - 0.25), ty = a.y0 + (a.y1 - a.y0) * Math.max(0, t - 0.25);

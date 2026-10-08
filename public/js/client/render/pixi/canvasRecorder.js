@@ -70,8 +70,14 @@ const CanvasRecorder = (() => {
     /** A picture the backend draws itself (a pony or character in marker colours, recoloured by a shader) instead of a drawImage: what has been drawn so
      *  far becomes one recording, the figure the next part, and drawing carries on in a new recording that starts in the same state.
      *  `fig`: { frame: { key, make() -> canvas }, lut: { key, make() -> Uint32Array(256) }, wash, mirror, dx, dy, dw, dh } (the rectangle in world pixels). */
-    figure(fig) {
-      this.parts.push({ rec: this._rec({}) }, { figure: fig });
+    figure(fig) { this._split(fig); }
+
+    /** Start a new recording here (when the drawing so far is top-level): things that change all the time (hearts, bubbles, name tags) then do not
+     *  make the picture of the thing they are drawn on a new one every frame. Ignored where a figure() would be. */
+    cut() { if (this.figureOk()) this._split(null); }
+
+    _split(fig) {
+      this.parts.push(fig ? { rec: this._rec({}) } : { rec: this._rec({}) }); if (fig) this.parts.push({ figure: fig });
       const attrs = Object.assign({}, this.attrs);
       this.ops = []; this.h1 = 0x811c9dc5 | 0; this.h2 = 0x2545F491 | 0;
       this.minX = this.minY = Infinity; this.maxX = this.maxY = -Infinity; this.pad = 1.5; this.pMinX = this.pMinY = Infinity; this.pMaxX = this.pMaxY = -Infinity;

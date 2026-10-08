@@ -371,6 +371,7 @@ class PlayerSprite {
     const def = EmoteDefs.find(e => e.id === p.emote);
     if (!def) return;
     const g = this.g, ctx = g.ctx, age = CONFIG.sim.emoteSeconds - p.emoteT;
+    if (typeof ctx.cut === 'function') ctx.cut();                                  // (the Pixi backend: the emote is a picture of its own)
     const pop = Math.min(1, 0.4 + age / 0.18), fade = Math.min(1, p.emoteT / 0.5), y = pose.headY - 50 - Math.min(6, age * 12);
     ctx.save(); ctx.globalAlpha = fade; ctx.translate(sx, y); ctx.scale(pop, pop);
     g.roundRect(-17, -17, 34, 30, 11); ctx.fillStyle = '#fffdf5'; ctx.fill(); ctx.strokeStyle = 'rgba(40,30,20,.55)'; ctx.lineWidth = 1.6; ctx.stroke();

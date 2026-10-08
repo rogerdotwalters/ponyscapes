@@ -89,7 +89,7 @@ class Renderer {
     this._drawWorld(this._sortedWorldItems(state, bounds, tiles), now);
     if (!indoors) this._drawBuildingNames(me);
     this._drawLighting(me, state);
-    this.effects.draw(this.g, frameMs);              // particles and floating text sit above the night overlay
+    this._drawEffects(frameMs);                      // particles and floating text sit above the night overlay
     this._endFrame();
   }
 
@@ -102,6 +102,7 @@ class Renderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = indoors ? '#0b0d12' : OCEAN_COLOR; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
   _endFrame() {}
+  _drawEffects(frameMs) { this.effects.draw(this.g, frameMs); }
 
   /** Time-of-day overlay, centred on the player, with pools of light from torches and campfires. */
   _drawLighting(me, state) {
@@ -133,7 +134,8 @@ class Renderer {
 
   /** A speech bubble above someone's head, its text wrapped to a few short lines. */
   _drawBubble(g, sx, bottom, text) {
-    const ctx = g.ctx; ctx.font = '11px Georgia, serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const ctx = g.ctx; if (typeof ctx.cut === 'function') ctx.cut();                                  // (the Pixi backend: the bubble is a picture of its own)
+    ctx.font = '11px Georgia, serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const words = text.split(' '), lines = []; let line = '';
     for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > 150 && line) { lines.push(line); line = w; } else line = t; }
     if (line) lines.push(line);
@@ -141,6 +143,7 @@ class Renderer {
     g.roundRect(x0, y0, width, height, 8); ctx.fillStyle = 'rgba(255,252,240,.96)'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(60,40,20,.7)'; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(sx - 5, bottom - 0.5); ctx.lineTo(sx + 1, bottom + 7); ctx.lineTo(sx + 5, bottom - 0.5); ctx.closePath(); ctx.fillStyle = 'rgba(255,252,240,.96)'; ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#2a1c10'; lines.forEach((l, i) => ctx.fillText(l, x0 + 7, y0 + 4 + lh / 2 + i * lh));
+    if (typeof ctx.cut === 'function') ctx.cut();
   }
 
   _sortedWorldItems(state, b, tiles) {

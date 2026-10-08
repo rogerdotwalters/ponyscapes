@@ -14,6 +14,17 @@
  * Coordinates match the canvas path exactly: the Pixi canvas is camera.pixelW x pixelH device pixels, the world containers are scaled by
  * camera.scale and offset by the same rounded translation as Camera.applyTransform, and all textures are nearest-neighbour. */
 class PixiRenderer extends Renderer {
+  static _colours = new Map();
+
+  /** Note when anything is painted on a 2D context: { dirty }. The painting methods are wrapped on the instance (a cheap flag, no Proxy). */
+  static _watch(ctx) {
+    const flag = { dirty: false };
+    for (const name of ['fill', 'stroke', 'fillRect', 'strokeRect', 'drawImage', 'fillText', 'strokeText', 'putImageData']) {
+      const inner = ctx[name]; ctx[name] = function (...args) { flag.dirty = true; return inner.apply(this, args); };
+    }
+    return flag;
+  }
+
   constructor(opts) {
     const ground = document.createElement('canvas');                                // 2D layer 1: what is not a sprite yet, under the items
     super({ ...opts, canvas: ground, ctxOptions: { alpha: true } });
@@ -21,6 +32,7 @@ class PixiRenderer extends Renderer {
     this.groundCanvas = ground; this.groundCtx = this.ctx;
     this.overlayCanvas = document.createElement('canvas'); this.overlayCtx = this.overlayCanvas.getContext('2d');   // 2D layer 2: over the items
     this.pixel = { w: 0, h: 0 };
+    this.groundDirty = PixiRenderer._watch(this.groundCtx); this.overlayDirty = PixiRenderer._watch(this.overlayCtx);   // (a layer nothing was painted on this frame is not uploaded or drawn)
     this.blocks = new Map();                                                         // terrain block key -> { sprite, entry, canvas, seen }
     this.seeThroughOn = new URLSearchParams(location.search).get('seethrough') !== '0';                 // ?seethrough=0 turns the effect off (for pixel comparisons with the canvas backend)
     this.frameNo = 0; this._ready = false; this.recorder = new CanvasRecorder.Recorder(); this.broken = new Set();
@@ -28,15 +40,21 @@ class PixiRenderer extends Renderer {
     this.grassSink = (art, x, y, w, h) => this._grass(art, x, y, w, h);
     this.app = new PIXI.Application();
     this.worldA = new PIXI.Container(); this.terrain = new PIXI.Container(); this.worldA.addChild(this.terrain);        // under the ground layer
-    this.worldB = new PIXI.Container(); this.grass = new PIXI.Container(); this.items = new PIXI.Container(); this.worldB.addChild(this.grass, this.items);   // over it
+    this.worldB = new PIXI.Container(); this.grass = new PIXI.Container(); this.marker = new PIXI.Container(); this.items = new PIXI.Container();
+    this.worldB.addChild(this.grass, this.marker, this.items);                       // over it: grass, the tap marker, the depth-sorted items
+    this.worldC = new PIXI.Container(); this.names = new PIXI.Container(); this.worldC.addChild(this.names);                   // building names, over the items
+    this.lightLayer = new PIXI.Container();                                          // night (lighting)
+    this.worldD = new PIXI.Container(); this.particles = new PIXI.Container(); this.strokes = new PIXI.Container(); this.worldD.addChild(this.particles, this.strokes);   // particles, floating text
     this.ready = this.app.init({
       canvas: this.view, width: Math.max(1, this.canvas.width), height: Math.max(1, this.canvas.height), resolution: 1, autoDensity: false,
       antialias: false, backgroundAlpha: 1, background: OCEAN_COLOR, autoStart: false, preference: 'webgl', powerPreference: 'high-performance', roundPixels: false,
     }).then(() => {
       this.app.ticker.stop();
       this.groundSprite = new PIXI.Sprite(); this.overlaySprite = new PIXI.Sprite();
-      this.app.stage.addChild(this.worldA, this.groundSprite, this.worldB, this.overlaySprite);
+      this.app.stage.addChild(this.worldA, this.groundSprite, this.worldB, this.worldC, this.lightLayer, this.worldD, this.overlaySprite);
       this.atlas = new DynamicAtlas(1024); this.grassPool = new SpritePool(this.grass); this.itemPool = new SpritePool(this.items);
+      this.markerPool = new SpritePool(this.marker); this.namePool = new SpritePool(this.names); this.strokePool = new SpritePool(this.strokes); this.particlePool = [];
+      this.lighting = new PixiLighting(this, this.lightLayer);
       this.stamps = new StampCache(); this.seeThrough = SeeThrough.create();
       this._ready = true; this._fit();
     });
@@ -71,8 +89,8 @@ class PixiRenderer extends Renderer {
   _beginFrame(indoors) {
     this._useLayer(this.groundCanvas, this.groundCtx);
     const ctx = this.ctx;
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    if (this._ready) { this.app.renderer.background.color = indoors ? 0x0b0d12 : OCEAN_COLOR; this.grassPool.begin(); this.itemPool.begin(); this.stamps.beginFrame(this.camera.scale); PaletteSwap.tick(); }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); this.groundDirty.dirty = this.overlayDirty.dirty = false;
+    if (this._ready) { this.app.renderer.background.color = indoors ? 0x0b0d12 : OCEAN_COLOR; for (const p of [this.grassPool, this.itemPool, this.markerPool, this.namePool, this.strokePool]) p.begin(); this.stamps.beginFrame(this.camera.scale); PaletteSwap.tick(); }
     this.frameNo++;
   }
 
@@ -126,12 +144,16 @@ class PixiRenderer extends Renderer {
       hole = { depth: me.x + me.y + (me.lift || 0) * 4, x: ox + isoX(me.x, me.y) * s, y: oy + (isoY(me.x, me.y) - 20 - lift) * s, inner: 34 * s, outer: reach, squash: 1.35 };
       this.seeThrough.set(hole.x, hole.y, hole.inner, hole.outer);
     }
+    const view = cam.bounds();
     for (const item of items) {
       if (item.kind === 'grass') {                                                    // a clump near someone: already a picture
         if (item.art) { const t = this.atlas.texture(item.art.atlasKey, () => item.art); if (t) this.itemPool.place(t, item.x, item.y, item.w, item.h); }
         continue;
       }
-      const [ax, ay] = this._anchorOf(item), pool = this._poolOf(item), still = pool === 'static';
+      let [ax, ay] = this._anchorOf(item);
+      if (ax < view.minX - 150 || ax > view.maxX + 150 || ay < view.minY - 120 || ay > view.maxY + 300) continue;       // (off screen: the canvas path lets the canvas clip these; here they would be painted for nothing)
+      const pool = this._poolOf(item), still = pool === 'static';
+      if (!still) { ax = Math.round(ax * s) / s; ay = Math.round(ay * s) / s; }       // (something that moves is anchored on a whole device pixel: then what it draws in whole pixels (shadows, tags) is the same picture however far it has walked)
       rec.begin(ax, ay, !still);
       this.ctx = this.g.ctx = rec;                                                    // (the item's own drawing code now records)
       try { this._drawItem(item, now); }
@@ -148,6 +170,46 @@ class PixiRenderer extends Renderer {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.camera.applyTransform(this.ctx);
   }
+
+  /** Run some of the base class's drawing (building names, the tap marker, floating text) into the recorder and show it as sprites in `pool`. The
+   *  drawing is world-space; (ax, ay) is where the recording is anchored (still: nothing in it changes position). */
+  _asSprites(pool, ax, ay, still, paint) {
+    const rec = this.recorder, real = this.ctx, s = this.camera.scale;
+    if (!still) { ax = Math.round(ax * s) / s; ay = Math.round(ay * s) / s; }
+    rec.begin(ax, ay, !still);
+    this.ctx = this.g.ctx = rec;
+    try { paint(); } catch (e) { if (!this.broken.has('overlay')) { this.broken.add('overlay'); console.error('pixi: overlay drawing failed:', e); } } finally { this.ctx = this.g.ctx = real; }
+    const last = rec.end(), snap = still ? Math.floor : Math.round, bx = snap(ax * s), by = snap(ay * s);
+    for (const part of last.parts.map(p => p.rec).concat([last])) {
+      const e = this.stamps.stamp(part, ax, ay, still ? 'static' : 'dynamic', still);
+      if (e) pool.place(e.tex, (bx + e.ix) / s, (by + e.iy) / s, e.w / s, e.h / s);
+    }
+  }
+
+  _drawBuildingNames(me) { if (this._ready) this._asSprites(this.namePool, 0, 0, true, () => super._drawBuildingNames(me)); }
+  _drawTapMarker(now) {
+    if (!this._ready) return;
+    const m = this.getTapMarker(now);
+    if (m) this._asSprites(this.markerPool, isoX(m.x, m.y), isoY(m.x, m.y), false, () => super._drawTapMarker(now));
+  }
+
+  /** Particles are sprites (a tinted white square each); arrows, lassos and floating text are drawn by the effects code into the recorder. */
+  _drawEffects(frameMs) {
+    if (!this._ready) return;
+    const fx = this.effects, dt = frameMs / 1000;
+    fx.advanceParticles(dt);
+    const list = this.particlePool;
+    fx.particles.forEach((p, i) => {
+      let sp = list[i];
+      if (!sp) { sp = new PIXI.Sprite(PIXI.Texture.WHITE); list[i] = sp; this.particles.addChild(sp); }
+      sp.visible = true; sp.position.set(p.x, p.y); sp.width = sp.height = p.size; sp.alpha = 1 - p.age / p.life; sp.tint = PixiRenderer.colour(p.color);
+    });
+    for (let i = fx.particles.length; i < list.length; i++) list[i].visible = false;
+    this._asSprites(this.strokePool, 0, 0, false, () => fx.drawStrokes(this.g, dt));
+  }
+
+  /** '#rrggbb' -> number (particle colours repeat: parsed once). */
+  static colour(css) { let n = PixiRenderer._colours.get(css); if (n === undefined) { n = css[0] === '#' ? parseInt(css.slice(1), 16) : 0xffffff; PixiRenderer._colours.set(css, n); } return n; }
 
   /** One recording as a sprite (anchor (ax, ay) is on device pixel (bx, by)); a building in front of the player gets the see-through filter. */
   _placeStamp(r, ax, ay, bx, by, pool, still, item, hole, ox, oy) {
@@ -174,10 +236,13 @@ class PixiRenderer extends Renderer {
     if (!this._ready) return;
     for (const b of this.blocks.values()) if (b.seen !== this.frameNo) b.sprite.visible = false;
     if (this.frameNo % 300 === 0) this._forgetBlocks();
-    this.grassPool.end(); this.itemPool.end(); this.atlas.flush(); this.stamps.flush();
+    for (const p of [this.grassPool, this.itemPool, this.markerPool, this.namePool, this.strokePool]) p.end();
+    this.atlas.flush(); this.stamps.flush();
     const cam = this.camera, s = cam.scale, ox = Math.round((cam.w / 2 - cam.x) * s), oy = Math.round((cam.h / 2 - cam.y) * s);
-    for (const w of [this.worldA, this.worldB]) { w.scale.set(s); w.position.set(ox, oy); }                       // (= Camera.applyTransform)
-    this.groundSprite.texture.source.update(); this.overlaySprite.texture.source.update();
+    for (const w of [this.worldA, this.worldB, this.worldC, this.worldD]) { w.scale.set(s); w.position.set(ox, oy); }                       // (= Camera.applyTransform)
+    this.groundSprite.visible = this.groundDirty.dirty; this.overlaySprite.visible = this.overlayDirty.dirty;
+    if (this.groundDirty.dirty) this.groundSprite.texture.source.update();
+    if (this.overlayDirty.dirty) this.overlaySprite.texture.source.update();
     this._useLayer(this.groundCanvas, this.groundCtx);
     this.app.render();
   }

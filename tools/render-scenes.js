@@ -23,6 +23,13 @@ async function ride(page, fake, angle, fly = false) {
 }
 
 module.exports = {
+  /** Particles, floating text and a hearts / bubble over a villager, drawn right after the events happen. */
+  effects: { query: 'solo=1&hour=12', setup: async (page, fake) => {
+    await settle(page, fake, 300);
+    await ev(page, () => { window.__reseed(5); const g = ponyscapes.game, me = g.local, E = g.events, to = g.myId;
+      E.emit('chop', { key: 'k1', x: me.x + 1.5, y: me.y, to }); E.emit('hit', { x: me.x, y: me.y + 1.5, to }); E.emit('harvested', { x: me.x - 1.5, y: me.y, to, color: '#e59a2e' });
+      E.emit('gain', { to, item: 'log', count: 2 }); E.emit('levelup', { to, name: 'Woodcutting', level: 3 }); E.emit('xp', { to, skill: 'woodcutting', amount: 7 }); });
+  } },
   /** Pixi only (the canvas backend has no see-through effect): the player stands behind the General Store, under its roof. */
   seethrough: { query: 'solo=1&hour=12', seethrough: true, setup: async (page, fake) => {
     await ev(page, () => { const s = ponyscapes.adapter.server, me = s.players[ponyscapes.game.myId], site = BuildingSites.list.find(x => x.id === 'general_store'); me.x = site.x0 + 1.5; me.y = site.y0 - 0.2; });

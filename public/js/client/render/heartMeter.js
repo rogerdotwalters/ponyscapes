@@ -16,6 +16,7 @@ const HeartMeter = {
   /** @param bond { level, into } or null (no friendship yet: three empty hearts, faint)  @param opts { faint, label } */
   draw(ctx, cx, cy, bond, now, opts = {}) {
     const s = HeartMeter.SIZE, step = s * 2.35, level = bond ? bond.level : 1, info = Friendship.info(level), hearts = bond ? Friendship.hearts(bond) : 0;
+    if (typeof ctx.cut === 'function') ctx.cut();                                  // (the Pixi backend: the hearts are a picture of their own)
     ctx.save();
     if (!bond || opts.faint) ctx.globalAlpha = 0.55;
     for (let i = 0; i < 3; i++) HeartMeter._one(ctx, cx + (i - 1) * step, cy, s, info, clamp(hearts - i, 0, 1), now, i);
@@ -25,6 +26,7 @@ const HeartMeter = {
       ctx.fillStyle = info.color; ctx.fillText('' + level, cx + 1.5 * step + 1, cy + 0.5);
     }
     ctx.restore();
+    if (typeof ctx.cut === 'function') ctx.cut();
   },
 
   _one(ctx, x, y, s, info, fill, now, idx) {
