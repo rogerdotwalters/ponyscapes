@@ -86,12 +86,15 @@ class Renderer {
     for (const group of [state.players, state.animals, state.npcs]) for (const id in (group || {})) { const m = group[id]; if (m && !m.boat && !m.flying) movers.push(m); }
     this.nearGrass = GrassRenderer.draw(this.ctx, this.game.map, bounds, tiles, this.game.clockTick, now, movers, this.grassSink);
     this._drawTapMarker(now);
-    for (const item of this._sortedWorldItems(state, bounds, tiles)) this._drawItem(item, now);
+    this._drawWorld(this._sortedWorldItems(state, bounds, tiles), now);
     if (!indoors) this._drawBuildingNames(me);
     this._drawLighting(me, state);
     this.effects.draw(this.g, frameMs);              // particles and floating text sit above the night overlay
     this._endFrame();
   }
+
+  /** The depth-sorted items, back to front. (PixiRenderer turns each into a sprite instead; it then draws what comes after on its own layer.) */
+  _drawWorld(items, now) { for (const item of items) this._drawItem(item, now); }
 
   /** Backend hooks. The canvas backend paints the background itself and has nothing to finish; PixiRenderer overrides both (and sets `blockSink`). */
   _beginFrame(indoors) {

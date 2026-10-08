@@ -77,7 +77,7 @@ const GrassRenderer = (() => {
       const look = TerrainRenderer.lookOf(map, tx, ty), pal = paletteOf(look, season), art = clump(under ? Math.max(1, level - 1) : level, Math.floor(h(3) * 6), h(4) < 0.5, bend, pal, look.id + season);
       const sx = (wx - wy) * TILE_HALF_W, sy = (wx + wy) * TILE_HALF_H;
       const paint = () => ctx.drawImage(art, sx - CX * PX, sy - BASE * PX, W * PX, H * PX);
-      if (isNear) near.push({ depth: wx + wy, draw: paint }); else if (onFar) onFar(art, sx - CX * PX, sy - BASE * PX, W * PX, H * PX); else paint();
+      if (isNear) near.push({ depth: wx + wy, draw: paint, art, x: sx - CX * PX, y: sy - BASE * PX, w: W * PX, h: H * PX }); else if (onFar) onFar(art, sx - CX * PX, sy - BASE * PX, W * PX, H * PX); else paint();
     }
     ctx.imageSmoothingEnabled = smooth;
     return near;
