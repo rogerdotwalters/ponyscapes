@@ -254,7 +254,12 @@ class GameServer {
     if (!inventory || !cmd) return;
     switch (cmd.type) {
       case 'setting': if (id === this.hostId) this.applySetting(cmd.key, !!cmd.value); break;           // host-only testing aids
-      case 'admin': if (id === this.hostId && cmd.values) { GameSettings.setLive(cmd.values, this.tick); this.adminRev++; } break;   // the Admin page: speed, day split, time (sent to everyone)
+      case 'admin':
+        if (id === this.hostId && cmd.values) { GameSettings.setLive(cmd.values, this.tick); this.adminRev++; }
+        if (id === this.hostId && Number.isFinite(cmd.hour)) {                                  // jump to a time of day (testing): the same day, a new hour
+          GameSettings.setClock(this.tick, Math.floor(GameSettings.totalHours(this.tick) / 24) * 24 + Math.min(23.99, Math.max(0, cmd.hour))); this.adminRev++;
+        }
+        break;   // the Admin page: speed, day split, time (sent to everyone)
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)

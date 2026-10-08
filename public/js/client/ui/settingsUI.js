@@ -89,6 +89,8 @@ class SettingsUI {
       `<label class="admSlide"><span><b>Global speed</b><small>Everything that moves: players, ponies, animals, villagers, boats. 100 = as built.</small></span><input type="range" data-k="globalSpeed" min="${L.globalSpeed[0]}" max="${L.globalSpeed[1]}" step="1"><output data-o="globalSpeed"></output></label>` +
       `<label class="admSlide"><span><b>Day / night</b><small>How much of each day is daylight. 54 = as built.</small></span><input type="range" data-k="dayShare" min="${L.dayShare[0]}" max="${L.dayShare[1]}" step="1"><output data-o="dayShare"></output></label>` +
       `<label class="admSlide"><span><b>Game time</b><small>In-game hours per real hour. 180 = as built (a day takes 8 real minutes).</small></span><input type="number" data-k="gameHoursPerRealHour" min="${L.gameHoursPerRealHour[0]}" max="${L.gameHoursPerRealHour[1]}" step="1"><output data-o="gameHoursPerRealHour"></output></label>` +
+      `<label class="admSlide"><span><b>Time of day</b><small>Jump the clock to an hour of today, for testing. Time then carries on (set Game time to 1 to nearly freeze it).</small></span><input type="range" id="admHour" min="0" max="24" step="0.25"><output id="admHourOut"></output></label>` +
+      '<div class="admRow"><button data-hour="6.25">Dawn</button><button data-hour="12">Noon</button><button data-hour="19.25">Dusk</button><button data-hour="23">Night</button><button data-hour="2">Deep night</button></div>' +
       '<div class="admRow"><button data-preset="day">50% / 50%</button><button data-preset="asBuilt">As built</button></div>';
     for (const input of el.querySelectorAll('input[data-k]')) {
       const k = input.dataset.k;
@@ -96,6 +98,13 @@ class SettingsUI {
       input.addEventListener('change', () => this._setLive(k, Number(input.value), false));
       input.addEventListener('keydown', e => e.stopPropagation());
     }
+    const hourInput = el.querySelector('#admHour');
+    let hourTimer = null;
+    const sendHour = h => { this.hourDragging = false; this.game.setTimeOfDay(h); };
+    hourInput.addEventListener('input', () => { this.hourDragging = true; this._showHour(Number(hourInput.value)); if (!hourTimer) hourTimer = setTimeout(() => { hourTimer = null; sendHour(Number(hourInput.value)); }, 100); });
+    hourInput.addEventListener('change', () => { clearTimeout(hourTimer); hourTimer = null; sendHour(Number(hourInput.value)); });
+    hourInput.addEventListener('keydown', e => e.stopPropagation());
+    for (const b of el.querySelectorAll('[data-hour]')) b.addEventListener('click', () => { const h = Number(b.dataset.hour); this._showHour(h); sendHour(h); });
     el.querySelector('[data-preset=day]').addEventListener('click', () => this._setLive('dayShare', 50, false));
     el.querySelector('[data-preset=asBuilt]').addEventListener('click', () => { for (const k of GameSettings.LIVE) this._setLive(k, GameSettings.DEFAULTS[k], false); });
     this.body.appendChild(el); this.worldBox = el;
@@ -111,8 +120,10 @@ class SettingsUI {
     if (!dragging) { clearTimeout(this.sendTimer); send(); } else if (!this.sendTimer) this.sendTimer = setTimeout(send, 100);
     this._refreshWorld(); this._refreshFarming(); this._refreshAnimals(); this._refreshExport();
   }
+  _showHour(h) { const m = Math.round(h * 60) % 1440; this.worldBox.querySelector('#admHourOut').textContent = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
   _refreshWorld() {
     const d = this.draft;
+    if (!this.hourDragging) { const h = this.game.hour(); this.worldBox.querySelector('#admHour').value = h; this._showHour(h); }
     for (const input of this.worldBox.querySelectorAll('input[data-k]')) if (document.activeElement !== input || input.type === 'range') input.value = d[input.dataset.k];
     const o = k => this.worldBox.querySelector(`[data-o=${k}]`);
     o('globalSpeed').textContent = d.globalSpeed + '%';

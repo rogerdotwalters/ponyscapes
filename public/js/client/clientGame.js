@@ -201,6 +201,8 @@ class ClientGame {
   /** Host only: a testing aid (a flying test pony, hostile mobs off). */
   /** Host: the Admin page's live values (globalSpeed, dayShare, gameHoursPerRealHour). */
   setAdmin(values) { this.net.sendCommand({ type: 'admin', values }); }
+  /** Host testing aid: jump the clock to an hour (0-24) of the current day, for everyone. */
+  setTimeOfDay(hour) { this.net.sendCommand({ type: 'admin', values: {}, hour }); }
   setSetting(key, value) { this.net.sendCommand({ type: 'setting', key, value: !!value }); }
   requestDismount() { this.net.sendCommand({ type: 'dismount' }); }
   _animalName(animal) { return animal.look ? PonyLook.describe(animal.look).name : AnimalDefs[animal.type].name; }
