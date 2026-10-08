@@ -67,6 +67,11 @@ const CONFIG = {
     /** Sleep (sleepSystem.js): you may go to bed (your bed at home) from tiredHour until wakeHour; anyone still up at forceHour falls asleep, and everybody wakes at wakeHour.
      *  When EVERYONE playing is asleep (fallAsleepSeconds after lying down) the night is skipped; while anyone is awake time passes as usual. */
     sleep: { tiredHour: 22, forceHour: 2, wakeHour: 6, bedReach: 1.6, fallAsleepSeconds: 2 },
+    /** Weather (weather.js): a spell lasts minHours..maxHours of in-game time; the layers ease at rampPerSecond. Rain fills a field plot by `waterPerSecond` x its intensity each
+     *  second (watered at 1). Lightning strikes every strikeSeconds (longest at the weakest storm, shortest at the strongest), `strikeMin..strikeMax` tiles from a player (nearChance:
+     *  right next to one). A strike hurts what is within strikeRadius (strikeDamage 0 = never); `fires` leave a short fire that hurts (fireDamage) and heavy rain puts out. */
+    weather: { minHours: 3, maxHours: 12, rampPerSecond: 0.12, waterPerSecond: 1 / 12, strikeSecondsMax: 18, strikeSecondsMin: 4, strikeMin: 6, strikeMax: 30, nearChance: 0.06,
+      strikeDamage: 12, strikeRadius: 1.6, fires: true, fireSeconds: 9, fireDamage: 3 },
     time: { dayLengthSeconds: 480, startHour: 9 }                                                            // one day = 8 real minutes
   },
   view: {

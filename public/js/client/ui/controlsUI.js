@@ -12,6 +12,7 @@ class ControlsUI {
       const set = { ctlTapMove: 'setTapToMove', ctlFixedStick: 'setFixedJoystick', ctlWalkToAct: 'setWalkToAct' }[e.target.id];
       if (set) { Controls[set](e.target.checked); this.refresh(); }
     });
+    body.addEventListener('input', e => { if (e.target.id === 'ctlWeatherVol') { WeatherAudio.setVolume(e.target.value / 100); e.target.parentNode.querySelector('output').textContent = e.target.value + '%'; } });
     window.addEventListener('keydown', e => this._onKey(e), true);
   }
 
@@ -73,6 +74,8 @@ class ControlsUI {
       '<div class="gtitle">Taps</div>' +
       `<label class="chk"><input type="checkbox" id="ctlWalkToAct"${Controls.walkToAct ? ' checked' : ''}><span><b>Walk to it, then act</b><small>Tap a villager, animal, door, stockpile, crop or shop counter out of reach: walk there and do the action. Off: nothing happens when it is out of reach.</small></span></label>` +
       `<label class="chk"><input type="checkbox" id="ctlTapMove"${Controls.tapToMove ? ' checked' : ''}><span><b>Tap the ground to walk there</b><small>On by default. A tap on bare ground walks there (the joystick and keys still steer). Off: a tap near you uses your tool or interacts instead.</small></span></label>` +
+      '<div class="gtitle">Sound</div>' +
+      `<label class="admSlide"><span><b>Weather sounds</b><small>Rain, wind and thunder. 0 is off. Browsers only start sound after you tap or press a key.</small></span><input type="range" id="ctlWeatherVol" min="0" max="100" step="5" value="${Math.round(WeatherAudio.volume * 100)}"><output>${Math.round(WeatherAudio.volume * 100)}%</output></label>` +
       '<div class="gtitle">What clicks and taps do</div>' + rows;
   }
 }

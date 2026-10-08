@@ -71,6 +71,17 @@ tools/build.py        syncs the relay modules into src/ (it no longer touches pu
 tools/bundle.py       packs the game into one self-contained HTML file
 ```
 
+## Weather
+
+`public/js/shared/weather.js` (server rules) with the look in `client/render/weatherFx.js` and the sound in `client/audio/weatherAudio.js` (synthesised, no sound files).
+
+* **Seasonal table.** Every few in-game hours (`CONFIG.sim.weather.minHours`..`maxHours`) the server picks a weather type by weight from the current season's row (`Weather.TABLE`): light rain in spring, thunderstorms in summer, heavy wind in autumn, snow or nothing in winter. Everyone is sent the result; it is saved with the world.
+* **Layers.** A type is a mix of independent layers, each 0..1: **rain**, **wind** (plus a direction), **lightning** and **snow**. A thunderstorm is just rain + wind + lightning at once; the layers ease in and out.
+* **Rain waters the fields.** While it rains every tilled plot that is not covered (`Weather.covered`: floored or built-on spots, buildings, anything added to `Weather.coverFns`; indoors there are no fields) fills up and is watered for the day. Heavier rain is faster (`waterPerSecond` x intensity).
+* **Lightning.** Random strikes near players: a flash for everyone (dimmer through a window, none in a cave) and thunder that arrives after a delay by distance. A strike can hurt what is right under it and leave a short fire (`strikeDamage`, `fires`; set to 0 / false to switch off); heavy rain puts fires out.
+* **Wind.** Sways the grass, trees and crops, slants the rain and pushes particles. **Effects:** rain streaks and splashes, snowflakes, blown leaves, a grey veil under clouds, and audio per layer.
+* **Testing.** `?weather=thunderstorm` starts a solo/hosted game under that sky; the host can call up any weather (or hand it back to the season) in Menu > Dev settings > Weather. Volume: Menu > Controls > Mouse & touch > Weather sounds.
+
 ## Controls
 
 * **Mouse / touch** (not rebindable): left click or tap uses what is in your hand where you point (water, plant, hoe, chop, swing or shoot a weapon; hold the mouse button to repeat). On a villager it talks (a window offers their shop, any quests and gifts; with nothing to offer they just say hello). On an animal it feeds it (food in hand), ropes it (lasso in hand), attacks it (weapon in hand) or pets it. **Right click** throws the lasso in the lasso slot at the animal under the pointer; phones keep the **Lasso** button. Swords sweep a 120 degree fan and hit every animal in it.

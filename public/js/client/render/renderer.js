@@ -91,6 +91,7 @@ class Renderer {
     this._drawWorld(this._sortedWorldItems(state, bounds, tiles), now);
     if (!indoors) this._drawBuildingNames(me);
     this._drawLighting(me, state);
+    this._drawWeather(frameMs);                      // clouds, rain, snow and lightning over the night, under the particles
     this._drawEffects(frameMs);                      // particles and floating text sit above the night overlay
     this._endFrame();
   }
@@ -105,6 +106,12 @@ class Renderer {
   }
   _endFrame() {}
   _drawEffects(frameMs) { this.effects.draw(this.g, frameMs); }
+  /** The sky (weatherFx.js), painted in screen space on whatever surface is on top now. */
+  _drawWeather(frameMs) {
+    const fx = this.effects.weather; if (!fx) return;
+    fx.draw(this.ctx, this.canvas.width, this.canvas.height, frameMs / 1000, this.camera.dpr);
+    this.camera.applyTransform(this.ctx);
+  }
 
   /** Time-of-day overlay, centred on the player, with pools of light from torches and campfires. */
   _drawLighting(me, state) {
@@ -251,8 +258,8 @@ class Renderer {
     }
     if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
     if (item.kind === 'puzzleNode') return QuestSprites.node(this.ctx, item.gx, item.gy, item.node, !!QuestLog.needing(this.game.questLog, item.node.id), now);
-    if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx, item.gy, item.plot);
-    if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx, item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
+    if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx + this.effects.sway(item.tx * 131 + item.ty, now, 2), item.gy, item.plot);   // (bending in the wind)
+    if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx + this.effects.sway(item.tx * 131 + item.ty, now, 3), item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);
     if (item.kind === 'player') {
       const p = item.p;

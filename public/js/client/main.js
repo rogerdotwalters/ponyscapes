@@ -70,6 +70,7 @@ function launch(choice, query) {
 
     /* view */
     const effects = new Effects(bus, game);
+    effects.weather = new WeatherFx(game); effects.weather.audio = new WeatherAudio();                // the sky: clouds, rain, snow, lightning and their sound
     let tapToMove = null;
     const renderer = RenderBackend.create(backend, { canvas: $('game'), game, effects, getTapMarker: now => tapToMove.currentMarker(now) });
     tapToMove = new TapActions({ bus, game, camera: renderer.camera, input });
@@ -164,6 +165,8 @@ function launch(choice, query) {
       const site = BuildingSites.list.find(s => s.id === enterParam || s.def.interior === enterParam);
       if (site) setTimeout(() => { const s = adapter.server, p = s.players[game.myId]; if (p) s.interiors.enter(game.myId, p, site.index); }, 400);
     }
+    const weatherParam = new URLSearchParams(location.search).get('weather');
+    if (weatherParam && adapter.server && Weather.TYPES[weatherParam]) setTimeout(() => adapter.server.weather.force(weatherParam), 300);     // ?weather=thunderstorm: start under that sky (testing)
     window.ponyscapes = { game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
 
     let attackShown = false, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
@@ -193,7 +196,7 @@ function launch(choice, query) {
         debug.update(frameMs);
         healthBar.config.max = game.local.maxHp; journalUI.tick(frameMs); mapUI.tick(frameMs); gearUI.tick(frameMs); if (sessionUI) sessionUI.tick(frameMs);
         const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health
-        healthBar.update(game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); clockUI.update(game.hour()); seasonUI.update(Seasons.at(game.clockTick)); sleepUI.update();
+        healthBar.update(game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); clockUI.update(game.hour()); seasonUI.update(Seasons.at(game.clockTick), game.weather); sleepUI.update();
         craftingUI.tick(frameMs); townUI.tick(frameMs); dialogueUI.tick(frameMs); puzzleUI.tick(frameMs); shopUI.tick(frameMs); showAbilities();
         const held = ItemDB.getTool(game.heldItemId()), armed = !!held && WEAPON_KINDS.includes(held.kind);       // a weapon in hand: the Use button becomes Attack
         if (armed !== attackShown) { attackShown = armed; $('btnAct').textContent = armed ? 'Attack' : 'Use'; $('btnAct').classList.toggle('attack', armed); }

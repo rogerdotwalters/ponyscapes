@@ -22,6 +22,7 @@ class SettingsUI {
     this._createWorld();
     this._createNightLook();
     this._createFarming();
+    this._createWeather();
     this._createAnimals();
     this._createBiomes();
     this._createTrees();
@@ -192,6 +193,22 @@ class SettingsUI {
     const deer = AnimalDefs.deer, base = deer ? deer.detect.walk : 6, sharp = lv => (d.animalSense / 100) * (1 + d.senseLevelScale / 100 * (lv - 1));
     const stealth = n => Math.min(d.stealthCap / 100, ((n - 1) * d.stealthDex + (n - 1) * d.stealthFriend) / 1000), t = v => v.toFixed(1);
     o('preview').textContent = `A deer notices you from: level 1 \u2192 ${t(base * sharp(1))} tiles (new player), ${t(base * sharp(1) * (1 - stealth(30)))} (Dexterity and Animal Friendship 30) \u00b7 level 10 \u2192 ${t(base * sharp(10))} / ${t(base * sharp(10) * (1 - stealth(30)))} tiles`;
+  }
+
+  /* ---- weather: see today's, or call up any sky to test it (the season's table normally chooses) ---- */
+  _createWeather() {
+    const el = document.createElement('div'); el.className = 'admBox';
+    el.innerHTML = '<div class="gtitle">Weather <small>(for everyone; a called-up sky lasts about 8 game hours)</small></div><div class="admNote" data-weather-now></div><div class="admRow" style="flex-wrap:wrap;gap:6px">' +
+      Object.values(Weather.TYPES).map(t => `<button data-weather="${t.id}" tabindex="-1">${t.icon} ${t.name}</button>`).join('') + '<button data-weather="auto" tabindex="-1">Let the season choose</button></div>';
+    el.addEventListener('click', e => { const b = e.target.closest('button[data-weather]'); if (b) this.game.setWeather(b.dataset.weather); });
+    this.game.events.on('weatherChanged', () => this._refreshWeather());
+    this.body.appendChild(el); this.weatherBox = el;
+    this._refreshWeather();
+  }
+  _refreshWeather() {
+    if (!this.weatherBox) return;
+    const w = this.game.weather, t = w && Weather.TYPES[w.t], pct = v => Math.round(v * 100) + '%';
+    this.weatherBox.querySelector('[data-weather-now]').textContent = t ? `Now: ${t.icon} ${t.name} (rain ${pct(w.rain)}, wind ${pct(w.wind)}, lightning ${pct(w.lightning)}, snow ${pct(w.snow)})` : 'Now: clear';
   }
 
   /* ---- seasons and farming: how long a season lasts, and how many days each crop takes to grow (changes right away) ---- */

@@ -16,7 +16,7 @@ const SnapshotBuilder = {
       inventory: server.inventoryUpdateFor(id), coins: (server.coinsSent[id] = server.inventories[id].purse || 0), questLog: (server.quests.sentRev[id] = server.quests.rev, server.quests.wire()), pack: (delete server.packSent[id], server.packUpdateFor(id)), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), farm: server.farmUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
       boats: outside ? server.boatStates() : {}, drops: on(server.dropStates()), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
       animals: on(server.animals.states(server._humans())), npcs: on(server.npcs.states()), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
-      pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire())
+      pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire()), weather: (server.weather.sentRev[id] = server.weather.rev, server.weather.wire())
     };
   },
 
@@ -48,6 +48,7 @@ const SnapshotBuilder = {
     const friends = server.friendship.updateFor(id);  if (friends) snapshot.friends = friends;            // your hearts with people and animals, only when they changed
     const settings = server.settingsUpdateFor(id);     if (settings) snapshot.settings = settings;          // the host's testing aids, only when they changed
     const admin = server.adminUpdateFor(id);           if (admin) snapshot.admin = admin;
+    const weather = server.weather.updateFor(id);      if (weather) snapshot.weather = weather;          // the sky, only when a new spell begins (weather.js)
     const quests = server.tick % 15 === 0 || !server.wants.marksSent[id] ? server.wants.marksFor(id) : null; if (quests) snapshot.quests = quests;   // lost young you have tracked (map)                  // the Admin page's speed, day split, time and clock (everyone)
     const trade = server.tradeUpdateFor(id);           if (trade) snapshot.trade = trade;                  // { state }, only when it changed
     const pack = server.packUpdateCheck(id);           if (pack !== null) snapshot.pack = pack;            // the pack of the pony you can reach (false: none), only when it changed

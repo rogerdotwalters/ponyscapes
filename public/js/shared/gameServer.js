@@ -66,6 +66,7 @@ class GameServer {
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
     this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
+    this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
     this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
@@ -266,6 +267,7 @@ class GameServer {
           GameSettings.setClock(this.tick, Math.floor(GameSettings.totalHours(this.tick) / 24) * 24 + Math.min(23.99, Math.max(0, cmd.hour))); this.adminRev++;
         }
         break;   // the Admin page: speed, day split, time (sent to everyone)
+      case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
@@ -573,6 +575,7 @@ class GameServer {
   step() {
     this.tick++;
     this._farmDays();                                                                 // a new day: crops grow (farming.js)
+    this.weather.update();                                                            // rain, wind, lightning (weather.js)
     if (this.later.length) { const due = this.later.filter(l => l.at <= this.tick); if (due.length) { this.later = this.later.filter(l => l.at > this.tick); due.forEach(l => l.fn()); } }
     for (const id in this.inputQueues) {
       const queue = this.inputQueues[id];

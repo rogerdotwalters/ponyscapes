@@ -193,6 +193,8 @@ class PixiRenderer extends Renderer {
     if (m) this._asSprites(this.markerPool, isoX(m.x, m.y), isoY(m.x, m.y), false, () => super._drawTapMarker(now));
   }
 
+  _drawWeather(frameMs) { if (this._ready) super._drawWeather(frameMs); }
+
   /** Particles are sprites (a tinted white square each); arrows, lassos and floating text are drawn by the effects code into the recorder. */
   _drawEffects(frameMs) {
     if (!this._ready) return;

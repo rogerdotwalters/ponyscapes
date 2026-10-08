@@ -15,6 +15,8 @@ class Effects {
     game.events.on('watered', e => this._burst(e.x, e.y, 8, SPLASH_COLORS, 5));
     game.events.on('planted', e => this._burst(e.x, e.y, 6, ['#5fae4e', '#8fd06e', '#7a5a33'], 8));
     game.events.on('harvested', e => this._burst(e.x, e.y, 14, [e.color || '#e59a2e', '#5fae4e', '#fff2b0'], 16));
+    game.events.on('strike', e => { this._burst(e.x, e.y, 26, ['#ffffff', '#cfe3ff', '#ffe9a0', '#7fa8ff'], 22); this._burst(e.x, e.y, 10, DUST_COLORS, 6); });   // lightning hits (weather.js)
+    game.events.on('burn', e => { this._burst(e.x, e.y, 3, ['#ff9a2a', '#ffd24a', '#ff5a1a'], 8); this._burst(e.x, e.y, 1, ['#6b6b72', '#8a8a92'], 22); });   // the little fire it leaves
     game.events.on('gain', e => this._onGain(e));
     game.events.on('pick', e => this._burst(e.x, e.y, 9, e.prop === 'stone' ? DUST_COLORS : LEAF_COLORS, 12));
     game.events.on('eat', e => this._float(e, `Yum! +${e.hunger} hunger`));
@@ -81,8 +83,10 @@ class Effects {
 
   treeShakeX(treeIndex, now) {
     const age = now - (this.shakeStart[treeIndex] || -Infinity);
-    return age < SHAKE_MS ? Math.sin(age * 0.06) * SHAKE_PIXELS * (1 - age / SHAKE_MS) : 0;
+    return (age < SHAKE_MS ? Math.sin(age * 0.06) * SHAKE_PIXELS * (1 - age / SHAKE_MS) : 0) + this.sway(treeIndex, now, 4);   // (a chopped tree shakes; in a wind they all lean and flutter)
   }
+  /** How far something rooted in the ground leans in the wind right now (whole pixels; 0 in a calm). */
+  sway(key, now, amount) { return this.weather ? this.weather.sway(key, now, amount) : 0; }
 
   _petName(e) {
     const a = this.game.latestAnimals()[e.id], def = AnimalDefs[e.animal];
@@ -131,7 +135,8 @@ class Effects {
   /** Move the particles on by dt seconds (draw() and the Pixi backend both do this, then draw them their own way). */
   advanceParticles(dt) {
     this.particles = this.particles.filter(p => (p.age += dt) < p.life);
-    for (const p of this.particles) { p.vy += 320 * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+    const push = this.weather ? this.weather.windX() * 260 : 0;                                       // the wind carries chips, leaves and splashes sideways
+    for (const p of this.particles) { p.vy += 320 * dt; p.vx += push * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
   }
 
   draw(g, frameMs) {
