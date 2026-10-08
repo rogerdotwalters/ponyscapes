@@ -149,6 +149,24 @@ you, and F gives it back (her bubble counts 0/3). With all three home she is at 
 stays in the cave with her cubs from then on (saved with the world). Any other boss can get the same treatment from its data: `wants: { items, need,
 appease: true, quest: { creature, count } }`, plus a young creature with `wants: { items, unlocks: 'pickup' }` and a carried item for it.
 
+## Coins, quests and puzzles
+
+**Coins live in a purse, not in a bag slot.** Gold coins (from chests, bosses, quest rewards, the beach) go straight into your **coin purse**, shown at the top of the
+inventory; shops and recipes spend from it. Coins on the ground (dropped from the purse with **Drop 10**, or lying where a loot drop fell) jump into the purse of
+anyone who steps next to them, so nobody has to pick them up. Older saves with coin stacks in slots are moved into the purse on load (`Inventory.openPurse`).
+
+**Quests belong to the host's world, not to a player** (`js/shared/questSystem.js`; each quest is one file in `js/data/quests/`). A villager with a **!** over their head
+has a quest to give; a **?** means one is waiting on you at that villager (hand things over, or report to them). Anyone can accept a quest, and what any player
+hands in or solves counts toward the same quest. When a quest is finished, **everyone playing at that moment shares the reward** (coins, items, hearts with the giver,
+xp). A quest the world finished before you joined is closed to you; the ones still open, and the ones that come later, are yours to join. The **Journal > Quests** tab
+lists them. The log is saved with the world. Step types: `deliver` (hand items to the giver), `puzzle` (solve a puzzle node), `visit` (somebody walks to a place), `talk`.
+
+**Puzzle nodes** (`js/data/puzzles/`: a humming rune stone, a sunken dial, a broken tablet) are things in the overworld that open a **puzzle screen** (`js/client/ui/puzzleUI.js`)
+when a quest's current step asks for them; otherwise they only hum. A puzzle is played on your own screen and the host **replays your moves** to check the solve
+(`js/shared/puzzles.js`), so a solve cannot be faked. Mechanics so far: **lights** (flip a lantern and its neighbours: put them all out), **sequence** (watch the runes
+glow, then repeat the order) and **slide** (sliding tiles). A new mechanic is a new entry in `PuzzleKinds` and a way to draw it in `puzzleUI.js`; a new puzzle or quest is a new data file
+(also add it to `index.html` and `editor.html`).
+
 ## The map
 
 Drag the map (mouse or finger) to look around; **Centre on me** brings it back. An arrow on the edge always points the way to **town** (with the

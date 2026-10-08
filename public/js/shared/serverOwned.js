@@ -97,6 +97,29 @@ Object.assign(GameServer.prototype, {
     this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'dropped', to: id, item: taken.item, count: taken.count, x: p.x, y: p.y });
   },
+  /** Tip coins out of the purse onto the ground in front of you. */
+  _dropCoins(id, count) {
+    const p = this.players[id], inventory = this.inventories[id], n = clamp(Math.floor(count) || 0, 0, inventory.purse || 0);
+    if (!p || !n) return;
+    inventory.remove('gold_coin', n);
+    const pile = this._dropOnGround('gold_coin', n, p.x + Math.cos(p.facing) * 0.55, p.y + Math.sin(p.facing) * 0.55, gridOf(p));
+    if (pile) pile.dropT = this.tick + 3 * CONFIG.sim.tickRate;                 // (not snatched straight back: it waits a few seconds)
+    this.inventoryRev[id]++;
+    this.pendingEvents.push({ type: 'dropped', to: id, item: 'gold_coin', count: n, x: p.x, y: p.y });
+  },
+  /** Coins lying within a step of someone jump into their purse: nobody has to pick coins up. Called every few ticks. */
+  _gatherCoins() {
+    for (const d of Object.values(this.drops)) {
+      if (d.item !== 'gold_coin' || (d.dropT || 0) > this.tick) continue;
+      for (const id of this.humanIds()) {
+        const p = this.players[id], inventory = this.inventories[id];
+        if (!p || !sameGrid(p, d) || Math.hypot(p.x - d.x, p.y - d.y) > CONFIG.sim.drops.coinRange) continue;
+        const left = inventory.add('gold_coin', d.count), took = d.count - left;
+        if (took > 0) { d.count = left; this.inventoryRev[id]++; this.pendingEvents.push({ type: 'gain', to: id, item: 'gold_coin', count: took }); }
+        if (d.count <= 0) { delete this.drops[d.id]; this.dropsRev++; break; }
+      }
+    }
+  },
   /** Destroy items from a slot for good. */
   _handleDestroy(id, inventory, cmd) {
     const taken = this._takeFromSlot(inventory, cmd.slot, cmd.count);

@@ -39,7 +39,7 @@ Object.assign(GameServer.prototype, {
     trial.slots[from] = null;
     if (!trial.resize(Bags.playerSize({ bag: item }))) { this._notice(id, `The ${ItemDefs[item].name} is too small for everything you carry`); return; }
     if (old && trial.add(old, 1) > 0) { this._notice(id, `No room left for your ${ItemDefs[old].name}: drop something first`); return; }
-    inventory.slots = trial.slots; p.gear.bag = item;
+    inventory.adopt(trial); p.gear.bag = item;
     this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'equip', to: id, item });
     this._notice(id, `You wear the ${ItemDefs[item].name} now: ${Bags.slots(item)} bag slots` + (old ? ` (your ${ItemDefs[old].name} is in it)` : ''));

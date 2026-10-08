@@ -11,11 +11,12 @@ class JournalUI {
   constructor({ panel, tabs, body, closeButton, game }) {
     this.panel = panel; this.tabs = tabs; this.body = body; this.game = game; this.tab = 'skills'; this.mapCache = {}; this.sinceRefresh = 0;
     closeButton.addEventListener('click', () => this.close());
-    tabs.innerHTML = '<button data-tab="skills">Skills</button><button data-tab="friends">Friends</button><button data-tab="map">Treasure Maps</button>';
+    tabs.innerHTML = '<button data-tab="skills">Skills</button><button data-tab="quests">Quests</button><button data-tab="friends">Friends</button><button data-tab="map">Treasure Maps</button>';
     tabs.addEventListener('click', e => { const t = e.target.closest('button'); if (t) this.show(t.dataset.tab); });
     game.events.on('progressChanged', () => this.isOpen && this.tab === 'skills' && this.refresh());
     game.events.on('treasureChanged', () => this.isOpen && this.refresh());
     game.events.on('levelup', () => this.isOpen && this.tab === 'skills' && this.refresh());
+    game.events.on('questsChanged', () => this.isOpen && this.tab === 'quests' && this.refresh());
     game.events.on('friendsChanged', () => this.isOpen && this.tab === 'friends' && this.refresh());
   }
 
@@ -33,7 +34,28 @@ class JournalUI {
 
   refresh() {
     this.tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === this.tab));
-    if (this.tab === 'skills') this._renderSkills(); else if (this.tab === 'friends') this._renderFriends(); else this._renderMap();
+    if (this.tab === 'skills') this._renderSkills(); else if (this.tab === 'friends') this._renderFriends(); else if (this.tab === 'quests') this._renderQuests(); else this._renderMap();
+  }
+
+  /* ---------------- quests ---------------- */
+  /** The host world's quest log: shared by everyone playing. Under way, on offer, and finished. */
+  _renderQuests() {
+    const g = this.game, E = LobbyUI.escape, log = g.questLog, me = g.local.name;
+    const card = (q, status) => {
+      const cur = QuestLog.current(log, q), giver = Npcs.get(q.giver);
+      const steps = q.steps.map((st, i) => {
+        const doneStep = status === 'done' || (cur && i < cur.index), now = cur && i === cur.index;
+        return `<li class="${doneStep ? 'qdone' : now ? 'qnow' : ''}">${E(st.text)}${now && st.type === 'deliver' ? ` (${cur.progress}/${st.count})` : ''}</li>`;
+      }).join('');
+      const where = status === 'available' ? `Ask ${E(giver ? giver.name : q.giver)}` : status === 'active' ? `From ${E(giver ? giver.name : q.giver)}` : 'Finished';
+      return `<div class="qcard ${status}"><b>${E(q.title)}</b><small>${where}</small><ul>${steps}</ul></div>`;
+    };
+    const all = QuestDefs.all().map(q => ({ q, status: QuestLog.status(log, q) }));
+    const part = status => all.filter(e => e.status === status).map(e => card(e.q, status)).join('');
+    this.body.innerHTML = `<div class="jhead">Quests <small>shared with everyone in this world</small></div>`
+      + (part('active') || '<div class="gnone">No quest under way. Villagers with a ! over their head have one.</div>')
+      + (part('available') ? `<div class="jhead">Open</div>${part('available')}` : '')
+      + (part('done') ? `<div class="jhead">Finished</div>${part('done')}` : '');
   }
 
   /* ---------------- friends ---------------- */

@@ -13,7 +13,7 @@ const SnapshotBuilder = {
     const player = server.players[id], grid = gridOf(player), outside = !grid, on = t => SnapshotBuilder.onGrid(t, grid);
     return {
       id, slot: player.slot, mapSeed: server.map.seed, tickRate: CONFIG.sim.tickRate, tick: server.tick, player,
-      inventory: server.inventoryUpdateFor(id), pack: (delete server.packSent[id], server.packUpdateFor(id)), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), farm: server.farmUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
+      inventory: server.inventoryUpdateFor(id), coins: (server.coinsSent[id] = server.inventories[id].purse || 0), questLog: (server.quests.sentRev[id] = server.quests.rev, server.quests.wire()), pack: (delete server.packSent[id], server.packUpdateFor(id)), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), farm: server.farmUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
       boats: outside ? server.boatStates() : {}, drops: on(server.dropStates()), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
       animals: on(server.animals.states(server._humans())), npcs: on(server.npcs.states()), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
       pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire())
@@ -36,6 +36,8 @@ const SnapshotBuilder = {
     snapshot.events = SnapshotBuilder.eventsFor(base.events, id, grid);
     snapshot.pets = server.petsFor(id); snapshot.book = server.bookFor(id); snapshot.varieties = server.varietiesFor(id);   // the Pony Book, every snapshot (it is small)
     const inventory = server.inventoryUpdateFor(id);   if (inventory) snapshot.inventory = inventory;
+    const coins = server.coinsUpdateFor(id);           if (coins !== null) snapshot.coins = coins;           // the coin purse, only when it changed
+    const questLog = server.quests.updateFor(id);      if (questLog) snapshot.questLog = questLog;           // the world's quest log, only when it changed
     const built = server.builtUpdateFor(id);           if (built) snapshot.built = built;
     const floors = server.floorsUpdateFor(id);         if (floors) snapshot.floors = floors;
     const farm = server.farmUpdateFor(id);             if (farm) snapshot.farm = farm;                    // the fields: tilled, watered, growing (farming.js)

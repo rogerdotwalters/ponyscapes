@@ -23,7 +23,7 @@ class InventoryUI {
     }
     body.addEventListener('pointerdown', e => {
       const b = e.target.closest('button[data-bag],#invMainPony');
-      if (!b) return;
+      if (!b) { if (e.target.closest('#invDropCoins')) { e.preventDefault(); game.dropCoins(10); } return; }
       e.preventDefault();
       if (b.id === 'invMainPony') game.makeMainPony(); else this._onBagSlot(Number(b.dataset.bag));
     });
@@ -146,7 +146,8 @@ class InventoryUI {
     if (shape === this.shape) return;
     this.shape = shape;
     const bagName = bag && ItemDefs[bag] ? ItemDefs[bag].name : 'No bag';
-    const html = [`<div class="invsec">Inventory: ${bagName}<small>${belt} belt + ${inv.size - belt} bag slots</small></div><div class="invgrid" data-sec="inv"></div>`];
+    const html = [`<div class="invpurse"><img alt="" src="${ItemIcons.url('gold_coin')}"><b>Coin purse</b><span id="invCoins">0</span><button id="invDropCoins" tabindex="-1" title="Tip out 10 coins (or all you have, if fewer)">Drop 10</button></div>`,
+      `<div class="invsec">Inventory: ${bagName}<small>${belt} belt + ${inv.size - belt} bag slots</small></div><div class="invgrid" data-sec="inv"></div>`];
     if (chest) html.push(`<div class="invsec">${chest.name}<small>${chest.inventory.size} slots</small></div><div class="invgrid" data-sec="chest"></div>`);
     if (pack) {
       const star = pack.main ? ' <span title="Your main pony: it follows you everywhere">&#x2605;</span>' : '';
@@ -181,7 +182,9 @@ class InventoryUI {
   refresh() {
     if (this.picked && !this._picked()) this.picked = null;
     this._build();
-    const P = this.picked;
+    const P = this.picked, coinEl = this.body.querySelector('#invCoins'), dropCoins = this.body.querySelector('#invDropCoins');
+    if (coinEl) coinEl.textContent = this.game.inventory.purse || 0;
+    if (dropCoins) dropCoins.disabled = !(this.game.inventory.purse > 0);
     this.slotEls.me.forEach((el, i) => {
       SlotView.fill(el, this.game.inventory.getSlot(i));
       el.classList.toggle('selected', i === this.game.selectedSlot);

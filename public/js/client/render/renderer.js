@@ -207,6 +207,7 @@ class Renderer {
     const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
     if (farm) for (const item of this._farmItems(farm)) if (item.tx >= tiles.tx0 && item.tx <= tiles.tx1 && item.ty >= tiles.ty0 && item.ty <= tiles.ty1) moving.push(item);
     for (const id in (state.drops || {})) { const d = state.drops[id]; moving.push({ kind: 'drop', depth: d.x + d.y - 0.3, gx: isoX(d.x, d.y), gy: isoY(d.x, d.y), drop: d }); }   // items dropped on the ground
+    if (this.game.map.kind === 'world') for (const node of PuzzleNodes.all()) moving.push({ kind: 'puzzleNode', depth: node.x + node.y, gx: isoX(node.x, node.y), gy: isoY(node.x, node.y), node });   // the old stones (questSystem.js)
     for (const id in state.boats) { const boat = state.boats[id]; moving.push({ kind: 'boat', depth: boat.x + boat.y - 0.25, id, boat }); }   // under its rider
     for (const id in state.players) { const p = state.players[id]; moving.push({ kind: 'player', depth: p.x + p.y + (p.lift || 0) * 4, id, p }); }
     moving.sort((a, b2) => a.depth - b2.depth);                                      // painter's algorithm on x + y: sort the few that move, then merge
@@ -243,10 +244,13 @@ class Renderer {
       const pose = this.playerSprite.draw({ id: item.id, slot: [...item.id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 8, name: `${n.name} \u00b7 ${def ? def.role : ''}`, appearance: n.look, gear: n.gear, x: n.x, y: n.y, vx: n.vx, vy: n.vy, facing: n.facing, state: n.state === 'walk' ? 'walk' : 'idle', held: '', swingT: 0, hurtT: 0, mount: '', boat: '', emote: '', emoteT: 0 }, item.id, sx, sy, false, now, 0, false);
       const top = pose.headY - 40;
       if (friend || close < 2.8) HeartMeter.draw(g.ctx, sx, top, friend, now);
+      const mark = n.say ? '' : QuestLog.markerFor(this.game.questLog, n.type);                // a ! or ? over someone with a quest (not while they talk)
+      if (mark) QuestSprites.marker(g.ctx, sx, top - 12, mark, now);
       if (n.say) this._drawBubble(g, sx, top - 44, n.say);                          // (above the floating +hearts / +xp text that rises from the head)
       return;
     }
     if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
+    if (item.kind === 'puzzleNode') return QuestSprites.node(this.ctx, item.gx, item.gy, item.node, !!QuestLog.needing(this.game.questLog, item.node.id), now);
     if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx, item.gy, item.plot);
     if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx, item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);

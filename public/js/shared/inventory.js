@@ -2,9 +2,11 @@
 /* SHARED - inventory data + rules. No UI, no networking.
  * A player's inventory is their TOOL BELT (slots 0..4: the hotbar, keys 1-5) followed by the slots of the BAG they wear (gear.bag; Bags below).
  * A pony's PACK is an Inventory too: the slots of every bag strapped onto it, one after another. */
+const COIN_ITEM = 'gold_coin', PURSE_MAX = 999999;
 class Inventory {
   constructor(size = Bags.playerSize(null)) {
     this.slots = new Array(size).fill(null);          // null | { id, count }
+    this.purse = null;                                // a person's COIN PURSE: gold coins live here, not in a slot (null: a pack or chest, where they are an ordinary item)
     this.carryStacks = null;                          // stacks of EACH limited resource (wood, stone, clay) this pack may hold; null = no limit (see Carry)
     this.limitHit = null;                             // the resource an add() was last turned away for (the server tells the player why)
   }
@@ -16,8 +18,19 @@ class Inventory {
     return inv;
   }
   toJSON() { return this.slots.map(s => (s ? { id: s.id, count: s.count } : null)); }
-  /** A detached copy with the same carry limit (for "would this fit?" trials). */
-  clone() { return Inventory.fromJSON(this.toJSON(), this.carryStacks); }
+  /** A detached copy with the same carry limit and purse (for "would this fit?" trials). */
+  clone() { const c = Inventory.fromJSON(this.toJSON(), this.carryStacks); c.purse = this.purse; return c; }
+  /** Take over a trial copy's contents once the trial has worked out. */
+  adopt(trial) { this.slots = trial.slots; this.purse = trial.purse; }
+  /** Is this item kept in the purse here? */
+  _isCoin(itemId) { return this.purse !== null && itemId === COIN_ITEM; }
+  /** Coins that were lying in slots (an older save) go into the purse. Call once when a person's inventory is loaded. */
+  openPurse(coins = 0) {
+    this.purse = 0;
+    for (let i = 0; i < this.slots.length; i++) if (this.slots[i] && this.slots[i].id === COIN_ITEM) { this.purse += this.slots[i].count; this.slots[i] = null; }
+    this.purse = Math.min(PURSE_MAX, this.purse + Math.max(0, Math.floor(coins) || 0));
+    return this;
+  }
 
   /** How many more NEW stacks of this item's resource the carry limit allows (Infinity when it is not limited). */
   _stackAllowance(itemId) {
@@ -31,12 +44,13 @@ class Inventory {
   get size() { return this.slots.length; }
   getSlot(index) { return this.slots[index] || null; }
   itemIdAt(index) { const s = this.getSlot(index); return s ? s.id : ''; }
-  count(itemId) { return this.slots.reduce((n, s) => n + (s && s.id === itemId ? s.count : 0), 0); }
+  count(itemId) { if (this._isCoin(itemId)) return this.purse; return this.slots.reduce((n, s) => n + (s && s.id === itemId ? s.count : 0), 0); }
 
   has(itemId, amount = 1) { return this.count(itemId) >= amount; }
 
   /** Would `amount` items fit? (used to validate crafting / refunds before changing anything) */
   canAdd(itemId, amount) {
+    if (this._isCoin(itemId)) return this.purse + amount <= PURSE_MAX;
     const max = ItemDB.maxStack(itemId);
     let room = 0, newStacks = this._stackAllowance(itemId);
     this.slots.forEach(s => {
@@ -49,6 +63,7 @@ class Inventory {
   /** Removes items, preferring the backpack end so hotbar stacks stay put. Returns false if there aren't enough. */
   remove(itemId, amount) {
     if (!this.has(itemId, amount)) return false;
+    if (this._isCoin(itemId)) { this.purse -= amount; return true; }
     let left = amount;
     for (let i = this.slots.length - 1; i >= 0 && left > 0; i--) {
       const s = this.slots[i];
@@ -62,6 +77,7 @@ class Inventory {
 
   /** Adds items (top up stacks first, then empty slots). Returns how many did NOT fit. */
   add(itemId, amount) {
+    if (this._isCoin(itemId)) { const room = Math.max(0, Math.min(amount, PURSE_MAX - this.purse)); this.purse += room; return amount - room; }
     const max = ItemDB.maxStack(itemId);
     let left = amount;
     for (let i = 0; i < this.slots.length; i++) {
@@ -134,11 +150,12 @@ const TestKit = Object.freeze([
   ['sickle', 1], ['brush', 1], ['hoe', 1], ['watering_can', 1], ['seed_turnip', 10]                // the starter backpack (the Old Rope Lasso waits in the lasso slot)
 ]);
 const TestKitPony = Object.freeze([                                                               // the starter pony's side pack: all ten slots
-  ['bow', 1], ['arrow', 20], ['torch', 3], ['jug', 1], ['plank', 30], ['rope', 8], ['string', 6], ['stone', 10], ['apple', 6], ['gold_coin', 25]   // (gold for a bigger bag)
+  ['bow', 1], ['arrow', 20], ['torch', 3], ['jug', 1], ['plank', 30], ['rope', 8], ['string', 6], ['stone', 10], ['apple', 6]
 ]);
 
 function createStarterInventory() {
-  const inv = new Inventory();
-  if (CONFIG.sim.testKit) TestKit.forEach(([item, count]) => inv.add(item, count)); else inv.add('axe', 1);
+  const inv = new Inventory().openPurse();
+  if (CONFIG.sim.testKit) { TestKit.forEach(([item, count]) => inv.add(item, count)); inv.add('gold_coin', 25); }       // (25 gold in the purse: enough for a bigger bag)
+  else inv.add('axe', 1);
   return inv;
 }

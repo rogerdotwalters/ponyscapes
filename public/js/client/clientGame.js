@@ -20,6 +20,7 @@ class ClientGame {
     this.npcs = {}; this.npcView = {}; this.friends = {}; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
+    this.questLog = QuestLog.empty();                  // the host world's quests (questSystem.js)
     this.chest = null;                                 // the chest you have open (homeCrafts.js)
     this.pack = null;                                  // the pack of the pony you ride or stand next to: { id, name, bags, riding, inventory } (packSystem.js)
     this.localSwingT = 0;                              // cosmetic swing so our own tool feels instant
@@ -48,6 +49,8 @@ class ClientGame {
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
     this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeDrops = welcome.drops || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {};
     if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory, this.local.carryStacks);
+    this.inventory.purse = Number.isFinite(welcome.coins) ? welcome.coins : 0;
+    this._applyQuestLog(welcome.questLog);
     if (welcome.pack !== undefined && welcome.pack !== null) this._applyPack(welcome.pack);
     this.isHost = !!welcome.host;
     this.settings = welcome.settings || { hostilesOff: false, testPony: false };            // the host's testing aids (Settings); only the host is ever told
@@ -101,6 +104,16 @@ class ClientGame {
   /** Take the bag in this bag slot off the pony (into your bag). */
   ponyBagOff(index) { this.net.sendCommand({ type: 'ponyBagOff', index }); }
   /** At a shop counter: buy one of this item. */
+  /** The world's quest log, as the server wrote it ({ done: { id: tick }, active: { id: [step, progress] } }). */
+  _applyQuestLog(wire) {
+    const log = QuestLog.empty();
+    if (wire) { Object.assign(log.done, wire.done || {}); for (const id in wire.active || {}) log.active[id] = { step: wire.active[id][0], progress: wire.active[id][1] }; }
+    this.questLog = log; this.events.emit('questsChanged');
+  }
+  questAccept(quest) { this.net.sendCommand({ type: 'questAccept', quest }); }
+  questDeliver(quest) { this.net.sendCommand({ type: 'questDeliver', quest }); }
+  puzzleSolve(node, moves) { this.net.sendCommand({ type: 'puzzleSolve', node, moves }); }
+  dropCoins(count) { this.net.sendCommand({ type: 'dropCoins', count }); }
   buy(item) { this.net.sendCommand({ type: 'buy', item }); }
   _applyPack(wire) {
     this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
@@ -355,7 +368,9 @@ class ClientGame {
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
     if (snapshot.farm) { this.worldMap.farm = snapshot.farm; Groves.sync(this.worldMap); }      // (a sapling that has grown stands as a tree)                          // the fields (farming.js)
     if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
-    if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
+    if (snapshot.inventory) { const coins = this.inventory.purse; this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.inventory.purse = coins; this.events.emit('inventoryChanged'); }
+    if (snapshot.questLog) this._applyQuestLog(snapshot.questLog);
+    if (Number.isFinite(snapshot.coins)) { this.inventory.purse = snapshot.coins; this.events.emit('inventoryChanged'); }
     else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }
     if (snapshot.pack !== undefined) this._applyPack(snapshot.pack);
     if (snapshot.chest !== undefined) this._applyChest(snapshot.chest);
