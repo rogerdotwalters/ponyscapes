@@ -109,7 +109,7 @@ class Renderer {
   /** The sky (weatherFx.js), painted in screen space on whatever surface is on top now. */
   _drawWeather(frameMs) {
     const fx = this.effects.weather; if (!fx) return;
-    fx.draw(this.ctx, this.canvas.width, this.canvas.height, frameMs / 1000, this.camera.dpr);
+    fx.draw(this.ctx, this.canvas.width, this.canvas.height, frameMs / 1000, this.camera.dpr, this.camera);
     this.camera.applyTransform(this.ctx);
   }
 
