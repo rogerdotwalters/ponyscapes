@@ -9,8 +9,8 @@ class RelayConnection {
 
   /** The relay address: ?relay= in the link, the lobby's saved override, relay-config.js, else this page's own host (the all-in-one Worker). */
   static baseUrl() {
-    const q = new URLSearchParams(location.search), saved = (() => { try { return localStorage.getItem('realm.relay'); } catch (e) { return null; } })();
-    const chosen = q.get('relay') || saved || (typeof window !== 'undefined' && window.REALM_RELAY) || '';
+    const q = new URLSearchParams(location.search), saved = (() => { try { return localStorage.getItem('ponyscapes.relay') || localStorage.getItem('realm.relay'); } catch (e) { return null; } })();
+    const chosen = q.get('relay') || saved || (typeof window !== 'undefined' && window.PONYSCAPES_RELAY) || '';
     if (chosen) return chosen;
     return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
   }

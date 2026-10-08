@@ -9,7 +9,7 @@
  *
  * The same API is implemented by MemorySaveStore (used where IndexedDB is unavailable, e.g. some private modes). */
 class IndexedDbSaveStore {
-  constructor(name = 'realm-saves') { this.name = name; this.db = null; this.persistent = true; }
+  constructor(name = 'ponyscapes-saves') { this.name = name; this.db = null; this.persistent = true; }
 
   open() {
     if (this.db) return Promise.resolve(this);
@@ -24,7 +24,36 @@ class IndexedDbSaveStore {
       req.onsuccess = () => { this.db = req.result; resolve(this); };
       req.onerror = () => reject(req.error || new Error('Could not open the save database'));
       req.onblocked = () => reject(new Error('The save database is blocked by another tab'));
+    }).then(() => this._adoptOldSaves()).then(() => this);
+  }
+
+  /** This game used to be called Realm and kept its saves in a database named 'realm-saves'. Once, the first time the new database is opened empty,
+   *  everything in the old one is copied across (the old one is left alone, as a backup). */
+  async _adoptOldSaves() {
+    const flag = 'ponyscapes.savesAdopted';
+    try { if (localStorage.getItem(flag)) return; } catch (e) { /* no localStorage: the check below still keeps this safe */ }
+    const done = () => { try { localStorage.setItem(flag, '1'); } catch (e) { /* fine */ } };
+    if ((await this.listWorlds()).length || (await this._tx(['characters'], 'readonly', tx => this._req(tx.objectStore('characters').count())))) { done(); return; }
+    const old = await new Promise(resolve => {                         // (opened WITHOUT creating it: if it does not exist, the upgrade is cancelled)
+      const req = indexedDB.open('realm-saves');
+      req.onupgradeneeded = () => req.transaction.abort();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null); req.onblocked = () => resolve(null);
     });
+    if (!old) { done(); return; }
+    try {
+      const names = ['worldIndex', 'worldData', 'characters'];
+      if (names.every(n => old.objectStoreNames.contains(n))) {
+        const rows = await new Promise((resolve, reject) => {
+          const tx = old.transaction(names, 'readonly'), out = {};
+          for (const n of names) tx.objectStore(n).getAll().onsuccess = e => { out[n] = e.target.result; };
+          tx.oncomplete = () => resolve(out); tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+        });
+        await this._tx(names, 'readwrite', tx => { for (const n of names) for (const row of rows[n]) tx.objectStore(n).put(row); });
+        done();
+      }
+    } catch (e) { console.warn('Could not copy the saves from the old database:', e); }
+    finally { old.close(); }
   }
   _tx(stores, mode, work) {
     return new Promise((resolve, reject) => {

@@ -15,8 +15,8 @@ class LobbyUI {
   show() {
     return new Promise(resolve => {
       this.resolve = resolve; this.root.hidden = false;
-      this.$('#lobbyName').value = this._load('realm.name') || LobbyUI.suggestName();      // never an empty box: a first-timer can just press Done
-      this.$('#lobbyRelay').value = this._load('realm.relay') || this.query.get('relay') || '';
+      this.$('#lobbyName').value = this._load('ponyscapes.name') || LobbyUI.suggestName();      // never an empty box: a first-timer can just press Done
+      this.$('#lobbyRelay').value = this._load('ponyscapes.relay') || this.query.get('relay') || '';
       this.look = this._loadLook();
       this.$('#lobbySolo').onclick = () => this._finish({ adapter: new LocalAdapter({ name: this._name(), appearance: this._look() }) });
       this.$('#lobbyHost').onclick = () => this._showHost();
@@ -25,39 +25,46 @@ class LobbyUI {
       this.$('#charEdit').onclick = () => this._showCreator();
       this.$('#lobbyName').oninput = () => { if (this.look && !this.$('#lobbyMain').hidden) this._renderCard(); };
       this.$('#lobbyRelayNote').textContent = 'Using ' + RelayConnection.baseUrl();
-      if (!this._load('realm.character')) this._showCreator(true);                            // a new player makes their character first
+      if (!this._load('ponyscapes.character')) this._showCreator(true);                            // a new player makes their character first
       else if (this.query.has('join')) this._showJoin(this.query.get('join'));
       else this._pane('lobbyMain');
     });
   }
 
   /* ---------------------------- identity ---------------------------- */
-  _load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  /** A saved value. This game used to be called Realm, and its keys 'realm.*': a value saved under the old name is still found (and moved to the new). */
+  _load(k) {
+    try {
+      let v = localStorage.getItem(k);
+      if (v === null && k.startsWith('ponyscapes.')) { v = localStorage.getItem('realm.' + k.slice('ponyscapes.'.length)); if (v !== null) localStorage.setItem(k, v); }
+      return v;
+    } catch (e) { return null; }
+  }
   _save(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
   /** This device's secret player key (made once). */
   _key() {
-    let key = this._load('realm.key');
+    let key = this._load('ponyscapes.key');
     if (!key || !/^[A-Za-z0-9_-]{8,64}$/.test(key)) {
       const bytes = new Uint8Array(18); (window.crypto || window.msCrypto).getRandomValues(bytes);
       key = Array.from(bytes, b => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[b % 62]).join('');
-      this._save('realm.key', key);
+      this._save('ponyscapes.key', key);
     }
     return key;
   }
   _name() {
     const name = RelayProtocol.cleanName(this.$('#lobbyName').value) || 'Player' + Math.floor(100 + Math.random() * 900);
-    this.$('#lobbyName').value = name; this._save('realm.name', name);
+    this.$('#lobbyName').value = name; this._save('ponyscapes.name', name);
     return name;
   }
   _relay() {
     const typed = this.$('#lobbyRelay').value.trim();
-    this._save('realm.relay', typed);
+    this._save('ponyscapes.relay', typed);
     return typed || RelayConnection.baseUrl();
   }
 
   /* ---------------------------- the character ---------------------------- */
   _loadLook() {
-    try { const saved = CharacterLook.sanitize(JSON.parse(this._load('realm.character') || 'null')); if (saved) return saved; } catch (e) { /* none saved yet */ }
+    try { const saved = CharacterLook.sanitize(JSON.parse(this._load('ponyscapes.character') || 'null')); if (saved) return saved; } catch (e) { /* none saved yet */ }
     return CharacterLook.random();
   }
   _look() { return this.look.slice(); }
@@ -109,7 +116,7 @@ class LobbyUI {
     this.$('#charDone').onclick = () => {
       const name = RelayProtocol.cleanName(this.$('#lobbyName').value);
       if (!name) { this.$('#lobbyName').value = LobbyUI.suggestName(); this._error('Your character needs a name: we suggested one, change it if you like, then press Done.'); return; }
-      this._save('realm.name', name); this._save('realm.character', JSON.stringify(this.look));
+      this._save('ponyscapes.name', name); this._save('ponyscapes.character', JSON.stringify(this.look));
       this._stopSpin(); this._renderCard();
       if (this.query.has('join') && first) this._showJoin(this.query.get('join')); else this._pane('lobbyMain');
     };
@@ -139,7 +146,7 @@ class LobbyUI {
     this._busy('Opening your saved games...');
     try { this.store = this.store || await SaveStore.create(); } catch (e) { this._pane('lobbyMain'); this._error('Could not open the save database: ' + e.message); return; }
     const worlds = await this.store.listWorlds().catch(() => []);
-    const pane = this.$('#lobbyHostPane'), name = RelayProtocol.cleanName(this.$('#lobbyName').value) || this._load('realm.name') || 'Player';
+    const pane = this.$('#lobbyHostPane'), name = RelayProtocol.cleanName(this.$('#lobbyName').value) || this._load('ponyscapes.name') || 'Player';
     const rows = worlds.map((w, i) => `<label class="worldRow"><input type="radio" name="world" value="${w.id}" ${i === 0 ? 'checked' : ''}><span class="wname">${LobbyUI.escape(w.name)}</span><span class="wmeta">${w.players || 1} player${w.players === 1 ? '' : 's'} &middot; saved ${LobbyUI.ago(w.savedAt)}</span><button class="wdel" data-del="${w.id}" title="Delete this world" type="button">&#x1F5D1;</button></label>`).join('');
     pane.querySelector('#worldList').innerHTML = rows +
       `<label class="worldRow"><input type="radio" name="world" value="__new" ${worlds.length ? '' : 'checked'}><span class="wname">New world</span><input id="newWorldName" class="wnew" maxlength="24" value="${LobbyUI.escape(name)}'s world" aria-label="World name"></label>`;
