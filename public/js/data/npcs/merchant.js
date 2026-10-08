@@ -2,7 +2,7 @@
 /* DATA - NPC: merchant */
 Npcs.register({
   id: 'merchant', name: 'Ozzy', role: 'Merchant', look: [0, 3, 9, 1, 6, 5], gear: { outfit: 'garb_doublet', cape: 'cape_traveler' },
-  home: { x: 22.5, y: 18.5 }, radius: 2.5, works: 'general_store',
+  home: { x: 22.5, y: 22.0 }, radius: 1.5, works: 'general_store',
   tastes: { loves: ['gold_coin'], likes: ['dragon_scale', 'antler', 'string'], dislikes: ['stone'] },
   talk: [
     { min: 1, lines: ['Everything is for sale, and nothing is stolen.', 'Looking? Buying? Admiring my cape?'] },

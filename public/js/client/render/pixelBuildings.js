@@ -36,7 +36,7 @@ const PixelBuildings = (() => {
     const e = site.def.exterior || {}, w = site.w, h = site.h;
     const ym = h / 2 + J / 2, ye = h + J + O, yn = -O, E = F + U, R = (ye - ym) * 44;      // a steep roof
     return {
-      w, h, ym, ye, yn, E, R, door: site.doorX - site.x0,
+      w, h, ym, ye, yn, E, R, east: site.facing === 'e', door: site.facing === 'e' ? -9 : site.doorX - site.x0, doorE: site.facing === 'e' ? site.doorY - site.y0 : -9,   // (door: the tile along the south face that holds it, doorE: along the east face; -9 = none)
       infill: e.infill || 'plaster', chimney: e.chimney !== false, dormer: e.dormer !== undefined ? e.dormer : w >= 5, boarded: !!e.boarded, props: ['sign', ...(e.props || ['lantern'])],
       stone: e.stone || '#8d8a83', wall: e.wall || '#dccca6', roof: e.roof || '#8a5a36', trim: e.trim || '#4a3322', glass: e.glass || '#aab7e4',
       chimneyX: w * 0.72, dormerX: w * 0.38,
@@ -160,24 +160,27 @@ const PixelBuildings = (() => {
 
   /** The ground floor's stones, its door (in its arch: marked hit.door) and its small windows. */
   function stoneFace(S, hit, k, u, v) {
-    if (hit.side === 's') {
-      const local = hit.x - S.door;
-      if (local > 0.2 && local < 0.8) {                                        // the door: arched oak planks, iron straps, in a stone arch
-        const p = (local - 0.2) / 0.6, cxp = Math.abs(p - 0.5), arch = 30 + Math.sqrt(Math.max(0, 0.25 - cxp * cxp)) * 16;
-        if (v < arch) {
-          hit.door = true;
-          if (v > 13 && v < 15.5 || v > 25 && v < 27.5) return '#3a3430';                                   // iron straps
-          if (Math.abs(p - 0.72) < 0.05 && Math.abs(v - 18) < 2.5) return '#c9a24a';                       // the ring
-          return plankAt(S, p * 22, 0, 0.82, mix(S.trim, '#8a5a32', 0.55));
-        }
-        if (v < arch + 4) { hit.door = true; return Math.floor((Math.atan2(v - 30, (p - 0.5) * 22) * 6)) % 2 ? light(S.stone, 0.18) : light(S.stone, 0.05); }   // the arch's stones
+    const south = hit.side === 's', local = south ? hit.x - S.door : hit.y - S.doorE;                  // (along the face, from its door tile's west / north edge)
+    const tileAlong = Math.floor(south ? hit.x : hit.y), cell = (south ? hit.x : hit.y) - tileAlong, isDoorTile = south ? tileAlong === S.door : tileAlong === S.doorE;
+    if (local > 0.2 && local < 0.8 && (south ? S.door : S.doorE) >= 0) {                                 // the door: arched oak planks, iron straps, in a stone arch
+      const p = (local - 0.2) / 0.6, cxp = Math.abs(p - 0.5), arch = 30 + Math.sqrt(Math.max(0, 0.25 - cxp * cxp)) * 16;
+      if (v < arch) {
+        hit.door = true;
+        if (v > 13 && v < 15.5 || v > 25 && v < 27.5) return '#3a3430';                                   // iron straps
+        if (Math.abs(p - 0.72) < 0.05 && Math.abs(v - 18) < 2.5) return '#c9a24a';                       // the ring
+        return plankAt(S, p * 22, 0, 0.82, mix(S.trim, '#8a5a32', 0.55));
       }
-      const t = Math.floor(hit.x), cell = hit.x - t;
-      if (t !== S.door && t >= 0 && t < S.w && hash(t, 17) > 0.35 && cell > 0.32 && cell < 0.68 && v > 17 && v < 33) {    // a small window, shuttered
+      if (v < arch + 4) { hit.door = true; return Math.floor((Math.atan2(v - 30, (p - 0.5) * 22) * 6)) % 2 ? light(S.stone, 0.18) : light(S.stone, 0.05); }   // the arch's stones
+    }
+    if (south) {
+      if (!isDoorTile && tileAlong >= 0 && tileAlong < S.w && hash(tileAlong, 17) > 0.35 && cell > 0.32 && cell < 0.68 && v > 17 && v < 33) {    // a small window, shuttered
         return windowAt(S, (cell - 0.32) / 0.36, 1 - (v - 17) / 16, 1, u, v);
       }
-      if (t !== S.door && hash(t, 17) > 0.35 && v > 16 && v < 34 && ((cell > 0.22 && cell < 0.31) || (cell > 0.69 && cell < 0.78))) return plankAt(S, u * 2, v, 0.9, S.trim);   // shutters
-    } else if (hit.y > 0.3 && hit.y < 0.7 && v > 17 && v < 33 && S.h >= 3) return windowAt(S, (hit.y - 0.3) / 0.4, 1 - (v - 17) / 16, k, u, v);
+      if (!isDoorTile && hash(tileAlong, 17) > 0.35 && v > 16 && v < 34 && ((cell > 0.22 && cell < 0.31) || (cell > 0.69 && cell < 0.78))) return plankAt(S, u * 2, v, 0.9, S.trim);   // shutters
+    } else if (S.east ? (!isDoorTile && tileAlong >= 0 && tileAlong < S.h && hash(tileAlong, 19) > 0.3 && cell > 0.32 && cell < 0.68 && v > 17 && v < 33) : (hit.y > 0.3 && hit.y < 0.7 && v > 17 && v < 33 && S.h >= 3)) {
+      const q = S.east ? (cell - 0.32) / 0.36 : (hit.y - 0.3) / 0.4;
+      return windowAt(S, q, 1 - (v - 17) / 16, k, u, v);
+    }
     return stoneAt(S, u, v, k * (v < 6 ? 0.88 : 1));
   }
 
@@ -244,25 +247,25 @@ const PixelBuildings = (() => {
     const px = (x, y, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), 1, 1); };
     const rect = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), w, h); };
     const at = (x, y, z) => P(x, y, z);
-    const spots = [S.door - 0.6, S.door + 1.45, S.door - 1.6, S.door + 2.4].filter(x => x > 0.15 && x < S.w - 0.15);
+    const lim = S.east ? S.h : S.w, d0 = S.east ? S.doorE : S.door, spots = [d0 - 0.6, d0 + 1.45, d0 - 1.6, d0 + 2.4].filter(x => x > 0.15 && x < lim - 0.15);
     let i = 0;
     for (const prop of S.props) {
       if (prop === 'lantern') {                                                   // an iron lantern on a bracket beside the door
-        const [x, y] = at(S.door + 0.92, S.h, 36);
+        const [x, y] = S.east ? at(S.w, S.doorE + 0.08, 36) : at(S.door + 0.92, S.h, 36);
         rect(x - 4, y - 1, 5, 1, '#2a2420'); rect(x - 4, y, 1, 3, '#2a2420');
         rect(x - 6, y + 3, 5, 7, '#2a2420'); rect(x - 5, y + 4, 3, 5, '#ffd877'); px(x - 4, y + 5, '#fff3c4'); rect(x - 6, y + 10, 5, 1, '#2a2420');
         g.fillStyle = 'rgba(255,214,120,.18)'; g.beginPath(); g.arc(x - 3.5, y + 6.5, 9, 0, Math.PI * 2); g.fill();
         continue;
       }
       if (prop === 'sign') {                                                      // a board hanging from the jetty beside the door (its picture: drawn live)
-        const [x, y] = at(S.door - 0.12, S.h + J + 0.1, F - 1);
+        const [x, y] = S.east ? at(S.w + J + 0.1, S.doorE + 1.12, F - 1) : at(S.door - 0.12, S.h + J + 0.1, F - 1);
         rect(x - 1, y - 2, 12, 1, '#2a2420'); rect(x + 1, y - 1, 1, 3, '#2a2420'); rect(x + 8, y - 1, 1, 3, '#2a2420');
         rect(x - 3, y + 2, 16, 12, S.trim); rect(x - 2, y + 3, 14, 10, mix(S.wall, '#f2e6c8', 0.6));
         continue;
       }
       const sx = spots[i++ % spots.length];
       if (sx === undefined) continue;
-      const [x, y] = at(sx, S.h + 0.18, 0);
+      const [x, y] = S.east ? at(S.w + 0.18, sx, 0) : at(sx, S.h + 0.18, 0);
       if (PIXEL_PROPS[prop]) PixelDecor.stampProp(g, PIXEL_PROPS[prop], x + (prop === 'flowers' ? 0 : prop === 'hay' ? -1 : 0), y + 1);   // (pixel art with form: pixelDecor.js)
     }
   }
@@ -295,7 +298,7 @@ const PixelBuildings = (() => {
     if (!k || k.at !== groundAt) {                                               // (once per building, and again when the ground becomes known)
       const S = specOf(site);
       const ground = groundAt ? '|g' + [...Array(S.w).keys()].map(x => S.groundS(x) || '-').join() + '/' + [...Array(S.h).keys()].map(y => S.groundE(y) || '-').join() : '';   // (the ground at the foot of its walls is part of the picture)
-      k = { at: groundAt, key: site.index + '|' + JSON.stringify(site.def.exterior || {}) + ground, S };
+      k = { at: groundAt, key: site.index + '|' + site.facing + site.w + 'x' + site.h + 'd' + site.doorX + ',' + site.doorY + '|v2|' + JSON.stringify(site.def.exterior || {}) + ground, S };   // (facing, size, door and the picture's version are part of it: the art pack is keyed by it)
       siteKeys.set(site.index, k);
     }
     let pic = cache.get(k.key);                                                  // ready-made, or painted now
@@ -422,7 +425,7 @@ const PixelBuildings = (() => {
   }
   /** Where a building's hanging sign is (world pixels, its centre), for the glyph drawn over it. */
   function signAt(site) {
-    const S = art(site).spec, x = S.door - 0.12, y = S.h + J + 0.1, z = F - 1;
+    const S = art(site).spec, x = S.east ? S.w + J + 0.1 : S.door - 0.12, y = S.east ? S.doorE + 1.12 : S.h + J + 0.1, z = F - 1;
     return { x: (site.x0 - site.y0) * TILE_HALF_W + (x - y) * TILE_HALF_W, y: (site.x0 + site.y0) * TILE_HALF_H + ((x + y) * HHa - z) * ART };
   }
   /** How tall the ground floor is in world pixels (the name banner floats above the door). */

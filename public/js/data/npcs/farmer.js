@@ -2,7 +2,7 @@
 /* DATA - NPC: farmer */
 Npcs.register({
   id: 'farmer', name: 'Tobias', role: 'Farmer', look: [0, 1, 6, 2, 4, 3], gear: {},
-  home: { x: 31.5, y: 22.5 }, radius: 3,
+  home: { x: 33.5, y: 22.5 }, radius: 3,
   tastes: { loves: ['cooked_mutton'], likes: ['wool', 'apple', 'blueberry'], dislikes: ['fang'] },
   talk: [
     { min: 1, lines: ['Weather is turning. The sheep always know first.', 'Mind the fence, friend.'] },

@@ -78,7 +78,7 @@ class World {
    *  too: see trim().) */
   pinHomes() {
     this.homesPinned = true;
-    if (typeof BuildingSites !== 'undefined') for (const site of BuildingSites.list) this.pinRect(site.x0 - 2, site.y0 - 2, site.x1 + 2, site.y1 + 3);
+    if (typeof BuildingSites !== 'undefined') for (const site of BuildingSites.list) this.pinRect(site.x0 - 2, site.y0 - 2, site.x1 + 3, site.y1 + 3);
     if (typeof Npcs !== 'undefined') for (const def of Npcs.all()) this.pinRect(def.home.x - (def.radius || 0), def.home.y - (def.radius || 0), def.home.x + (def.radius || 0), def.home.y + (def.radius || 0));
   }
 

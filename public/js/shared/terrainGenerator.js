@@ -60,7 +60,7 @@ class TerrainGenerator {
     if (shore < T.seaLevel - T.wadeBand) return TILE.WATER;
     if (shore < T.seaLevel) return TILE.SHALLOW;
     if (shore < T.seaLevel + T.beachWidth) return TILE.SAND;
-    if (e > T.rockLevel && this.rockNoise.fractal(tx / 16, ty / 16, 3) > 0.02) return TILE.STONE;   // highlands break into outcrops
+    if (e > T.rockLevel && Village.influence(tx, ty) < 0.5 && this.rockNoise.fractal(tx / 16, ty / 16, 3) > 0.02) return TILE.STONE;   // highlands break into outcrops (never inside the village: its paving is the only stone there)
     const moisture = this.moisture(tx, ty);
     // clay flats: damp low ground just inland of the beaches, in patches
     if (shore < T.seaLevel + T.beachWidth + T.clayBand && moisture > T.clayMoisture && this.clayNoise.fractal(tx / 11, ty / 11, 2) > T.clayPatch) return TILE.CLAY;
