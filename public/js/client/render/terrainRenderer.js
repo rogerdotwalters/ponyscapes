@@ -197,7 +197,7 @@ const TerrainRenderer = (() => {
     return sets.map(({ kind, pal, season, wet }) => () => { for (let v = 0; v < 6; v++) PixelTerrain.cell(kind, pal, v, season, wet); });   // one small job per ground
   }
 
-  function draw(g, map, bounds, range, now) {
+  function draw(g, map, bounds, range, now, onBlock) {      // onBlock(entry, key, w, h): a backend that draws baked blocks itself (Pixi); else they are drawn here
     const anyFloors = Object.keys(map.floors).length > 0, ctx = g.ctx, farm = map.farm && Object.keys(map.farm).length ? map.farm : null;
     const t = now / 1000, { minX, maxX, minY, maxY } = bounds, rings = map.layers && map.layers.rings;
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
@@ -208,7 +208,7 @@ const TerrainRenderer = (() => {
       for (const [bx, by] of blocksIn(bounds)) {
         const key = blockKey(bx, by), p = store.get(key);
         if (!p) continue;                                                                     // (its tiles are drawn one by one below until it is baked)
-        ctx.drawImage(p.canvas, p.x0, p.y0, BW + 2 * PAD, BH + 2 * PAD);
+        if (onBlock) onBlock(p, key, BW + 2 * PAD, BH + 2 * PAD); else ctx.drawImage(p.canvas, p.x0, p.y0, BW + 2 * PAD, BH + 2 * PAD);
         store.delete(key); store.set(key, p); drawn.add(key);                                  // (recently used)
       }
     }

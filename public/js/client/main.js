@@ -52,8 +52,9 @@ function launch(choice, query) {
   const game = new ClientGame(adapter);
   game.session = typeof adapter.getSessionInfo === 'function' ? adapter : null;      // only hosted / joined games have a session
   Loader.show(choice.welcome ? 'Starting...' : 'Connecting...');
+  const backendName = RenderBackend.prepare(query);                    // 'canvas' (default) or 'pixi' (?renderer=pixi): fetches the Pixi scripts if asked
 
-  (choice.welcome ? Promise.resolve(choice.welcome) : adapter.connect()).then(welcome => {
+  Promise.all([choice.welcome ? Promise.resolve(choice.welcome) : adapter.connect(), backendName]).then(([welcome, backend]) => {
     game.onWelcome(welcome);
     adapter.onSnapshot(snapshot => game.onSnapshot(snapshot));          // (registered after the welcome: anything that arrived earlier is replayed in order)
 
@@ -70,7 +71,7 @@ function launch(choice, query) {
     /* view */
     const effects = new Effects(bus, game);
     let tapToMove = null;
-    const renderer = new Renderer({ canvas: $('game'), game, effects, getTapMarker: now => tapToMove.currentMarker(now) });
+    const renderer = RenderBackend.create(backend, { canvas: $('game'), game, effects, getTapMarker: now => tapToMove.currentMarker(now) });
     tapToMove = new TapToMove({ bus, game, camera: renderer.camera, input });
     renderer.rebuildBuilt(); renderer.resize();
     window.addEventListener('resize', () => renderer.resize());
@@ -198,7 +199,7 @@ function launch(choice, query) {
         if (interactHint !== interactShown) { interactShown = interactHint; $('btnBoard').style.display = interactHint ? '' : 'none'; $('btnBoard').textContent = shortVerb(interactHint || ''); $('btnBoard').title = interactHint || ''; }
       }
     });
-    Loader.initial({ game, renderer }).catch(err => { console.error('loading:', err); Loader.hide(); }).then(() => { loop.start(); Loader.background(game, renderer); });
+    Promise.resolve(renderer.ready).then(() => Loader.initial({ game, renderer })).catch(err => { console.error('loading:', err); Loader.hide(); }).then(() => { loop.start(); Loader.background(game, renderer); });
   });
 }
 

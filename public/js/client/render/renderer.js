@@ -5,8 +5,10 @@ const WALL_CHUNKS = 4;
 const FLY_HEIGHT = 46;                                    // pixels a flying pegasus and its rider are drawn above the ground at full height
 
 class Renderer {
-  constructor({ canvas, game, effects, getTapMarker }) {
-    this.canvas = canvas; this.ctx = canvas.getContext('2d', { alpha: false });
+  get backend() { return 'canvas'; }
+
+  constructor({ canvas, game, effects, getTapMarker, ctxOptions = { alpha: false } }) {
+    this.canvas = canvas; this.ctx = canvas.getContext('2d', ctxOptions);        // (the Pixi backend draws what is still canvas art into a transparent layer: pixiRenderer.js)
     this.g = new Gfx(this.ctx); this.game = game; this.effects = effects; this.getTapMarker = getTapMarker;
     this.camera = new Camera(); this.playerSprite = new PlayerSprite(this.g); this.boatSprite = new BoatSprite(this.g); this.animalSprite = new AnimalSprite(this.g); this.lighting = new Lighting(); this.builtItems = [];
     game.events.on('builtChanged', () => this.rebuildBuilt());
@@ -70,7 +72,7 @@ class Renderer {
     this.camera.follow(isoX(me.x, me.y), isoY(me.x, me.y) - 18, frameMs);
 
     const indoors = this.game.map.kind !== 'world';                                  // a room or a cave: darkness all round
-    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = indoors ? '#0b0d12' : OCEAN_COLOR; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this._beginFrame(indoors);
     this.camera.applyTransform(ctx);
     const bounds = this.camera.bounds();
     SpriteCache.scale = this.camera.scale;                                           // (shadows and name tags are baked at this scale: spriteCache.js)
@@ -79,7 +81,7 @@ class Renderer {
     const date = Seasons.at(this.game.clockTick);                                   // the season colours the grass and the trees; watered soil stays dark today
     TerrainRenderer.setDate(date.season.id, date.day); PropSprites.seasonTint = date.season.treeTint;
     if (!this.groundLook || this.groundMap !== this.game.worldMap) { this.groundMap = this.game.worldMap; this.groundLook = (x, y) => TerrainRenderer.lookOf(this.groundMap, x, y); PixelBuildings.useGround(this.groundLook); }   // buildings meet the ground they stand on
-    TerrainRenderer.setScale(this.camera.scale); TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now);
+    TerrainRenderer.setScale(this.camera.scale); TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now, this.blockSink);
     const movers = [];                                                              // whoever pushes the grass aside (grassRenderer.js)
     for (const group of [state.players, state.animals, state.npcs]) for (const id in (group || {})) { const m = group[id]; if (m && !m.boat && !m.flying) movers.push(m); }
     this.nearGrass = GrassRenderer.draw(this.ctx, this.game.map, bounds, tiles, this.game.clockTick, now, movers);
@@ -88,7 +90,15 @@ class Renderer {
     if (!indoors) this._drawBuildingNames(me);
     this._drawLighting(me, state);
     this.effects.draw(this.g, frameMs);              // particles and floating text sit above the night overlay
+    this._endFrame();
   }
+
+  /** Backend hooks. The canvas backend paints the background itself and has nothing to finish; PixiRenderer overrides both (and sets `blockSink`). */
+  _beginFrame(indoors) {
+    const ctx = this.ctx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = indoors ? '#0b0d12' : OCEAN_COLOR; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+  _endFrame() {}
 
   /** Time-of-day overlay, centred on the player, with pools of light from torches and campfires. */
   _drawLighting(me, state) {
