@@ -165,13 +165,26 @@ class Effects {
       ctx.strokeStyle = 'rgba(255,245,210,.95)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
     }
     this.ropes = this.ropes.filter(r => (r.age += dt) < 0.7);                                       // a thrown lasso: a rope flying out with a loop that closes on a catch
-    for (const r of this.ropes) {
-      const t = Math.min(1, r.age / 0.28), x = r.x0 + (r.x1 - r.x0) * t, y = r.y0 + (r.y1 - r.y0) * t - Math.sin(t * Math.PI) * 14;
-      const loop = r.hit && r.age > 0.28 ? Math.max(3, 11 - (r.age - 0.28) * 30) : 11;                 // the loop tightens round the neck
-      for (const [color, w] of [[r.look.dark, 3.4], [r.hit ? r.look.braid : r.look.rope, 2]]) {          // the rope in its lasso's colours, outlined
-        ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(r.x0, r.y0); ctx.quadraticCurveTo((r.x0 + x) / 2, Math.min(r.y0, y) - 10 + (1 - t) * 10, x, y); ctx.stroke();
-        ctx.beginPath(); ctx.ellipse(x, y, loop, loop * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
-      }
+    for (const r of this.ropes) {                                                                          // drawn in chunky 2px "pixels" like the lasso icon: a thick braided loop, its ring (honda), and the end trailing behind
+      const P = 2, t = Math.min(1, r.age / 0.28), look = r.look, flying = r.age < 0.28, settle = flying ? 1 : Math.max(0, 1 - (r.age - 0.28) * 4);
+      const dxr = r.x1 - r.x0, dyr = r.y1 - r.y0, len = Math.hypot(dxr, dyr) || 1, nx = -dyr / len, ny = dxr / len;
+      const wave = (u, ph) => Math.sin(u * 9 - r.age * 38 + ph) * 5 * settle * u;                        // the rope waves through the air, settling once it lands
+      const at = u => { const k = u * t, w = wave(u, 0); return [r.x0 + dxr * k + nx * w, r.y0 + dyr * k + ny * w - Math.sin(k * Math.PI) * 14]; };
+      const stamp = (x, y, size, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x / P) * P - size / 2, Math.round(y / P) * P - size / 2, size, size); };
+      const strand = (pts, w) => {                                                                       // a braided rope: dark outline, body, light twists
+        for (const [size, col] of [[w + 2, look.dark], [w, look.rope]]) for (const [x, y] of pts) stamp(x, y, size, col);
+        pts.forEach(([x, y], i) => { if (i % 4 < 2 && !(look.worn && i % 7 === 3)) stamp(x, y, w - 2, look.braid); });
+      };
+      const dense = (n, f) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
+      const [x, y] = at(1), rad = r.hit && !flying ? Math.max(5, 13 - (r.age - 0.28) * 30) : 13, spin = flying ? Math.sin(r.age * 22) * 0.35 : 0;
+      const ringAt = -2.2 + spin, hx = x + Math.cos(ringAt) * rad, hy = y + Math.sin(ringAt) * rad * 0.62;
+      const tail = (col, side) => dense(10, u => { const w = Math.sin(u * 6 - r.age * 30 + side) * 2.5 * settle; return [hx - u * 13 - side * 2 * u, hy + u * 9 + w]; });
+      if (look.tails) { for (const [i, c] of look.tails.entries()) { const pts = tail(c, i); for (const [px, py] of pts) stamp(px, py, 5, look.dark); for (const [px, py] of pts) stamp(px, py, 3, c); } }
+      strand(dense(30, u => at(u)), 3);                                                                  // the rope itself, flying out from the thrower
+      strand(dense(46, u => { const a = ringAt + 0.25 + u * (Math.PI * 2 - 0.25); return [x + Math.cos(a) * rad, y + Math.sin(a) * rad * 0.62]; }), 4);   // the loop (flattened to the ground plane)
+      if (!look.tails) for (const [px, py] of tail(look.rope, 0)) { stamp(px, py, 4, look.dark); stamp(px, py, 2, look.rope); }                // plain rope end for the simple lassos
+      for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [-2, 2], [2, -2]]) stamp(hx + ox, hy + oy, 2, look.dark);       // the ring: dark rim round a bright centre
+      stamp(hx, hy, 2, look.honda); stamp(hx - 1, hy - 1, 2, '#ffffff');
     }
     this.floaters = this.floaters.filter(f => (f.age += dt) < (f.style === 'levelup' ? 2.4 : 1.4));
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

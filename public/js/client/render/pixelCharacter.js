@@ -27,15 +27,16 @@ const PixelCharacter = (() => {
   /* ---- the palette of one character in one outfit ---- */
   function palette(L, W8) {
     const outfit = W8.outfit, style = outfit ? outfit.style : 'plain';
-    const skirt = (outfit && outfit.color) || L.outfit, trim = (outfit && outfit.trim) || L.trim;
+    const shirt = (outfit && outfit.color) || L.outfit, skirt = (outfit && outfit.color) || L.pants || L.outfit, trim = (outfit && outfit.trim) || L.trim;   // a worn outfit colours everything; otherwise shirt and pants are chosen apart
+    const eye = L.eye || '#2a1a12', shoe = L.shoe || '#6b4428', plain = style === 'plain';
     return {
-      style, hairKind: L.hairKind, prince: !L.princess,
-      tunic: tones(style === 'hunter' ? shade(skirt, 0.92) : skirt), trousers: tones(L.princess ? '#3b3542' : mix(skirt, '#2a2632', 0.72)), boot: tones('#5a3a22'), belt: tones(style === 'hunter' ? '#3a2a1a' : style === 'doublet' ? shade(skirt, 0.55) : '#4a3624'),
+      style, hairKind: L.hairKind, prince: !L.princess, shirtStyle: plain ? L.shirtStyle | 0 : 0, pantsStyle: plain ? L.pantsStyle | 0 : 0,
+      tunic: tones(style === 'hunter' ? shade(shirt, 0.92) : shirt), trousers: tones(L.princess ? '#3b3542' : outfit ? mix(shirt, '#2a2632', 0.72) : skirt), boot: tones(shoe), belt: tones(style === 'hunter' ? '#3a2a1a' : style === 'doublet' ? shade(shirt, 0.55) : '#4a3624'),
       hair: tones(L.hair), skin: { b: L.skin, d: shade(L.skin, 0.82), blush: mix(L.skin, '#e26a6a', L.princess ? 0.35 : 0.16) },
-      eye: '#2a1a12', eyeShine: mix('#2a1a12', '#8a6a50', 0.5), mouth: shade(L.skin, 0.62),
-      blouse: style === 'plain' ? tones('#7a5236') : tones(skirt),                  // the plain dress: a brown blouse, a cream apron, a skirt in your colour
+      eye, eyeShine: mix(eye, '#ffffff', 0.4), mouth: shade(L.skin, 0.62),
+      blouse: tones(shirt),                  // the plain dress: a brown blouse, a cream apron, a skirt in your colour
       lace: tones('#efe3c4'), apron: tones('#e6d9b6'), skirt: tones(skirt), trim: tones(trim),
-      shoe: tones('#6b4428'),
+      shoe: tones(shoe),
       crown: W8.crown ? Object.assign(tones(W8.crown.color), { style: W8.crown.style, gem: W8.crown.gem || '#e05a8a' }) : null,
       cape: W8.cape ? Object.assign(tones(W8.cape.color), { style: W8.cape.style, trim: tones(W8.cape.trim || W8.cape.color) }) : null,
       outline: '#24170f',
@@ -108,6 +109,13 @@ const PixelCharacter = (() => {
     });
   }
 
+  /** A plain shirt's pattern in the trim colour (shirt styles Striped and Vest): rows y0..y1 between x0 and x1. A worn outfit has its own look, so only a plain shirt gets one. */
+  function shirtMarks(P, C, y0, y1, x0, x1, side) {
+    const s = C.shirtStyle;
+    if (s === 1) for (let y = y0 + 1; y <= y1; y += 2) P.row(y, CX + x0, CX + x1, C.trim.b);
+    else if (s === 2) { for (let y = y0; y <= y1; y++) { P.px(CX + x0, y, C.trim.b); P.px(CX + x0 + 1, y, C.trim.d); if (!side) { P.px(CX + x1, y, C.trim.b); P.px(CX + x1 - 1, y, C.trim.d); } } }
+  }
+
   function skirtFront(P, C, F, gown, sun) {
     const top = 23, bottom = gown ? 36 : sun ? 31 : 34, t = C.skirt;
     for (let y = top; y <= bottom; y++) {
@@ -123,6 +131,8 @@ const PixelCharacter = (() => {
     }
     if (sun) { P.at(F.hem, 0, () => { for (let x = -7; x < 7; x++) P.px(CX + x, bottom + 1, (x & 1) ? C.trim.b : C.trim.d); P.sym(bottom, 7, C.trim.b); }); }
     if (!gown && !sun) P.at(F.hem, 0, () => P.sym(bottom, 7, t.d));             // the hem
+    if (!gown && !sun && C.pantsStyle === 1) P.at(F.hem, 0, () => { P.sym(bottom - 1, 7, C.trim.b); P.sym(bottom - 2, 7, C.trim.d); });      // a band round the hem
+    if (!gown && !sun && C.pantsStyle === 2) P.at(F.hem, 0, () => { for (const [x, y] of [[-6, 29], [-3, 31], [-5, 33], [3, 29], [5, 32], [0, 33], [6, 30], [-1, 28]]) P.px(CX + x, y, C.trim.b); });   // polka dots
   }
 
   function feetFront(P, C, F, sun) {
@@ -145,6 +155,7 @@ const PixelCharacter = (() => {
     const b = C.blouse;
     P.sym(16, 3, b.b); for (let y = 17; y <= 22; y++) P.shaded(y, 5, b);             // shoulders and body
     P.sym(23, 4, C.style === 'plain' ? C.apron.l : C.trim.b);                          // the waistband / sash
+    shirtMarks(P, C, 19, 22, -5, 4);
     // sleeves and hands, swinging with the step
     for (const [x, d, dark] of [[CX - 7, F.al, false], [CX + 5, F.ar, true]]) {
       const len = sun ? 2 : 6;
@@ -191,6 +202,7 @@ const PixelCharacter = (() => {
         P.sym(16, 3, b.b); for (let y = 17; y <= 22; y++) P.shaded(y, 5, b);
         for (const [x, d] of [[CX - 7, F.ar], [CX + 5, F.al]]) { P.rect(x, 17, 2, sun ? 2 : 6, b.d); if (sun) P.rect(x, 19, 2, 4, C.skin.b); P.rect(x, 24 + d, 2, 2, C.skin.d); }
         P.sym(23, 4, C.style === 'plain' ? C.apron.l : C.trim.b);
+        shirtMarks(P, C, 19, 22, -5, 4);
         if (C.style === 'plain') {                                                     // the apron's bow at the back
           P.rect(CX - 3, 22, 2, 2, C.apron.b); P.rect(CX + 1, 22, 2, 2, C.apron.b); P.rect(CX - 1, 22, 2, 2, C.apron.d);
           P.px(CX - 2, 24, C.apron.b); P.px(CX - 2, 25, C.apron.b); P.px(CX + 1, 24, C.apron.b); P.px(CX + 1, 25, C.apron.b); P.px(CX + 2, 26, C.apron.d);
@@ -201,7 +213,7 @@ const PixelCharacter = (() => {
       P.layer('capeO', () => capeOver(P, C, F));
       P.layer('head', () => {
         P.sym(15, 1, C.skin.d);
-        for (let y = 2; y <= 15; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < 14 ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);   // the back of the head is all hair
+        for (let y = 2; y <= 15; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < 14 ? 7 : 6, C.hairKind === 'pixie' && y > 11 ? C.skin.d : (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);   // the back of the head is all hair (a pixie cut bares the nape)
         P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
       });
       P.layer('hairB', () => hairBack(P, C, F, 'up'));
@@ -233,6 +245,7 @@ const PixelCharacter = (() => {
       if (C.style === 'plain') { for (let y = 24; y <= 33; y++) { const x = CX - (y < 28 ? 4 : 5); P.rect(x, y, 2, 1, C.apron.b); P.px(x, y, C.apron.l); } }   // the apron's front edge
       P.row(16, CX - 2, CX + 1, b.b); for (let y = 17; y <= 22; y++) { P.row(y, CX - 3, CX + 3, b.b); P.px(CX + 3, y, b.d); }
       P.row(23, CX - 3, CX + 3, C.style === 'plain' ? C.apron.l : C.trim.b);
+      shirtMarks(P, C, 19, 22, -3, 3, true);
       if (C.style === 'plain') { P.row(16, CX - 2, CX + 1, C.lace.b); P.px(CX - 3, 17, C.lace.b); P.px(CX - 2, 17, C.lace.d); }
       else if (!sun) P.row(16, CX - 3, CX + 1, C.trim.b);
       // the near arm, swinging
@@ -269,6 +282,8 @@ const PixelCharacter = (() => {
     const leg = (x, [dx, dy], far) => {
       const t = C.trousers, b = C.boot;
       for (let y = 25; y <= 33 + dy; y++) { P.rect(x + dx, y, 3, 1, far ? t.d : t.b); P.px(x + dx + (far ? 2 : 0), y, far ? t.d : t.l); }
+      if (C.pantsStyle === 1) for (let y = 26; y <= 32 + dy; y++) P.px(x + dx + (x < CX ? 0 : 2), y, C.trim.b);                           // a stripe down the outside of each leg
+      if (C.pantsStyle === 2) P.rect(x + dx, 30 + dy, 3, 2, C.trim.b);                                                              // turned-up cuffs
       P.rect(x + dx, 33 + dy, 3, 3, b.b); P.row(33 + dy, x + dx, x + dx + 2, b.l); P.px(x + dx + 2, 34 + dy, b.d);
       P.row(36 + dy, x + dx - (x < CX ? 1 : 0), x + dx + 2 + (x < CX ? 0 : 1), b.d);                         // the sole, toes turned out
     };
@@ -299,6 +314,7 @@ const PixelCharacter = (() => {
       else { P.px(CX - 2, 16, S === 'tunic' ? C.trim.b : t.d); P.px(CX + 1, 16, S === 'tunic' ? C.trim.b : t.d); P.px(CX - 1, 17, C.skin.d); P.px(CX, 17, C.skin.d); }   // a V neck (gold-edged on the royal tunic)
       if (S === 'plain') { P.px(CX - 4, 19, C.trim.b); P.px(CX + 3, 19, C.trim.b); }                        // a little trim on the chest
     }
+    shirtMarks(P, C, 17, 22, -4, 3);
     P.sym(24, 5, C.belt.b); P.row(24, CX - 5, CX - 4, C.belt.l);                                             // the belt, and its buckle
     if (!back && S !== 'doublet') { P.rect(CX - 1, 24, 2, 1, '#f2c14e'); }
   }
@@ -323,10 +339,14 @@ const PixelCharacter = (() => {
     P.at(0, F.bob, () => {
       P.layer('capeO', () => capeOver(P, C, F));
       P.layer('head', () => {
-        const k = C.hairKind, end = k === 'medium' ? 16 : k === 'curly' ? 13 : 12;
+        const k = C.hairKind, end = k === 'medium' ? 16 : k === 'afro' ? 13 : k === 'buzz' ? 10 : 12;
         for (let y = 6; y <= 15; y++) P.sym(y, y < 14 ? 6 : y === 14 ? 5 : 4, C.skin.d);                   // the back of the head and the neck
-        for (let y = 2; y <= end; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < end ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);
-        P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
+        if (k === 'mohawk') for (let y = 2; y <= 10; y++) { const hw = y < 3 ? 4 : y < 4 ? 6 : 7; P.sym(y, hw, C.skin.d); for (let x = -hw; x < hw; x++) if ((x + y) % 3 === 0) P.px(CX + x, y, C.hair.d); }   // shaved sides: stubble on skin
+        else if (k === 'buzz') for (let y = 3; y <= end; y++) P.sym(y, y < 4 ? 5 : y < end ? 6 : 5, y % 2 ? C.hair.d : C.hair.b);
+        else {
+          for (let y = 2; y <= end; y++) P.sym(y, y < 3 ? 4 : y < 4 ? 6 : y < end ? 7 : 6, (y * 3 + 1) % 5 ? C.hair.b : C.hair.d);
+          P.row(2, CX - 2, CX + 1, C.hair.l); P.row(3, CX - 4, CX - 2, C.hair.l);
+        }
       });
       P.layer('hairB', () => { princeHairBack(P, C, F, 'up'); princeHairTop(P, C, 'up'); });
       P.layer('crown', () => crown(P, C, 'up'));
@@ -336,7 +356,7 @@ const PixelCharacter = (() => {
     const S = F.side, t = C.tunic, tr = C.trousers, b = C.boot;
     P.at(0, F.bob, () => { P.layer('capeB', () => capeSide(P, C, F)); P.layer('hairB', () => princeHairBack(P, C, F, 'left')); });
     const leg = (stride, far) => {                                                                         // a leg swinging from the hip
-      for (let y = 25; y <= 33; y++) { const x = CX - 1 + Math.round(stride * (y - 25) / 9); P.rect(x, y, 3, 1, far ? tr.d : tr.b); if (!far) P.px(x, y, tr.l); }
+      for (let y = 25; y <= 33; y++) { const x = CX - 1 + Math.round(stride * (y - 25) / 9); P.rect(x, y, 3, 1, far ? tr.d : tr.b); if (!far) P.px(x, y, tr.l); if (C.pantsStyle === 1 && y > 25 && y < 33) P.px(x + 1, y, C.trim.b); if (C.pantsStyle === 2 && y >= 30 && y <= 31) P.rect(x, y, 3, 1, C.trim.b); }
       const fx = CX - 1 + stride; P.rect(fx, 33, 3, 3, far ? b.d : b.b); if (!far) P.row(33, fx, fx + 2, b.l); P.row(36, fx - 1, fx + 2, b.d);   // the boot, toe forward (left)
     };
     P.layer('body', () => {
@@ -349,6 +369,7 @@ const PixelCharacter = (() => {
       if (C.style === 'doublet') { P.rect(CX - 1, 16, 3, 2, C.trim.b); P.px(CX - 4, 19, C.trim.b); P.px(CX - 4, 21, C.trim.b); }
       if (C.style === 'hunter') for (let k = 0; k < 7; k++) P.px(CX - 3 + k, 17 + k, C.trim.b);
       if (C.style === 'tunic') P.row(16, CX - 3, CX - 1, C.trim.b);
+      shirtMarks(P, C, 17, 22, -4, 3, true);
       P.row(24, CX - 4, CX + 3, C.belt.b); if (C.style !== 'doublet') P.px(CX - 4, 24, '#f2c14e');
       const ax = CX - 1 + Math.round(S.arm / 2), hand = CX - 1 + S.arm;                                     // the near arm, swinging
       P.rect(ax, 17, 2, 5, t.l); P.px(ax + 1, 18, t.b); P.rect(Math.round((ax + hand) / 2), 21, 2, 2, t.b);
@@ -369,47 +390,74 @@ const PixelCharacter = (() => {
     });
   }
 
-  /* ---- the prince's hair: short, swept, spiky, medium (to the shoulders), tied (a short tail), curly ---- */
+  /* ---- the prince's hair: a side part, a quiff, spikes, shoulder-length, a man bun, an afro, a buzz cut and a mohawk ---- */
   function princeHairBack(P, C, F, view) {
     const h = C.hair, k = C.hairKind;
     if (k === 'medium' && view === 'down') for (let y = 4; y <= 17; y++) P.sym(y, y < 5 ? 7 : 8, (y + 2) % 4 ? h.b : h.d);
     if (k === 'medium' && view === 'left') for (let y = 4; y <= 17; y++) P.row(y, CX, CX + 7, (y + 2) % 4 ? h.b : h.d);
-    if (k === 'curly' && view !== 'up') for (let y = 2; y <= 12; y++) { const half = y < 3 ? 6 : 8 + ((y >> 1) & 1); if (view === 'left') P.row(y, CX - 2, CX + half - 1, y % 3 ? h.b : h.d); else P.sym(y, half, y % 3 ? h.b : h.d); }
-    if (k === 'tied' && view !== 'down') {                                                                // a short tail at the nape, tied with a band (hidden behind the head from the front)
-      const tx = view === 'up' ? CX - 1 : CX + 6;
-      for (let y = 11; y <= 17; y++) P.rect(tx + (view === 'up' ? 0 : (y > 14 ? 1 : 0)) + (y > 15 ? F.sway : 0), y, 2, 1, y % 3 ? h.b : h.d);
-      P.rect(tx, 11, 2, 1, '#3a2a1a');
+    if (k === 'afro') for (let y = -3; y <= 13; y++) {                                                      // a big round cloud of hair all round the head
+      const half = Math.round(9.6 * Math.sqrt(Math.max(0, 1 - Math.pow((y - 5) / 8.4, 2)))), c = (y + half) % 3 ? h.b : h.d;
+      if (view === 'left') P.row(y, CX - 2, CX + half - 1, c); else P.sym(y, half, c);
     }
   }
-  /** Spikes, a quiff or curls on top of the head (all views). */
+  /** What sits on top of the head: a quiff, spikes, a bun, curls or a mohawk's crest (all views). */
   function princeHairTop(P, C, view) {
     const h = C.hair, k = C.hairKind;
-    if (k === 'spiky') for (const [x, tall] of view === 'left' ? [[-5, 1], [-2, 2], [1, 2], [4, 1]] : [[-6, 1], [-3, 2], [0, 3], [3, 2], [5, 1]]) for (let j = 1; j <= tall + 1; j++) { P.px(CX + x - (view === 'left' ? 0 : 0), 2 - j, j === tall + 1 ? h.l : h.b); P.px(CX + x + 1, 2 - j + 1, h.d); }
-    if (k === 'swept') { const x0 = view === 'left' ? CX - 7 : CX - 5; P.row(1, x0, x0 + 8, h.b); P.row(0, x0 + 1, x0 + 6, h.b); P.row(0, x0 + 2, x0 + 4, h.l); P.row(1, x0, x0 + 2, h.l); }
-    if (k === 'curly') for (let x = -7; x <= 6; x += 2) { P.px(CX + x, 1, h.b); P.px(CX + x + 1, 1, h.d); }
+    if (k === 'spiky') for (const [x, tall] of view === 'left' ? [[-5, 1], [-2, 2], [1, 2], [4, 1]] : [[-6, 1], [-3, 2], [0, 3], [3, 2], [5, 1]]) for (let j = 1; j <= tall + 1; j++) { P.px(CX + x, 2 - j, j === tall + 1 ? h.l : h.b); P.px(CX + x + 1, 2 - j + 1, h.d); }
+    if (k === 'quiff') {                                                                                   // swept up and over the forehead: tall, with a curl at the front
+      const x0 = view === 'left' ? CX - 8 : CX - 6;
+      P.row(-2, x0 + 3, x0 + 7, h.b); P.row(-1, x0 + 1, x0 + 9, h.b); P.row(0, x0, x0 + 10, h.b); P.row(1, x0, x0 + 10, h.b);
+      P.row(-2, x0 + 4, x0 + 5, h.l); P.row(-1, x0 + 2, x0 + 5, h.l); P.row(0, x0 + 1, x0 + 3, h.l); P.px(x0 + 10, 0, h.d); P.px(x0 + 9, -1, h.d); P.row(1, x0 + 7, x0 + 10, h.d);
+      if (view === 'left') { P.px(x0 - 1, 1, h.b); P.px(x0 - 1, 2, h.b); }
+    }
+    if (k === 'afro') { const x0 = view === 'left' ? CX - 7 : CX - 8; for (let x = x0; x <= x0 + 14; x += 2) { P.px(CX - CX + x + 0, 0, h.b); P.px(x + 1, 0, h.d); P.px(x, 1, h.b); } P.row(-1, x0 + 2, x0 + 11, h.b); P.row(-1, x0 + 3, x0 + 5, h.l); }
+    if (k === 'manbun') {                                                                                  // hair gathered into a knot, with a band
+      const bx = view === 'left' ? CX + 1 : CX - 2;
+      P.row(-4, bx + 1, bx + 2, h.b); P.rect(bx, -3, 4, 4, h.b); P.px(bx + 1, -3, h.l); P.px(bx + 1, -2, h.l); P.row(0, bx, bx + 3, h.d); P.row(1, bx, bx + 3, '#3a2a1a');
+    }
+    if (k === 'mohawk') {                                                                                  // a tall crest down the middle of a shaved head
+      if (view === 'left') for (let x = -6; x <= 5; x++) { const top = x < -4 ? 0 : x > 3 ? 1 : -4 + (x & 1 ? 0 : -1); P.rect(CX + x, top, 1, 6 - top, (x + top) & 1 ? h.b : h.d); P.px(CX + x, top, h.l); }
+      else { const end = view === 'up' ? 13 : 5; for (let y = -4; y <= end; y++) { P.rect(CX - 2, y, 4, 1, (y & 1) ? h.b : h.d); P.px(CX - 2, y, h.l); } P.px(CX - 1, -5, h.b); P.px(CX, -5, h.b); }
+    }
+  }
+  /** A shaved head from the front or side: a buzz cut (hair cropped close everywhere) or a mohawk (bare sides with stubble). */
+  function princeShaved(P, C, view) {
+    const h = C.hair, k = C.hairKind, buzz = k === 'buzz';
+    if (view === 'left') {
+      if (buzz) { for (let y = 3; y <= 7; y++) P.row(y, CX - (y < 4 ? 4 : 6), CX + (y < 4 ? 3 : 5), y % 2 ? h.d : h.b); P.row(3, CX - 3, CX, h.l); for (let y = 8; y <= 9; y++) P.row(y, CX + 2, CX + 5, y % 2 ? h.d : h.b); P.px(CX + 1, 10, h.d); }
+      else for (let y = 2; y <= 9; y++) { const x0 = y < 3 ? -3 : y < 4 ? -5 : -6; P.row(y, CX + x0, CX + (y < 3 ? 3 : 5), C.skin.d); for (let x = x0; x <= 5; x++) if ((x + y) % 3 === 0) P.px(CX + x, y, h.d); }
+    } else {
+      if (buzz) {
+        for (let y = 3; y <= 5; y++) P.sym(y, y < 4 ? 5 : 6, y % 2 ? h.d : h.b); P.row(3, CX - 3, CX, h.l); P.px(CX - 5, 6, h.d); P.px(CX + 4, 6, h.d);
+        for (const x of [CX - 7, CX + 6]) for (let y = 5; y <= 9; y++) P.px(x, y, h.d);
+      } else for (let y = 2; y <= 8; y++) { const hw = y < 3 ? 4 : y < 4 ? 6 : 7; if (y <= 5) P.sym(y, hw, C.skin.d); for (let x = -hw; x < hw; x++) if ((x + y) % 3 === 0 && (y <= 5 || Math.abs(x + 0.5) > 5.5)) P.px(CX + x, y, h.d); }
+    }
+    princeHairTop(P, C, view);
   }
   function princeHairFront(P, C, F, view) {
     const h = C.hair, k = C.hairKind;
+    if (k === 'buzz' || k === 'mohawk') { princeShaved(P, C, view === 'left' ? 'left' : 'down'); return; }
+    const combed = k === 'quiff' || k === 'manbun';
     if (view === 'left') {
-      for (let y = 2; y <= 7; y++) P.row(y, CX - (y < 3 ? 3 : y < 4 ? 5 : k === 'swept' || k === 'tied' ? 5 : 6), CX + (y < 3 ? 3 : 6), h.b);
+      for (let y = 2; y <= 7; y++) P.row(y, CX - (y < 3 ? 3 : y < 4 ? 5 : combed ? 5 : 6), CX + (y < 3 ? 3 : 6), h.b);
       P.row(2, CX - 2, CX + 1, h.l); P.row(3, CX - 4, CX - 1, h.l);
-      const ear = k === 'medium' ? 15 : k === 'curly' ? 12 : 10;
-      for (let y = 8; y <= ear; y++) P.row(y, CX + (k === 'short' || k === 'tied' || k === 'swept' ? 1 : 0), CX + 6, (y + 1) % 4 ? h.b : h.d);
+      const ear = k === 'medium' ? 15 : k === 'afro' ? 12 : 10;
+      for (let y = 8; y <= ear; y++) P.row(y, CX + (k === 'short' || combed ? 1 : 0), CX + 6, (y + 1) % 4 ? h.b : h.d);
       if (k === 'short' || k === 'spiky') { P.px(CX - 6, 8, h.b); P.px(CX - 2, 8, h.d); }
-      if (k === 'curly') for (let y = 4; y <= 12; y += 2) P.px(CX + 7, y, h.b);
+      if (k === 'afro') for (let y = 4; y <= 12; y += 2) P.px(CX + 7, y, h.b);
       P.px(CX + 1, 10, h.d); P.px(CX + 1, 11, h.d);                                                        // a sideburn
       princeHairTop(P, C, 'left');
       return;
     }
     P.sym(2, 4, h.b); P.sym(3, 6, h.b); P.sym(4, 7, h.b); P.sym(5, 7, h.b); P.row(2, CX - 2, CX + 1, h.l); P.row(3, CX - 4, CX - 1, h.l);
-    if (k === 'swept' || k === 'tied') { P.sym(6, 6, h.b); P.row(6, CX - 5, CX - 1, h.l); P.px(CX - 6, 7, h.b); P.px(CX + 5, 7, h.b); }   // combed back: the brow clear
+    if (combed) { P.sym(6, 6, h.b); P.row(6, CX - 5, CX - 1, h.l); P.px(CX - 6, 7, h.b); P.px(CX + 5, 7, h.b); }   // combed back: the brow clear
     else if (k === 'spiky') { P.sym(6, 6, h.b); for (const x of [-6, -4, -1, 2, 4]) P.px(CX + x, 7, h.b); P.px(CX - 3, 8, h.b); P.px(CX + 3, 8, h.b); }
-    else if (k === 'curly') { P.sym(6, 7, h.b); for (let x = -7; x <= 6; x += 2) P.px(CX + x, 7, h.b); P.px(CX - 3, 6, h.d); P.px(CX + 2, 6, h.d); }
-    else { P.sym(6, 6, h.b); for (const x of [-6, -5, -4, -1, 0, 3, 4, 5]) P.px(CX + x, 7, h.b); P.px(CX - 3, 6, h.d); P.px(CX + 1, 6, h.d); }   // short / medium: a fringe with a side parting
-    const ear = k === 'medium' ? 15 : k === 'curly' ? 12 : 10;
-    for (const [x0, x1] of [[CX - 8, CX - 6], [CX + 5, CX + 7]]) for (let y = 5; y <= ear; y++) P.row(y, x0 + (y > 9 && k !== 'medium' && k !== 'curly' ? 1 : 0), x1 - (y > 9 && k !== 'medium' && k !== 'curly' ? 1 : 0), (y + x0) % 4 ? h.b : h.d);
+    else if (k === 'afro') { P.sym(6, 7, h.b); for (let x = -7; x <= 6; x += 2) P.px(CX + x, 7, h.b); P.px(CX - 3, 6, h.d); P.px(CX + 2, 6, h.d); }
+    else { P.sym(6, 6, h.b); for (const x of [-6, -5, -4, -1, 0, 3, 4, 5]) P.px(CX + x, 7, h.b); P.px(CX - 3, 6, h.d); P.px(CX + 1, 6, h.d); }   // a fringe with a side parting
+    const ear = k === 'medium' ? 15 : k === 'afro' ? 12 : 10, full = k === 'medium' || k === 'afro';
+    for (const [x0, x1] of [[CX - 8, CX - 6], [CX + 5, CX + 7]]) for (let y = 5; y <= ear; y++) P.row(y, x0 + (y > 9 && !full ? 1 : 0), x1 - (y > 9 && !full ? 1 : 0), (y + x0) % 4 ? h.b : h.d);
     if (k === 'medium') for (const x of [CX - 8, CX + 6]) P.rect(x, 15, 2, 2, h.d);
-    if (k === 'curly') for (let y = 5; y <= 12; y += 2) { P.px(CX - 9, y, h.b); P.px(CX + 8, y, h.b); }
+    if (k === 'afro') for (let y = 5; y <= 12; y += 2) { P.px(CX - 9, y, h.b); P.px(CX + 8, y, h.b); }
     princeHairTop(P, C, 'down');
   }
 
@@ -460,6 +508,12 @@ const PixelCharacter = (() => {
       const tx = view === 'left' ? CX + 6 : view === 'up' ? CX - 1 : CX + 6;
       for (let y = 6; y <= 20; y++) { const w = y < 9 ? 3 : y < 16 ? 3 : 2, x = tx + (view === 'up' ? 0 : Math.round((y - 6) / 6)) + (y > 14 ? sway : 0); P.rect(x, y, w, 1, (y % 3) ? h.b : h.d); }
       P.rect(tx, 5, 3, 1, C.trim.b);
+    } else if (kind === 'pigtails') {                                                                    // a tail on each side, tied high with a bobble (one shows from the side)
+      for (const tx of view === 'left' ? [CX + 6] : [CX - 10, CX + 8]) {
+        const dir = tx < CX ? -1 : 1;
+        for (let y = 6; y <= 20; y++) P.rect(tx + (y > 11 ? dir * Math.round((y - 11) / 5) : 0) + (y > 14 ? F.sway : 0), y, y > 18 ? 2 : 3, 1, y % 3 ? h.b : h.d);
+        P.rect(tx, 4, 3, 2, C.trim.b);
+      }
     } else if (kind === 'braid' && view !== 'down') {
       const bx = view === 'up' ? CX - 1 : CX + 5;
       for (let y = 13; y <= 25; y++) P.rect(bx + ((y >> 1) & 1) + (y > 20 ? sway : 0), y, 2, 1, (y >> 1) & 1 ? h.b : h.d);
@@ -474,7 +528,7 @@ const PixelCharacter = (() => {
     if (view === 'left') {                                                              // the crown of the head and the bangs, from the side
       for (let y = 2; y <= 7; y++) P.row(y, CX - (y < 3 ? 3 : y < 4 ? 5 : 7), CX + (y < 3 ? 3 : 6), h.b);
       P.row(2, CX - 2, CX + 1, h.l); P.row(3, CX - 4, CX - 1, h.l);
-      for (let y = 8; y <= 13; y++) P.row(y, CX, CX + 6, (y + 1) % 4 ? h.b : h.d);    // over the ear
+      for (let y = 8; y <= (kind === 'pixie' ? 10 : 13); y++) P.row(y, CX, CX + 6, (y + 1) % 4 ? h.b : h.d);    // over the ear
       P.px(CX - 7, 8, h.b); P.px(CX - 6, 8, h.b); P.px(CX - 2, 8, h.d); P.px(CX + 2, 10, h.d);
       if (kind === 'long' || kind === 'curly') for (let y = 13; y <= (kind === 'long' ? 24 : 18); y++) P.row(y, CX + 1 + (y > 20 ? sway : 0), CX + 3 + (y > 20 ? sway : 0), (y % 3) ? h.b : h.d);
       if (kind === 'bob') for (let y = 9; y <= 15; y++) P.row(y, CX - 1, CX + 5, h.b);
@@ -486,7 +540,8 @@ const PixelCharacter = (() => {
       P.sym(6, 6, h.b);
       for (const x of [-6, -5, -2, 3, 4, 5]) P.px(CX + x, 7, h.b);                    // wispy bangs
       P.px(CX - 3, 6, h.d); P.px(CX + 1, 6, h.d); P.px(CX - 5, 7, h.d);
-      for (const [x0, x1] of [[CX - 8, CX - 6], [CX + 5, CX + 7]]) for (let y = 5; y <= 12; y++) P.row(y, x0, x1, (y + x0) % 4 ? h.b : h.d);   // over the ears
+      for (const [x0, x1] of [[CX - 8, CX - 6], [CX + 5, CX + 7]]) for (let y = 5; y <= (kind === 'pixie' ? 9 : 12); y++) P.row(y, x0, x1, (y + x0) % 4 ? h.b : h.d);   // over the ears
+      if (kind === 'pixie') { for (let x = -6; x <= 1; x++) P.px(CX + x, 7, h.b); for (let x = -6; x <= -3; x++) P.px(CX + x, 8, h.b); P.row(6, CX - 4, CX, h.l); }   // a long fringe swept to one side
       if (kind === 'long' || kind === 'curly') {                                        // locks falling over the shoulders, in front
         const end = kind === 'long' ? 24 : 18;
         for (const [x, dark] of [[CX - 7, false], [CX + 5, true]]) for (let y = 13; y <= end; y++) {
@@ -550,7 +605,8 @@ const PixelCharacter = (() => {
     if (name === 'crown') return C.crown ? [name, C.crown.style, view, pose].join('|') : null;
     if (name === 'hairB' || name === 'hairF') return [name, body, C.hairKind, view, pose].join('|');
     if (name === 'head') return [name, body, view === 'up' ? C.hairKind : '', view, pose, view === 'down' && blink ? 1 : 0].join('|');
-    return [name, body, C.style, view, pose].join('|');                                                     // body
+    const looks = C.shirtStyle || C.pantsStyle ? C.style + '+' + C.shirtStyle + C.pantsStyle : C.style;           // (a patterned shirt or trousers are shapes of their own; the pack has the plain ones)
+    return [name, body, looks, view, pose].join('|');                                                     // body
   }
   /** A frame built from the pack in this character's colours, or null when the pack lacks a layer of it. */
   function renderPacked(C, view, F, blink, hurt, pose) {
@@ -572,7 +628,7 @@ const PixelCharacter = (() => {
     /** A character of this structure { prince, style, hairKind, crown: style | null, cape: style | null } in the colours of `colours`
      *  ({ hair, skin, outfit, trim, crown: [color, gem], cape: [color, trim] }): the palette draw() would use. */
     paletteOf(spec, colours) {
-      const L = { princess: !spec.prince, hairKind: spec.hairKind, hair: colours.hair, skin: colours.skin, outfit: colours.outfit, trim: colours.trim };
+      const L = { princess: !spec.prince, hairKind: spec.hairKind, hair: colours.hair, skin: colours.skin, outfit: colours.outfit, trim: colours.trim, pants: colours.pants, eye: colours.eye, shoe: colours.shoe };
       const W8 = {
         outfit: spec.style === 'plain' ? null : { style: spec.style, color: colours.outfit, trim: colours.trim },
         crown: spec.crown ? { style: spec.crown, color: colours.crown[0], gem: colours.crown[1] } : null,
@@ -607,7 +663,7 @@ const PixelCharacter = (() => {
    *  look (those objects live as long as the item definitions do, so the same item always gets the same number). */
   const lookIds = new WeakMap(); let lookCount = 0;
   const lid = o => { if (!o) return 0; let n = lookIds.get(o); if (!n) { n = ++lookCount; lookIds.set(o, n); } return n; };
-  const figureKey = (L, w) => `${L.princess ? 1 : 0}${L.hairKind}|${L.hair}|${L.skin}|${L.outfit}|${L.trim}|${lid(w.crown)}.${lid(w.outfit)}.${lid(w.cape)}`;
+  const figureKey = (L, w) => `${L.princess ? 1 : 0}${L.hairKind}|${L.hair}|${L.skin}|${L.outfit}|${L.trim}|${L.pants}|${L.eye}|${L.shoe}|${L.shirtStyle}.${L.pantsStyle}|${lid(w.crown)}.${lid(w.outfit)}.${lid(w.cape)}`;
 
   /* ---- the Pixi backend (pixi/pixiRenderer.js): the frame stays in marker colours (the outline too) and a shader colours it (pixi/paletteFilter.js) ---- */
   const OUTLINE_SLOT = SLOTS.length;

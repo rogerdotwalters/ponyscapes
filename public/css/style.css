@@ -329,6 +329,7 @@ canvas{display:block}
 .chips,.swatches{display:flex;flex-wrap:wrap;gap:6px}
 .chips button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 4px 5px;border-radius:6px;min-width:66px;border:1.5px solid rgba(227,194,122,.45);background:rgba(10,18,28,.55);color:#f4e6c1;font:600 12px Georgia,serif}
 .chips button.on{background:#e3c27a;color:#10202f}
+.chips.textChips button{min-width:0;padding:5px 10px}
 .swatches button{width:30px;height:30px;border-radius:3px;border:2px solid #10161e;padding:0;position:relative;background:var(--sw);box-shadow:inset -3px -3px 0 rgba(0,0,0,.28),inset 3px 3px 0 rgba(255,255,255,.22)}
 .swatches button.on{border-color:#fff;box-shadow:inset -3px -3px 0 rgba(0,0,0,.28),inset 3px 3px 0 rgba(255,255,255,.22),0 0 0 2px #e3c27a}
 

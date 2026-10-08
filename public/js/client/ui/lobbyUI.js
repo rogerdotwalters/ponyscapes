@@ -68,7 +68,7 @@ class LobbyUI {
     return CharacterLook.random();
   }
   _look() { return this.look.slice(); }
-  _describe() { const l = this.look; return `${CharacterPalette.bodies[l[0]]}, ${CharacterPalette.hairStyleNames[l[0] === 1 ? 'princess' : 'prince'][l[1]].toLowerCase()} ${CharacterPalette.hairColorNames[l[2]].toLowerCase()} hair`; }
+  _describe() { const l = this.look; return `${CharacterPalette.bodies[l[0]]}, ${CharacterPalette.hairStyleNames[l[0] === 1 ? 'princess' : 'prince'][l[1]].toLowerCase()} ${CharacterPalette.hairColorNames[l[2]].toLowerCase()} hair, ${CharacterPalette.eyeNames[l[7]].toLowerCase()} eyes`; }
   _renderCard() {
     renderCharacterPortrait(this.$('#charMini'), this.look, 0, 1000, { crown: 'crown_simple' }, { dir: 'down', crop: 30 });
     this.$('#charCardName').textContent = RelayProtocol.cleanName(this.$('#lobbyName').value) || 'Unnamed';
@@ -96,16 +96,21 @@ class LobbyUI {
     });
     // hair: six chips, each with the head in that style
     const chips = this.$('#hairChips'); chips.innerHTML = '';
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       const b = document.createElement('button'); b.type = 'button'; b.appendChild(thumb(60, 44)); const label = document.createElement('span'); b.appendChild(label);
       b.onclick = () => { T.look[1] = i; refresh(); }; chips.appendChild(b);
     }
     swatches('hairColors', P.hairColors, 2, P.hairColorNames); swatches('skinColors', P.skins, 3, P.skinNames); swatches('outfitColors', P.outfits, 4, P.outfitNames); swatches('trimColors', P.trims, 5, P.trimNames);
+    swatches('pantsColors', P.pants, 6, P.pantsNames); swatches('eyeColors', P.eyes, 7, P.eyeNames); swatches('shoeColors', P.shoes, 8, P.shoeNames);
+    const textChips = (id, slot) => { const el = this.$('#' + id); el.innerHTML = ''; for (let i = 0; i < CharacterLook.SIZES[slot]; i++) { const b = document.createElement('button'); b.type = 'button'; b.onclick = () => { T.look[slot] = i; refresh(); }; el.appendChild(b); } };
+    textChips('shirtStyles', 9); textChips('pantsStyles', 10);
     const refresh = () => {
       const l = T.look, kind = l[0] === 1 ? 'princess' : 'prince';
-      seg.querySelectorAll('button').forEach((b, i) => { b.classList.toggle('on', i === l[0]); const look = l.slice(); look[0] = i; if (i !== l[0]) look[1] = Math.min(look[1], 5); renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: 'down', crop: 22 }); });
+      seg.querySelectorAll('button').forEach((b, i) => { b.classList.toggle('on', i === l[0]); const look = l.slice(); look[0] = i; if (i !== l[0]) look[1] = Math.min(look[1], 7); renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: 'down', crop: 22 }); });
       chips.querySelectorAll('button').forEach((b, i) => { const look = l.slice(); look[1] = i; b.classList.toggle('on', i === l[1]); b.querySelector('span').textContent = P.hairStyleNames[kind][i]; renderCharacterPortrait(b.querySelector('canvas'), look, 0, 1000, {}, { dir: i === 2 && kind === 'princess' ? 'left' : 'down', crop: 22 }); });
-      for (const [id, idx] of [['hairColors', 2], ['skinColors', 3], ['outfitColors', 4], ['trimColors', 5]]) T.root.querySelectorAll('#' + id + ' button').forEach((b, i) => b.classList.toggle('on', i === l[idx]));
+      for (const [id, idx] of [['hairColors', 2], ['skinColors', 3], ['outfitColors', 4], ['trimColors', 5], ['pantsColors', 6], ['eyeColors', 7], ['shoeColors', 8]]) T.root.querySelectorAll('#' + id + ' button').forEach((b, i) => b.classList.toggle('on', i === l[idx]));
+      this.$('#pantsLabel').textContent = kind === 'princess' ? 'Skirt' : 'Pants'; this.$('#pantsStyleLabel').textContent = kind === 'princess' ? 'Skirt style' : 'Pants style';
+      for (const [id, idx, names] of [['shirtStyles', 9, P.shirtStyles], ['pantsStyles', 10, P.pantsStyles[kind]]]) this.$('#' + id).querySelectorAll('button').forEach((b, i) => { b.textContent = names[i]; b.classList.toggle('on', i === l[idx]); });
       T.root.querySelectorAll('.charViews canvas').forEach(c => renderCharacterPortrait(c, l, 0, 1000, {}, { dir: c.dataset.view }));
     };
     this.dirIdx = 0; this.walking = true;

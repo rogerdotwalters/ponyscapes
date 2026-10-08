@@ -236,10 +236,10 @@ class PlayerSprite {
       const hem = kind === 'long' ? torsoTop + 17 : torsoTop + 5, half = kind === 'long' ? 9.5 : 8.6;
       g.polygon([sx - 8, headY - 1, sx + 8, headY - 1, sx + half, hem, sx - half, hem], dark);
       ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 3, headY + 3); ctx.lineTo(sx - 4.5, hem - 2); ctx.moveTo(sx + 3, headY + 3); ctx.lineTo(sx + 4.5, hem - 2); ctx.stroke();
-    } else if (kind === 'ponytail' || kind === 'tied') {                                  // swings out from the back of the head (facing the camera it shows at the side)
-      const side = behind || 1, tx = sx + side * 7.5, small = kind === 'tied' ? 0.72 : 1, low = kind === 'tied' ? 5 : 0;
+    } else if (kind === 'ponytail' || kind === 'manbun') {                                  // swings out from the back of the head (facing the camera it shows at the side)
+      const side = behind || 1, tx = sx + side * 7.5, small = kind === 'manbun' ? 0.72 : 1, low = kind === 'manbun' ? 5 : 0;
       g.ellipse(tx, headY - 2 + low, 3.4 * small, 3.4 * small, L.hair); g.ellipse(tx + side * 2, headY + 3 + low, 3.2 * small, 5 * small, L.hair); g.ellipse(tx + side * 3, headY + 10 * small + low, 2.4 * small, 4.6 * small, dark);
-      g.ellipse(tx, headY - 2 + low, 1.5, 1.5, kind === 'tied' ? '#3a2a1a' : L.trim);
+      g.ellipse(tx, headY - 2 + low, 1.5, 1.5, kind === 'manbun' ? '#3a2a1a' : L.trim);
     } else if (kind === 'braid') {                                                        // linked segments over the shoulder
       const bx = sx + behind * 5.5 + (behind === 0 ? 5 : 0);
       for (let i = 0; i < 6; i++) g.ellipse(bx + (i % 2 ? 0.9 : -0.9), headY + 5 + i * 3.6, 2.5, 2.2, i % 2 ? L.hair : dark);
@@ -250,17 +250,17 @@ class PlayerSprite {
   /** Hair on the head itself: the cap, and what makes each style different. */
   _hairFront(p, sx, pose, L) {
     const g = this.g, ctx = g.ctx, { headY, uy, ux, torsoTop } = pose, kind = L.hairKind, away = uy < -0.3, color = L.hair, light = g.shade(L.hair, 1.12), dark = g.shade(L.hair, 0.82);
-    if (kind === 'curly') for (let i = 0; i < 7; i++) { const a = (-175 + i * 28) * Math.PI / 180; g.ellipse(sx + Math.cos(a) * 7.2, headY - 0.5 + Math.sin(a) * 6.6, 3.6, 3.6, i % 2 ? L.hair : dark); }
+    if (kind === 'curly' || kind === 'afro') for (let i = 0; i < 7; i++) { const a = (-175 + i * 28) * Math.PI / 180; g.ellipse(sx + Math.cos(a) * 7.2, headY - 0.5 + Math.sin(a) * 6.6, 3.6, 3.6, i % 2 ? L.hair : dark); }
     if (kind === 'spiky') for (const [dx, h] of [[-6, 6], [-3, 9], [0, 11], [3, 9], [6, 6]]) g.polygon([sx + dx - 2.4, headY - 4.4, sx + dx * 1.15, headY - 4.4 - h, sx + dx + 2.4, headY - 4.4], dx % 2 ? light : L.hair);   // spikes standing up from the crown
     if (away) { g.ellipse(sx, headY, 7.2, 7.2, color); }                                  // the back of the head is all hair
     else { ctx.beginPath(); ctx.arc(sx, headY - 0.5, 7.2, Math.PI, 0); ctx.closePath(); ctx.fillStyle = color; ctx.fill(); }
     if (!away) { g.ellipse(sx - 6.8, headY + 1.5, 1.7, 3, color); g.ellipse(sx + 6.8, headY + 1.5, 1.7, 3, color); }          // sideburns
     if (!away && kind === 'short') { g.ellipse(sx - 1, headY - 5.4, 6, 2.6, light); g.ellipse(sx + 4.2, headY - 3.2, 2.4, 3, L.hair); g.ellipse(sx - 5.5, headY - 2.6, 2.4, 2, L.hair); g.ellipse(sx + 5.5, headY - 2.6, 2.4, 2, L.hair); }   // neat, with a side parting
-    if (!away && kind === 'swept') {                                                      // a swept-back quiff: volume on top, combed to one side
+    if (!away && kind === 'quiff') {                                                      // a swept-back quiff: volume on top, combed to one side
       g.ellipse(sx + 1, headY - 8.2, 7.8, 3.6, light); g.ellipse(sx + 6, headY - 6, 4, 3.2, L.hair);
       ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 5, headY - 8); ctx.quadraticCurveTo(sx, headY - 11, sx + 6, headY - 8); ctx.stroke();
     }
-    if (!away && kind === 'tied') { g.ellipse(sx - 1, headY - 5, 6.4, 2.4, light); }     // scraped back from the forehead
+    if (!away && kind === 'manbun') { g.ellipse(sx - 1, headY - 5, 6.4, 2.4, light); }     // scraped back from the forehead
     if (!away && kind === 'medium') {                                                     // falls over the ears and down to the collar on both sides
       for (const side of [-1, 1]) g.polygon([sx + side * 6, headY - 1, sx + side * 8.6, headY + 1, sx + side * 8.4, headY + 9, sx + side * 5.6, headY + 8], dark);
       g.ellipse(sx - 2, headY - 5.4, 5, 2.2, light);
@@ -316,7 +316,7 @@ class PlayerSprite {
 
     ctx.lineCap = 'round';
     if (tool.kind === 'bow') this._drawBow(handX, handY, dirX, dirY, perpX, perpY);
-    else if (tool.kind === 'leash') this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0, lassoLook(p.held));
+    else if (tool.kind === 'leash') { if (!(p.swingT > 0)) this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, false, lassoLook(p.held)); }   // while it is thrown the lasso has left the hand (the flying loop is drawn by the effects)
     else if (tool.kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
     else if (tool.kind === 'shears') this._drawShears(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0 ? Math.abs(Math.sin(p.swingT * 18)) : 0);
     else if (tool.kind === 'water') this._drawWateringCan(handX, handY, side, p.swingT > 0);
