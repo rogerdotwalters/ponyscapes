@@ -44,12 +44,14 @@ const GrassRenderer = (() => {
         g.fillRect(x, y, 1, 1);
       }
     }
+    c.atlasKey = 'grass|' + key;                                                      // (the Pixi backend packs it into a texture page under this key)
     cache.set(key, c); return c;
   }
 
   /** Draw the grass on screen. Returns the clumps near someone, for the depth-sorted pass: [{ depth, draw() }].
-   *  movers: [{ x, y }] everyone who can push the grass aside. */
-  function draw(ctx, map, bounds, range, tick, now, movers) {
+   *  movers: [{ x, y }] everyone who can push the grass aside. onFar(art, x, y, w, h), if given, receives the clumps that are not near anyone (the Pixi
+   *  backend draws them as sprites) instead of them being drawn here. */
+  function draw(ctx, map, bounds, range, tick, now, movers, onFar) {
     const near = [];
     if (!map || map.kind !== 'world' || typeof Grass === 'undefined') return near;
     const t = now / 1000, season = Seasons.at(tick).season.id, { minX, maxX, minY, maxY } = bounds, farm = map.farm || {}, floors = map.floors || {};
@@ -75,7 +77,7 @@ const GrassRenderer = (() => {
       const look = TerrainRenderer.lookOf(map, tx, ty), pal = paletteOf(look, season), art = clump(under ? Math.max(1, level - 1) : level, Math.floor(h(3) * 6), h(4) < 0.5, bend, pal, look.id + season);
       const sx = (wx - wy) * TILE_HALF_W, sy = (wx + wy) * TILE_HALF_H;
       const paint = () => ctx.drawImage(art, sx - CX * PX, sy - BASE * PX, W * PX, H * PX);
-      if (isNear) near.push({ depth: wx + wy, draw: paint }); else paint();
+      if (isNear) near.push({ depth: wx + wy, draw: paint }); else if (onFar) onFar(art, sx - CX * PX, sy - BASE * PX, W * PX, H * PX); else paint();
     }
     ctx.imageSmoothingEnabled = smooth;
     return near;

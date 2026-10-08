@@ -84,7 +84,7 @@ class Renderer {
     TerrainRenderer.setScale(this.camera.scale); TerrainRenderer.draw(this.g, this.game.map, bounds, tiles, now, this.blockSink);
     const movers = [];                                                              // whoever pushes the grass aside (grassRenderer.js)
     for (const group of [state.players, state.animals, state.npcs]) for (const id in (group || {})) { const m = group[id]; if (m && !m.boat && !m.flying) movers.push(m); }
-    this.nearGrass = GrassRenderer.draw(this.ctx, this.game.map, bounds, tiles, this.game.clockTick, now, movers);
+    this.nearGrass = GrassRenderer.draw(this.ctx, this.game.map, bounds, tiles, this.game.clockTick, now, movers, this.grassSink);
     this._drawTapMarker(now);
     for (const item of this._sortedWorldItems(state, bounds, tiles)) this._drawItem(item, now);
     if (!indoors) this._drawBuildingNames(me);

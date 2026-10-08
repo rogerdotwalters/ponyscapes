@@ -17,14 +17,16 @@ class PixiRenderer extends Renderer {
     this.blocks = new Map();                                                         // block key -> { sprite, entry, canvas, seen }
     this.frameNo = 0; this._ready = false;
     this.blockSink = (entry, key, w, h) => this._block(entry, key, w, h);
+    this.grassSink = (art, x, y, w, h) => this._grass(art, x, y, w, h);
     this.app = new PIXI.Application();
-    this.world = new PIXI.Container(); this.terrain = new PIXI.Container(); this.world.addChild(this.terrain);
+    this.world = new PIXI.Container(); this.terrain = new PIXI.Container(); this.grass = new PIXI.Container(); this.world.addChild(this.terrain, this.grass);
     this.ready = this.app.init({
       canvas: this.view, width: Math.max(1, this.canvas.width), height: Math.max(1, this.canvas.height), resolution: 1, autoDensity: false,
       antialias: false, backgroundAlpha: 1, background: OCEAN_COLOR, autoStart: false, preference: 'webgl', powerPreference: 'high-performance', roundPixels: false,
     }).then(() => {
       this.app.ticker.stop();
       this.app.stage.addChild(this.world);
+      this.atlas = new DynamicAtlas(1024); this.grassPool = new SpritePool(this.grass);
       this.layerSprite = new PIXI.Sprite(); this.app.stage.addChild(this.layerSprite);   // (above the world: screen space, 1 canvas pixel = 1 device pixel)
       this._ready = true; this._fit();
     });
@@ -55,6 +57,7 @@ class PixiRenderer extends Renderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     if (this._ready) this.app.renderer.background.color = indoors ? 0x0b0d12 : OCEAN_COLOR;
     this.frameNo++;
+    if (this._ready) this.grassPool.begin();
   }
 
   /** The ground's baked blocks (terrainRenderer.js) are textures; one is re-uploaded only when the terrain renderer baked it again. */
@@ -74,8 +77,16 @@ class PixiRenderer extends Renderer {
     b.sprite.position.set(entry.x0, entry.y0); b.sprite.scale.set(w / t.width, h / t.height); b.sprite.visible = true; b.seen = this.frameNo;
   }
 
+  /** A grass clump away from everyone: a sprite (the clumps near someone are drawn in the depth-sorted pass, on the layer). */
+  _grass(art, x, y, w, h) {
+    if (!this._ready) return;
+    const t = this.atlas.texture(art.atlasKey, () => art);
+    if (t) this.grassPool.place(t, x, y, w, h);
+  }
+
   _endFrame() {
     if (!this._ready) return;
+    this.grassPool.end(); this.atlas.flush();
     for (const b of this.blocks.values()) if (b.seen !== this.frameNo) b.sprite.visible = false;
     if (this.frameNo % 300 === 0) this._forgetBlocks();
     const cam = this.camera, s = cam.scale;

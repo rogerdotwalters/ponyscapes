@@ -16,7 +16,7 @@ screen-sized canvas ("the layer") that is uploaded as one texture, and moves thi
 
 | stage | now Pixi sprites | still in the 2D layer |
 |---|---|---|
-| 1 | the ground's baked blocks (`TerrainRenderer` blocks) | everything else (water ripples, surf, biome effects, grass, buildings, props, people, lighting, effects) |
+| 1 | the ground's baked blocks, the grass clumps away from people (packed into texture pages: `pixi/dynamicAtlas.js`) | everything else (water ripples, surf, biome effects, grass near people, buildings, props, people, lighting, effects) |
 
 ## Comparing
 
