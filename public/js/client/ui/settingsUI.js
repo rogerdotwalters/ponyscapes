@@ -1,5 +1,5 @@
 'use strict';
-/* CLIENT - HOST ONLY: the Admin page (Menu > Admin). Locked with a code so younger testers leave it alone (not real security: the code is in
+/* CLIENT - HOST ONLY: the Dev settings page (Menu > Dev settings; called the Admin page in older notes). Locked with a code so younger testers leave it alone (not real security: the code is in
  * this file). Behind it:
  *   Testing      a flying test pony; hostile mobs off
  *   Players      hunger and thirst per player (only when vitals are switched on)
@@ -9,7 +9,7 @@
  *   Trees        per biome: how many (% of normal) and the most there can be (% of grass tiles); used from the next world start
  *   Export       the values as JSON for js/content/gameSettings.js (download, copy, or paste some back in)
  * Changes are kept in this browser (GameSettings) until they are exported into the game folder. */
-const ADMIN_CODE = '112298', ADMIN_UNLOCK_KEY = 'ponyscapes.adminUnlocked';
+const ADMIN_CODE = 'pnkpi', ADMIN_UNLOCK_KEY = 'ponyscapes.adminUnlocked';
 
 class SettingsUI {
   constructor({ panel, list, closeButton, game }) {
@@ -20,6 +20,7 @@ class SettingsUI {
     this._createTesting();
     if (CONFIG.sim.vitals) { this.body.insertAdjacentHTML('beforeend', '<div class="gtitle">Players</div>'); for (let slot = 0; slot < CONFIG.sim.maxPlayers; slot++) this._createRow(slot); }
     this._createWorld();
+    this._createNightLook();
     this._createFarming();
     this._createAnimals();
     this._createBiomes();
@@ -40,16 +41,16 @@ class SettingsUI {
   set unlocked(on) { this._unlocked = on; try { if (on) sessionStorage.setItem(ADMIN_UNLOCK_KEY, '1'); else sessionStorage.removeItem(ADMIN_UNLOCK_KEY); } catch (e) { /* remembered in memory only */ } }
   _createLock() {
     const el = document.createElement('div'); el.className = 'adminLock';
-    el.innerHTML = '<div class="gtitle">Admin</div><p>Enter the admin code to change testing tools and game settings.</p>' +
-      '<div class="admRow"><input id="adminCode" type="password" inputmode="numeric" autocomplete="off" placeholder="Code"><button id="adminUnlock">Unlock</button></div><div class="admErr" id="adminErr"></div>';
+    el.innerHTML = '<div class="gtitle">Dev settings</div><p>Enter the code to change testing tools and game settings.</p>' +
+      '<div class="admRow"><input id="adminCode" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Code"><button id="adminUnlock">Unlock</button></div><div class="admErr" id="adminErr"></div>';
     this.list.appendChild(el); this.lockBox = el;
     const input = el.querySelector('#adminCode'), err = el.querySelector('#adminErr');
     const tryCode = () => {
-      if (input.value.trim() === ADMIN_CODE) { this.unlocked = true; input.value = ''; err.textContent = ''; this._showLocked(); this.refresh(); }
+      if (input.value.trim().toLowerCase() === ADMIN_CODE) { this.unlocked = true; input.value = ''; err.textContent = ''; this._showLocked(); this.refresh(); }
       else { err.textContent = 'That is not the code.'; input.select(); }
     };
     el.querySelector('#adminUnlock').addEventListener('click', tryCode);
-    input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') tryCode(); });       // (typing digits must not move the hotbar)
+    input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') tryCode(); });       // (typing must not move the hotbar)
   }
   _showLocked() { const open = this.unlocked; this.lockBox.hidden = open; this.body.hidden = !open; }
 
@@ -108,6 +109,27 @@ class SettingsUI {
     el.querySelector('[data-preset=day]').addEventListener('click', () => this._setLive('dayShare', 50, false));
     el.querySelector('[data-preset=asBuilt]').addEventListener('click', () => { for (const k of GameSettings.LIVE) this._setLive(k, GameSettings.DEFAULTS[k], false); });
     this.body.appendChild(el); this.worldBox = el;
+  }
+  /** The night's look: how dark it is and how much light you carry. These are drawn on THIS screen only (no one else is sent them) and kept in this browser. */
+  _createNightLook() {
+    const el = document.createElement('div'); el.className = 'admBox';
+    el.innerHTML = '<div class="gtitle">Night look <small>(this browser only)</small></div>' +
+      '<label class="admSlide"><span><b>Night darkness</b><small>How dark the night is. 100 = darkest (the built-in look).</small></span><input type="range" data-night="dark" min="0" max="100" step="1"><output data-nout="dark"></output></label>' +
+      '<label class="admSlide"><span><b>Your own light</b><small>The light you carry at night. 0 = none (the built-in look): torches, fires and lanterns still light up.</small></span><input type="range" data-night="own" min="0" max="100" step="1"><output data-nout="own"></output></label>' +
+      '<div class="admRow"><button data-night-reset>Built-in look</button></div>';
+    const items = { dark: NightSetting, own: PlayerLightSetting };
+    const show = k => {
+      const s = items[k], input = el.querySelector(`[data-night=${k}]`);
+      input.value = Math.round((s.value - s.MIN) / (s.MAX - s.MIN) * 100); el.querySelector(`[data-nout=${k}]`).textContent = input.value + '%';
+    };
+    for (const k in items) {
+      const input = el.querySelector(`[data-night=${k}]`);
+      input.addEventListener('input', () => { items[k].set(items[k].MIN + input.value / 100 * (items[k].MAX - items[k].MIN)); show(k); });
+      input.addEventListener('keydown', e => e.stopPropagation());
+      show(k);
+    }
+    el.querySelector('[data-night-reset]').addEventListener('click', () => { for (const k in items) { items[k].set(items[k].DEFAULT); show(k); } });
+    this.body.appendChild(el);
   }
   /** A live value changed: keep it, and tell the server (a dragged slider sends at most ten times a second). */
   _setLive(k, value, dragging) {
@@ -336,7 +358,7 @@ class SettingsUI {
   }
   _refreshExport() { this.exportBox.querySelector('textarea').value = GameSettings.toJSON(this.draft); }
   static fileText(json) {
-    return "'use strict';\n/* GAME SETTINGS - written by the Admin page (Menu > Admin > Download gameSettings.js). See the comments in the original file for what each value means. */\n" +
+    return "'use strict';\n/* GAME SETTINGS - written by the Admin page (Menu > Dev settings > Download gameSettings.js). See the comments in the original file for what each value means. */\n" +
       'window.PONYSCAPES_SETTINGS = ' + json + ';\n';
   }
 

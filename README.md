@@ -137,9 +137,9 @@ appease: true, quest: { creature, count } }`, plus a young creature with `wants:
 Drag the map (mouse or finger) to look around; **Centre on me** brings it back. An arrow on the edge always points the way to **town** (with the
 distance), and others point to you when you have dragged away, to the nearest treasure, and to the nearest lost cub you have tracked.
 
-## Admin page (testing)
+## Dev settings page (testing)
 
-Menu > **Admin** (the host only) asks for the code **112298** (remembered until the tab closes; **Lock** locks it again). It is there to keep
+Menu > **Dev settings** (the host only) asks for the code **pnkpi** (remembered until the tab closes; **Lock** locks it again). It is there to keep
 younger testers out, not real security: the code is in `js/client/ui/settingsUI.js`. Behind it:
 
 * **Testing**: the flying test pony and hostile mobs off.

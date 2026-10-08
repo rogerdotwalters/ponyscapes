@@ -1,5 +1,5 @@
 'use strict';
-/* GAME SETTINGS - the numbers the in-game Admin page changes (Menu > Admin, code needed). Everyone loads this file, so what is here is the game.
+/* GAME SETTINGS - the numbers the in-game Admin page changes (Menu > Dev settings, code needed). Everyone loads this file, so what is here is the game.
  *
  * To keep what you set on the Admin page: press "Export JSON" there and paste it over the { ... } below (or press "Download gameSettings.js"
  * and replace this file with it). Anything missing or out of range uses the built-in value.

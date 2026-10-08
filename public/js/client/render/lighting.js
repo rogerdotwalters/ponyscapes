@@ -4,7 +4,7 @@
  * The cut-outs need an off-screen layer; if the browser cannot provide one we fall back to a simple single pool. */
 const LIGHT_RADIUS = 300, TILE_TO_SCREEN = Math.SQRT2;       // a light of r tiles reaches r * sqrt2 * half-tile-width pixels sideways
 
-/** How dark the night is, as the overlay's opacity at midnight. A per-player preference (Menu > Night darkness), kept in this browser. */
+/** How dark the night is, as the overlay's opacity at midnight. Tuned from Dev settings > Night look (kept in this browser; new keys, so older saved values are ignored). */
 const makeSetting = (key, MIN, MAX, DEFAULT) => {
   let v = DEFAULT;
   try { const raw = parseFloat(localStorage.getItem(key)); if (raw >= MIN && raw <= MAX) v = raw; } catch (e) { /* private window: the default */ }
@@ -13,9 +13,10 @@ const makeSetting = (key, MIN, MAX, DEFAULT) => {
     set(x) { v = Math.min(MAX, Math.max(MIN, x)); try { localStorage.setItem(key, String(v)); } catch (e) { /* lasts this session */ } }
   };
 };
-const NightSetting = makeSetting('ponyscapes.nightDarkness', 0.35, 0.95, 0.76);
-/** How much light you carry with you (Menu > Your own light): 0 = none, 1 = a little more than the game used to give. The pool's size and strength both follow it. */
-const PlayerLightSetting = makeSetting('ponyscapes.playerLight', 0, 1, 0.3);
+// The built-in look (found by testing: Dev settings > Night look): the darkest night, and no light of your own. The dev sliders change them for this browser only.
+const NightSetting = makeSetting('ponyscapes.dev.nightDarkness', 0.35, 0.95, 0.95);
+/** How much light you carry with you (Dev settings > Night look): 0 = none, 1 = a little more than the game used to give. The pool's size and strength both follow it. */
+const PlayerLightSetting = makeSetting('ponyscapes.dev.playerLight', 0, 1, 0);
 const playerPool = scale => { const v = PlayerLightSetting.value; return { radius: LIGHT_RADIUS * scale * (0.45 + 0.55 * v), strength: 0.9 * v }; };
 
 /** The colour of each kind of light, and how hard it flickers (a torch gutters, a lantern burns steadily). */

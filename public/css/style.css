@@ -198,10 +198,6 @@ canvas{display:block}
 .menugrid .mt b{font:700 13px Georgia,serif}
 .menugrid .mt i{font:400 10px Georgia,serif;font-style:normal;color:#b9c4d0;white-space:normal}
 .menugrid kbd{position:absolute;top:3px;right:5px;font:600 9px ui-monospace,monospace;color:#e3c27a;opacity:.8}
-.menuSlide{display:grid;grid-template-columns:minmax(120px,1fr) minmax(110px,1.3fr) auto;gap:4px 10px;align-items:center;margin-top:10px;padding:8px 6px;border-top:1px solid rgba(227,194,122,.25)}
-.menuSlide b{display:block;font-weight:600;font-size:14px}.menuSlide small{display:block;font-size:11px;opacity:.75}
-.menuSlide input[type=range]{width:100%;accent-color:#e3c27a}.menuSlide output{font-size:12px;min-width:36px;text-align:right}
-@media (max-width:560px){.menuSlide{grid-template-columns:1fr auto}.menuSlide input[type=range]{grid-column:1/-1;order:3}}
 .menunote{margin-top:8px;font-size:11px;color:#a9b6c4;text-align:center}
 #areaMap,#miniMap{position:static;inset:auto;display:block;touch-action:auto;border-radius:6px;border:2px solid rgba(70,45,20,.9)}      /* (the base canvas rule is the full-screen game canvas) */
 #areaMap{width:min(70vh,86vw,420px);height:auto;aspect-ratio:1/1}
@@ -428,7 +424,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .ttake button:disabled,.tup:disabled{opacity:.4;cursor:default}
 .tempty{font-size:12px;color:#c9bb98;padding:4px 0}
 
-/* the Admin page */
+/* the Dev settings page */
 .adminLock p{font-size:13px;opacity:.85;margin:4px 0 10px}
 .admRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
 .admRow input,.admSlide input[type=number],.admSlide select{background:#16283a;color:#f4e6c1;border:1px solid rgba(227,194,122,.6);border-radius:6px;padding:6px 8px;font:14px Georgia,serif;width:110px}

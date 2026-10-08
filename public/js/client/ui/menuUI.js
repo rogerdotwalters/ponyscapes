@@ -10,7 +10,7 @@ const MENU_SECTIONS = [
   { id: 'ponies',    glyph: '\uD83D\uDC0E', label: 'Ponies',    sub: 'Pony Book and your herd', key: 'P' },
   { id: 'town',      glyph: '\uD83C\uDFD8', label: 'Town',      sub: 'Stockpiles and upgrades', key: 'T' },
   { id: 'session',   glyph: '\uD83C\uDF10', label: 'Session',   sub: 'Room code, players, saving', key: '', needsSession: true },
-  { id: 'settings',  glyph: '\u2699',       label: 'Admin',      sub: 'Host: testing tools and game settings (code)', key: '', hostOnly: true }
+  { id: 'settings',  glyph: '\u2699',       label: 'Dev settings', sub: 'Host: testing tools and game settings (code)', key: '', hostOnly: true }
 ];
 
 class MenuUI {
@@ -28,15 +28,6 @@ class MenuUI {
     const maps = this.game.treasureMaps.length;
     this.body.innerHTML = '<div class="menugrid">' + sections.map(s =>
       `<button data-section="${s.id}"><span class="mg">${s.glyph}</span><span class="mt"><b>${s.label}</b><i>${s.id === 'treasure' && maps ? `${maps} map${maps === 1 ? '' : 's'} read` : s.sub}</i></span>${s.key ? `<kbd>${s.key}</kbd>` : ''}</button>`).join('') + '</div>' +
-      '<label class="menuSlide"><span><b>Night darkness</b><small>How dark the night looks on your screen.</small></span><input type="range" id="nightDark" min="0" max="100" step="1"><output id="nightDarkOut"></output></label>' +
-      '<label class="menuSlide"><span><b>Your own light</b><small>How much light you carry at night. Torches and fires add to it.</small></span><input type="range" id="ownLight" min="0" max="100" step="1"><output id="ownLightOut"></output></label>' +
       '<div class="menunote">Tap outside a window to close it.</div>';
-    for (const [id, setting] of [['nightDark', NightSetting], ['ownLight', PlayerLightSetting]]) {
-      const slider = this.body.querySelector('#' + id), out = this.body.querySelector('#' + id + 'Out');
-      const show = () => { out.textContent = Math.round(slider.value) + '%'; };
-      slider.value = Math.round((setting.value - setting.MIN) / (setting.MAX - setting.MIN) * 100); show();
-      slider.addEventListener('input', () => { setting.set(setting.MIN + slider.value / 100 * (setting.MAX - setting.MIN)); show(); });
-      slider.addEventListener('keydown', e => e.stopPropagation());                              // (arrow keys must not walk the pony)
-    }
   }
 }
