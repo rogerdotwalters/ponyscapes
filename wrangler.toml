@@ -13,7 +13,7 @@ pages_build_output_dir = "public"
 compatibility_date = "2025-09-01"
 
 [vars]
-RELAY_URL = ""                     # e.g. "https://ponyscapes-relay.YOUR-NAME.workers.dev" once the relay Worker is deployed
+RELAY_URL = "https://ponyscapes-relay.rogerwalters3.workers.dev"                     # e.g. "https://ponyscapes-relay.YOUR-NAME.workers.dev" once the relay Worker is deployed
 
 # [[durable_objects.bindings]]
 # name = "ROOMS"
