@@ -56,7 +56,16 @@ const DungeonState = { opened: new Set(), key: (grid, tx, ty) => `${grid}|${tx}|
 class DungeonRoomPlan {
   constructor(grid, dungeon, index, room) { this.grid = grid; this.dungeon = dungeon; this.index = index; this.room = room; this.ring = dungeon.ring; }
   tileAt(tx, ty) { return this.room.walkable(tx, ty) ? TILE.CAVE : TILE.CAVE_WALL; }
-  objAt() { return 0; }
+  /** Rock you can see is a block: a wall tile touching floor. (The deep rock behind it stays flat dark ground.) A wall on the south / east side of the floor is LOW so you
+   *  can see over it; on the north / west it is tall, like a room's walls. */
+  objAt(tx, ty) {
+    const R = this.room;
+    if (R.walkable(tx, ty)) return OBJ.NONE;
+    let near = false;
+    for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && R.walkable(tx + dx, ty + dy)) { near = true; break; }
+    if (!near) return OBJ.NONE;
+    return R.walkable(tx, ty - 1) || R.walkable(tx - 1, ty) || R.walkable(tx - 1, ty - 1) ? OBJ.CAVEROCK_LOW : OBJ.CAVEROCK_TALL;
+  }
   solidAt(tx, ty) { return !this.room.walkable(tx, ty); }
   get first() { return this.index === 0; }
   get last() { return this.index === this.dungeon.rooms.length - 1; }

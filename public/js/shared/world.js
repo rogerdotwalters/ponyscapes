@@ -156,7 +156,6 @@ function caveProps(world, cx, cy) {
   const o = CONFIG.sim.levels.origin;
   if (Math.hypot(x0 + 8 - o.x, y0 + 8 - o.y) > world.layers.rings.width * world.layers.rings.count + 400) return found;
   for (const site of world.layers.dungeons.sites()) put(site.x, site.y, { t: 'cave', x: site.x, y: site.y, r: 0.55 / TILE_SCALE, v: site.ring, ring: site.ring });
-  if (world.terrain.caveSites) for (const c of world.terrain.caveSites.caves()) put(c.x, c.y, { t: 'cave', x: c.x, y: c.y, r: 0.55 / TILE_SCALE, v: c.ring, ring: c.ring, dungeon: c.dungeon });   // a room dungeon's mouth, in its cliff
   return found;
 }
 

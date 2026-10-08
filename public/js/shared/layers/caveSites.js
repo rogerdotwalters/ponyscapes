@@ -6,7 +6,7 @@
  *   stamp characters   1 2 3   a cliff you cannot walk through, that high (1 = a low rise, 3 = a tall bluff); drawn as stacked rock
  *                      ,       bare dirt (the cleared yard in front of a cave); no trees, bushes or animal homes grow on it
  *                      S       bare stone you can walk on
- *                      E       a CAVE MOUTH: walkable, and the way into the dungeon (a 'cave' prop with `dungeon` = the dungeon's id)
+ *                      E       a CAVE MOUTH: a block of the cliff face with an arched opening cut into it (you stand in front of it, in the yard, and interact)
  *                      .       leave the generated land alone
  * A stamp only lands where every tile it changes is dry land. The first stamp of a `dungeon` kind carries the mouth of the first dungeon, the second the
  * second one's, and so on (js/data/dungeons/). */
@@ -22,7 +22,7 @@ const CLIFF_STAMPS = Object.freeze({
     '.11122333333221..',
     '..111223333221...',
     '..1122222222211..',
-    '..11,,,,E,,,,11..',
+    '..112233E222211..',
     '...,,,,,,,,,,,...',
     '....,,,SS,,,.....'
   ] }),
@@ -125,12 +125,12 @@ class CaveSites {
   /** The ground a stamp forces on this tile, or -1 to leave the generated land. */
   tileAt(tx, ty) {
     const c = this.charAt(tx, ty);
-    return c === '.' ? -1 : c === ',' || c === 'E' ? TILE.DIRT : TILE.STONE;
+    return c === '.' ? -1 : c === ',' ? TILE.DIRT : TILE.STONE;
   }
   /** The solid thing a stamp stands on this tile (a cliff of height 1-3), or OBJ.NONE. */
   objAt(tx, ty) {
     const c = this.charAt(tx, ty);
-    return c === '1' ? OBJ.CLIFF1 : c === '2' ? OBJ.CLIFF2 : c === '3' ? OBJ.CLIFF3 : OBJ.NONE;
+    return c === '1' ? OBJ.CLIFF1 : c === '2' ? OBJ.CLIFF2 : c === '3' ? OBJ.CLIFF3 : c === 'E' ? OBJ.CAVEMOUTH : OBJ.NONE;
   }
   /** Does a stamp own this tile? (nothing grows or lives there but the stamp itself) */
   covers(tx, ty) { return this.charAt(tx, ty) !== '.'; }
