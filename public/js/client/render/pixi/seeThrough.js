@@ -16,7 +16,7 @@ const SeeThrough = (() => {
       vec2 pixel = uOutputFrame.xy + vTextureCoord * uInputSize.xy;
       vec2 d = (pixel - uCenter) / vec2(1.0, uShape.x);
       float t = smoothstep(uRadii.x, uRadii.y, length(d));
-      finalColor = texture(uTexture, vTextureCoord) * mix(uShape.y, 1.0, t);
+      finalColor = texture(uTexture, (floor(vTextureCoord * uInputSize.xy) + 0.5) * uInputSize.zw) * mix(uShape.y, 1.0, t);
     }`;
 
   function create() {

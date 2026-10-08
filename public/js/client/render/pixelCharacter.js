@@ -609,12 +609,45 @@ const PixelCharacter = (() => {
   const lid = o => { if (!o) return 0; let n = lookIds.get(o); if (!n) { n = ++lookCount; lookIds.set(o, n); } return n; };
   const figureKey = (L, w) => `${L.princess ? 1 : 0}${L.hairKind}|${L.hair}|${L.skin}|${L.outfit}|${L.trim}|${lid(w.crown)}.${lid(w.outfit)}.${lid(w.cape)}`;
 
+  /* ---- the Pixi backend (pixi/pixiRenderer.js): the frame stays in marker colours (the outline too) and a shader colours it (pixi/paletteFilter.js) ---- */
+  const OUTLINE_SLOT = SLOTS.length;
+  let identity = null;                                                                              // slot -> its own marker pixel (made on first use: artPack.js loads after this file)
+  const IDENT = () => identity || (identity = Uint32Array.from({ length: 256 }, (_, i) => SlotArt.markerPixel(i)));
+  const figPal = new LruCache(300);                                                                 // figureKey -> palette
+  /** { frame: { key, make() }, lut: { key, make() } }, or null when the pack lacks a layer of this figure. `cut`: art rows hidden from the bottom (riding). */
+  function markerFigure(L, wardrobe, view, pose, blink, cut) {
+    if (!ArtPack.loaded) return null;
+    const fk = figureKey(L, wardrobe); let C = figPal.get(fk);
+    if (!C) { C = palette(L, wardrobe); figPal.set(fk, C); }
+    const layers = [], keys = [];
+    for (const name of SEQ[view]) {
+      const key = layerKey(C, name, view, pose, blink);
+      if (key === null) continue;
+      const px = ArtPack.sprite('char', key);
+      if (!px) return null;
+      layers.push(px); keys.push(key);
+    }
+    const rows = H - cut;
+    return {
+      frame: { key: 'cf|' + keys.join('/') + '|' + cut, make: () => { const px = SlotArt.compose(W, H, layers, IDENT(), SlotArt.markerPixel(OUTLINE_SLOT)); return SlotArt.canvasOf(W, rows, px.subarray(0, W * rows)); } },
+      lut: { key: 'cl|' + fk, make: () => { const lut = SlotArt.lutOf(C, SLOTS); lut[OUTLINE_SLOT] = SlotArt.abgr(C.outline); return lut; } },
+    };
+  }
+
   function draw(ctx, L, wardrobe, dir, sx, sy, anim) {
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 650 + anim.seed) % 2);
     const blink = !anim.moving && ((anim.now + anim.seed * 977) % 3600) < 130;
     const view = dir === 'right' ? 'left' : dir, hurt = !!anim.hurt;
     const pose = (anim.moving ? 'w' : 'i') + frame, key = `${figureKey(L, wardrobe)}|${view}|${pose}|${blink ? 1 : 0}|${hurt ? 1 : 0}`;
+    if (typeof ctx.figureOk === 'function' && ctx.figureOk()) {                                    // (the Pixi backend: the frame is drawn by a shader, see above)
+      const cut = Math.max(0, anim.cut | 0), fig = markerFigure(L, wardrobe, view, pose, blink, cut);
+      if (fig) {
+        const w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
+        ctx.figure({ frame: fig.frame, lut: fig.lut, wash: hurt ? 1 : 0, mirror: dir === 'right', dx: sx - w / 2, dy: top, dw: w, dh: h });
+        return { top, headY: top + (TOP + 9) * PX, torsoTop: top + (TOP + 17) * PX };
+      }
+    }
     let canvas = cache.get(key);
     if (!canvas) {                                                                                // (the palette is only worked out for a picture not made yet)
       const C = palette(L, wardrobe), F = anim.moving ? WALK[frame] : IDLE[frame];

@@ -6,7 +6,7 @@
  * 'canvas' (renderer.js) is the default. ?renderer=pixi selects the Pixi (WebGL) backend: pixi.min.js (vendored, public/vendor/pixi) and
  * pixi/pixiRenderer.js are only fetched then, so the default page does not pay for them. */
 const RenderBackend = (() => {
-  const PIXI_SCRIPTS = ['vendor/pixi/pixi.min.js', 'js/client/render/pixi/dynamicAtlas.js', 'js/client/render/pixi/canvasRecorder.js', 'js/client/render/pixi/stampCache.js', 'js/client/render/pixi/seeThrough.js', 'js/client/render/pixi/pixiRenderer.js'];
+  const PIXI_SCRIPTS = ['vendor/pixi/pixi.min.js', 'js/client/render/pixi/dynamicAtlas.js', 'js/client/render/pixi/canvasRecorder.js', 'js/client/render/pixi/stampCache.js', 'js/client/render/pixi/seeThrough.js', 'js/client/render/pixi/paletteFilter.js', 'js/client/render/pixi/pixiRenderer.js'];
   const loadScript = src => new Promise((resolve, reject) => {
     const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('could not load ' + src));
     document.head.appendChild(s);

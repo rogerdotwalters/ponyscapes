@@ -10,15 +10,15 @@ async function stepServer(page, fake, n) {
 }
 
 /** Get on Misty (the starting pony) and face `angle` (radians; Math.PI/4 faces the camera). */
-async function ride(page, fake, angle) {
+async function ride(page, fake, angle, fly = false) {
   await ev(page, () => { const s = ponyscapes.adapter.server, me = s.players[ponyscapes.game.myId], a = Object.values(s.animals.animals).find(x => x.owner === me.id); me.x = a.x + 0.4; me.y = a.y + 0.4; });   // (stand next to Misty)
   await stepServer(page, fake, 30);
   for (let i = 0; i < 20 && !(await ev(page, () => !!ponyscapes.game.local.mount)); i++) { await ev(page, () => ponyscapes.game.requestInteract()); await settle(page, fake, 200); await stepServer(page, fake, 10); }
   if (!(await ev(page, () => !!ponyscapes.game.local.mount))) throw new Error('could not mount the pony');
-  await ev(page, a => {                                                   // only the rider and the pony are left, standing still facing `a`, whatever the simulation says (villagers wander differently from run to run)
+  await ev(page, ([a, fly]) => {                                                   // only the rider and the pony are left, standing still facing `a`, whatever the simulation says (villagers wander differently from run to run)
     const g = ponyscapes.game, get = g.getRenderState.bind(g);
-    g.getRenderState = al => { const st = get(al); st.npcs = {}; for (const id in st.animals) if (!st.animals[id].rider) delete st.animals[id]; for (const id in st.players) st.players[id] = { ...st.players[id], x: 19.5, y: 25.5, facing: a, vx: 0, vy: 0 }; for (const id in st.animals) if (st.animals[id].rider) st.animals[id] = { ...st.animals[id], x: 19.5, y: 25.5, facing: a, vx: 0, vy: 0 }; return st; };
-  }, angle);
+    g.getRenderState = al => { const st = get(al); st.npcs = {}; for (const id in st.animals) if (!st.animals[id].rider) delete st.animals[id]; for (const id in st.players) st.players[id] = { ...st.players[id], x: 19.5, y: 25.5, facing: a, vx: 0, vy: 0, ...(fly ? { lift: 1, flying: true } : {}) }; for (const id in st.animals) if (st.animals[id].rider) st.animals[id] = { ...st.animals[id], x: 19.5, y: 25.5, facing: a, vx: 0, vy: 0, ...(fly ? { type: 'pony_pegasus', flying: true, lift: 1 } : {}) }; return st; };
+  }, [angle, fly]);
   await stepServer(page, fake, 20);
 }
 
@@ -33,6 +33,7 @@ module.exports = {
   home: { query: 'solo=1&hour=12&enter=player_home', setup: (page, fake) => settle(page, fake, 1500) },
   ride_camera: { query: 'solo=1&hour=12', setup: (page, fake) => ride(page, fake, Math.PI / 4) },
   ride_away: { query: 'solo=1&hour=12', setup: (page, fake) => ride(page, fake, -3 * Math.PI / 4) },
+  ride_fly: { query: 'solo=1&hour=12', setup: (page, fake) => ride(page, fake, 3 * Math.PI / 4, true) },
   ride_left: { query: 'solo=1&hour=12', setup: (page, fake) => ride(page, fake, 3 * Math.PI / 4) },
   ride_right: { query: 'solo=1&hour=12', setup: (page, fake) => ride(page, fake, -Math.PI / 4) },
   two_players: { query: 'solo=1&hour=12', setup: async (page, fake) => {          // a second player on the host's server (what a joined friend looks like)

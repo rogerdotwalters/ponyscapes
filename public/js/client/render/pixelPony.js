@@ -520,6 +520,35 @@ const PixelPony = (() => {
   const lookKeys = new WeakMap();
   const lookKey = look => { let k = lookKeys.get(look); if (!k) { k = `${look.coat}|${look.mane.join()}|${look.mark}`; lookKeys.set(look, k); } return k; };
 
+  /* ---- the Pixi backend (pixi/pixiRenderer.js): a frame stays in MARKER colours and a shader colours it (pixi/paletteFilter.js). The frame joins the
+   *      pack's layers as SlotArt.compose does, but with a marker for the outline and for the cutie mark's two colours, so it is the same picture for
+   *      every pony of that shape; the pony's own colours are the palette texture, `lut`. ---- */
+  const OUTLINE_SLOT = SLOTS.length, MARK_SLOT = SLOTS.length + 1, ACCENT_SLOT = SLOTS.length + 2;
+  let identity = null;                                                                              // slot -> its own marker pixel (made on first use: artPack.js loads after this file)
+  const IDENT = () => identity || (identity = Uint32Array.from({ length: 256 }, (_, i) => SlotArt.markerPixel(i)));
+  const figPal = new WeakMap();                                                                     // look -> its palette (the frame's fields are set for each draw)
+  function markMarkers(C, F) {
+    const px = new Uint32Array(W * H), rows = MARKS[C.mark] || MARKS.note, col = SlotArt.markerPixel(MARK_SLOT), acc = SlotArt.markerPixel(ACCENT_SLOT);
+    rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === '#') px[(21 + j + F.bob + TOP) * W + 11 + i] = col; else if (ch === 'o') px[(21 + j + F.bob + TOP) * W + 11 + i] = acc; }));
+    return px;
+  }
+  /** { frame: { key, make() }, lut: { key, make() } } for the Pixi backend, or null when the pack lacks the frame (or the pony is painted live). */
+  function markerFigure(look, view, F, blink, pose, st) {
+    if (!ArtPack.loaded) return null;
+    let C = figPal.get(look); if (!C) { C = palette(look); figPal.set(look, C); }
+    if (C.liveOnly) return null;
+    C.wings = st.wings; C.horn = st.horn; C.flying = st.flying; C.wf = st.wf; C.ruffle = !st.flying && st.moving && st.frame % 2 === 1; C.ff = st.ff; C.tw = st.tw;
+    const skey = stateKey(C, view, pose, blink), A = ArtPack.sprite('pony', skey + '|A');
+    if (!A) return null;
+    const B = view === 'right' ? ArtPack.sprite('pony', skey + '|B') : null, T = C.fx === 'frost' ? ArtPack.sprite('pony', skey + '|C') : null;
+    if ((view === 'right' && !B) || (C.fx === 'frost' && !T)) return null;
+    const mark = C.mark, markColor = C.markColor, outline = C.outline, markAccent = accent(C);
+    return {
+      frame: { key: 'pf|' + skey + '|' + (view === 'right' ? C.mark + '@' + F.bob : ''), make: () => SlotArt.canvasOf(W, H, SlotArt.compose(W, H, view === 'right' ? [A, markMarkers({ mark }, F), B] : [A], IDENT(), SlotArt.markerPixel(OUTLINE_SLOT), T ? [T] : null)) },
+      lut: { key: 'pl|' + lookKey(look), make: () => { const lut = SlotArt.lutOf(C, SLOTS); lut[OUTLINE_SLOT] = SlotArt.abgr(outline); lut[MARK_SLOT] = SlotArt.abgr(markColor); lut[ACCENT_SLOT] = SlotArt.abgr(markAccent); return lut; } },
+    };
+  }
+
   function draw(ctx, look, dir, sx, sy, anim) {
     const kind = anim.kind || {}, fx = look.accessory || null, now = anim.now;
     const wings = !!kind.wings, horn = !!kind.horn, flying = !!(wings && anim.flying), wf = flying ? Math.floor(now / 85) % 4 : 0;     // (the wingbeat)
@@ -531,6 +560,16 @@ const PixelPony = (() => {
     const ff = Math.floor(now / 120) % 4, tw = Math.floor(now / 350) % 8;                           // flame flicker, frost twinkle
     const fxFrame = fx === 'flames' ? ff : fx === 'frost' || fx === 'stars' ? tw : 0;
     const key = `${lookKey(look)}|${fx}${fxFrame}|${wings ? 'w' + (flying ? wf : 'f') : ''}${horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
+    if (typeof ctx.figureOk === 'function' && ctx.figureOk()) {                                    // (the Pixi backend: the frame is drawn by a shader, see above)
+      const fig = markerFigure(look, view, F, blink, pose, { wings, horn, flying, wf, ff, tw, moving: anim.moving, frame });
+      if (fig) {
+        const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
+        if (!anim.lift) SpriteCache.shadow(ctx, sx, sy + 1, view === 'right' ? 20 : 11, 6, 0.24);
+        ctx.figure({ frame: fig.frame, lut: fig.lut, wash: 0, mirror: dir === 'left', dx: sx - w / 2, dy: top, dw: w, dh: h });
+        drawFx(ctx, look, dir, view, sx, top + TOP * PX, anim.now, anim.seed, kind, anim.moving);
+        return { top: top + TOP * PX, h: (GROUND + 1) * PX };
+      }
+    }
     let canvas = cache.get(key);
     if (!canvas) {                                                                                // (the palette is only worked out for a picture not made yet)
       const C = palette(look);

@@ -110,6 +110,7 @@ class PackedCache extends LruCache {
  * `paths` is the list of palette entries ('coat.b', 'manes.0.d') that have slots: a slot's number is its place in that list. */
 const SlotArt = (() => {
   const marker = slot => `rgb(${slot},254,254)`;
+  const markerPixel = slot => ((255 << 24) | (254 << 16) | (254 << 8) | slot) >>> 0;                  // the marker as an opaque ABGR pixel
   const isMarker = p => (p >>> 24) === 255 && ((p >>> 8) & 0xFFFF) === 0xFEFE;                  // ABGR: A=255, B=254, G=254, R=slot
   const abgrOf = new Map();
   /** A CSS colour ('#rrggbb' or 'rgb(r,g,b)') as an opaque ABGR pixel (what a canvas holds, as little-endian 32-bit words). */
@@ -167,5 +168,5 @@ const SlotArt = (() => {
     c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(px.buffer, px.byteOffset, px.length * 4), w, h), 0, 0);
     return c;
   }
-  return { marker, isMarker, abgr, lutOf, probeOf, compose, canvasOf };
+  return { marker, markerPixel, isMarker, abgr, lutOf, probeOf, compose, canvasOf };
 })();

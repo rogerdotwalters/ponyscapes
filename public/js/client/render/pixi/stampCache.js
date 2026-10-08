@@ -9,12 +9,16 @@
  * A change of scale (zoom, window resize) wipes everything. */
 class StampCache {
   constructor() {
-    this.pools = { static: { size: 2048, max: 4, pages: [] }, dynamic: { size: 1024, max: 4, pages: [] } };
+    this.pools = { static: { size: 2048, max: 4, pages: [] }, dynamic: { size: 1024, max: 8, pages: [] } };
     this.map = new Map(); this.scale = 0; this.frame = 0; this.stats = { made: 0, hits: 0, wipes: 0 };
   }
 
   beginFrame(scale) {
     this.frame++; this.stats.made = 0; this.stats.hits = 0;
+    for (const pool of Object.values(this.pools)) {                                                 // (the one-frame overflow pages are dropped)
+      if (!pool.pages.some(p => p.overflow)) continue;
+      pool.pages = pool.pages.filter(p => { if (!p.overflow) return true; for (const k of p.keys) this.map.delete(k); p.source.destroy(); return false; });
+    }
     if (scale !== this.scale) { this.clear(); this.scale = scale; }
   }
 
@@ -40,11 +44,11 @@ class StampCache {
     const last = pool.pages[pool.pages.length - 1]; let s = last && fit(last);
     if (s) return s;
     if (pool.pages.length < pool.max) return fit(this._page(pool));
-    let oldest = pool.pages[0];                                                                    // a full pool: reuse the page that was drawn longest ago
+    let oldest = pool.pages[0];                                                                    // a full pool: reuse the page that was drawn longest ago ...
     for (const p of pool.pages) if (p.used < oldest.used) oldest = p;
-    if (oldest.used >= this.frame - 1) return fit(this._page(pool));                               // (all in use this frame: grow rather than wipe what is on screen)
-    this._wipe(oldest); pool.pages.splice(pool.pages.indexOf(oldest), 1); pool.pages.push(oldest);
-    return fit(oldest);
+    if (oldest.used < this.frame) { this._wipe(oldest); pool.pages.splice(pool.pages.indexOf(oldest), 1); pool.pages.push(oldest); return fit(oldest); }
+    const extra = this._page(pool); extra.overflow = true;                                          // ... unless every page was drawn this frame: a page for this frame only
+    return fit(extra);
   }
 
   /** The picture for a finished recording `rec` of an item at world (ax, ay): { tex, ix, iy, w, h } or null if it drew nothing. (ix, iy) is the

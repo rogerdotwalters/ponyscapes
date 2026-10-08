@@ -44,22 +44,38 @@ const CanvasRecorder = (() => {
     /** Start a recording for an item standing at world (ax, ay). `moving`: its picture changes all the time (people, animals), so hash it coarsely. */
     begin(ax, ay, moving = false) {
       this.kl = moving ? 4 : 32; this.ka = moving ? 64 : 1024;
-      this.ops.length = 0; this.stack.length = 0; Object.assign(this.attrs, DEFAULTS);
+      this.ops = []; this.stack.length = 0; Object.assign(this.attrs, DEFAULTS);
       this.U[0] = 1; this.U[1] = 0; this.U[2] = 0; this.U[3] = 1; this.U[4] = 0; this.U[5] = 0;
       this.ax = ax; this.ay = ay; this.alx = ax; this.aly = ay;                               // the anchor, in current local coordinates
+      this.parts = [];                                                                         // pictures drawn by something other than the 2D replay (figure()), with the recordings between them
       this.h1 = 0x811c9dc5 | 0; this.h2 = 0x2545F491 | 0;
       this.minX = this.minY = Infinity; this.maxX = this.maxY = -Infinity; this.pad = 1.5;
       this.pMinX = this.pMinY = Infinity; this.pMaxX = this.pMaxY = -Infinity;
       return this;
     }
 
-    /** Finish: the hash, and the extents of what was painted relative to the anchor (world pixels; `pad` is the margin to add all round). */
-    end() {
-      const r = this.result;
+    /** Finish: the hash, and the extents of what was painted relative to the anchor (world pixels; `pad` is the margin to add all round).
+     *  `parts` (usually empty) lists, in drawing order, what came before the last recording: { rec } or { figure }. */
+    end() { const r = this._rec({}); r.parts = this.parts; return r; }
+    _rec(r) {
       r.h1 = this.h1 >>> 0; r.h2 = this.h2 >>> 0; r.ops = this.ops;
       r.empty = !(this.minX <= this.maxX);
       r.minX = this.minX; r.minY = this.minY; r.maxX = this.maxX; r.maxY = this.maxY; r.pad = this.pad;
       return r;
+    }
+
+    /** Can a figure() be drawn here? Only between top-level drawing calls: nothing saved, no transform set. */
+    figureOk() { const U = this.U; return this.stack.length === 0 && U[0] === 1 && U[1] === 0 && U[2] === 0 && U[3] === 1 && U[4] === 0 && U[5] === 0; }
+
+    /** A picture the backend draws itself (a pony or character in marker colours, recoloured by a shader) instead of a drawImage: what has been drawn so
+     *  far becomes one recording, the figure the next part, and drawing carries on in a new recording that starts in the same state.
+     *  `fig`: { frame: { key, make() -> canvas }, lut: { key, make() -> Uint32Array(256) }, wash, mirror, dx, dy, dw, dh } (the rectangle in world pixels). */
+    figure(fig) {
+      this.parts.push({ rec: this._rec({}) }, { figure: fig });
+      const attrs = Object.assign({}, this.attrs);
+      this.ops = []; this.h1 = 0x811c9dc5 | 0; this.h2 = 0x2545F491 | 0;
+      this.minX = this.minY = Infinity; this.maxX = this.maxY = -Infinity; this.pad = 1.5; this.pMinX = this.pMinY = Infinity; this.pMaxX = this.pMaxY = -Infinity;
+      for (const name of ATTR_NAME) if (attrs[name] !== DEFAULTS[name]) this[name] = attrs[name];            // (the new recording starts with the attributes the old one left)
     }
 
     /* ---- hashing ---- */

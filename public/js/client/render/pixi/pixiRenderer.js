@@ -72,7 +72,7 @@ class PixiRenderer extends Renderer {
     this._useLayer(this.groundCanvas, this.groundCtx);
     const ctx = this.ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    if (this._ready) { this.app.renderer.background.color = indoors ? 0x0b0d12 : OCEAN_COLOR; this.grassPool.begin(); this.itemPool.begin(); this.stamps.beginFrame(this.camera.scale); }
+    if (this._ready) { this.app.renderer.background.color = indoors ? 0x0b0d12 : OCEAN_COLOR; this.grassPool.begin(); this.itemPool.begin(); this.stamps.beginFrame(this.camera.scale); PaletteSwap.tick(); }
     this.frameNo++;
   }
 
@@ -137,19 +137,37 @@ class PixiRenderer extends Renderer {
       try { this._drawItem(item, now); }
       catch (e) { if (!this.broken.has(item.kind)) { this.broken.add(item.kind); console.error('pixi: drawing a "' + item.kind + '" failed:', e); } }
       finally { this.ctx = this.g.ctx = real; }
-      const e = this.stamps.stamp(rec.end(), ax, ay, pool, still);
-      if (e) {
-        const snap = still ? Math.floor : Math.round, px = snap(ax * s) + e.ix, py = snap(ay * s) + e.iy;          // (whole device pixels)
-        const sprite = this.itemPool.place(e.tex, px / s, py / s, e.w / s, e.h / s);
-        if (hole && (item.kind === 'structure' || item.kind === 'built') && item.depth > hole.depth) {          // a building in front of you, over where you are: cut it away round you
-          const l = ox + px, t = oy + py, dx = Math.max(l - hole.x, 0, hole.x - (l + e.w)), dy = Math.max(t - hole.y, 0, hole.y - (t + e.h)) / hole.squash;
-          if (Math.hypot(dx, dy) < hole.outer) sprite.filters = [this.seeThrough.filter];
-        }
+      const last = rec.end(), snap = still ? Math.floor : Math.round, bx = snap(ax * s), by = snap(ay * s);
+      for (const part of last.parts) {                                                // (a figure splits the item: what was drawn before it, the figure, what follows)
+        if (part.rec) this._placeStamp(part.rec, ax, ay, bx, by, pool, still, item, hole, ox, oy);
+        else this._placeFigure(part.figure, ax, ay, bx, by);
       }
+      this._placeStamp(last, ax, ay, bx, by, pool, still, item, hole, ox, oy);
     }
     this._useLayer(this.overlayCanvas, this.overlayCtx);                              // what follows (names, night, particles) goes on top
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.camera.applyTransform(this.ctx);
+  }
+
+  /** One recording as a sprite (anchor (ax, ay) is on device pixel (bx, by)); a building in front of the player gets the see-through filter. */
+  _placeStamp(r, ax, ay, bx, by, pool, still, item, hole, ox, oy) {
+    const s = this.camera.scale, e = this.stamps.stamp(r, ax, ay, pool, still);
+    if (!e) return;
+    const px = bx + e.ix, py = by + e.iy, sprite = this.itemPool.place(e.tex, px / s, py / s, e.w / s, e.h / s);
+    if (hole && (item.kind === 'structure' || item.kind === 'built') && item.depth > hole.depth) {          // cut it away round you
+      const l = ox + px, t = oy + py, dx = Math.max(l - hole.x, 0, hole.x - (l + e.w)), dy = Math.max(t - hole.y, 0, hole.y - (t + e.h)) / hole.squash;
+      if (Math.hypot(dx, dy) < hole.outer) sprite.filters = [this.seeThrough.filter];
+    }
+  }
+
+  /** A pony or character in marker colours (see paletteFilter.js), as one sprite with the palette swap on it. */
+  _placeFigure(f, ax, ay, bx, by) {
+    const s = this.camera.scale, tex = this.atlas.texture(f.frame.key, f.frame.make);
+    if (!tex) return;
+    const w = Math.round(f.dw * s), h = Math.round(f.dh * s), px = bx + Math.round((f.dx - ax) * s), py = by + Math.round((f.dy - ay) * s);
+    const sprite = this.itemPool.place(tex, px / s, py / s, w / s, h / s);
+    if (f.mirror) { sprite.scale.x = -sprite.scale.x; sprite.position.x += w / s; }
+    sprite.filters = [PaletteSwap.filterFor(f.lut.key, f.lut.make, f.wash)];
   }
 
   _endFrame() {
