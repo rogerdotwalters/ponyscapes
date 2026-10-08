@@ -102,10 +102,10 @@ canvas{display:block}
 #emoteWheel{position:fixed;inset:0;z-index:9;background:rgba(5,10,20,.35)}
 .ebubble{position:absolute;border-radius:50%;border:2px solid rgba(227,194,122,.85);background:rgba(250,246,232,.96);padding:0;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .ebubble.etrade{background:rgba(227,194,122,.95);color:#10202f;font-family:Georgia,serif;font-weight:700}
-#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
-#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
+#gearPanel,#ponyPanel,#townPanel,#shopPanel,#chestPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
+#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#chestPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
 #gearClose,#tradeClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
-#gearBody,#ponyBody,#townBody,#tradeBody,#shopBody{overflow-y:auto;touch-action:pan-y}
+#gearBody,#ponyBody,#townBody,#tradeBody,#shopBody,#chestBody{overflow-y:auto;touch-action:pan-y}
 .shophead{display:flex;align-items:center;gap:4px;margin:0 0 8px;font-size:13px}.shophead img{width:20px;height:20px}
 .shopbuy{height:30px;padding:0 12px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif}.shopbuy:disabled{opacity:.35}
 .gsum{font-size:12px;margin-bottom:8px;color:#e9ddb8}
@@ -206,7 +206,7 @@ canvas{display:block}
 .mapside{width:100%}
 @media (min-aspect-ratio:5/4){.mapcontent{flex-direction:row;align-items:flex-start}.mapside{flex:1;min-width:110px;max-width:260px}}
 .maplegend{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:center;margin-top:6px;font-size:11px;color:#dfe6ee}
-.maplegend .you{color:#fff}.maplegend .pet{color:#f48fb1}.maplegend .home{color:#ffd9b0}.maplegend .stb{color:#c9965a}.maplegend .x{color:#ff7a6a}.maplegend .town{color:#e3a92b}.maplegend .cub{color:#d9a46a}
+.maplegend .you{color:#fff}.maplegend .pet{color:#f48fb1}.maplegend .mate{color:#7fd8ff}.maplegend .home{color:#ffd9b0}.maplegend .stb{color:#c9965a}.maplegend .x{color:#ff7a6a}.maplegend .town{color:#e3a92b}.maplegend .cub{color:#d9a46a}
 
 /* ---------- separate Let go button + its confirmation ---------- */
 .pbtn.danger{border-color:#e07a6a;color:#ffd6cf;background:rgba(70,20,20,.62)}
@@ -400,8 +400,8 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .pbtn.ability.cd{opacity:.55}
 
 /* ---- the Town window ---- */
-#townBody .ttitle{font:600 13px Georgia,serif;margin:8px 0 4px;color:#ffe08a}
-#townBody .ttitle small{font-weight:400;color:#c9bb98;font-size:11px}
+#townBody .ttitle,#chestBody .ttitle{font:600 13px Georgia,serif;margin:8px 0 4px;color:#ffe08a}
+#townBody .ttitle small,#chestBody .ttitle small{font-weight:400;color:#c9bb98;font-size:11px}
 .tcarry small{display:block;color:#c9bb98;font-size:11px;margin-top:3px}
 .tstacks{display:flex;gap:8px;flex-wrap:wrap}
 .tstacks span{padding:2px 8px;border-radius:8px;background:rgba(10,18,28,.55);font-size:12px}

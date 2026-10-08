@@ -33,7 +33,7 @@ class MapUI {
     this.panel.hidden = false; const size = (2 * AREA_MAP_RADIUS + 1) * AREA_MAP_PX;
     this.body.innerHTML = `<div class="mapcontent"><div class="mapwrap"><canvas id="areaMap" width="${size}" height="${size}"></canvas></div><div class="mapside">` +
       '<div class="mapzoom"><button id="zoomNear">Near</button><button id="zoomFar">Far</button><button id="mapCentre" title="Drag the map to look around; this brings it back to you">Centre on me</button></div>' +
-      '<div class="maplegend"><span class="you">\u25CF you</span><span class="pet">\u25CF ponies</span><span class="home">\u2302 home</span><span class="stb">\u25A0 stable</span><span class="x">\u2716 treasure</span><span class="town">\u27A4 town</span><span class="cub">\u{1F43E} lost cub</span></div>' +
+      '<div class="maplegend"><span class="you">\u25CF you</span><span class="pet">\u25CF ponies</span><span class="mate">\u{1F4CD} friends</span><span class="home">\u2302 home</span><span class="stb">\u25A0 stable</span><span class="x">\u2716 treasure</span><span class="town">\u27A4 town</span><span class="cub">\u{1F43E} lost cub</span></div>' +
       '<div class="biomekey" id="biomeKey"></div>' +
       '<div class="mapinfo" id="areaInfo"></div><div class="mapnav"><button id="areaTreasure">Treasure maps</button></div></div></div>';
     this.canvas = this.body.querySelector('#areaMap');
@@ -166,6 +166,15 @@ class MapUI {
     for (const pet of g.pets) {                                                                                       // your ponies (and ones you are gentling)
       const [x, y] = toMap(pet.x, pet.y); if (!inside(x, y)) continue;
       ctx.fillStyle = pet.gentling ? '#ffd24a' : (PONY_KIND_COLORS[pet.type] || '#f48fb1'); ctx.strokeStyle = '#1b2a3a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, far ? 2.4 : 3.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    for (const f of g.mates || []) {                                                                                  // friends: a waypoint pin on the map, or an arrow on the border when they are off it
+      const [x, y] = toMap(f.x, f.y), color = f.color || '#ffd24a', label = f.inside ? f.name + ' (inside)' : f.name;
+      if (!inside(x, y)) { MapUI.edgeArrow(ctx, mid, x, y, color, `${f.name} ${Math.round(Math.hypot(f.x - me.x, f.y - me.y))}`); continue; }
+      const r = far ? 4.5 : 6.5;                                                                                     // a teardrop pin whose point is on the spot
+      ctx.fillStyle = color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x - r * 1.5, y - r * 1.2, x - r, y - r * 3, x, y - r * 3); ctx.bezierCurveTo(x + r, y - r * 3, x + r * 1.5, y - r * 1.2, x, y); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y - r * 2, r * 0.45, 0, Math.PI * 2); ctx.fill();
+      ctx.font = 'bold 10px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(label).width + 8;
+      ctx.fillStyle = 'rgba(10,20,30,.8)'; ctx.fillRect(x - w / 2, y - r * 3 - 16, w, 13); ctx.fillStyle = '#fff'; ctx.fillText(label, x, y - r * 3 - 9);
     }
     let nearest = null;
     for (const m of g.treasureMaps) {                                                                                 // treasure

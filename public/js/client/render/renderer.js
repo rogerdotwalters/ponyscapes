@@ -2,6 +2,7 @@
 /* CLIENT - orchestrates a frame. Reads state, never mutates it. */
 const WALL_CHUNKS = 4;
 
+const SEE_THROUGH_RADIUS = 110;                           // world pixels: how far round the player a building in front of them is cut away
 const FLY_HEIGHT = 46;                                    // pixels a flying pegasus and its rider are drawn above the ground at full height
 
 class Renderer {
@@ -30,6 +31,7 @@ class Renderer {
       if (o >= INTERIOR_OBJ_BASE && plan && plan.wallIsLow) {                           // a room's wall: low at the front, a window on the side facing in
         Object.assign(item, { low: plan.wallIsLow(tx, ty), windowS: plan.isFloor(tx, ty + 1), windowE: plan.isFloor(tx + 1, ty) });
       }
+      if (o === OBJ.HOUSE || o === OBJ.DOOR) item.fade = true;                           // (a building: see through it when you stand behind it)
       items.push(item);
     }
     for (const prop of chunk.props) {
@@ -157,14 +159,45 @@ class Renderer {
     }
     for (const id in (state.drops || {})) { const d = state.drops[id]; items.push({ kind: 'drop', depth: d.x + d.y - 0.3, gx: isoX(d.x, d.y), gy: isoY(d.x, d.y), drop: d }); }   // items dropped on the ground
     for (const id in state.boats) { const boat = state.boats[id]; items.push({ kind: 'boat', depth: boat.x + boat.y - 0.25, id, boat }); }   // under its rider
-    for (const id in state.players) { const p = state.players[id]; items.push({ kind: 'player', depth: p.x + p.y + (p.lift || 0) * 4, id, p }); }
+    for (const id in state.players) {
+      const p = state.players[id], mount = p.mount && state.animals[p.mount];
+      const behind = mount && SpriteRegistry.dirOf(mount.facing) === 'down';       // riding towards the camera: the rider sits behind the pony's head and chest, so the pony is drawn over them
+      items.push({ kind: 'player', depth: behind ? mount.x + mount.y - 0.1 + (mount.lift || 0) * 4 : p.x + p.y + (p.lift || 0) * 4, id, p, behind: !!behind });
+    }
     return items.sort((a, b2) => a.depth - b2.depth);        // painter's algorithm on x + y
+  }
+
+  /** A building standing between the camera and the player is cut through round the player, so you can see where you are (see-through, soft edged).
+   *  The slice is drawn into a small scratch canvas, a soft round hole is rubbed out of it at the player, and that is stamped on the world.
+   *  Returns false when the player is not behind it (or not close): the caller draws it normally. */
+  _drawFaded(item) {
+    const me = this.game.local;
+    if (!me || me.x + me.y >= item.depth - 0.4) return false;                      // (the player is level with it or in front of it)
+    const px = isoX(me.x, me.y), py = isoY(me.x, me.y) - 20 - (me.lift || 0) * FLY_HEIGHT, R = SEE_THROUGH_RADIUS;
+    const x0 = item.gx - 150, y0 = item.gy - 380, w = 300, h = 420;
+    if (px + R < x0 || px - R > x0 + w || py + R < y0 || py - R > y0 + h) return false;
+    const s = this.camera.scale, pw = Math.ceil(w * s), ph = Math.ceil(h * s);
+    const scratch = this.fadeCanvas || (this.fadeCanvas = document.createElement('canvas'));
+    if (scratch.width < pw || scratch.height < ph) { scratch.width = Math.max(scratch.width, pw); scratch.height = Math.max(scratch.height, ph); this.fadeG = null; }
+    const sctx = scratch.getContext('2d'), sg = this.fadeG || (this.fadeG = new Gfx(sctx));
+    sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.globalCompositeOperation = 'source-over'; sctx.clearRect(0, 0, scratch.width, scratch.height);
+    sctx.setTransform(s, 0, 0, s, -x0 * s, -y0 * s);
+    StructureSprites.draw(sg, item, item.gx, item.gy);
+    sctx.globalCompositeOperation = 'destination-out';
+    const hole = sctx.createRadialGradient(px, py, R * 0.45, px, py, R);
+    hole.addColorStop(0, 'rgba(0,0,0,.88)'); hole.addColorStop(1, 'rgba(0,0,0,0)');
+    sctx.fillStyle = hole; sctx.fillRect(px - R, py - R, 2 * R, 2 * R);
+    sctx.globalCompositeOperation = 'source-over';
+    const ctx = this.ctx, smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(scratch, 0, 0, pw, ph, x0, y0, w, h);
+    ctx.imageSmoothingEnabled = smooth;
+    return true;
   }
 
   _drawItem(item, now) {
     if (item.kind === 'grass') { const sm = this.ctx.imageSmoothingEnabled; this.ctx.imageSmoothingEnabled = false; item.draw(); this.ctx.imageSmoothingEnabled = sm; return; }
     const g = this.g;
-    if (item.kind === 'structure') return StructureSprites.draw(g, item, item.gx, item.gy);
+    if (item.kind === 'structure') return item.fade && this._drawFaded(item) ? undefined : StructureSprites.draw(g, item, item.gx, item.gy);
     if (item.kind === 'built') return StructureSprites.drawBuiltChunk(g, item);
     if (item.kind === 'station') return StructureSprites.drawStation(g, item.type, item.tx, item.ty, this._stationInfo(item));
     if (item.kind === 'doorLeaf') return StructureSprites.drawDoorLeaf(g, item);
@@ -196,7 +229,7 @@ class Renderer {
     if (item.kind === 'player') {
       const p = item.p, rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;
       const wading = !p.boat && !p.mount && this.game.map.tile(Math.floor(p.x), Math.floor(p.y)) === TILE.SHALLOW;
-      return this.playerSprite.draw(p, item.id, isoX(p.x, p.y), isoY(p.x, p.y) - (p.lift || 0) * FLY_HEIGHT, item.id === this.game.myId, now, rowPhase, wading);
+      return this.playerSprite.draw(p, item.id, isoX(p.x, p.y), isoY(p.x, p.y) - (p.lift || 0) * FLY_HEIGHT, item.id === this.game.myId, now, rowPhase, wading, { behind: item.behind });
     }
     const prop = item.prop;
     if (prop.t === 'tree') {
@@ -214,6 +247,7 @@ class Renderer {
     else if (prop.t === 'mound') { if (prop.ripe) PropSprites.drawMound(g, item.gx, item.gy, prop.v, now); }
     else if (prop.t === 'bottle') { if (prop.ripe) PropSprites.drawBottle(g, item.gx, item.gy, prop.v, now); }
     else if (prop.t === 'barrel') PropSprites.drawBarrel(g, item.gx, item.gy);
+    else if (prop.t === 'decor') PropSprites.drawDecor(g, item.gx, item.gy, prop.kind, prop.v);
     else if (prop.t === 'loot') { if (prop.ripe) this._drawLoot(item.gx, item.gy, prop, now); }
     else if (prop.t === 'cave') PropSprites.drawCave(g, item.gx, item.gy, prop.ring, now);
     else if (prop.t === 'portal') PropSprites.drawPortal(g, item.gx, item.gy, now);

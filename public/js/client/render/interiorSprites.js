@@ -247,6 +247,15 @@ const InteriorSprites = (() => {
       for (const face of ['S', 'E']) for (const u of [0.02, 0.5, 0.98]) faceQuad(ctx, fb, face, u - 0.02, u + 0.02, 0, h, c.band);   // corner posts
       for (const face of ['S', 'E']) faceQuad(ctx, fb, face, 0, 1, h / 2 - 1, h / 2 + 1, c.band);                                     // a slat
     },
+    /** A chest: a wooden body under a lid with iron bands and a brass lock on the front. */
+    chest(ctx, b, def, rot) {
+      const c = def.colors, h = def.height || 24, body = h * 0.62, face = frontFace(rot), fb = { x0: b.x0 + 0.1, y0: b.y0 + 0.14, x1: b.x1 - 0.1, y1: b.y1 - 0.14 };
+      box(ctx, fb.x0, fb.y0, fb.x1, fb.y1, body, c.wood);
+      box(ctx, fb.x0 - 0.02, fb.y0 - 0.02, fb.x1 + 0.02, fb.y1 + 0.02, h - body, c.lid, body);                 // the lid
+      for (const f of ['S', 'E']) for (const u of [0.14, 0.86]) faceQuad(ctx, fb, f, u - 0.05, u + 0.05, 0, h, c.band);   // iron bands
+      faceQuad(ctx, fb, face, 0.43, 0.57, body - 6, body + 2, c.lock);                                           // the lock
+      faceQuad(ctx, fb, face, 0.47, 0.53, body - 4, body - 1, '#5b4410');
+    },
     hay(ctx, b, def) {
       const c = def.colors, h = def.height || 18, fb = { x0: b.x0 + 0.08, y0: b.y0 + 0.12, x1: b.x1 - 0.08, y1: b.y1 - 0.12 };
       box(ctx, fb.x0, fb.y0, fb.x1, fb.y1, h, c.hay);

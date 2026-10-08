@@ -524,7 +524,7 @@ const PixelPony = (() => {
     const kind = anim.kind || {}, fx = look.accessory || null, now = anim.now;
     const wings = !!kind.wings, horn = !!kind.horn, flying = !!(wings && anim.flying), wf = flying ? Math.floor(now / 85) % 4 : 0;     // (the wingbeat)
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
-    const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((now / 420 + anim.seed) % 4);
+    const frame = anim.moving ? (4 - Math.floor(phase / (Math.PI / 2)) % 4) % 4 : Math.floor((now / 420 + anim.seed) % 4);   // (trot frames run forward-lift-back; played in reverse so the hooves push back along the ground instead of moonwalking)
     const pose = flying ? 'S0' : (anim.moving ? 'T' : 'S') + frame, F = POSES[pose];
     const blink = !anim.moving && ((now + anim.seed * 1311) % 4200) < 150;
     const view = dir === 'left' ? 'right' : dir;

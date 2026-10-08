@@ -275,6 +275,8 @@ class GameServer {
       case 'craft': this._craftWithLasso(id, inventory, cmd); break;
       case 'place': this._handlePlace(id, inventory, cmd); break;
       case 'setVitals': this._handleSetVitals(id, cmd); break;
+      case 'chestPut': this._chestPut(id, cmd); break;                                                      // the chests in rooms (homeCrafts.js)
+      case 'chestTake': this._chestTake(id, cmd); break;
       case 'stockTake': this._handleStockTake(id, inventory, cmd); break;
       case 'upgrade': this._handleUpgrade(id, inventory, cmd); break;
       case 'drop': case 'destroy': {
@@ -933,6 +935,16 @@ class GameServer {
     const snapshot = { tick: this.tick, players, boats: this.boatStates(), trees: collectTreeStates(this.map), forage: collectForageStates(this.map), animals: this.animals.states(this._humans()), npcs: this.npcs.states(), drops: this.dropStates(), events: this.pendingEvents };
     this.pendingEvents = GridEvents.of(this);
     return snapshot;
+  }
+  /** The other people in this game and where they are in the overworld (indoors: outside their door): the friends the map marks. */
+  matesFor(id) {
+    const out = [];
+    for (const q of this._humans()) {
+      if (q.id === id) continue;
+      const spot = SaveData.outsideSpot(this, q);
+      out.push({ id: q.id, name: q.name || 'Friend', color: q.color, slot: q.slot, x: Math.round(spot.x * 10) / 10, y: Math.round(spot.y * 10) / 10, inside: !!gridOf(q) });
+    }
+    return out;
   }
   /** Boats near a human player (the rest are not worth sending). */
   boatStates() {

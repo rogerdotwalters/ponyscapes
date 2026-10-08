@@ -15,6 +15,7 @@ const LASSO_LOOKS = {
   lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
 };
 const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
+const BEHIND_LIFT = 20;                          // riding towards the camera the rider sits further back, so higher up the screen, and peeks over the pony's head
 const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
@@ -30,7 +31,7 @@ class PlayerSprite {
 
   draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false, opts = {}) {
     const mounted = !!p.mount, riding = !!p.boat || mounted;
-    if (mounted) { sy -= SADDLE_HEIGHT; rowPhase = now / 140; }                       // up in the saddle, arms swinging with the gait
+    if (mounted) { sy -= SADDLE_HEIGHT + (opts.behind ? BEHIND_LIFT : 0); rowPhase = now / 140; }                       // up in the saddle, arms swinging with the gait
     if (wading) this._drawRipples(sx, sy, now);
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
     if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
@@ -65,7 +66,7 @@ class PlayerSprite {
   }
   /** The procedural body. It turns with the facing by itself, so all four directions share it; _drawUp / _drawDown are the place
    *  for dedicated back / front views (BOILERPLATE: they use the same body for now). */
-  _drawSide(p, sx, sy, pose, riding) { if (!riding) this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose); }
+  _drawSide(p, sx, sy, pose, riding) { if (!p.boat) this._drawLegs(p, sx, sy, pose); this._drawTorsoAndHead(p, sx, pose); }
   _drawUp(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
   _drawDown(p, sx, sy, pose, riding) { this._drawSide(p, sx, sy, pose, riding); }
 
@@ -74,7 +75,7 @@ class PlayerSprite {
     const moving = p.state !== 'idle' && !riding;
     const at = PixelCharacter.draw(this.g.ctx, L, this._wardrobe(p, pose.gear), pose.dir, sx, sy, {
       moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0,
-      crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: riding ? 11 : pose.crouch ? 2 : 0 });
+      crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: p.boat ? 11 : riding ? 0 : pose.crouch ? 2 : 0 });   // (a boat hides the legs; in the saddle they hang down the pony's side)
     pose.headY = at.headY; pose.torsoTop = at.torsoTop;
   }
 

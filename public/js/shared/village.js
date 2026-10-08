@@ -73,6 +73,27 @@ const Village = (() => {
    [13.5, 24.5], [29.5, 23.5], [34.5, 25.5], [23.5, 24.5]].forEach(([x, y]) => {
     props.set(tileKey(Math.floor(x), Math.floor(y)), { t: 'barrel', x: x + (rng() - 0.5) * 0.2, y: y + (rng() - 0.5) * 0.2, r: 0.26 / TILE_SCALE, v: 0 });
   });
+  /** Real things standing about each building (its data `exterior.props`: barrels, crates, firewood, flowers, hay), on the ground beside its door
+   *  rather than painted on its wall: you walk round them and they sort with you. */
+  (function placeDecor() {
+    const GROUND = { barrels: 'barrel', crates: 'crate', firewood: 'firewood', flowers: 'planter', hay: 'hay' }, used = new Set();
+    for (const s of BuildingSites.list) {
+      const spots = [[s.doorX + 1, s.y1 + 1], [s.doorX - 1, s.y1 + 1], [s.doorX + 2, s.y1 + 1], [s.doorX - 2, s.y1 + 1], [s.x1 + 1, s.y1], [s.x0 - 1, s.y1], [s.x1 + 1, s.y1 - 1], [s.x0 - 1, s.y1 - 1]];
+      for (const name of (s.def.exterior && s.def.exterior.props) || []) {
+        const kind = GROUND[name]; if (!kind) continue;                                  // (a lantern and the sign stay on the wall)
+        const spot = spots.find(([tx, ty]) => {
+          const key = tileKey(tx, ty), t = tile(tx, ty);
+          return !used.has(key) && !props.has(key) && tx !== s.doorX && !BuildingSites.at(tx, ty) && !within(KEEP, tx, ty) && !within(PADDOCK, tx, ty)
+            && !(tx === WORKSHOP.x && ty === WORKSHOP.y) && t !== TILE.WATER && t !== TILE.SHALLOW;
+        });
+        if (!spot) continue;
+        const [tx, ty] = spot, v = Math.floor(rng() * 4), jit = () => (rng() - 0.5) * 0.16;
+        used.add(tileKey(tx, ty));
+        props.set(tileKey(tx, ty), kind === 'barrel' ? { t: 'barrel', x: tx + 0.5 + jit(), y: ty + 0.5 + jit(), r: 0.26 / TILE_SCALE, v }
+          : { t: 'decor', kind, x: tx + 0.5 + jit(), y: ty + 0.5 + jit(), r: 0.3 / TILE_SCALE, v });
+      }
+    }
+  })();
   props.set(tileKey(23, 26), { t: 'chest', x: 23.5, y: 26.5, r: 0.32 / TILE_SCALE, v: 0 });          // the beginner's loot chest, next to the spawn
   // three apple trees near the home (ordinary trees you can also pick fruit from)
   [[19, 33], [12, 33], [18, 36]].forEach(([tx, ty], i) => props.set(tileKey(tx, ty), {

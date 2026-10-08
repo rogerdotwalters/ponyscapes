@@ -227,12 +227,12 @@ class UiLayout {
     bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
 
     const P = L.panels;
-    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
+    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.chestPanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
       el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
       el.style.setProperty('--slot', P.slot + 'px'); el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--pad', P.pad + 'px');
     }
-    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
-    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.shopBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
+    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.chestPanel, dom.tradePanel]) el.style.width = P.crafting.w + 'px';
+    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.shopBody, dom.chestBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.menuBody.style.maxHeight = dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.inventoryPanel.style.width = P.inventory.w + 'px'; if (dom.invBody) dom.invBody.style.maxHeight = P.invBodyMaxHeight + 'px';

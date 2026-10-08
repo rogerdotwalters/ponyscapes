@@ -97,7 +97,7 @@ class HostAdapter extends LocalAdapter {
     const forage = r.gates.forage.changed(snap.forage); if (forage) out.forage = forage;
     const drops = r.gates.drops.changed(snap.drops || {}); if (drops) out.drops = drops;                                // items on the ground: only when a pile changes
     for (const k of ['pets', 'book', 'varieties']) { const v = r.gates[k].changed(snap[k]); if (v) out[k] = v; }
-    for (const k of ['inventory', 'built', 'floors', 'farm', 'stockpiles', 'progress', 'treasure', 'trade', 'rings', 'settings', 'admin', 'quests', 'friends', 'pack']) if (snap[k] !== undefined) out[k] = snap[k];
+    for (const k of ['inventory', 'built', 'floors', 'farm', 'stockpiles', 'progress', 'treasure', 'trade', 'rings', 'settings', 'admin', 'quests', 'mates', 'friends', 'pack']) if (snap[k] !== undefined) out[k] = snap[k];
     return out;
   }
 

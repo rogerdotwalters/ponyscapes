@@ -128,6 +128,58 @@ const PropSprites = {
     ctx.restore();
   },
 
+  /** Things that stand about a building (village.js): a stack of crates, a woodpile, a flower planter, a hay bale. v varies each one a little. */
+  drawDecor(g, sx, sy, kind, v = 0) {
+    const ctx = g.ctx;
+    /** An iso box standing on (x, y): half width hw, height h; left / right faces and top. */
+    const box = (x, y, hw, h, top, left, right) => {
+      const hh = hw / 2;
+      g.polygon([x - hw, y, x, y + hh, x, y + hh - h, x - hw, y - h], left);
+      g.polygon([x, y + hh, x + hw, y, x + hw, y - h, x, y + hh - h], right);
+      g.polygon([x - hw, y - h, x, y + hh - h, x + hw, y - h, x, y - hh - h], top);
+    };
+    g.ellipse(sx + 2, sy + 2, kind === 'planter' ? 16 : 14, kind === 'planter' ? 6.5 : 6, 'rgba(0,0,0,.24)');
+    if (kind === 'crate') {                                                                            // two crates, one on top of the other (tipped a little by v)
+      const slat = (x, y, hw, h) => {
+        ctx.strokeStyle = '#5a3f2a'; ctx.lineWidth = 1.2; ctx.beginPath();
+        ctx.moveTo(x - hw, y - h / 2); ctx.lineTo(x, y + hw / 2 - h / 2); ctx.lineTo(x + hw, y - h / 2);          // a plank seam round the middle
+        ctx.moveTo(x - hw + 2, y - 1); ctx.lineTo(x - hw + 2, y - h + 1); ctx.moveTo(x + hw - 2, y - 1); ctx.lineTo(x + hw - 2, y - h + 1);   // corner posts
+        ctx.stroke();
+      };
+      box(sx, sy, 11, 13, '#c9a26b', '#a07a4a', '#86653b'); slat(sx, sy, 11, 13);
+      if (v % 2 === 0) { box(sx - 1, sy - 13, 8, 10, '#d4ad74', '#aa8450', '#8f6d42'); slat(sx - 1, sy - 13, 8, 10); }
+    } else if (kind === 'firewood') {                                                                  // a stack of split logs, the cut ends facing you
+      box(sx, sy, 12, 14, '#6b4a2a', '#5a3d22', '#6d4a2a');
+      for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) {
+        const t = (col + 0.5) / 3, lx = sx - 12 + t * 12, ly = sy + t * 6 - 3 - row * 4.2;                       // along the left face
+        g.ellipse(lx, ly, 2.3, 2.1, '#3e2915'); g.ellipse(lx, ly, 1.7, 1.5, '#d2a56a'); g.ellipse(lx, ly, 0.7, 0.6, '#9a6b3a');
+      }
+      for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) {                                        // and the right face
+        const t = (col + 0.5) / 3, lx = sx + t * 12, ly = sy + 6 - t * 6 - 3 - row * 4.2;
+        g.ellipse(lx, ly, 2.3, 2.1, '#3e2915'); g.ellipse(lx, ly, 1.7, 1.5, '#c99a62'); g.ellipse(lx, ly, 0.7, 0.6, '#8a5a32');
+      }
+    } else if (kind === 'planter') {                                                                   // a wooden box of flowers
+      box(sx, sy, 14, 9, '#4a3220', '#8a5a33', '#6f4626');
+      const cols = ['#e05a5a', '#f2c94c', '#e88ac0', '#f4f0e6', '#9a7ad8'];
+      for (let i = 0; i < 9; i++) {
+        const t = (i % 3 + 0.5) / 3, u = (Math.floor(i / 3) + 0.5) / 3, fx = sx + (t - u) * 12, fy = sy - 9 + (t + u) * 3 - 6 - (i * 7 % 3);
+        ctx.strokeStyle = '#3f7a3a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(fx, fy + 6); ctx.lineTo(fx, fy); ctx.stroke();
+        g.ellipse(fx, fy - 1, 2.6, 2.4, cols[(i + v) % cols.length]); g.ellipse(fx, fy - 1, 0.9, 0.9, '#fff3c4');
+      }
+    } else if (kind === 'hay') {                                                                       // a tied bale of hay
+      box(sx, sy, 12, 12, '#efd27a', '#d9b45a', '#bf9a45');
+      ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 1.3; ctx.beginPath();
+      for (const t of [0.3, 0.7]) { ctx.moveTo(sx - 12 * t, sy + 6 * t); ctx.lineTo(sx - 12 * t, sy + 6 * t - 12); ctx.moveTo(sx + 12 * t, sy + 6 * t); ctx.lineTo(sx + 12 * t, sy + 6 * t - 12); }
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(120,90,30,.55)'; ctx.lineWidth = 1; ctx.beginPath();
+      for (let i = 0; i < 6; i++) { const x = sx - 10 + i * 3.4, y = sy + 2 - (i * 5 % 9); ctx.moveTo(x, y); ctx.lineTo(x + 3, y - 1.5); }
+      ctx.stroke();
+    } else if (kind === 'bench') {                                                                     // a bench by the door
+      box(sx - 9, sy - 1, 2.5, 8, '#6f4626', '#5a3a22', '#4a2e1a'); box(sx + 9, sy - 1, 2.5, 8, '#6f4626', '#5a3a22', '#4a2e1a');
+      box(sx, sy - 8, 14, 3, '#b98a57', '#a07a4a', '#86653b');
+    }
+  },
+
   drawWell(g, sx, sy) {
     const ctx = g.ctx;
     ctx.save(); ctx.translate(sx, sy);

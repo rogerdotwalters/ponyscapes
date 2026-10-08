@@ -86,7 +86,7 @@ window.PONYSCAPES_INTERIORS = {
       "WWWWmWWWWWWWWW"
     ],
     "furniture": [
-      { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "dresser", "x": 2, "y": 1, "rot": 0 }, { "id": "fireplace", "x": 3, "y": 1, "rot": 0 },
+      { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "chest", "x": 1, "y": 3, "rot": 0 }, { "id": "dresser", "x": 2, "y": 1, "rot": 0 }, { "id": "fireplace", "x": 3, "y": 1, "rot": 0 },
       { "id": "bookshelf", "x": 5, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 6, "y": 1, "rot": 0 }, { "id": "medicine_cabinet", "x": 8, "y": 1, "rot": 0 },
       { "id": "lumber_rack", "x": 9, "y": 1, "rot": 0 }, { "id": "loom", "x": 11, "y": 1, "rot": 0 },
       { "id": "lamp", "x": 1, "y": 4, "rot": 0 }, { "id": "rug", "x": 3, "y": 3, "rot": 0 }, { "id": "table", "x": 7, "y": 3, "rot": 0 }, { "id": "chair", "x": 7, "y": 4, "rot": 0 },

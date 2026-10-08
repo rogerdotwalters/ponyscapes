@@ -17,7 +17,7 @@ class ClientGame {
     this.pending = [];                                 // inputs sent but not yet acknowledged
     this.seq = 0; this.snapshots = []; this.remoteTick = 0; this.serverTick = 0;
     this.lastAck = 0; this.lastError = 0; this.hasSnapshot = false; this.welcomeBoats = {}; this.welcomeAnimals = {};
-    this.npcs = {}; this.npcView = {}; this.friends = {}; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
+    this.npcs = {}; this.npcView = {}; this.friends = {}; this.mates = []; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
     this.pack = null;                                  // the pack of the pony you ride or stand next to: { id, name, bags, riding, inventory } (packSystem.js)
@@ -45,7 +45,7 @@ class ClientGame {
     this.grid = gridOf(welcome.player); this.map = this.grids.get(this.grid);     // (we may join standing inside a room)
     this._applyRings(welcome.rings);                          // which rings are open decides where the barriers are
     this.local = clonePlayer(welcome.player); this.prevLocal = clonePlayer(welcome.player);
-    this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeDrops = welcome.drops || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {};
+    this.serverTick = welcome.tick; this.clockTick = welcome.tick; this.welcomeBoats = welcome.boats || {}; this.welcomeDrops = welcome.drops || {}; this.welcomeAnimals = welcome.animals || {}; this.npcs = welcome.npcs || {}; this.npcView = {}; this.friends = welcome.friends || {}; this.mates = welcome.mates || [];
     if (welcome.inventory) this.inventory = Inventory.fromJSON(welcome.inventory, this.local.carryStacks);
     if (welcome.pack !== undefined && welcome.pack !== null) this._applyPack(welcome.pack);
     this.isHost = !!welcome.host;
@@ -331,6 +331,7 @@ class ClientGame {
     if (snapshot.settings) { this.settings = snapshot.settings; this.events.emit('settingsChanged', this.settings); }
     if (snapshot.admin) { GameSettings.applyWire(snapshot.admin, false); this.events.emit('adminChanged'); }
     if (snapshot.pets) { this.pets = snapshot.pets; this.events.emit('petsChanged'); }
+    if (snapshot.mates) this.mates = snapshot.mates;                                  // the other players, for the map
     if (snapshot.quests) this.questMarks = snapshot.quests;                       // lost young you have tracked: shown on the map
     if (snapshot.book) this.book = snapshot.book;
     if (snapshot.varieties) this.varieties = snapshot.varieties;
