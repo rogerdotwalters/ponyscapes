@@ -28,6 +28,9 @@ const clonePlayer = p => Object.assign({}, p, { gear: Object.assign({}, p.gear),
 /** A selectable hotbar slot (0..5). */
 function sanitizeSlot(n) { return clamp(n | 0, 0, CONFIG.sim.inventory.hotbarSlots - 1); }
 
+/** player id -> { x, y }: where this tick's click / tap points in the world (kept off the player object so it never goes over the wire). */
+const AimPoints = {};
+
 function sanitizeInput(i) {
   const num = v => (Number.isFinite(v) ? v : 0);
   return {
@@ -35,7 +38,8 @@ function sanitizeInput(i) {
     action: !!i.action, interact: !!i.interact,
     slot: sanitizeSlot(i.slot), seq: i.seq | 0,
     power: clamp(i.power | 0, 0, 2),                                         // 1 / 2: fire the ridden pony's first / second rarity ability this tick
-    lasso: !!i.lasso                                                         // L: throw the lasso from the lasso slot
+    lasso: !!i.lasso,                                                        // L / right click: throw the lasso from the lasso slot
+    aim: !!i.aim && Number.isFinite(i.ax) && Number.isFinite(i.ay), ax: clamp(num(i.ax), -1e6, 1e6), ay: clamp(num(i.ay), -1e6, 1e6)   // a click / tap: the world point the swing, throw or tool is aimed at
   };
 }
 
@@ -82,6 +86,10 @@ function stepPlayer(p, input, dt, map) {
   if (flying) resolveFlightCollisions(map, p, R.radius); else resolveCollisions(map, p, riding ? R.radius : C.playerRadius);
 
   if (mag > 0.1) turnToward(p, snapAngle8(Math.atan2(my, mx)), C.turnRate * dt);
+  if (input.aim) {                                              // aimed with a mouse / finger: face it at once (tools and lassos read AimPoints[p.id])
+    AimPoints[p.id] = { x: input.ax, y: input.ay };
+    if (Math.hypot(input.ax - p.x, input.ay - p.y) > 0.15) p.facing = snapAngle8(Math.atan2(input.ay - p.y, input.ax - p.x));
+  } else if (AimPoints[p.id]) delete AimPoints[p.id];
   p.state = Math.hypot(p.vx, p.vy) < 0.15 / TILE_SCALE ? 'idle' : weak ? 'walk' : 'run';
   p.ack = input.seq;
 }

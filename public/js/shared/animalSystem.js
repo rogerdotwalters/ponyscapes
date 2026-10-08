@@ -202,6 +202,18 @@ class AnimalSystem {
     return best;
   }
 
+  /** Every animal that is prey, within `reach` of the player's edge and inside `halfAngle` of where they face: [{ id, animal }] (a sword sweep). */
+  inArc(p, reach, halfAngle) {
+    const out = [];
+    for (const id in this.animals) {
+      const a = this.animals[id], gap = Math.hypot(a.x - p.x, a.y - p.y) - AnimalDefs[a.type].radius;
+      if (!this._huntable(a) || !sameGrid(a, p) || gap > reach) continue;
+      if (gap > 0.3 && Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing)) > halfAngle) continue;
+      out.push({ id, animal: a });
+    }
+    return out;
+  }
+
   /** Pets and protected species (ponies) are never prey. */
   _huntable(a) { return !a.owner && !AnimalDefs[a.type].protected; }
 
@@ -215,19 +227,34 @@ class AnimalSystem {
     return best;
   }
 
-  /** The lasso's target: the best tameable animal within `reach` tiles, inside the throwing cone (or very close). */
+  /** Animals you hold on a rope right now (leashed pets and the wild ponies you have caught). */
+  leashedCount(ownerId) {
+    let n = 0;
+    for (const id in this.animals) { const a = this.animals[id]; if ((a.owner === ownerId && a.leashed) || a.captor === ownerId) n++; }
+    return n;
+  }
+
+  /** The lasso's target: the best animal (any that is not hostile or a guardian) within `reach` tiles. A click / tap picks the one under the
+   *  pointer (AimPoints); otherwise it is the one inside the throwing cone (or very close). */
   nearestLassoable(p, reach) {
+    const aim = AimPoints[p.id];
     let best = null;
     for (const id in this.animals) {
       const a = this.animals[id], def = AnimalDefs[a.type];
-      if (!def.tameable || !sameGrid(a, p) || a.captor || a.rider || (a.owner && (a.owner !== p.id || a.leashed))) continue;
+      if (!canBefriendAnimal(a.type) || !sameGrid(a, p) || a.captor || a.rider || (a.owner && (a.owner !== p.id || a.leashed))) continue;
       const gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
       if (gap > reach) continue;
+      if (aim) {                                                          // pointed at: the animal nearest the click wins
+        const off = Math.hypot(a.x - aim.x, a.y - aim.y) - def.radius;
+        if (off <= LASSO_AIM_SLACK && (!best || off < best.score)) best = { id, animal: a, gap, score: off };
+        continue;
+      }
       const off = Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing));
       if (gap > LASSO_CLOSE && off > LASSO_HALF_ANGLE) continue;
       const score = gap <= LASSO_CLOSE ? gap : gap + off * 1.5;           // within arm's length facing does not matter: whatever is right beside you is what you mean
       if (!best || score < best.score) best = { id, animal: a, gap, score };
     }
+    if (!best && aim) { const saved = AimPoints[p.id]; delete AimPoints[p.id]; try { best = this.nearestLassoable(p, reach); } finally { AimPoints[p.id] = saved; } }   // nothing at the click: fall back to what is in front
     return best;
   }
 

@@ -66,6 +66,8 @@ const Skills = {
   /** Chance of an extra item from a harvest (woodcutting / foraging / digging). */
   bonusYieldChance: (lv, skill) => Math.min(0.4, 0.006 * (Skills._s(lv, skill) - 1)),
   /** Horsemanship makes the lasso land more often. */
+  /** How many animals you can keep on a rope at once: 3, plus one for every 3 levels of Animal Friendship or Horsemanship (whichever is higher), up to 10. */
+  leashCap: lv => clamp(3 + Math.floor((Math.max(Skills._s(lv, 'animal_friendship'), Skills._s(lv, 'horsemanship')) - 1) / 3), 3, 10),
   lassoBonus: lv => Math.min(0.25, 0.004 * (Skills._s(lv, 'horsemanship') - 1)),
   catchChance: lv => Math.min(0.85, 0.5 + 0.004 * (Skills._s(lv, 'fishing') - 1))
 };

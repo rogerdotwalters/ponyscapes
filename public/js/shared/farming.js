@@ -15,7 +15,11 @@ const Farming = {
   cellOf: (x, y) => [Math.floor(x * 2), Math.floor(y * 2)],
   key: (cx, cy) => cx + ',' + cy,
   /** The plot half a tile ahead of p (where a hoe or a can lands, and what you plant into). */
-  frontCell(p) { return Farming.cellOf(p.x + Math.cos(p.facing) * 0.42, p.y + Math.sin(p.facing) * 0.42); },
+  frontCell(p) {
+    const aim = AimPoints[p.id];
+    if (aim && Math.hypot(aim.x - p.x, aim.y - p.y) <= 1.8) return Farming.cellOf(aim.x, aim.y);      // clicked / tapped close by: exactly that plot
+    return Farming.cellOf(p.x + Math.cos(p.facing) * 0.42, p.y + Math.sin(p.facing) * 0.42);
+  },
   /** A point straight ahead (the swing's aim: it keeps your facing, so a row is worked by walking along it). */
   ahead: p => ({ x: p.x + Math.cos(p.facing), y: p.y + Math.sin(p.facing) }),
   plotAt: (map, cx, cy) => (map && map.farm && map.farm[Farming.key(cx, cy)]) || null,

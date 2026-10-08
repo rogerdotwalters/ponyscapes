@@ -65,7 +65,7 @@ const Interactions = {
       if (Wants.accepts(a, heldItemId) && d <= WANT_REACH + def.radius) primary.push({ kind: 'give', label: `Give ${ItemDefs[heldItemId].creature ? AnimalDefs[ItemDefs[heldItemId].creature].name : ItemDefs[heldItemId].name}`, dist: d - 0.8, animal: a });   // what it asks for (its bubble)
       if (a.owner === selfId && !a.leashed && !a.rider && def.pony && !p.mount && d <= CONFIG.sim.ride.range) primary.push({ kind: 'ride', label: 'Ride', dist: d, animal: a });
       else if (a.captor === selfId && d <= UNTIE_RANGE && ItemDB.isApple(heldItemId)) primary.push({ kind: 'feed', label: 'Feed ' + ItemDefs[heldItemId].name.toLowerCase(), dist: d - 1, animal: a });   // a caught wild pony: hold an apple and feed it (wins over a gate next to it)
-      else if (def.carry && d <= PICKUP_RANGE && a.state !== 'flee' && (!a.owner || a.owner === selfId)) primary.push({ kind: 'pickup', label: 'Pick up', dist: d, animal: a });
+      else if (def.carry && Wants.isQuestCreature(a.type) && d <= PICKUP_RANGE && a.state !== 'flee' && (!a.owner || a.owner === selfId)) primary.push({ kind: 'pickup', label: 'Pick up', dist: d, animal: a });
       if (canBefriendAnimal(a.type) && !a.captor && !a.rider && d <= CONFIG.sim.friendship.petReach) {            // make friends: a treat it likes, or a pet (which loses to riding / picking up when they compete)
         const opinion = Friendship.opinion(animalTastes(a.type), heldItemId);
         const mineToRide = a.owner === selfId && def.pony && !a.leashed;                                  // your own pony: Ride comes first (feeding it is for when it is not rideable)

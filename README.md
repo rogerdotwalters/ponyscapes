@@ -71,6 +71,14 @@ tools/build.py        syncs the relay modules into src/ (it no longer touches pu
 tools/bundle.py       packs the game into one self-contained HTML file
 ```
 
+## Controls
+
+* **Mouse / touch** (not rebindable): left click or tap uses what is in your hand where you point (water, plant, hoe, chop, swing or shoot a weapon; hold the mouse button to repeat). On a villager it talks (a window offers their shop, any quests and gifts; with nothing to offer they just say hello). On an animal it feeds it (food in hand), ropes it (lasso in hand), attacks it (weapon in hand) or pets it. **Right click** throws the lasso in the lasso slot at the animal under the pointer; phones keep the **Lasso** button. Swords sweep a 120 degree fan and hit every animal in it.
+* **Tap to walk** (pathfinding) is **off** by default: switch it on in Menu > Controls > Mouse & touch.
+* **Keys**: Menu > Controls > Keys rebinds every keyboard action (two keys each, kept in the browser). Slots 1-9 and Esc are fixed.
+* **The rope**: any friendly animal can be lasso'd (not monsters or guardians) and nothing is picked up any more; a roped animal follows you until you untie it (U). You can hold 3 at once, +1 per 3 levels of Animal Friendship or Horsemanship (the higher one), up to 10 (`Skills.leashCap`). Every rope put on an animal is counted per kind (`server.leashLog`, saved in the character's `book.leashed`) for future quests; `server.leashedNow(id)` lists what is roped right now.
+* Under the hood a click sends an **aim point** with the input (`aim, ax, ay`, read server side through `AimPoints[playerId]`); the server checks reach for everything. Clicks on people and animals send `talkTo` / `animalAct` commands (`shared/tapActions.js`).
+
 ## Your own content (editor.html)
 
 Open `/editor.html` next to the game. It has a slot for every item, creature (ponies and animals) and character body:
