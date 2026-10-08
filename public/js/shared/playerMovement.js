@@ -16,7 +16,8 @@ function createPlayer(slot, spawn) {
     mount: '', mountLevel: 1,                                                // id of the pony we are riding (or ''), and its level (higher-level ponies run faster)
     flying: false, flyT: 0, flyDur: 0, flyCd: 0,                            // a pegasus's flight: in the air, seconds left, how long it lasts, seconds until the next one
     buffs: noBuffs(), companions: 0, carryStacks: 1,                         // what the ponies with you add (rarity.js), and stacks of each resource you may carry (stockpiles.js)
-    abilities: [], abilityCd: [0, 0], dashT: 0, dashBoost: 0                 // the ridden pony's rarity abilities (H / K), their cooldowns, and a running Dash
+    abilities: [], abilityCd: [0, 0], dashT: 0, dashBoost: 0,                // the ridden pony's rarity abilities (H / K), their cooldowns, and a running Dash
+    asleep: false, sleepT: 0, sleepForced: false                             // sleeping in the bed at home (sleepSystem.js): seconds asleep, and whether the night forced it
   };
 }
 const noBuffs = () => ({ movement: 0, health: 0, luck: 0, friendship: 0, carry: 0 });
@@ -58,6 +59,7 @@ function isoNormalize(mx, my) {
 function stepPlayer(p, input, dt, map) {
   const C = CONFIG.sim;
   let mx = input.moveX, my = input.moveY, mag = Math.hypot(mx, my);
+  if (p.asleep) { p.vx = p.vy = 0; p.state = 'idle'; p.ack = input.seq; return; }   // fast asleep: you lie still on the bed (not pushed out of it)
   if (mag > 1) { mx /= mag; my /= mag; mag = 1; }               // diagonals are not faster
   const moving = mag > 0.01;
   if (moving) [mx, my] = isoNormalize(mx, my);                  // ...and every screen direction is the same speed

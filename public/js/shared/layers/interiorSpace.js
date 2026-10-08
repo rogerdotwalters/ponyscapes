@@ -53,7 +53,7 @@ const Interiors = (() => {
     const furniture = [];
     for (const f of Array.isArray(L.furniture) ? L.furniture : []) {
       const def = plain(f) && FurnitureDefs.get(f.id);
-      if (!def) continue;
+      if (!def || (def.unique && furniture.some(g => g.id === def.id))) continue;          // (a home has ONE bed: the first one counts)
       const rot = ((f.rot | 0) % 4 + 4) % 4, [fw, fh] = footprint(def, rot), x = f.x | 0, y = f.y | 0;
       if (x < 0 || y < 0 || x + fw > w || y + fh > h) continue;
       furniture.push({ id: def.id, x, y, rot, w: fw, h: fh });

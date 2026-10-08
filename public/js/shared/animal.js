@@ -3,10 +3,11 @@
 const DEFAULT_ANIMAL_TASTES = Object.freeze({ likes: ['apple', 'raspberry', 'blackberry', 'blueberry', 'cranberry', 'lingonberry'], loves: [], dislikes: [] });
 
 class Animal extends Being {
-  constructor(id, type, x, y, { level, maxHp, facing, timer, look }) {
+  constructor(id, type, x, y, { level, maxHp, facing, timer, look, nodeId }) {
     super(id, type, x, y);
     Object.assign(this, {
-      level, maxHp, facing, hp: maxHp, timer, tx: x, ty: y, fleeT: 0, fx: 0, fy: 0, hurt: false, stuckT: 0, attackT: 0, look,
+      level, maxHp, facing, hp: maxHp, timer, nodeId: nodeId || '',      // nodeId: the home it lives at (animalSystem.js), or ''
+       tx: x, ty: y, fleeT: 0, fx: 0, fy: 0, hurt: false, stuckT: 0, attackT: 0, look,
       owner: '', leashed: false, rider: '', penTick: -999, pen: { enclosed: false, area: 0 },
       captor: '', trust: 0, captureT: 0, warned: false, shelter: null, shelterTick: -999        // a CAUGHT wild pony: who holds it, apples eaten, time outside shelter
     });

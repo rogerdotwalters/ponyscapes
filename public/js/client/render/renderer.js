@@ -251,7 +251,9 @@ class Renderer {
     if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx, item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);
     if (item.kind === 'player') {
-      const p = item.p, rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;
+      const p = item.p;
+      if (p.asleep) return this._drawSleeper(g, isoX(p.x, p.y), isoY(p.x, p.y), p, now);
+      const rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;
       const wading = !p.boat && !p.mount && this.game.map.tile(Math.floor(p.x), Math.floor(p.y)) === TILE.SHALLOW;
       return this.playerSprite.draw(p, item.id, isoX(p.x, p.y), isoY(p.x, p.y) - (p.lift || 0) * FLY_HEIGHT, item.id === this.game.myId, now, rowPhase, wading);
     }
@@ -271,6 +273,7 @@ class Renderer {
     else if (prop.t === 'mound') { if (prop.ripe) PropSprites.drawMound(g, item.gx, item.gy, prop.v, now); }
     else if (prop.t === 'bottle') { if (prop.ripe) PropSprites.drawBottle(g, item.gx, item.gy, prop.v, now); }
     else if (prop.t === 'barrel') PropSprites.drawBarrel(g, item.gx, item.gy);
+    else if (prop.t === 'critter_home') PropSprites.drawCritterHome(g, item.gx, item.gy, prop.kind, prop.v);
     else if (prop.t === 'loot') { if (prop.ripe) this._drawLoot(item.gx, item.gy, prop, now); }
     else if (prop.t === 'cave') PropSprites.drawCave(g, item.gx, item.gy, prop.ring, now);
     else if (prop.t === 'portal') PropSprites.drawPortal(g, item.gx, item.gy, now);
@@ -287,6 +290,24 @@ class Renderer {
     }
     else if (prop.t === 'tracks') { if (!(this.game.defeated || []).includes(prop.ring)) this._drawTracks(item.gx, item.gy, prop, now); }   // (gone once the young are home)
     else PropSprites.drawWell(g, item.gx, item.gy);
+  }
+
+  /** Someone asleep in bed: a head on the pillow under the blanket (in their colour), and a few Zs drifting up. */
+  _drawSleeper(g, sx, sy, p, now) {
+    const ctx = g.ctx, lift = 14;
+    sy -= lift;
+    g.ellipse(sx + 2, sy + 2, 17, 7, 'rgba(0,0,0,.18)');
+    g.ellipse(sx + 4, sy - 3, 15, 7, p.color || '#5b7fb5'); g.ellipse(sx + 4, sy - 6, 12, 4.4, 'rgba(255,255,255,.22)');       // the blanket
+    g.ellipse(sx - 10, sy - 6, 6.5, 5.5, '#f3eee2');                                                                          // the pillow
+    g.ellipse(sx - 10, sy - 7, 4.8, 4.4, '#f0c9a0'); g.ellipse(sx - 11, sy - 9.6, 5, 2.6, '#5a3d2a');                        // the head, hair on top
+    ctx.strokeStyle = '#3b2a1c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 12.5, sy - 6.2); ctx.lineTo(sx - 10.5, sy - 6.2); ctx.stroke();   // a closed eye
+    ctx.fillStyle = '#e8eeff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    for (let i = 0; i < 3; i++) {                                                                                             // Z, z, z rising and fading
+      const t = ((now / 1800) + i / 3) % 1;
+      ctx.globalAlpha = Math.sin(t * Math.PI); ctx.font = `bold ${10 + i * 3}px Georgia, serif`;
+      ctx.fillText('z', sx - 6 + t * 16 + i * 2, sy - 16 - t * 24);
+    }
+    ctx.globalAlpha = 1;
   }
 
   /** The rope between a leashed animal's neck and its owner's hand. */

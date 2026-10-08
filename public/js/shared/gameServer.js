@@ -62,6 +62,8 @@ class GameServer {
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
+    this.sleep = new SleepSystem(this);                                      // bedtime, the forced sleep and skipping the night (sleepSystem.js)
+    this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
@@ -155,7 +157,8 @@ class GameServer {
     const key = chunkKey(chunk.cx, chunk.cy);
     if (chunk.animals.length && !this.populatedChunks.has(key)) {
       this.populatedChunks.add(key);
-      for (const a of chunk.animals) this.animals.spawn(a.type, a.x, a.y, a.gene, { variant: a.variant, level: a.level });
+      if (chunk.animalNode) this.animals.addNode('n' + key, chunk.animalNode, chunk.animals);                  // the animals move in at their home (a burrow, a den...)
+      else for (const a of chunk.animals) this.animals.spawn(a.type, a.x, a.y, a.gene, { variant: a.variant, level: a.level });
     }
   }
 
@@ -580,7 +583,8 @@ class GameServer {
     this.trade.update();
     this.trees.update(this.tick);
     this.forage.update(this.tick);
-    this.animals.update(this.tick, this._humans());
+    this.sleep.update(this.tick);
+    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick);
     this.npcs.update(this.tick, this._humans().filter(h => !gridOf(h))); this.friendship.update(this.tick); this.wants.update(this.tick);
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)
     this._streamWorld();
@@ -606,6 +610,7 @@ class GameServer {
   _applyInput(id, input) {
     const p = this.players[id], inventory = this.inventories[id];
     if (p.flyCd > 0) p.flyCd = Math.max(0, +(p.flyCd - TICK_DT).toFixed(4));                  // the wings rest between flights
+    if (p.asleep) { stepPlayer(p, input, TICK_DT, this.mapOf(p)); if (input.interact) this.sleep.useBed(id, p); return; }   // (asleep: nothing but getting up; stepPlayer keeps the input acknowledged)
     if (p.boat) this._row(id, p, inventory, input);
     else if (p.mount) this._ride(id, p, inventory, input);
     else {

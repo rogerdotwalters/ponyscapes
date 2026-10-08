@@ -33,10 +33,10 @@ function lureFor(def, itemId, levels, buffs) {
 
 class AnimalSystem {
   /** @param {{map, mapOf:(animal)=>World, rng, getTick, emit, damagePlayer:(id,amount)=>void, getLights:()=>Array}} deps  (map: the overworld) */
-  constructor(deps) { Object.assign(this, deps); this.animals = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; this.active = null; if (!this.mapOf) this.mapOf = () => this.map; }
+  constructor(deps) { Object.assign(this, deps); this.animals = {}; this.nodes = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; this.active = null; if (!this.mapOf) this.mapOf = () => this.map; }
 
   /** @param {number} [gene] decides a pony's look (a chunk's herd always looks the same)
-   *  @param {{level?:number, variant?:number, grid?:string}} [opts] born level (default: from the distance to the origin), pony variety (default: from the biome here), grid ('' = overworld) */
+   *  @param {{level?:number, variant?:number, grid?:string, nodeId?:string}} [opts] born level (default: from the distance to the origin), pony variety (default: from the biome here), grid ('' = overworld) */
   spawn(type, x, y, gene, opts = {}) {
     const def = AnimalDefs[type], id = 'a' + this.nextId++, grid = opts.grid || '', map = this.mapOf({ grid });
     const level = opts.level !== undefined ? opts.level : AnimalLevels.roll(type, x, y, this.rng(), map.layers);
@@ -44,11 +44,23 @@ class AnimalSystem {
     let look = def.pony ? PonyLook.fromGene(gene !== undefined ? gene : Math.floor(this.rng() * 2147483647), variant, def.rarity) : null;   // its rarity is rolled at birth (rarity.js)
     if (look && opts.rarity) look = PonyLook.withRarity(look, opts.rarity);
     const maxHp = Math.max(1, Math.round(def.hp * AnimalLevels.hpFactor(level)));
-    this.animals[id] = new Animal(id, type, x, y, { level, maxHp, facing: this.rng() * Math.PI * 2, timer: 1 + this.rng() * 4, look });
+    this.animals[id] = new Animal(id, type, x, y, { level, maxHp, facing: this.rng() * Math.PI * 2, timer: 1 + this.rng() * 4, look, nodeId: opts.nodeId });
     if (grid) this.animals[id].grid = grid;
     return id;
   }
 
+  /** Found an animal home at a chunk's node (js/shared/world.js: chunk.animalNode) and move its animals in. Returns the node. */
+  addNode(key, n, members) {
+    const node = this.nodes[key] = { id: key, type: n.type, x: n.x, y: n.y, max: n.count, refill: [] };
+    for (const m of members) this.spawn(m.type, m.x, m.y, m.gene, { variant: m.variant, level: m.level, nodeId: key });
+    return node;
+  }
+  /** A home lost an animal (hunted, picked up, tamed): it will be replaced after a while. */
+  _vacate(a) {
+    const node = a.nodeId && this.nodes[a.nodeId];
+    a.nodeId = '';
+    if (node) node.refill.push(this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS));
+  }
   /** Think + move every active animal, then handle respawns. `humans` are the player objects animals react to. */
   update(tick, humans) {
     const byGrid = {};                                                                   // an animal only reacts to people on its own grid
@@ -64,6 +76,7 @@ class AnimalSystem {
     }
     this.active = null;
     this._runRespawns(tick, byGrid[''] || []);
+    if (tick % 30 === 0) this._runNodes(tick, byGrid[''] || []);
   }
 
   /** Who is in charge of this animal this tick: its owner / captor (a pet), or the behaviour its data names. */
@@ -149,6 +162,12 @@ class AnimalSystem {
   _chooseWanderTarget(a) {
     const angle = this.rng() * Math.PI * 2, dist = 1.5 + this.rng() * 4;
     let tx = a.x + Math.cos(angle) * dist, ty = a.y + Math.sin(angle) * dist;
+    const node = a.nodeId && this.nodes[a.nodeId];
+    if (node) {                                                                        // a wild animal keeps to its home (and heads back if it was chased far off)
+      const nx = tx - node.x, ny = ty - node.y, nd = Math.hypot(nx, ny), far = Math.hypot(a.x - node.x, a.y - node.y) > NODE_ROAM_RADIUS + NODE_ROAM_PULL;
+      if (far) { tx = node.x + (a.x - node.x) * 0.5; ty = node.y + (a.y - node.y) * 0.5; }
+      else if (nd > NODE_ROAM_RADIUS) { tx = node.x + nx / nd * NODE_ROAM_RADIUS; ty = node.y + ny / nd * NODE_ROAM_RADIUS; }
+    }
     if (a.owner && a.home) {                                                           // pets stay near home
       const hx = tx - a.home.x, hy = ty - a.home.y, hd = Math.hypot(hx, hy);
       if (hd > PET_HOME_RADIUS) { tx = a.home.x + hx / hd * PET_HOME_RADIUS; ty = a.home.y + hy / hd * PET_HOME_RADIUS; }
@@ -229,6 +248,7 @@ class AnimalSystem {
   /* ---- keeping animals ---- */
   tame(id, ownerId) {
     const a = this.animals[id];
+    this._vacate(a);                                                                   // (no longer a wild animal of its home)
     a.owner = ownerId; a.leashed = true; a.home = { x: a.x, y: a.y }; a.state = 'idle'; a.fleeT = 0; a.hurt = false; a.hp = AnimalDefs[a.type].hp;
     return a;
   }
@@ -266,7 +286,7 @@ class AnimalSystem {
     }
   }
   /** Pick a small animal up. Returns its type. */
-  pickup(id) { const a = this.animals[id]; delete this.animals[id]; return a.type; }
+  pickup(id) { const a = this.animals[id]; this._vacate(a); delete this.animals[id]; return a.type; }
   /** Set a carried animal down as somebody's pet. */
   release(type, x, y, ownerId, gene, opts) {
     const id = this.spawn(type, x, y, gene, opts), a = this.animals[id];
@@ -306,13 +326,34 @@ class AnimalSystem {
     if (a.hp > 0) return { killed: false, drops: [], animal: a };
     delete this.animals[id];
     if (this.onKilled) this.onKilled(a, def);
-    if (!def.boss && !gridOf(a)) this.respawns.push({ type: a.type, cx: Math.floor(a.x) >> CHUNK_SHIFT, cy: Math.floor(a.y) >> CHUNK_SHIFT, atTick: this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS) });
+    const home = a.nodeId && this.nodes[a.nodeId];
+    if (home) this._vacate(a);                                                         // an animal of a home comes back to that home
+    else if (!def.boss && !gridOf(a)) this.respawns.push({ type: a.type, cx: Math.floor(a.x) >> CHUNK_SHIFT, cy: Math.floor(a.y) >> CHUNK_SHIFT, atTick: this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS) });
     const drops = [];
     for (const d of def.drops) {
       if (d.chance !== undefined && this.rng() >= d.chance) continue;
       drops.push({ item: d.item, count: d.min + Math.floor(this.rng() * (d.max - d.min + 1)) });
     }
     return { killed: true, drops, animal: a };
+  }
+
+  /** Homes whose animals were lost take a new one in, one at a time, when nobody is near. */
+  _runNodes(tick, humans) {
+    for (const key in this.nodes) {
+      const node = this.nodes[key];
+      if (!node.refill.length || node.refill[0] > tick) continue;
+      const alive = Object.values(this.animals).filter(a => a.nodeId === key).length;
+      if (alive >= node.max) { node.refill.shift(); continue; }
+      if (humans.some(h => Math.hypot(h.x - node.x, h.y - node.y) < NODE_REFILL_DISTANCE)) { node.refill[0] = tick + secondsToTicks(30); continue; }    // not in front of anyone: try again later
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const tx = Math.floor(node.x + (this.rng() - 0.5) * 5), ty = Math.floor(node.y + (this.rng() - 0.5) * 5), tile = this.map.tile(tx, ty);
+        if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || this.map.navBlocked(tx, ty)) continue;
+        this.spawn(node.type, tx + 0.5, ty + 0.5, undefined, { nodeId: key });
+        node.refill.shift();
+        break;
+      }
+      if (node.refill.length && node.refill[0] <= tick) node.refill[0] = tick + secondsToTicks(30);
+    }
   }
 
   /** A hunted animal is replaced later in the same chunk, out of sight of every player. */

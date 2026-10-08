@@ -152,28 +152,32 @@ class TerrainGenerator {
   /** A diggable clay deposit on this tile? */
   clayAt(tx, ty, tileType) { return tileType === TILE.CLAY && hash3(this.seed, tx, ty, 24) < CLAY_DEPOSIT_CHANCE; }
 
-  /** The animals that live in this chunk: [{ type, x, y, gene, variant, level, biome }]. Deterministic, so a chunk always holds the same herd.
-   *  WHAT lives here is decided by the RING (each creature's own data says which ring it belongs to and how common it is). */
-  animalGroup(cx, cy, tileOf) {
-    if (hash3(this.seed, cx, cy, 21) >= FAUNA_CHANCE) return [];
+  /** The animal home in this chunk, or null: { node: { type, tx, ty, x, y, count, biome, variant }, members: [{ type, x, y, gene, variant, level, biome }] }.
+   *  Deterministic, so a chunk always holds the same home. WHAT lives here is decided by the RING (each creature's own data says which ring it belongs to and
+   *  how common it is). Wild ponies have no home: they come and go with the mornings (wildPonies.js), so a pony roll gives no group here.
+   *  `free(tx, ty)` (optional) says whether a tile may hold the home's marker (no tree or bush on it). */
+  animalGroup(cx, cy, tileOf, free) {
+    if (hash3(this.seed, cx, cy, 21) >= FAUNA_CHANCE) return null;
     for (let attempt = 0; attempt < 10; attempt++) {
       const tx = cx * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 30 + attempt) * CHUNK_SIZE);
       const ty = cy * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 50 + attempt) * CHUNK_SIZE);
       const tile = tileOf(tx, ty);
-      if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1) continue;   // not in the village, not on rock / water
+      if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1 || (free && !free(tx, ty))) continue;   // not in the village, not on rock / water
       const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolAt(this.layers.rings.at(tx + 0.5, ty + 0.5).index, biome);
       if (!fauna.length) continue;
       const total = fauna.reduce((n, f) => n + f.weight, 0);
       let roll = hash3(this.seed, cx, cy, 22) * total, chosen = fauna[0];
       for (const f of fauna) { if ((roll -= f.weight) < 0) { chosen = f; break; } }
+      if (chosen.pony) return null;
       const type = chosen.id, [min, max] = chosen.group, count = min + Math.floor(hash3(this.seed, cx, cy, 23) * (max - min + 1));
-      const variant = AnimalDefs[type].pony ? PonyLook.variantOf(biome) : 0;                                    // each biome has its own kind of pony
-      return Array.from({ length: count }, (_, i) => {
-        const x = tx + 0.5 + (hash3(this.seed, cx, cy, 60 + i) - 0.5) * 2.4, y = ty + 0.5 + (hash3(this.seed, cx, cy, 80 + i) - 0.5) * 2.4;
-        return { type, x, y, gene: Math.floor(hash3(this.seed, cx, cy, 100 + i) * 2147483647), variant, level: AnimalLevels.roll(type, x, y, hash3(this.seed, cx, cy, 120 + i), this.layers), biome };
+      const node = { type, tx, ty, x: tx + 0.5, y: ty + 0.5, count, biome, variant: Math.floor(hash3(this.seed, cx, cy, 24) * 4) };
+      const members = Array.from({ length: count }, (_, i) => {
+        const x = node.x + (hash3(this.seed, cx, cy, 60 + i) - 0.5) * 2.4, y = node.y + (hash3(this.seed, cx, cy, 80 + i) - 0.5) * 2.4;
+        return { type, x, y, gene: Math.floor(hash3(this.seed, cx, cy, 100 + i) * 2147483647), variant: 0, level: AnimalLevels.roll(type, x, y, hash3(this.seed, cx, cy, 120 + i), this.layers), biome };
       });
+      return { node, members };
     }
-    return [];
+    return null;
   }
 
   /** A shoreline water tile in this chunk where a boat can sit (or null). `tileOf` reads the chunk's own tiles first. */

@@ -117,6 +117,37 @@ const PropSprites = {
     }
   },
 
+  /** The sign of an animal home in the wild (a creature's `marker`): a burrow, a den, a nest or a web. `v` varies the picture a little. */
+  drawCritterHome(g, sx, sy, kind, v) {
+    const ctx = g.ctx, flip = v % 2 ? -1 : 1;
+    if (kind === 'burrow') {                                                                    // a low mound of earth with a dark hole in it
+      g.ellipse(sx, sy + 1, 14, 6, 'rgba(0,0,0,.2)');
+      g.ellipse(sx, sy - 2, 12, 6, '#8a6b45'); g.ellipse(sx - 2 * flip, sy - 4, 9, 4.2, '#a07d52');
+      g.ellipse(sx + 1 * flip, sy - 3, 4.6, 3, '#2a1a0e'); g.ellipse(sx + 1 * flip, sy - 4, 3.4, 1.8, '#120a04');
+      g.ellipse(sx - 7 * flip, sy - 1, 1.8, 1.2, '#b89968'); g.ellipse(sx + 8 * flip, sy - 1, 1.4, 1, '#7a5c3a');
+    } else if (kind === 'den') {                                                                // a hollow under a heap of earth and stones
+      g.ellipse(sx, sy + 1, 17, 7, 'rgba(0,0,0,.22)');
+      g.ellipse(sx, sy - 5, 15, 9, '#6d5539'); g.ellipse(sx - 3 * flip, sy - 8, 11, 6, '#836846');
+      g.ellipse(sx + 1 * flip, sy - 3, 7, 5, '#1d130a'); g.ellipse(sx + 1 * flip, sy - 4, 5, 3.2, '#0a0602');
+      g.ellipse(sx - 11 * flip, sy - 2, 3.4, 2.4, '#8d8d93'); g.ellipse(sx + 11 * flip, sy - 3, 3, 2.2, '#76767c'); g.ellipse(sx - 5 * flip, sy - 12, 2.6, 1.8, '#9a9ba1');
+    } else if (kind === 'nest') {                                                               // a ring of twigs and straw with eggs
+      g.ellipse(sx, sy + 1, 12, 5, 'rgba(0,0,0,.2)');
+      g.ellipse(sx, sy - 2, 10, 5, '#7a5a2e'); g.ellipse(sx, sy - 3, 8, 3.6, '#c9a85a');
+      ctx.strokeStyle = '#5a4020'; ctx.lineWidth = 1.2; ctx.beginPath();
+      for (let i = 0; i < 7; i++) { const a = i * 0.9 + v; ctx.moveTo(sx + Math.cos(a) * 6, sy - 3 + Math.sin(a) * 2.8); ctx.lineTo(sx + Math.cos(a) * 11, sy - 2 + Math.sin(a) * 5); }
+      ctx.stroke();
+      g.ellipse(sx - 2.5, sy - 4, 2.2, 1.7, '#f4efe0'); g.ellipse(sx + 2, sy - 4.5, 2.2, 1.7, '#efe7d0');
+    } else if (kind === 'web') {                                                                // a funnel of silk spun between grass tufts
+      ctx.save(); ctx.strokeStyle = 'rgba(235,235,240,.85)'; ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; ctx.moveTo(sx, sy - 3); ctx.lineTo(sx + Math.cos(a) * 13, sy - 3 + Math.sin(a) * 6.5); }
+      ctx.stroke();
+      for (const r of [4, 8, 12]) { ctx.beginPath(); ctx.ellipse(sx, sy - 3, r, r / 2, 0, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.restore();
+      g.ellipse(sx, sy - 3, 2, 1.2, '#1a1a1e');
+    }
+  },
+
   drawBarrel(g, sx, sy) {
     const ctx = g.ctx;
     g.ellipse(sx + 3, sy + 2, 11, 5, 'rgba(0,0,0,.25)');

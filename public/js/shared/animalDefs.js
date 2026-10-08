@@ -52,6 +52,9 @@ const FAUNA_CHANCE = 0.5;                       // chance that a chunk holds an 
 const ANIMAL_ACTIVE_RADIUS = 36;                // animals farther than this from every player are frozen
 const ANIMAL_SYNC_RADIUS = 70;                  // ... and not sent to clients
 const ANIMAL_RESPAWN_SECONDS = 300;
+/** ANIMAL HOMES: wild animals (not ponies) live around a home in the land (a burrow, a den, a nest...): they wander at most NODE_ROAM_RADIUS tiles from it,
+ *  and a home whose animals were hunted fills up again one animal at a time, out of sight of every player. */
+const NODE_ROAM_RADIUS = 7, NODE_ROAM_PULL = 3, NODE_REFILL_DISTANCE = 14;
 
 /** Taming and keeping animals. */
 const LURE_RADIUS = 5, LURE_STOP = 1.3, TRUST_SECONDS = 4;           // food in your hand calms animals within this many tiles; they walk up to you

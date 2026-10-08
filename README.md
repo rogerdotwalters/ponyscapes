@@ -120,6 +120,12 @@ interact button) to go in; stand on the **doormat** inside and press F to go bac
   place and turn furniture, resize, undo, see the room as the game draws it, and get warnings (no doormat, a blocked arrival tile, overlapping furniture).
   **Play-test room** opens the game standing inside it (`index.html?solo=1&content=draft&enter=<building>`); **Download interiors.js** gives you the file.
 
+## Animal homes, wild ponies and sleeping
+
+* **Animal homes.** Wild animals (not ponies) live around a *home* in the land: about half of all chunks hold one. The animals stay within a few tiles of it, and when one is hunted, picked up or tamed the home takes a new one in after five minutes, out of sight of every player. A creature's `marker` (`burrow`, `den`, `nest`, `web`; see `js/data/creatures/`) draws its home in the world; a creature with no marker (deer, sheep...) simply has an invisible home. The homes come from the world seed like everything else (`terrainGenerator.animalGroup`, `animalSystem.js`).
+* **Wild ponies** have no home. Every biome *region* (one stretch of one biome) holds at most `CONFIG.sim.wildPonies.perBiome` of them (a biome's own `ponyMax` overrides it), and they are not all there from the start. Each morning (06:00) the game rolls: every wild pony may move on (only once nobody is close enough to see it go) and every free place may be taken by a newcomer, who appears out of sight near a player (`js/shared/wildPonies.js`). A pony you caught or own stops counting and never leaves.
+* **Sleeping** (`js/shared/sleepSystem.js`, tuned in `CONFIG.sim.sleep`). From 22:00 you can lie down in **your bed at home** (the one bed in your own room: the `bed` furniture is `unique`). Anyone still up at 02:00 is carried to their bed and falls asleep, and everybody wakes at 06:00 beside their bed. Time passes as usual while anyone is awake; when **everyone** playing is asleep the night is skipped (the clock jumps to 06:00, and crops grow, ponies arrive, etc. as the days pass). There are no penalties for staying up yet.
+
 ## Creatures that want things, and bosses you can appease
 
 A creature whose data has `wants` shows a **thought bubble** with what it is after when you come near (`js/shared/wantSystem.js`). Hold that item

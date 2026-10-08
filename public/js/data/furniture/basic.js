@@ -1,7 +1,7 @@
 'use strict';
 /* DATA - the first batch of furniture: home, workshop, store and veterinary pieces. */
 FurnitureDefs.registerAll([
-  { id: 'bed', name: 'Bed', size: [1, 2], solid: true, height: 16, style: 'bed', colors: { frame: '#7a5233', blanket: '#5b7fb5', pillow: '#f3eee2' } },
+  { id: 'bed', name: 'Bed', size: [1, 2], solid: true, unique: true, height: 16, style: 'bed', colors: { frame: '#7a5233', blanket: '#5b7fb5', pillow: '#f3eee2' } },
   { id: 'table', name: 'Table', size: [2, 1], solid: true, height: 22, style: 'table', colors: { top: '#a8763f', leg: '#6d4c2f' } },
   { id: 'chair', name: 'Chair', size: [1, 1], solid: false, height: 14, style: 'chair', colors: { seat: '#a8763f', back: '#8a5f33' } },
   { id: 'bookshelf', name: 'Bookshelf', size: [1, 1], solid: true, height: 58, style: 'shelf', colors: { wood: '#6d4c2f', goods: ['#9e3b3b', '#3e5f93', '#5c8a4a', '#d9b45a'] } },

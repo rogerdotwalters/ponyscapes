@@ -496,3 +496,10 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 #loading .ldBar{height:8px;margin-top:12px;border-radius:4px;background:rgba(255,255,255,.14);overflow:hidden}
 #loading .ldBar[hidden]{display:none}
 #loading .ldBar i{display:block;height:100%;width:0;background:#e3c27a;transition:width .15s}
+
+/* asleep (js/client/ui/sleepUI.js) */
+#sleepOverlay{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:44vh;gap:10px;background:rgba(4,8,22,.72);color:#dfe6ff;font:600 15px Georgia,serif;opacity:0;pointer-events:none;transition:opacity 1.2s}
+#sleepOverlay.on{opacity:1}
+#sleepOverlay .slZ{font-size:44px;letter-spacing:.12em;animation:slFloat 3s ease-in-out infinite}
+#sleepOverlay .slText{opacity:.85}
+@keyframes slFloat{0%,100%{transform:translateY(0);opacity:.7}50%{transform:translateY(-10px);opacity:1}}

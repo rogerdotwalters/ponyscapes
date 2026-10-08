@@ -270,7 +270,7 @@
         field('Weight (0 = never by itself)', cur, 'weight', Object.assign({ type: 'number', min: 0, step: 0.1 }, o)),
         groupInput(0), groupInput(1)),
       h('div', { class: 'note' }, 'Only in these biomes (none ticked = any biome of its ring):'), h('div', { class: 'grid' }, boxes),
-      h('p', { class: 'note' }, 'About half of all chunks hold one herd; within a ring, the weight decides how often it is this creature compared with the others living there.'));
+      h('p', { class: 'note' }, 'About half of all chunks hold one animal home (a burrow, den or nest: the animals live and wander around it, and a hunted home fills up again); within a ring, the weight decides how often it is this creature compared with the others living there. Ponies have no home: they come and go with the mornings (at most a set number per biome).'));
   }
 
   /** An item's crafting recipe: [[itemId, count], ...] made at the crafting table. */

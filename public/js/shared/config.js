@@ -44,6 +44,10 @@ const CONFIG = {
     ponySpeed: { curve: [[1, 1], [5, 1.1], [10, 1.22], [15, 1.34], [20, 1.46], [30, 1.62], [50, 1.85], [99, 2.2]], walkFraction: 0.55, wildFleeFactor: 0.92, defaultBase: 4 },
     /** Your own ponies level up from XP: distance ridden, things done from the saddle, food fed to them and grooming. XP for level L = xpBase x (L-1)^xpExponent. */
     ponyLeveling: { xpBase: 40, xpExponent: 1.55, travelXpPerTile: 0.8, taskXp: 6, feedXp: 10, feedLikedXp: 20, groomXp: 18 },
+    /** Wild ponies (wildPonies.js): at most `perBiome` per biome region, rolled every morning. `startFill` = the share of places already taken when a region is first seen,
+     *  `arriveChance` / `leaveChance` = each morning's chance for a free place to be taken / for a pony to move on. They appear `spawnMin`..`spawnMax` tiles from a player, and leave
+     *  only once nobody is within `hideDistance`. */
+    wildPonies: { perBiome: 10, startFill: 0.4, arriveChance: 0.6, leaveChance: 0.3, morningHour: 6, spawnMin: 18, spawnMax: 40, hideDistance: 24, samples: 3 },
     drops: { max: 400, pickupRange: 1.3, gatherRange: 2.6 },             // items dropped on the ground (kept in the world save)
     // Animal levels rise with distance from the ORIGIN (the starting village): one level per `tilesPerLevel` tiles, on top of each species' own base level
     levels: { origin: { x: 20.5, y: 26.5 }, tilesPerLevel: 60, max: 99 },     // zones are wide: one level per 60 tiles
@@ -60,6 +64,9 @@ const CONFIG = {
       normal:   { drain: 1,   penalty: true,  label: 'Normal' },
       hard:     { drain: 2,   penalty: true,  label: 'Hard' }
     },
+    /** Sleep (sleepSystem.js): you may go to bed (your bed at home) from tiredHour until wakeHour; anyone still up at forceHour falls asleep, and everybody wakes at wakeHour.
+     *  When EVERYONE playing is asleep (fallAsleepSeconds after lying down) the night is skipped; while anyone is awake time passes as usual. */
+    sleep: { tiredHour: 22, forceHour: 2, wakeHour: 6, bedReach: 1.6, fallAsleepSeconds: 2 },
     time: { dayLengthSeconds: 480, startHour: 9 }                                                            // one day = 8 real minutes
   },
   view: {

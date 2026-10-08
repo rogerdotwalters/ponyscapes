@@ -6,7 +6,7 @@
  * (Many functions still call their World parameter `map`; it is a World.) */
 const CHUNK_SHIFT = 4, CHUNK_SIZE = 1 << CHUNK_SHIFT, CHUNK_MASK = CHUNK_SIZE - 1, CHUNK_AREA = CHUNK_SIZE * CHUNK_SIZE;
 /** Does this prop stop movement? Felled trees, berry bushes and loose stones (you walk over them) do not. */
-const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'portal', 'loot', 'furniture', 'tracks']);      // (solid furniture blocks its tiles instead)
+const NON_BLOCKING_PROPS = new Set(['bush', 'stone', 'clay', 'flax', 'mound', 'bottle', 'portal', 'loot', 'furniture', 'tracks', 'critter_home']);      // (solid furniture blocks its tiles instead)
 const propBlocks = prop => prop.alive !== false && !NON_BLOCKING_PROPS.has(prop.t);
 
 const chunkKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
@@ -166,7 +166,7 @@ function generateChunk(world, cx, cy) {
     cx, cy,
     tiles: new Uint8Array(CHUNK_AREA), obj: new Uint8Array(CHUNK_AREA), solid: new Uint8Array(CHUNK_AREA),
     propIndex: new Int16Array(CHUNK_AREA).fill(-1), props: [], biomes: new Uint8Array(CHUNK_AREA).fill(255),     // biomes: filled in lazily, one byte per tile
-    renderItems: null, boatSpot: null, animals: [], seen: 0
+    renderItems: null, boatSpot: null, animals: [], animalNode: null, seen: 0
   };
   const x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
   const special = caveProps(world, cx, cy);                                                // the cave mouths and cave exits that stand in this chunk
@@ -194,7 +194,12 @@ function generateChunk(world, cx, cy) {
     ? chunk.tiles[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] : T.tile(tx, ty);
   if (typeof Groves !== 'undefined') Groves.intoChunk(world, chunk);                         // the trees players planted and grew here
   if (chunk.tiles.includes(TILE.WATER) || chunk.tiles.includes(TILE.SHALLOW)) chunk.boatSpot = T.boatSpot(cx, cy, tileOf);
-  chunk.animals = T.animalGroup(cx, cy, tileOf);
+  const group = T.animalGroup(cx, cy, tileOf, (tx, ty) => chunk.propIndex[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] < 0 && chunk.obj[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] === OBJ.NONE);
+  if (group) {                                                                               // an animal home: where its animals live, and (if its kind has one) a visible marker
+    chunk.animals = group.members; chunk.animalNode = group.node;
+    const marker = AnimalDefs[group.node.type].marker;
+    if (marker) addChunkProp(chunk, ((group.node.ty - y0) << CHUNK_SHIFT) | (group.node.tx - x0), { t: 'critter_home', kind: marker, x: group.node.x, y: group.node.y, r: 0, v: group.node.variant });
+  }
   return chunk;
 }
 

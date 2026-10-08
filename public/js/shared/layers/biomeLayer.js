@@ -37,10 +37,8 @@ class BiomeLayer {
     if (this.cache.size > 4000) this.cache.clear();
     this.cache.set(key, chosen); return chosen;
   }
-  /** The biome id of a land tile. */
-  at(tx, ty) {
-    const o = CONFIG.sim.levels.origin;
-    if (Math.hypot(tx - o.x, ty - o.y) < CONFIG.world.villageBiomeRadius) return 'normal';
+  /** The cell a tile belongs to: [cx, cy] (the nearest cell centre, after the slow noise bent the borders). */
+  _cellAt(tx, ty) {
     const S = this.cell, wx = tx + 55 * this.warpX.fractal(tx / 170, ty / 170, 2), wy = ty + 55 * this.warpY.fractal(tx / 170, ty / 170, 2);
     const cx0 = Math.floor(wx / S), cy0 = Math.floor(wy / S);
     let best = Infinity, bx = cx0, by = cy0;
@@ -50,6 +48,20 @@ class BiomeLayer {
       const d = (wx - px) * (wx - px) + (wy - py) * (wy - py);
       if (d < best) { best = d; bx = cx; by = cy; }
     }
+    return [bx, by];
+  }
+  /** One id for the whole region a land tile is in (a cell's stretch of one biome): what a "per biome" limit counts within. The village's meadow is one region. */
+  regionKey(tx, ty) {
+    const o = CONFIG.sim.levels.origin;
+    if (Math.hypot(tx - o.x, ty - o.y) < CONFIG.world.villageBiomeRadius) return 'village';
+    const [bx, by] = this._cellAt(tx, ty);
+    return bx + ':' + by + ':' + this.at(tx, ty);
+  }
+  /** The biome id of a land tile. */
+  at(tx, ty) {
+    const o = CONFIG.sim.levels.origin;
+    if (Math.hypot(tx - o.x, ty - o.y) < CONFIG.world.villageBiomeRadius) return 'normal';
+    const [bx, by] = this._cellAt(tx, ty);
     const chosen = this.cellBiome(bx, by);
     if (!chosen.from) return chosen.id;
     const pos = this.ringPos(tx, ty);                                       // a region reaching in past where its biome may start: that inner part
