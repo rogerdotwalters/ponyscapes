@@ -73,10 +73,26 @@ class PlayerSprite {
   /** The retro pixel-art body (pixelCharacter.js): it walks with the stride, breathes and blinks when idle, and sits lower when riding. */
   _drawPixel(p, sx, sy, pose, riding, now, L) {
     const moving = p.state !== 'idle' && !riding;
+    if (p.mount) this._drawRiderLegs(sx, sy, pose, L);
     const at = PixelCharacter.draw(this.g.ctx, L, this._wardrobe(p, pose.gear), pose.dir, sx, sy, {
       moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0,
-      crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: p.boat ? 11 : riding ? 0 : pose.crouch ? 2 : 0 });   // (a boat hides the legs; in the saddle they hang down the pony's side)
+      crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: riding ? 11 : pose.crouch ? 2 : 0 });   // (the sprite's own legs are hidden when seated: a rider's legs straddle the pony, see _drawRiderLegs)
     pose.headY = at.headY; pose.torsoTop = at.torsoTop;
+  }
+
+  /** A rider's legs astride the pony: splayed out either side of its back seen from the front or behind, one each side of the barrel (the far one darker) in profile. */
+  _drawRiderLegs(sx, sy, pose, L) {
+    const ctx = this.g.ctx, hipY = sy - 5, cloth = L.princess ? '#3b3542' : '#34343f', boot = '#5a3a22', dark = c => (c === cloth ? '#26242c' : '#3e2a18');
+    const leg = (hx, fx, fy, col, bcol) => {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = col; ctx.lineWidth = 5.5; ctx.beginPath(); ctx.moveTo(hx, hipY); ctx.lineTo(fx, fy - 4); ctx.stroke();               // the thigh and shin
+      ctx.strokeStyle = bcol; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(fx, fy - 5); ctx.lineTo(fx + (fx >= hx ? 1.5 : -1.5), fy); ctx.stroke();   // the boot
+    };
+    if (pose.dir === 'up' || pose.dir === 'down') { leg(sx - 3, sx - 12, sy + 7, cloth, boot); leg(sx + 3, sx + 12, sy + 7, cloth, boot); return; }
+    const f = pose.dir === 'right' ? 1 : -1;
+    leg(sx - f * 2, sx - f * 3, sy + 8, dark(cloth), dark(boot));                                                                           // the far leg
+    leg(sx + f * 1, sx + f * 4, sy + 9, cloth, boot);                                                                                       // the near leg, knee forward
+    ctx.lineCap = 'butt';
   }
 
   /** Worn items that have images: full-body overlays for the facing direction. */
