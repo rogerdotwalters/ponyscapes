@@ -165,22 +165,26 @@ class Effects {
       ctx.strokeStyle = 'rgba(255,245,210,.95)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
     }
     this.ropes = this.ropes.filter(r => (r.age += dt) < 0.7);                                       // a thrown lasso: a rope flying out with a loop that closes on a catch
-    for (const r of this.ropes) {                                                                          // drawn in 2px "pixels" like the lasso icon: braided rope, a ring (honda), a hanging tail
-      const P = 2, t = Math.min(1, r.age / 0.28), look = r.look, flying = r.age < 0.28;
+    for (const r of this.ropes) {                                                                          // drawn in chunky 2px "pixels" like the lasso icon: a thick braided loop, its ring (honda), and the end trailing behind
+      const P = 2, t = Math.min(1, r.age / 0.28), look = r.look, flying = r.age < 0.28, settle = flying ? 1 : Math.max(0, 1 - (r.age - 0.28) * 4);
       const dxr = r.x1 - r.x0, dyr = r.y1 - r.y0, len = Math.hypot(dxr, dyr) || 1, nx = -dyr / len, ny = dxr / len;
-      const wave = (u, ph) => Math.sin(u * 9 - r.age * 38 + ph) * 5 * (flying ? 1 - u * 0.3 : Math.max(0, 1 - (r.age - 0.28) * 4)) * u;   // the rope waves through the air, settling once it lands
+      const wave = (u, ph) => Math.sin(u * 9 - r.age * 38 + ph) * 5 * settle * u;                        // the rope waves through the air, settling once it lands
       const at = u => { const k = u * t, w = wave(u, 0); return [r.x0 + dxr * k + nx * w, r.y0 + dyr * k + ny * w - Math.sin(k * Math.PI) * 14]; };
-      const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x / P) * P - 1, Math.round(y / P) * P - 1, P, P); };
-      const [x, y] = at(1), n = 14;
-      for (let i = 0; i <= n; i++) { const [sx, sy] = at(i / n); px(sx, sy, look.dark); px(sx + P, sy, look.dark); px(sx, sy + P, look.dark); }       // outline under the rope
-      for (let i = 0; i <= n; i++) { const [sx, sy] = at(i / n); px(sx, sy, i % 2 ? look.braid : look.rope); }
-      const rad = r.hit && !flying ? Math.max(3, 11 - (r.age - 0.28) * 30) : 11, spin = flying ? r.age * 14 : 0, m = 22;   // the loop tightens round the neck
-      const ring = (c, grow) => { for (let i = 0; i < m; i++) { const a = i / m * Math.PI * 2, rr = rad + grow + (flying ? Math.sin(a * 2 + r.age * 40) * 1.5 : 0); px(x + Math.cos(a + spin) * rr, y + Math.sin(a + spin) * rr * 0.55, c); } };
-      ring(look.dark, 1); ring(look.dark, -1);
-      for (let i = 0; i < m; i++) { const a = i / m * Math.PI * 2, rr = rad + (flying ? Math.sin(a * 2 + r.age * 40) * 1.5 : 0); px(x + Math.cos(a + spin) * rr, y + Math.sin(a + spin) * rr * 0.55, i % 2 ? look.braid : look.rope); }
-      const hx = x + Math.cos(spin - 2.2) * rad, hy = y + Math.sin(spin - 2.2) * rad * 0.55;                // the ring the loop runs through, with the loose end trailing from it
-      px(hx - P, hy, look.dark); px(hx + P, hy, look.dark); px(hx, hy - P, look.dark); px(hx, hy + P, look.dark); px(hx, hy, look.honda);
-      for (let i = 1; i <= 4; i++) { const w = Math.sin(i * 1.3 - r.age * 30) * 2; px(hx - i * P + w * 0.3, hy + i * P + w, look.tails ? look.tails[i % 2] : look.rope); }
+      const stamp = (x, y, size, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x / P) * P - size / 2, Math.round(y / P) * P - size / 2, size, size); };
+      const strand = (pts, w) => {                                                                       // a braided rope: dark outline, body, light twists
+        for (const [size, col] of [[w + 2, look.dark], [w, look.rope]]) for (const [x, y] of pts) stamp(x, y, size, col);
+        pts.forEach(([x, y], i) => { if (i % 4 < 2 && !(look.worn && i % 7 === 3)) stamp(x, y, w - 2, look.braid); });
+      };
+      const dense = (n, f) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
+      const [x, y] = at(1), rad = r.hit && !flying ? Math.max(5, 13 - (r.age - 0.28) * 30) : 13, spin = flying ? Math.sin(r.age * 22) * 0.35 : 0;
+      const ringAt = -2.2 + spin, hx = x + Math.cos(ringAt) * rad, hy = y + Math.sin(ringAt) * rad * 0.62;
+      const tail = (col, side) => dense(10, u => { const w = Math.sin(u * 6 - r.age * 30 + side) * 2.5 * settle; return [hx - u * 13 - side * 2 * u, hy + u * 9 + w]; });
+      if (look.tails) { for (const [i, c] of look.tails.entries()) { const pts = tail(c, i); for (const [px, py] of pts) stamp(px, py, 5, look.dark); for (const [px, py] of pts) stamp(px, py, 3, c); } }
+      strand(dense(30, u => at(u)), 3);                                                                  // the rope itself, flying out from the thrower
+      strand(dense(46, u => { const a = ringAt + 0.25 + u * (Math.PI * 2 - 0.25); return [x + Math.cos(a) * rad, y + Math.sin(a) * rad * 0.62]; }), 4);   // the loop (flattened to the ground plane)
+      if (!look.tails) for (const [px, py] of tail(look.rope, 0)) { stamp(px, py, 4, look.dark); stamp(px, py, 2, look.rope); }                // plain rope end for the simple lassos
+      for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [-2, 2], [2, -2]]) stamp(hx + ox, hy + oy, 2, look.dark);       // the ring: dark rim round a bright centre
+      stamp(hx, hy, 2, look.honda); stamp(hx - 1, hy - 1, 2, '#ffffff');
     }
     this.floaters = this.floaters.filter(f => (f.age += dt) < (f.style === 'levelup' ? 2.4 : 1.4));
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
