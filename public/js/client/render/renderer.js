@@ -73,6 +73,7 @@ class Renderer {
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = indoors ? '#0b0d12' : OCEAN_COLOR; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.camera.applyTransform(ctx);
     const bounds = this.camera.bounds();
+    SpriteCache.scale = this.camera.scale;                                           // (shadows and name tags are baked at this scale: spriteCache.js)
 
     const tiles = this.camera.visibleTiles();
     const date = Seasons.at(this.game.clockTick);                                   // the season colours the grass and the trees; watered soil stays dark today

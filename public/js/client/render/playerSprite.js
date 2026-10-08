@@ -18,7 +18,15 @@ const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id]
 const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
-  constructor(g) { this.g = g; this.walkPhase = {}; }
+  constructor(g) { this.g = g; this.walkPhase = {}; this.looks = new LruCache(100); }
+
+  /** A character's drawn look (CharacterLook.describe), worked out once per set of numbers rather than once per frame. */
+  _look(appearance) {
+    const k = appearance ? appearance.join() : '';
+    let look = this.looks.get(k);
+    if (!look) { look = CharacterLook.describe(appearance); this.looks.set(k, look); }
+    return look;
+  }
 
   draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false, opts = {}) {
     const mounted = !!p.mount, riding = !!p.boat || mounted;
@@ -46,7 +54,7 @@ class PlayerSprite {
 
   /** The body for the pose's direction: your images if the body type has them, else the procedural body. Then worn-item overlays. */
   _drawBody(p, sx, sy, pose, riding, now, opts) {
-    const L = CharacterLook.describe(p.appearance), body = L.princess ? 'princess' : 'prince', moving = p.state !== 'idle';
+    const L = this._look(p.appearance), body = L.princess ? 'princess' : 'prince', moving = p.state !== 'idle';
     const drawn = !opts.procedural && SpriteRegistry.drawCharacter(this.g.ctx, body, pose.dir, sx, sy - pose.crouch * 0.5, moving, now);
     if (drawn) pose.headY = sy - drawn.h + 6;                                           // (the name tag and emote sit above the picture)
     else if (PIXEL_BODIES[body]) this._drawPixel(p, sx, sy, pose, riding, now, L);
@@ -99,13 +107,16 @@ class PlayerSprite {
 
   _drawGroundMarkers(p, sx, sy, pose) {
     const g = this.g, ctx = g.ctx, { fx, fy } = pose;
-    g.ellipse(sx, sy, 12, 5.5, 'rgba(0,0,0,.28)');
-    const world = IsoProjection.worldDeltaToScreen;
-    const k = 1 / TILE_SCALE;                                        // arrow keeps its pixel size
-    const tip = world(fx * 0.85 * k, fy * 0.85 * k);
-    const left = world((fx * 0.5 - fy * 0.22) * k, (fy * 0.5 + fx * 0.22) * k), right = world((fx * 0.5 + fy * 0.22) * k, (fy * 0.5 - fx * 0.22) * k);
-    g.polygon([sx + tip[0], sy + tip[1], sx + left[0], sy + left[1], sx + right[0], sy + right[1]], 'rgba(255,255,255,.75)');
-    ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1; ctx.stroke();
+    SpriteCache.shadow(ctx, sx, sy, 12, 5.5, 0.28);
+    // the facing arrow: one picture per 4 degrees of facing, painted once and stamped
+    const step = Math.round(Math.atan2(fy, fx) / (Math.PI / 45)), a = step * Math.PI / 45;
+    SpriteCache.stamp(ctx, 'arrow' + step, 96, 56, 48, 28, g2 => {
+      const c = g2.ctx, world = IsoProjection.worldDeltaToScreen, k = 1 / TILE_SCALE, ax = Math.cos(a), ay = Math.sin(a);   // (the arrow keeps its pixel size)
+      const tip = world(ax * 0.85 * k, ay * 0.85 * k);
+      const left = world((ax * 0.5 - ay * 0.22) * k, (ay * 0.5 + ax * 0.22) * k), right = world((ax * 0.5 + ay * 0.22) * k, (ay * 0.5 - ax * 0.22) * k);
+      g2.polygon([tip[0], tip[1], left[0], left[1], right[0], right[1]], 'rgba(255,255,255,.75)');
+      c.strokeStyle = 'rgba(0,0,0,.45)'; c.lineWidth = 1; c.stroke();
+    }, sx, sy);
   }
 
   /** What this character is wearing: the drawn "look" of the item in each wardrobe slot (or null). Nothing else is ever worn. */
@@ -450,12 +461,15 @@ class PlayerSprite {
   }
 
   _drawNameTag(p, isMe, sx, pose) {
-    const g = this.g, ctx = g.ctx, y = pose.headY;
+    const ctx = this.g.ctx, y = pose.headY, font = 'bold 11px Georgia, serif';
     const label = (p.name || 'P' + (p.slot + 1)) + (isMe ? ' (you)' : '');
-    ctx.font = 'bold 11px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const width = ctx.measureText(label).width + 10;
-    g.roundRect(sx - width / 2, y - 24, width, 14, 6); ctx.fillStyle = 'rgba(10,18,28,.6)'; ctx.fill();
-    ctx.fillStyle = isMe ? '#ffe9a8' : '#f2f2f2'; ctx.fillText(label, sx, y - 17);
+    const width = SpriteCache.textWidth(font, label) + 10;
+    SpriteCache.stamp(ctx, `p|${label}|${isMe ? 1 : 0}`, width, 14, width / 2, 24, g2 => {              // (painted once, then stamped)
+      const c = g2.ctx;
+      c.font = font; c.textAlign = 'center'; c.textBaseline = 'middle';
+      g2.roundRect(-width / 2, -24, width, 14, 6); c.fillStyle = 'rgba(10,18,28,.6)'; c.fill();
+      c.fillStyle = isMe ? '#ffe9a8' : '#f2f2f2'; c.fillText(label, 0, -17);
+    }, sx, y);
   }
 }
 

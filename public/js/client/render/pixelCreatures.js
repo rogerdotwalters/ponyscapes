@@ -8,7 +8,7 @@
  * and t (a time-based frame, for wings and wriggles). A kind with no painter here keeps its smooth drawing (creatures/*.js). */
 const PixelCreatures = (() => {
   const { shade, light, mix, tones, outline } = PixelCharacter.util;
-  const PX = 1.25, cache = new PackedCache(4000, 'creature'), kinds = {};
+  const PX = 1.25, cache = new PackedCache(4000, 'creature'), kinds = {}, palettes = new LruCache(300);
   const OUTLINE = '#1c130e', RED = '#ff3a2a';
 
   /** The painter works in ART coordinates, but paints at the creature's real size (m = its scale): outlines, bodies, lines and wings
@@ -84,10 +84,10 @@ const PixelCreatures = (() => {
 
   /* ---- frames ---- */
   const SWING = [1, 0, -1, 0], BOB = [0, -1, 0, -1];
-  function frameOf(kind, anim) {
+  function frameOf(kind, anim, variant = anim.variant) {
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two, moving = anim.moving;
     const i = moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 450 + anim.seed * 3) % 4);
-    const F = { i, moving, swing: moving ? SWING[i] : 0, bob: moving ? BOB[i] : (i === 2 ? -1 : 0), hunting: !!anim.hunting, t: 0, v: anim.variant || '', extra: anim.extra || '' };
+    const F = { i, moving, swing: moving ? SWING[i] : 0, bob: moving ? BOB[i] : (i === 2 ? -1 : 0), hunting: !!anim.hunting, t: 0, v: variant || '', extra: anim.extra || '' };
     if (kind.tick) F.t = Math.floor(anim.now / (typeof kind.tick === 'function' ? kind.tick(F) : kind.tick)) % (kind.ticks || 4);
     return F;
   }
@@ -101,9 +101,12 @@ const PixelCreatures = (() => {
 
   /** Draws a creature at its footprint. sprite: the data's sprite { kind, color, variant, scale, antlers }. flip: 1 faces right, -1 left. */
   function draw(ctx, sprite, sx, sy, flip, anim) {
-    const k = kinds[sprite.kind], C = k.palette(sprite, anim), F = frameOf(k, Object.assign({}, anim, { variant: sprite.variant }));
+    const k = kinds[sprite.kind], base = `${sprite.kind}|${sprite.variant || ''}|${sprite.color || ''}|${sprite.antlers || ''}`;
+    let C = palettes.get(base);                                                                      // (the palettes only read the sprite's own fields: worked out once per look)
+    if (!C) { C = k.palette(sprite, anim); palettes.set(base, C); }
+    const F = frameOf(k, anim, sprite.variant);
     const m = (sprite.scale || 1) * (C.k || 1), u = PX * m;                                          // u: screen size of one ART pixel; real pixels are always PX
-    const key = `${sprite.kind}|${sprite.variant || ''}|${sprite.color || ''}|${sprite.antlers || ''}|${m}|${anim.extra || ''}|${F.i}${F.moving ? 'm' : 's'}${F.t}${F.hunting ? 'h' : ''}`;
+    const key = `${base}|${m}|${anim.extra || ''}|${F.i}${F.moving ? 'm' : 's'}${F.t}${F.hunting ? 'h' : ''}`;
     let canvas = cache.get(key);
     if (!canvas) {
       canvas = document.createElement('canvas'); canvas.width = Math.ceil(k.W * m); canvas.height = Math.ceil(k.H * m);
@@ -111,12 +114,19 @@ const PixelCreatures = (() => {
       cache.set(key, canvas);
     }
     const [srx, sry] = k.shadow || [k.W * 0.3, 3], lifted = k.flying ? k.flying(F) : 0;
-    ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, srx * u, sry * u, 0, 0, Math.PI * 2); ctx.fill();
+    SpriteCache.shadow(ctx, sx, sy + 1, srx * u, sry * u, 0.26);
     const top = sy - (k.ground + 1) * u - lifted * u, left = -k.anchor * u, d = Math.max(1, Math.round(m)) * PX;   // (live sparks and flames: art-pixel sized, on the same grid)
-    ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(sx, 0); ctx.scale(flip < 0 ? -1 : 1, 1);
-    ctx.drawImage(canvas, left, top, canvas.width * PX, canvas.height * PX);
-    if (k.live) k.live(ctx, C, F, anim, (ax, ay, color, a = 1) => { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = color; ctx.fillRect(left + Math.round(ax * m) * PX, top + Math.round(ay * m) * PX, d, d); ctx.globalAlpha = 1; });
-    ctx.restore();
+    const dw = canvas.width * PX, dh = canvas.height * PX, smooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    if (!k.live) {                                                                                   // (most creatures: one drawImage; facing left, a mirrored copy made once)
+      if (flip < 0) ctx.drawImage(SpriteCache.mirror(key, canvas), sx - left - dw, top, dw, dh); else ctx.drawImage(canvas, sx + left, top, dw, dh);
+      ctx.imageSmoothingEnabled = smooth;
+    } else {
+      ctx.save(); ctx.translate(sx, 0); ctx.scale(flip < 0 ? -1 : 1, 1);
+      ctx.drawImage(canvas, left, top, dw, dh);
+      k.live(ctx, C, F, anim, (ax, ay, color, a = 1) => { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = color; ctx.fillRect(left + Math.round(ax * m) * PX, top + Math.round(ay * m) * PX, d, d); ctx.globalAlpha = 1; });
+      ctx.restore();
+    }
     return { h: (k.ground + 1 - (k.top || 0)) * u };
   }
 
