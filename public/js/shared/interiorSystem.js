@@ -21,7 +21,7 @@ InteractionHandlers.enter_building = (server, id, p, action) => server.interiors
 InteractionHandlers.leave_building = (server, id, p) => server.interiors.leave(id, p);
 
 class InteriorSystem {
-  constructor(server) { this.server = server; this.homes = {}; this.nextHome = 0; }
+  constructor(server) { this.server = server; this.homes = {}; this.nextHome = 0; this.chests = {}; this.openChest = {}; this.chestSent = {}; }   // chests: key (HomeCrafts.storeKey) -> Inventory
 
   /** The grid of the room this player goes into at a site: the shared one, or (a player building) their own copy. */
   gridFor(id, site) {
@@ -52,10 +52,16 @@ class InteriorSystem {
   }
 
   /** For the world save: whose home is which room. */
-  exportState() { return { homes: Object.assign({}, this.homes), nextHome: this.nextHome }; }
+  exportState() { const chests = {}; for (const [k, inv] of Object.entries(this.chests)) if (inv.used) chests[k] = inv.toJSON(); return { homes: Object.assign({}, this.homes), nextHome: this.nextHome, chests }; }
   restore(state) {
     if (!state || typeof state !== 'object') return;
     for (const [key, n] of Object.entries(state.homes || {})) if (/^(seat:)?[A-Za-z0-9_-]{1,64}$/.test(key) && Number.isInteger(n) && n >= 0 && n < 4000) this.homes[key] = n;
+    for (const [key, slots] of Object.entries(state.chests || {})) {                // (what lies in the worn chests)
+      if (!/^[A-Za-z0-9_:|,.\-]{1,80}$/.test(key) || !Array.isArray(slots)) continue;
+      const inv = new Inventory(HomeCrafts.CHEST_SLOTS);
+      slots.slice(0, HomeCrafts.CHEST_SLOTS).forEach((c, i) => { if (c && typeof c.id === 'string' && ItemDefs[c.id] && Number.isInteger(c.count) && c.count > 0) inv.slots[i] = { id: c.id, count: Math.min(c.count, ItemDB.maxStack(c.id)) }; });
+      this.chests[key] = inv;
+    }
     this.nextHome = Math.max(Number.isInteger(state.nextHome) ? state.nextHome : 0, ...Object.values(this.homes).map(n => n + 1), 0);
   }
 }

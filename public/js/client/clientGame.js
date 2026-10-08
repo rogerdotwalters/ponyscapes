@@ -20,6 +20,7 @@ class ClientGame {
     this.npcs = {}; this.npcView = {}; this.friends = {}; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
+    this.chest = null;                                 // the chest you have open (homeCrafts.js)
     this.pack = null;                                  // the pack of the pony you ride or stand next to: { id, name, bags, riding, inventory } (packSystem.js)
     this.localSwingT = 0;                              // cosmetic swing so our own tool feels instant
     this.pets = []; this.book = []; this.varieties = []; this.questMarks = [];   // questMarks: lost young you have tracked (map)
@@ -93,10 +94,10 @@ class ClientGame {
     if (!s) { this.events.emit('notice', { to: this.myId, text: 'Nothing in your hand to drop' }); return; }
     this.dropItem(this.selectedSlot, all ? s.count : 1);
   }
-  dropItem(slot, count, pack = false) { this.net.sendCommand({ type: 'drop', slot, count, pack: !!pack }); }
-  destroyItem(slot, count, pack = false) { this.net.sendCommand({ type: 'destroy', slot, count, pack: !!pack }); }
+  dropItem(slot, count, pack = false, chest = false) { this.net.sendCommand({ type: 'drop', slot, count, pack: !!pack, chest: !!chest }); }
+  destroyItem(slot, count, pack = false, chest = false) { this.net.sendCommand({ type: 'destroy', slot, count, pack: !!pack, chest: !!chest }); }
   /** Move a stack between your bag and your pony's pack: { pack: bool, i } each end (to.i -1: wherever it fits). */
-  packMove(from, to) { this.net.sendCommand({ type: 'packMove', from: { pack: !!from.pack, i: from.i }, to: { pack: !!to.pack, i: to.i } }); }
+  packMove(from, to) { this.net.sendCommand({ type: 'packMove', from: { pack: !!from.pack, chest: !!from.chest, i: from.i }, to: { pack: !!to.pack, chest: !!to.chest, i: to.i } }); }
   /** Take the bag in this bag slot off the pony (into your bag). */
   ponyBagOff(index) { this.net.sendCommand({ type: 'ponyBagOff', index }); }
   /** At a shop counter: buy one of this item. */
@@ -104,6 +105,11 @@ class ClientGame {
   _applyPack(wire) {
     this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
     this.events.emit('packChanged');
+  }
+  /** The chest you have open (homeCrafts.js): { key, name, inventory } or null. */
+  _applyChest(wire) {
+    this.chest = wire ? { key: wire.key, name: wire.name, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
+    this.events.emit('chestChanged');
   }
   /** L: throw the lasso in the lasso slot (whatever is in your hand). */
   throwLasso() {
@@ -348,6 +354,7 @@ class ClientGame {
     if (snapshot.inventory) { this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.events.emit('inventoryChanged'); }
     else if (this.inventory.carryStacks !== this.local.carryStacks) { this.inventory.carryStacks = this.local.carryStacks; this.events.emit('inventoryChanged'); }
     if (snapshot.pack !== undefined) this._applyPack(snapshot.pack);
+    if (snapshot.chest !== undefined) this._applyChest(snapshot.chest);
     if (snapshot.progress) { this.progress = snapshot.progress; this.events.emit('progressChanged'); }
     if (snapshot.treasure) { this.treasureMaps = snapshot.treasure; this.mapIndex = Math.min(this.mapIndex, Math.max(0, this.treasureMaps.length - 1)); this.events.emit('treasureChanged'); }
     if (snapshot.trade) { this.trade = snapshot.trade.state; this.events.emit('tradeChanged'); }

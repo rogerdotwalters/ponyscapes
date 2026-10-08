@@ -18,6 +18,10 @@ FurnitureDefs.registerAll([
   { id: 'exam_table', name: 'Exam Table', size: [2, 1], solid: true, height: 22, style: 'table', colors: { top: '#dfe8e6', leg: '#8a9a98', pad: '#7fb3b0' } },
   { id: 'medicine_cabinet', name: 'Medicine Cabinet', size: [1, 1], solid: true, height: 50, style: 'cabinet', colors: { wood: '#d6dcd8', front: '#eef2ef', knob: '#c0392b', cross: '#c0392b' } },
   { id: 'hay_bale', name: 'Hay Bale', size: [1, 1], solid: true, height: 18, style: 'hay', colors: { hay: '#e0c46c', band: '#a8873a' } },
+  /* ---- the starting home: a wardrobe (opens your Wardrobe), a worn chest (25 slots, js/shared/homeCrafts.js) and a small torn carpet ---- */
+  { id: 'wardrobe', name: 'Wardrobe', size: [2, 1], solid: true, height: 62, style: 'wardrobe', wardrobe: true, colors: { wood: '#6d4c2f', front: '#8a5f33', trim: '#4a3322', knob: '#d9b45a' } },
+  { id: 'worn_chest', name: 'Worn Chest', size: [1, 1], solid: true, height: 20, style: 'chest', container: { slots: 25 }, colors: { wood: '#7a5233', lid: '#8c6340', band: '#5a5a62', lock: '#d9b45a' } },
+  { id: 'torn_rug', name: 'Small Torn Carpet', size: [2, 1], solid: false, height: 0, style: 'torn_rug', colors: { main: '#8a3f3f', edge: '#c9a65a', dark: '#5e2a2a' } },
   /* ---- home crafts (js/shared/homeCrafts.js): station = a crafting station you stand at; press = squeeze dye out of what you hold; store = a bin for one item ---- */
   { id: 'loom', name: 'Loom', size: [2, 1], solid: true, height: 44, style: 'loom', station: 'loom', colors: { wood: '#8a5f33', light: '#b8875a', warp: '#efe8d6', cloth: '#d9cfb4' } },
   { id: 'dye_press', name: 'Dye Press', size: [1, 1], solid: true, height: 34, style: 'press', press: true, colors: { wood: '#7a5233', light: '#a8763f', iron: '#5a5a66', tub: '#6d4c2f' } },

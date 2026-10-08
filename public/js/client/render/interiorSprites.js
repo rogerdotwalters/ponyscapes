@@ -22,6 +22,7 @@ const InteriorSprites = (() => {
     const info = InteriorTileInfo.byTile[tileId];
     if (!info) return false;
     const d = info.def, c = d.colors || WOOD, noise = hash2(tx, ty), v = (noise * 3) | 0;
+    if (d.kind === 'floor' && typeof PixelDecor !== 'undefined') { PixelDecor.drawFloor(ctx, d, cx, cy, tx | 0, ty | 0); return true; }     // (pixel art: pixelDecor.js)
     diamond(ctx, cx, cy);
     if (d.kind !== 'floor') { ctx.fillStyle = Array.isArray(c) ? c[0] : '#0b0d12'; ctx.fill(); return true; }
     const along = (f, color, width) => {                         // a line across the tile, parallel to the x axis, a fraction f of the way along y
@@ -50,6 +51,7 @@ const InteriorSprites = (() => {
   function wall(g, objId, cx, cy, opts = {}) {
     const info = InteriorTileInfo.byObj[objId], ctx = g.ctx;
     const c = info ? info.def.colors : { top: '#6d4c2f', left: '#b8875a', right: '#946a42' }, pattern = info ? info.def.pattern : 'planks';
+    if (info && typeof PixelDecor !== 'undefined') { PixelDecor.drawWall(ctx, info.def, opts, cx, cy, opts.tx | 0, opts.ty | 0); return; }
     const h = opts.low ? LOW : TALL, Lx = cx - W, Rx = cx + W, By = cy + H;
     polygon(ctx, [Lx, cy, cx, By, cx, By - h, Lx, cy - h], c.left);                 // south face
     polygon(ctx, [cx, By, Rx, cy, Rx, cy - h, cx, By - h], c.right);                // east face
@@ -257,6 +259,16 @@ const InteriorSprites = (() => {
     }
   };
 
+  /** What still moves on a pixel-art piece (drawn over its picture each frame): a lamp's glow, a loom's shuttle, a dye press's drip, a fire's flicker. */
+  const PIXEL_LIVE = {
+    lamp(ctx, b, def) { const h = def.height || 44, [x, y] = P((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2), glow = ctx.createRadialGradient(x, y - h + 6, 2, x, y - h + 6, 34); glow.addColorStop(0, 'rgba(255,230,160,.4)'); glow.addColorStop(1, 'rgba(255,230,160,0)'); ctx.fillStyle = glow; ctx.fillRect(x - 34, y - h - 28, 68, 68); },
+    fireplace(ctx, b, def, rot, now) {
+      const t = (now || 0) / 1000, face = frontFace(rot), fb = { x0: b.x0 + 0.04, y0: b.y0 + 0.04, x1: b.x1 - 0.04, y1: b.y1 - 0.04 };
+      for (let i = 0; i < 3; i++) { const [x, y] = facePt(fb, face, 0.36 + i * 0.14, 8 + 5 * Math.sin(t * 9 + i * 2)); ctx.fillStyle = i === 1 ? '#fff0a0' : '#ffd24a'; ctx.fillRect(Math.round(x / 1.5) * 1.5, Math.round(y / 1.5) * 1.5, 3, 3); }
+    },
+    press(ctx, b, def, rot, now) { const mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2, [sx, sy] = P(mx + 0.4, my + 0.4), drip = ((now || 0) / 600) % 1; ctx.fillStyle = '#7b45c4'; ctx.fillRect(Math.round(sx / 1.5) * 1.5 - 1, Math.round((sy - 12 + drip * 7) / 1.5) * 1.5, 3, 3); }
+  };
+
   /** A furniture piece. `f`: { id, x, y (its centre, world), w, h, rot }. */
   function furniture(g, f, now) {
     const def = FurnitureDefs.get(f.id), ctx = g.ctx || g;
@@ -268,7 +280,8 @@ const InteriorSprites = (() => {
       ctx.drawImage(img, left, isoY(b.x1, b.y1) - height, width, height);                 // (as wide as the footprint, standing on its front corner)
       return;
     }
-    if (def.height && def.style !== 'rug') { ctx.fillStyle = 'rgba(0,0,0,.14)'; const [cx, cy] = P(f.x, f.y); ctx.beginPath(); ctx.ellipse(cx, cy + 2, (f.w + f.h) * W * 0.32, (f.w + f.h) * H * 0.32, 0, 0, Math.PI * 2); ctx.fill(); }
+    if (def.height && def.style !== 'rug' && def.style !== 'torn_rug') { ctx.fillStyle = 'rgba(0,0,0,.14)'; const [cx, cy] = P(f.x, f.y); ctx.beginPath(); ctx.ellipse(cx, cy + 2, (f.w + f.h) * W * 0.32, (f.w + f.h) * H * 0.32, 0, 0, Math.PI * 2); ctx.fill(); }
+    if (typeof PixelDecor !== 'undefined' && PixelDecor.drawFurniture(ctx, def, b, f.rot | 0, f)) { if (STYLES[def.style] && PIXEL_LIVE[def.style]) PIXEL_LIVE[def.style](ctx, b, def, f.rot | 0, now); return; }   // (pixel art: pixelDecor.js)
     (STYLES[def.style] || STYLES.crate)(ctx, b, def, f.rot | 0, now, f);
   }
 

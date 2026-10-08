@@ -4,6 +4,8 @@
  *   press     the DYE PRESS: hold anything and press the interact key beside it: one of it is squeezed into the dye of its colour.
  *   store     a bin for one item (the WOOL BIN): the interact key stores all of that item you carry, or (carrying none) takes a stack back out.
  *             Its count lives on the world map (map.roomStores, per room and bin), travels with the town's stockpiles and is saved with them.
+ *   container a chest (the WORN CHEST, 25 slots): the interact key opens it beside your bag; stacks move in and out like with a pony's pack.
+ *   wardrobe  the WARDROBE: the interact key opens your Wardrobe (what you wear).
  * Locked buildings (data `locked: true`, the empty homes) just say so at the door. */
 
 /** The ten dyes, and which dye each colour gives. */
@@ -55,6 +57,7 @@ const Dyes = (() => {
 
 const HomeCrafts = {
   REACH: 1.35,
+  CHEST_SLOTS: 25,                                   // what a worn chest holds
   /** The furniture pieces in this room (with their defs) within reach of p, nearest first. */
   near(map, p, test) {
     if (!map || map.kind !== 'room' || !map.plan || !map.plan.layout) return [];
@@ -95,6 +98,26 @@ function findHomeCraft(map, p, heldItemId) {
   return { kind: 'room_store', label: `${def.name}: store / take ${item ? item.name.toLowerCase() : def.store.item}`, dist, fx: f.x, fy: f.y };
 }
 Interactions.extra.push(findHomeCraft);
+
+/** The chest or wardrobe within reach of p, nearest first (or null). */
+function findStorageFurniture(map, p) {
+  const [hit] = HomeCrafts.near(map, p, def => def.container || def.wardrobe);
+  if (!hit) return null;
+  const { f, def, dist } = hit;
+  if (p.asleep) return null;                                                                          // (in bed, the button is Get up)
+  const bed = typeof Sleep !== 'undefined' ? Sleep.bedOf(map) : null;
+  if (bed && Math.hypot(p.x - clamp(p.x, bed.x, bed.x + bed.w), p.y - clamp(p.y, bed.y, bed.y + bed.h)) < dist - 0.05) return null;   // (the bed is nearer: that is Sleep)
+  return def.container ? { kind: 'chest', label: `Open the ${def.name.toLowerCase()}`, dist, fx: f.x, fy: f.y } : { kind: 'wardrobe', label: `Open the ${def.name.toLowerCase()}`, dist, fx: f.x, fy: f.y };
+}
+Interactions.extra.unshift(findStorageFurniture);                                                     // (ahead of the bed's button: the nearer of the two wins)
+InteractionHandlers.wardrobe = (server, id, p, action) => { if (server._roomPiece(p, action, d => d.wardrobe)) server.pendingEvents.push({ type: 'openWardrobe', to: id }); };
+InteractionHandlers.chest = (server, id, p, action) => {
+  const hit = server._roomPiece(p, action, d => d.container); if (!hit) return;
+  const key = HomeCrafts.storeKey(gridOf(p), hit.f), S = server.interiors;
+  if (!S.chests[key]) S.chests[key] = new Inventory(hit.def.container.slots || HomeCrafts.CHEST_SLOTS);
+  S.openChest[id] = key; delete S.chestSent[id];
+  server.pendingEvents.push({ type: 'openChest', to: id });
+};
 
 InteractionHandlers.press = (server, id, p, action) => server._press(id, p, action);
 InteractionHandlers.room_store = (server, id, p, action) => server._useRoomStore(id, p, action);
@@ -141,8 +164,28 @@ Object.assign(GameServer.prototype, {
   }
 });
 
+/* ---- the chest you have open (stacks move with packMove, as with a pony's pack) ---- */
+Object.assign(GameServer.prototype, {
+  /** The Inventory of the chest this player has open, if it is still within reach (else null, and it closes). */
+  _chestOf(id) {
+    const S = this.interiors, key = S.openChest[id], p = this.players[id];
+    if (!key || !p) return null;
+    const map = this.mapOf(p), near = map && map.kind === 'room' ? HomeCrafts.near(map, p, d => d.container).find(h => HomeCrafts.storeKey(gridOf(p), h.f) === key && h.dist <= HomeCrafts.REACH + 0.6) : null;
+    if (!near || !S.chests[key]) { delete S.openChest[id]; return null; }
+    return S.chests[key];
+  },
+  /** Private: the open chest, only when it changed (false: closed; null: no change). */
+  chestUpdateFor(id) {
+    const inv = this._chestOf(id), S = this.interiors;
+    const wire = inv ? { key: S.openChest[id], name: 'Worn Chest', slots: inv.toJSON() } : false, json = JSON.stringify(wire);
+    if (S.chestSent[id] === json || (S.chestSent[id] === undefined && !inv)) { S.chestSent[id] = json; return null; }
+    S.chestSent[id] = json;
+    return wire;
+  }
+});
+
 /* ---- locked buildings ---- */
 InteractionHandlers.locked_building = (server, id, p, action) => {
   const site = BuildingSites.list[action.site];
-  server._notice(id, site && site.def.id === 'vacant_home' ? 'This home stands empty for now: it is waiting for a new neighbour' : `The ${site ? site.def.name : 'door'} is locked`);
+  server._notice(id, site && site.def.id === 'vacant_home' ? 'This home stands empty for now: it is waiting for a new neighbour' : site && site.def.resident ? `${site.def.name} is locked: ${Npcs.get(site.def.resident).name} lives here` : `The ${site ? site.def.name : 'door'} is locked`);
 };

@@ -71,9 +71,10 @@ Object.assign(GameServer.prototype, {
   },
   /** Move a stack between your inventory and the pack of the pony you can reach ({ pack: bool, i } each end; to.i < 0: wherever it fits). */
   _packMove(id, inventory, cmd) {
-    const from = cmd.from || {}, to = cmd.to || {}, a = (from.pack || to.pack) ? this._packPonyOf(id) : null;
+    const from = cmd.from || {}, to = cmd.to || {}, a = (from.pack || to.pack) ? this._packPonyOf(id) : null, chest = (from.chest || to.chest) ? this._chestOf(id) : null;
     if ((from.pack || to.pack) && !a) { this._notice(id, 'Your pony is too far away'); return; }
-    const src = from.pack ? a.pack : inventory, dst = to.pack ? a.pack : inventory;
+    if ((from.chest || to.chest) && !chest) { this._notice(id, 'The chest is too far away'); return; }
+    const pick = r => (r.chest ? chest : r.pack ? a.pack : inventory), src = pick(from), dst = pick(to);
     const valid = (inv, i) => Number.isInteger(i) && i >= 0 && i < inv.size;
     if (!valid(src, from.i) || !src.slots[from.i]) return;
     if (src === dst) { if (src.move(from.i, to.i)) this.inventoryRev[id]++; return; }
@@ -81,7 +82,7 @@ Object.assign(GameServer.prototype, {
     if (!(to.i >= 0)) {                                                             // "to the pony" / "to my bag": top up stacks, then a free slot
       dst.limitHit = null;
       const left = dst.add(stack.id, stack.count);
-      if (left === stack.count) { this._notice(id, dst.limitHit ? this._carryNotice(dst.limitHit) : to.pack ? 'The pack is full' : 'Your bag is full'); return; }
+      if (left === stack.count) { this._notice(id, dst.limitHit ? this._carryNotice(dst.limitHit) : to.chest ? 'The chest is full' : to.pack ? 'The pack is full' : 'Your bag is full'); return; }
       stack.count = left; if (!left) src.slots[from.i] = null;
       this.inventoryRev[id]++; return;
     }

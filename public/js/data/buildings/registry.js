@@ -8,6 +8,8 @@
  *   exterior   how the game draws it (client/render/pixelBuildings.js): colours { wall (the upper floor's infill), roof, trim (the timbers),
  *              stone, glass, sign } and its make-up: infill 'plaster' | 'stone' | 'planks', chimney (default yes), dormer (default: 5 wide or more),
  *              boarded (windows boarded up), props ['lantern', 'firewood', 'barrels', 'crates', 'flowers', 'hay'] beside its door
+ *   hours      [open, close] of a shop (a villager who `works` there is inside, behind its keeper furniture, between them)    keeper  the furniture id they stand beside
+ *   resident   the villager who lives here (a home: they sleep inside, shared/npcSystem.js)
  *   glyph      the picture on its hanging sign
  *   sprites    { exterior }: a picture of the whole building (optional; bottom centre at the front corner) */
 const BuildingDefs = new Registry('buildings', {

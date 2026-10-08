@@ -2,7 +2,7 @@
 /* DATA - NPC: fisher */
 Npcs.register({
   id: 'fisher', name: 'Marin', role: 'Fisher', look: [1, 2, 1, 3, 5, 4], gear: {},
-  home: { x: 9.5, y: 23.5 }, radius: 2.5,
+  home: { x: 11.5, y: 29.5 }, radius: 2.5,
   tastes: { loves: ['cooked_fish'], likes: ['raw_fish', 'blackberry'], dislikes: ['apple'] },
   talk: [
     { min: 1, lines: ['Shh. You will scare the fish.', 'The lake gives, the lake takes.'] },
