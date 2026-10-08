@@ -135,7 +135,7 @@ class Renderer {
       const flick = lightFlicker(l.kind, l.x, l.y, performance.now());                // the flame's brightness; the pool of light breathes with it
       return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * (1 + (flick - 1) * 0.5), kind: l.kind, flick };
     });
-    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, this.game.map.kind === 'cave' ? 0 : this.game.map.kind === 'room' ? 12 : this.game.hour(), px, py, s, lights);
+    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, this.game.map.kind === 'cave' || this.game.map.kind === 'dungeon' ? 0 : this.game.map.kind === 'room' ? 12 : this.game.hour(), px, py, s, lights);
     this.camera.applyTransform(this.ctx);
   }
 
@@ -284,6 +284,7 @@ class Renderer {
     else if (prop.t === 'stone') { if (prop.ripe) PropSprites.drawStone(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'flax') PropSprites.drawFlax(g, item.gx, item.gy, prop);
     else if (prop.t === 'chest') PropSprites.drawChest(g, item.gx, item.gy, !!(this.game.local && this.game.local.looted));
+    else if (prop.t === 'dungeon_chest') PropSprites.drawChest(g, item.gx, item.gy, !!prop.opened);
     else if (prop.t === 'clay') { if (prop.ripe) PropSprites.drawClay(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'mound') { if (prop.ripe) PropSprites.drawMound(g, item.gx, item.gy, prop.v, now); }
     else if (prop.t === 'bottle') { if (prop.ripe) PropSprites.drawBottle(g, item.gx, item.gy, prop.v, now); }

@@ -5,7 +5,8 @@
  *   grid id      ''                  the overworld (anything without a `grid` is here, so old saves just work)
  *                'room:<site>'       a shared room: the store, the carpenter, the vet (site = its BuildingSites index)
  *                'room:<site>:<n>'   a player's own copy of a room (their home; n = their home number, handed out by the server)
- *                'cave:<ring>'       a ring's dungeon
+ *                'cave:<ring>'       a ring's boss lair
+ *                'dungeon:<d>:<r>'   room <r> of room dungeon <d> (js/data/dungeons/ lists them; each room is a picture-sized 2D list: roomCodes.js)
  *   entities     players, animals and items on the ground carry `grid`; villagers and boats only live in the overworld.
  *                Two things are only ever near each other if they are on the SAME grid (sameGrid).
  *   GridSet      the worlds one machine holds: the server builds an instance the first time someone enters it, the client the one it stands in.
@@ -46,6 +47,52 @@ class CavePlan {
   }
 }
 
+/** Which chests of the room dungeons have been opened (grid|tx|ty), on this machine. The server fills it as chests open and the client when told, so a room
+ *  rebuilt after everyone left still shows its empty chests. */
+const DungeonState = { opened: new Set(), key: (grid, tx, ty) => `${grid}|${tx}|${ty}` };
+
+/** One room of a room dungeon, at its own coordinates: tile (x, y) of the room's picture is tile (x, y) here, everything outside it is rock.
+ *  Entrance patch (2) = the way back, exit patch (3) = the way on, chests (5) are props; spawn nodes and named enemies are placed by DungeonSystem. */
+class DungeonRoomPlan {
+  constructor(grid, dungeon, index, room) { this.grid = grid; this.dungeon = dungeon; this.index = index; this.room = room; this.ring = dungeon.ring; }
+  tileAt(tx, ty) { return this.room.walkable(tx, ty) ? TILE.CAVE : TILE.CAVE_WALL; }
+  objAt() { return 0; }
+  solidAt(tx, ty) { return !this.room.walkable(tx, ty); }
+  get first() { return this.index === 0; }
+  get last() { return this.index === this.dungeon.rooms.length - 1; }
+  /** The tile of a patch (entrance / exit) nearest its middle. */
+  _middle(tiles) {
+    const cx = tiles.reduce((n, t) => n + t.x, 0) / tiles.length, cy = tiles.reduce((n, t) => n + t.y, 0) / tiles.length;
+    return tiles.reduce((a, b) => (Math.hypot(b.x - cx, b.y - cy) < Math.hypot(a.x - cx, a.y - cy) ? b : a));
+  }
+  /** Where you stand when you come in at a patch: the open floor next to it (not on it, so the key does not at once take you back). */
+  _landing(tiles) {
+    const mid = this._middle(tiles), R = this.room, patch = new Set(tiles.map(t => t.y * R.w + t.x));
+    let best = null;
+    for (let r = 1; r <= 6 && !best; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const x = mid.x + dx, y = mid.y + dy;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !R.walkable(x, y) || patch.has(y * R.w + x) || R.code(x, y) !== RoomCode.FLOOR) continue;
+      const d = Math.hypot(dx, dy); if (!best || d < best.d) best = { x, y, d };
+    }
+    return best ? { x: best.x + 0.5, y: best.y + 0.5 } : { x: mid.x + 0.5, y: mid.y + 0.5 };
+  }
+  entryPoint() { return this._landing(this.room.entrances); }            // arriving from the room before (or from outside)
+  arrivalFromNext() { return this._landing(this.room.exits); }          // arriving back from the room after
+  exitPoint() { const m = this._middle(this.room.entrances); return { x: m.x + 0.5, y: m.y + 0.5 }; }
+  /** The entrance / exit patches as { x0, y0, x1, y1 } boxes in tiles (to see how near you are). */
+  patch(kind) { const t = kind === 'entrance' ? this.room.entrances : this.room.exits; return t.map(p => [p.x, p.y, p.x + 1, p.y + 1]); }
+  /** Glowing portals mark the way back and the way on; a chest stands on every chest tile. */
+  propsIn(cx, cy) {
+    const R = this.room, out = [], here = (x, y) => (x >> CHUNK_SHIFT) === cx && (y >> CHUNK_SHIFT) === cy;
+    for (const tiles of [R.entrances, R.exits]) {
+      const m = this._middle(tiles);
+      if (here(m.x, m.y)) out.push({ tile: [m.x, m.y], prop: { t: 'portal', x: m.x + 0.5, y: m.y + 0.5, r: 0.2, v: this.ring, ring: this.ring } });
+    }
+    for (const c of R.chests) if (here(c.x, c.y)) out.push({ tile: [c.x, c.y], prop: { t: 'dungeon_chest', x: c.x + 0.5, y: c.y + 0.5, r: 0.32 / TILE_SCALE, v: 0, opened: DungeonState.opened.has(DungeonState.key(this.grid, c.x, c.y)) } });
+    return out;
+  }
+}
+
 /** A grid that is not the overworld: its chunks come from its plan (a RoomPlan or a CavePlan). */
 class InstanceWorld extends World {
   constructor(seed, grid, kind, plan) {
@@ -74,11 +121,14 @@ const Grids = {
   OVERWORLD: '',
   room: (siteIndex, n) => (n === undefined || n === null ? `room:${siteIndex}` : `room:${siteIndex}:${n}`),
   cave: ring => `cave:${ring}`,
-  /** { kind: 'room', site, n } | { kind: 'cave', ring } | null for the overworld or anything malformed. */
+  dungeon: (d, r) => `dungeon:${d}:${r}`,
+  /** { kind: 'room', site, n } | { kind: 'cave', ring } | { kind: 'dungeon', dungeon, room } | null for the overworld or anything malformed. */
   parse(id) {
     if (typeof id !== 'string' || !id) return null;
     let m = /^room:(\d{1,2})(?::(\d{1,5}))?$/.exec(id);
     if (m) return { kind: 'room', site: Number(m[1]), n: m[2] === undefined ? undefined : Number(m[2]) };
+    m = /^dungeon:(\d{1,2}):(\d{1,2})$/.exec(id);
+    if (m) return { kind: 'dungeon', dungeon: Number(m[1]), room: Number(m[2]) };
     m = /^cave:(\d)$/.exec(id);
     return m ? { kind: 'cave', ring: Number(m[1]) } : null;
   },
@@ -87,6 +137,10 @@ const Grids = {
     const g = Grids.parse(id);
     if (!g) return null;
     if (g.kind === 'cave') return g.ring < DungeonSpace.COUNT ? new CavePlan(g.ring) : null;
+    if (g.kind === 'dungeon') {
+      const dungeon = Dungeons.all()[g.dungeon], room = dungeon && CaveRooms.get(dungeon.rooms[g.room]);
+      return room ? new DungeonRoomPlan(id, dungeon, g.room, room) : null;                          // (a room missing from js/content/caveRooms.js is simply not there)
+    }
     const site = BuildingSites.list[g.site], layout = site && Interiors.get(site.def.interior);
     if (!layout || (site.def.instance === 'player') !== (g.n !== undefined)) return null;          // a player building's rooms are numbered; a shared one's is not
     return new RoomPlan(site, layout);

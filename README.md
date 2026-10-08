@@ -135,7 +135,7 @@ interact button) to go in; stand on the **doormat** inside and press F to go bac
 * **Grids and instances.** The overworld and every instance are separate game **grids**, each its own World with its own coordinates
   (`js/shared/grids.js`). Going through a door moves you to another grid rather than to a far-off corner of the overworld. Grid ids: `''` the overworld,
   `room:<site>` a shared room (store, carpenter, vet), `room:<site>:<n>` a player's own copy (Your Home: every player gets one, remembered by
-  their player key and saved with the world), `cave:<ring>` a ring's dungeon. Players, animals and items on the ground carry their `grid`; things are
+  their player key and saved with the world), `cave:<ring>` a ring's boss lair, `dungeon:<d>:<r>` room `<r>` of room dungeon `<d>` (below). Players, animals and items on the ground carry their `grid`; things are
   only ever near each other on the same grid, and each player is only sent what is on theirs. The client keeps the overworld (its buildings, trees and
   stockpiles stay up to date) plus the grid it stands on. A new kind of instance is a plan class (tiles, walls, props, entry / exit) and one line in
   `Grids.plan()`.
@@ -145,6 +145,42 @@ interact button) to go in; stand on the **doormat** inside and press F to go bac
 * **The rooms** live in `public/js/content/interiors.js`, written by **`/level-editor.html`**: paint tiles (paint, room, rectangle, fill, pick, erase),
   place and turn furniture, resize, undo, see the room as the game draws it, and get warnings (no doormat, a blocked arrival tile, overlapping furniture).
   **Play-test room** opens the game standing inside it (`index.html?solo=1&content=draft&enter=<building>`); **Download interiors.js** gives you the file.
+
+## Room dungeons, cliffs and the cave generator
+
+A **room dungeon** is a row of rooms you walk through. Each room is a **2D list of numbers, one per tile**, drawn as a **PNG of the same size**: a 100x150 picture is a
+100x150 tile room.
+
+| code | meaning |
+|---|---|
+| `0` | floor |
+| `1` | wall (and everything outside the picture) |
+| `2` | **entrance**: you arrive beside it; interact on it to go back a room (in the first room, back outside) |
+| `3` | **exit / next room**: interact on it to go on (in the last room, back outside) |
+| `4` | **enemy spawn node**: a random enemy from the dungeon's list |
+| `5` | **chest**: one-time loot, from the dungeon's `loot` table |
+| `6`-`999` | reserved for more (doors, traps, keys...); they are solid until given a meaning |
+| `1000`+ | a **specific enemy**: `1000` + the creature's number, written down in `js/shared/enemyCodes.js` (`rabbit` 1000, `snake` 1028, ...) |
+
+**PNG colours.** An **8-bit** greyscale PNG is a viewable palette: mid grey `128` floor, darker grey `64` wall (black `0` is rock too), `255` entrance, `224` exit,
+`192` spawn node, `160` chest, and greys `1`-`31` are enemies `1000`-`1030`. A **16-bit** greyscale PNG is literal: the pixel value *is* the code (so any enemy works).
+Off-palette greys snap to the nearest entry.
+
+**Making a room.** Save the PNG as `public/assets/dungeons/rooms/<id>.png` (lower case, digits, `_`), then `npm run rooms` turns every PNG there into
+`public/js/content/caveRooms.js` (do not edit that file by hand) and tells you what is wrong with a room (no entrance, an exit you cannot walk to, too big...).
+`node tools/cave-rooms.js show <id>` prints a room as text. **`npm run rooms:samples`** makes the temporary rooms (random caves: entrance at one end, exit at the
+far end, spawn nodes, chests in nooks) as PNGs, and builds them.
+
+**Making a dungeon.** A dungeon is one file in `public/js/data/dungeons/` (see `cavern.js`): its `rooms` in order, its `ring`, the `enemies` a plain spawn node
+picks from, and its chest `loot`. Its enemies appear the first time anyone enters a room. Dungeons are numbered in the order they are registered; the *n*th one
+gets the *n*th cave mouth in the world.
+
+**Cliffs, hills and the cave mouth.** `public/js/shared/layers/caveSites.js` holds a few **hand-drawn stamps** (text pictures: `1`-`3` are cliffs of that height that
+cannot be walked through, `,` bare dirt, `S` bare stone, `E` the cave mouth). After the land is generated they are dropped at random places in the centre ring (a pure
+function of the world seed, so every player sees the same ones): one bluff with a cave in its face for each dungeon, plus ridges, knolls and crags. A stamp only lands
+on dry land, and nothing grows in a cave's yard. Draw your own by adding a row-of-strings entry (and a count in `CaveSites`).
+
+`node tools/test-dungeon.js` checks all of this in Node (no browser): the numbers, PNG round trips, the stamps over several seeds, and a player walking every room.
 
 ## Animal homes, wild ponies and sleeping
 

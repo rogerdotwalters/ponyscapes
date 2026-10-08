@@ -156,6 +156,7 @@ function caveProps(world, cx, cy) {
   const o = CONFIG.sim.levels.origin;
   if (Math.hypot(x0 + 8 - o.x, y0 + 8 - o.y) > world.layers.rings.width * world.layers.rings.count + 400) return found;
   for (const site of world.layers.dungeons.sites()) put(site.x, site.y, { t: 'cave', x: site.x, y: site.y, r: 0.55 / TILE_SCALE, v: site.ring, ring: site.ring });
+  if (world.terrain.caveSites) for (const c of world.terrain.caveSites.caves()) put(c.x, c.y, { t: 'cave', x: c.x, y: c.y, r: 0.55 / TILE_SCALE, v: c.ring, ring: c.ring, dungeon: c.dungeon });   // a room dungeon's mouth, in its cliff
   return found;
 }
 
@@ -172,7 +173,7 @@ function generateChunk(world, cx, cy) {
   const special = caveProps(world, cx, cy);                                                // the cave mouths and cave exits that stand in this chunk
   for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
     const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;
-    const tile = T.tile(tx, ty), obj = Village.obj(tx, ty);
+    const tile = T.tile(tx, ty), obj = Village.obj(tx, ty) || (T.caveSites ? T.caveSites.objAt(tx, ty) : OBJ.NONE);
     chunk.tiles[li] = tile; chunk.obj[li] = obj;
     chunk.solid[li] = tile === TILE.WATER || tile === TILE.CAVE_WALL || obj !== OBJ.NONE ? 1 : 0;
   }
@@ -182,6 +183,7 @@ function generateChunk(world, cx, cy) {
     if (fixed) { addChunkProp(chunk, li, withSavedState(world, tx, ty, Object.assign({ hp: 0, alive: true }, fixed))); continue; }
     if (chunk.obj[li] !== OBJ.NONE) continue;
     if (special.has(li)) { addChunkProp(chunk, li, special.get(li)); continue; }
+    if (T.caveSites && T.caveSites.covers(tx, ty)) continue;                                 // (nothing grows in a cave's yard)
     if (!T.hasTree(tx, ty, chunk.tiles[li])) { addForageable(world, chunk, li, tx, ty); continue; }
     const tree = {
       t: 'tree', x: tx + 0.5 + (hash3(T.seed, tx, ty, 2) - 0.5) * 0.3, y: ty + 0.5 + (hash3(T.seed, tx, ty, 3) - 0.5) * 0.3,
@@ -195,7 +197,7 @@ function generateChunk(world, cx, cy) {
   if (typeof Hedges !== 'undefined') Hedges.intoChunk(world, chunk);                          // the hedges players planted here
   if (typeof Groves !== 'undefined') Groves.intoChunk(world, chunk);                         // the trees players planted and grew here
   if (chunk.tiles.includes(TILE.WATER) || chunk.tiles.includes(TILE.SHALLOW)) chunk.boatSpot = T.boatSpot(cx, cy, tileOf);
-  const group = T.animalGroup(cx, cy, tileOf, (tx, ty) => chunk.propIndex[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] < 0 && chunk.obj[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] === OBJ.NONE);
+  const group = T.animalGroup(cx, cy, tileOf, (tx, ty) => chunk.propIndex[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] < 0 && chunk.obj[((ty - y0) << CHUNK_SHIFT) | (tx - x0)] === OBJ.NONE && !(T.caveSites && T.caveSites.covers(tx, ty)));
   if (group) {                                                                               // an animal home: where its animals live, and (if its kind has one) a visible marker
     chunk.animals = group.members; chunk.animalNode = group.node;
     const marker = AnimalDefs[group.node.type].marker;
