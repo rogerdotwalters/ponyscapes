@@ -116,7 +116,7 @@ class Renderer {
       for (const site of BuildingSites.list) {
         const ex = site.def.exterior || {};
         if (!(ex.props || ['lantern']).includes('lantern') || Math.hypot(site.doorX - me.x, site.doorY - me.y) > 40) continue;
-        found.push({ x: site.doorX + 0.5, y: site.doorY + 1, radius: 4.5, kind: 'lantern' });
+        found.push({ x: site.facing === 'e' ? site.doorX + 1 : site.doorX + 0.5, y: site.facing === 'e' ? site.doorY + 0.5 : site.doorY + 1, radius: 4.5, kind: 'lantern' });
       }
     }
     if (found.length > CONFIG.view.maxLightsTouch && matchMedia('(pointer: coarse)').matches) {          // phones: each light is a full-screen gradient, so keep the nearest few
@@ -138,7 +138,7 @@ class Renderer {
     for (const site of BuildingSites.list) {
       const f = BuildingSites.doorFront(site);
       if (Math.hypot(f.x - me.x, f.y - me.y) > 14) continue;
-      const x = isoX(site.doorX + 0.5, site.doorY + 1), y = isoY(site.doorX + 0.5, site.doorY + 1) - PixelBuildings.groundFloorHeight() - 50;   // (over the door, below the eaves)
+      const nx = site.facing === 'e' ? site.doorX + 1 : site.doorX + 0.5, ny = site.facing === 'e' ? site.doorY + 0.5 : site.doorY + 1, x = isoX(nx, ny), y = isoY(nx, ny) - PixelBuildings.groundFloorHeight() - 50;   // (over the door, below the eaves)
       ctx.font = '600 12px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const w = ctx.measureText(site.def.name).width + 16;
       this.g.roundRect(x - w / 2, y - 10, w, 20, 8); ctx.fillStyle = 'rgba(20,28,40,.78)'; ctx.fill();

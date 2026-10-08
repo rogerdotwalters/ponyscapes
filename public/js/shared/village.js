@@ -2,7 +2,7 @@
 /* SHARED - the hand-built starting village that is stamped into the otherwise procedural world.
  * Everything is a pure function of tile coordinates, so any chunk can ask "what is at (tx, ty)?" independently. */
 const Village = (() => {
-  const AREA = { x0: 3, y0: 3, x1: 36, y1: 36 };
+  const AREA = { x0: -14, y0: -4, x1: 64, y1: 52 };
   const LAKE = { cx: 31, cy: 9, rx: 7.2, ry: 5 }, POND = { cx: 6.2, cy: 31.4, rx: 4.1, ry: 3.5 };
   const SHALLOW_RING = 1.28;                           // the shallows reach this much farther than the deep water
   const PLAZA = { x0: 17, y0: 17, x1: 23, y1: 23 };
@@ -20,20 +20,55 @@ const Village = (() => {
     return nx * nx + ny * ny < 1 + (hash2(tx, ty) - 0.5) * 0.35;
   };
 
+  /** The village's concrete (paving): the two main roads, the gate road, the two streets, the plaza and the keep's court. */
+  function pavedAt(tx, ty) {
+    if (within(PLAZA, tx, ty) || within(KEEP, tx, ty) || ((tx === 7 || tx === 8) && ty === 11)) return true;
+    const inX = tx >= AREA.x0 && tx <= AREA.x1, inY = ty >= AREA.y0 && ty <= AREA.y1;
+    if (inX && (ty === 20 || ty === 21)) return true;                                        // east-west road
+    if (inY && (tx === 20 || tx === 21)) return true;                                        // north-south road
+    if ((tx === 7 || tx === 8) && ty >= 11 && ty <= 19) return true;                         // keep gate road
+    if (ty === 28 && tx >= 10 && tx <= 19) return true;                                      // west street
+    if (ty === 29 && tx >= 21 && tx <= 60) return true;                                      // east street
+    return false;
+  }
+
+  /** The concrete path from every door to the nearest paving (or to another path): a shortest way round the buildings, water and the home's yard that
+   *  goes straight where it can. Worked out once, the first time the ground is asked for (the tiles are a pure function of the site list). */
+  let spurs = null;
+  function spurSet() {
+    if (spurs) return spurs;
+    spurs = new Set();
+    const key = (x, y) => y * 4096 + x + 2048, rects = [PADDOCK, { x0: HOME.x0 - 2, y0: HOME.y0 - 1, x1: HOME.x1 + 3, y1: HOME.y1 + 1 }];
+    const blocked = (x, y) => x < AREA.x0 || y < AREA.y0 || x > AREA.x1 || y > AREA.y1 || !!obj(x, y) || inEllipse(LAKE, x, y, SHALLOW_RING) || inEllipse(POND, x, y, SHALLOW_RING) || props.has(tileKey(x, y))
+      || (x === WORKSHOP.x && y === WORKSHOP.y) || rects.some(r => within(r, x, y));
+    for (const site of BuildingSites.list) {
+      const sx = site.frontX, sy = site.frontY;
+      if (pavedAt(sx, sy) || spurs.has(key(sx, sy))) continue;
+      const dist = new Map([[key(sx, sy) * 5 + 4, 0]]), open = [[0, sx, sy, 4]], prev = new Map();           // state: tile + the way we came in (4: none)
+      const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      let goal = null, guard = 0;
+      while (open.length && !goal && guard++ < 60000) {
+        let bi = 0; for (let i = 1; i < open.length; i++) if (open[i][0] < open[bi][0]) bi = i;
+        const [d, x, y, dir] = open.splice(bi, 1)[0], sk = key(x, y) * 5 + dir;
+        if (d > dist.get(sk)) continue;
+        if (pavedAt(x, y) || (spurs.has(key(x, y)))) { goal = sk; break; }
+        for (let k = 0; k < 4; k++) {
+          const nx = x + DIRS[k][0], ny = y + DIRS[k][1];
+          if (blocked(nx, ny)) continue;
+          const nd = d + 1 + (dir !== 4 && dir !== k ? 0.7 : 0), nk = key(nx, ny) * 5 + k;
+          if (nd < (dist.has(nk) ? dist.get(nk) : Infinity)) { dist.set(nk, nd); prev.set(nk, sk); open.push([nd, nx, ny, k]); }
+        }
+      }
+      for (let k = goal; k !== undefined; k = prev.get(k)) spurs.add(Math.floor(k / 5));
+    }
+    return spurs;
+  }
+  const spurAt = (tx, ty) => spurSet().has(ty * 4096 + tx + 2048);
+
   /** Ground type forced by the village, or -1 to leave it to the terrain generator. */
   function tile(tx, ty) {
     if (inEllipse(LAKE, tx, ty) || inEllipse(POND, tx, ty)) return TILE.WATER;
-    if (within(PLAZA, tx, ty) || within(KEEP, tx, ty) || ((tx === 7 || tx === 8) && ty === 11)) return TILE.STONE;
-    const inX = tx >= AREA.x0 && tx <= AREA.x1, inY = ty >= AREA.y0 && ty <= AREA.y1;
-    if (inX && (ty === 20 || ty === 21)) return TILE.DIRT;                                  // east-west road
-    if (inY && (tx === 20 || tx === 21)) return TILE.DIRT;                                  // north-south road
-    if ((tx === 7 || tx === 8) && ty >= 11 && ty <= 19) return TILE.DIRT;                   // keep gate road
-    if (ty === 28 && tx >= 10 && tx <= 19) return TILE.DIRT;                                // west street (carpenter)
-    if (ty === 29 && tx >= 21 && tx <= 31) return TILE.DIRT;                                // east street (general store, veterinary)
-    for (const s of BuildingSites.list) {                                                    // a path from every door down to its street (or a step outside)
-      const street = s.doorY >= 28 ? s.doorY + 1 : s.doorY < 20 ? 19 : s.doorX > 20 ? 28 : 27;      // (north of the main road: a step down to it)
-      if (tx === s.doorX && ty > s.doorY && ty <= street) return TILE.DIRT;
-    }
+    if (pavedAt(tx, ty) || spurAt(tx, ty)) return TILE.STONE;
     if (inEllipse(LAKE, tx, ty, SHALLOW_RING) || inEllipse(POND, tx, ty, SHALLOW_RING)) return TILE.SHALLOW;   // wading ring round the deep water
     return -1;
   }
@@ -62,7 +97,7 @@ const Village = (() => {
     if (tx >= HOME.x0 - 2 && tx <= HOME.x1 + 2 && ty >= HOME.y0 - 2 && ty <= HOME.y1 + 3) return true;   // keep the starter home's yard clear
     if (tx >= PADDOCK.x0 - 1 && tx <= PADDOCK.x1 + 1 && ty >= PADDOCK.y0 - 1 && ty <= PADDOCK.y1 + 1) return true;   // ...and the paddock
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (obj(tx + dx, ty + dy)) return true;
-    return false;
+    return spurAt(tx, ty);                                                                  // (the concrete paths stay clear)
   }
 
   // well + barrels: fixed list with small deterministic jitter
@@ -70,7 +105,7 @@ const Village = (() => {
   const rng = mulberry32(4242);
   props.set(tileKey(20, 20), { t: 'well', x: 20.5, y: 20.5, r: 0.5 / TILE_SCALE, v: 0 });
   [[17.5, 17.5], [22.5, 17.5], [17.5, 22.5], [22.5, 22.5], [5.5, 5.5], [10.5, 5.5], [10.5, 9.5], [5.5, 9.5],
-   [13.5, 24.5], [29.5, 23.5], [34.5, 25.5], [23.5, 24.5]].forEach(([x, y]) => {
+   [13.5, 24.5], [28.5, 22.5], [37.5, 22.5], [16.5, 26.5]].forEach(([x, y]) => {
     props.set(tileKey(Math.floor(x), Math.floor(y)), { t: 'barrel', x: x + (rng() - 0.5) * 0.2, y: y + (rng() - 0.5) * 0.2, r: 0.26 / TILE_SCALE, v: 0 });
   });
   props.set(tileKey(23, 26), { t: 'chest', x: 23.5, y: 26.5, r: 0.32 / TILE_SCALE, v: 0 });          // the beginner's loot chest, next to the spawn
