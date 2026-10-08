@@ -89,10 +89,17 @@ class PlayerSprite {
       ctx.strokeStyle = bcol; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(fx, fy - 5); ctx.lineTo(fx + (fx >= hx ? 1.5 : -1.5), fy); ctx.stroke();   // the boot
     };
     if (pose.dir === 'up' || pose.dir === 'down') { leg(sx - 3, sx - 12, sy + 7, cloth, boot); leg(sx + 3, sx + 12, sy + 7, cloth, boot); return; }
-    const f = pose.dir === 'right' ? 1 : -1;
-    leg(sx - f * 2, sx - f * 3, sy + 8, dark(cloth), dark(boot));                                                                           // the far leg
+    const f = pose.dir === 'right' ? 1 : -1;                                                                                                // (the far leg is drawn before the pony: farLeg)
     leg(sx + f * 1, sx + f * 4, sy + 9, cloth, boot);                                                                                       // the near leg, knee forward
     ctx.lineCap = 'butt';
+  }
+
+  /** The far leg of a rider seen in profile: drawn BEFORE the pony, so the pony's body hides it and only the lower leg shows beneath the belly. */
+  drawFarLeg(p, sx, sy) {
+    const ctx = this.g.ctx, L = this._look(p.appearance), f = SpriteRegistry.dirOf(p.facing) === 'right' ? 1 : -1, hipY = sy - SADDLE_HEIGHT - 5;
+    const cloth = L.princess ? '#26222c' : '#26242c', x = sx - f * 2;
+    ctx.lineCap = 'round'; ctx.strokeStyle = cloth; ctx.lineWidth = 5.5; ctx.beginPath(); ctx.moveTo(x, hipY); ctx.lineTo(x - f * 1, hipY + 14); ctx.stroke();
+    ctx.strokeStyle = '#3e2a18'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(x - f * 1, hipY + 13); ctx.lineTo(x - f * 1, hipY + 17); ctx.stroke(); ctx.lineCap = 'butt';
   }
 
   /** Worn items that have images: full-body overlays for the facing direction. */

@@ -162,6 +162,7 @@ class Renderer {
     for (const id in state.players) {
       const p = state.players[id], mount = p.mount && state.animals[p.mount];
       const behind = mount && SpriteRegistry.dirOf(mount.facing) === 'down';       // riding towards the camera: the rider sits behind the pony's head and chest, so the pony is drawn over them
+      if (mount && !behind && ['left', 'right'].includes(SpriteRegistry.dirOf(p.facing))) items.push({ kind: 'riderLeg', depth: mount.x + mount.y - 0.2 + (mount.lift || 0) * 4, p });   // the leg on the far side of the pony
       items.push({ kind: 'player', depth: behind ? mount.x + mount.y - 0.1 + (mount.lift || 0) * 4 : p.x + p.y + (p.lift || 0) * 4, id, p, behind: !!behind });
     }
     return items.sort((a, b2) => a.depth - b2.depth);        // painter's algorithm on x + y
@@ -222,6 +223,7 @@ class Renderer {
       if (n.say) this._drawBubble(g, sx, top - 44, n.say);                          // (above the floating +hearts / +xp text that rises from the head)
       return;
     }
+    if (item.kind === 'riderLeg') { const p = item.p; return this.playerSprite.drawFarLeg(p, isoX(p.x, p.y), isoY(p.x, p.y) - (p.lift || 0) * FLY_HEIGHT); }
     if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
     if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx, item.gy, item.plot);
     if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx, item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
