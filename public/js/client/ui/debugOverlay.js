@@ -19,10 +19,10 @@ class DebugOverlay {
       `face ${(p.facing * 180 / Math.PI).toFixed(0)}deg  state ${p.state}\n` +
       `input ${i.moveX.toFixed(2)}, ${i.moveY.toFixed(2)}  act ${+i.action}\n` +
       `tile ${Math.floor(p.x)}, ${Math.floor(p.y)}   chunks loaded ${g.map.chunks.size}\n` +
-      `art pack ${ArtPack.loaded ? 'on' : 'off'}  ${ArtPack.stats.packed} taken, ${ArtPack.stats.painted} painted\n` +
+      `art pack ${ArtPack.loaded ? 'on' : 'off'}  ${ArtPack.stats.packed} taken, ${ArtPack.stats.painted} painted, ${ArtPack.stats.atlasMB} MB\n` +
       `hunger ${p.hunger.toFixed(0)}  thirst ${p.thirst.toFixed(0)}  time ${DayCycle.format(g.hour())}\n` +
       `held ${g.heldItemId() || '-'}  logs ${g.inventory.count('log')}\n` +
       `pending ${g.pending.length}  ack ${g.lastAck}  err ${g.lastError.toFixed(4)}\n` +
-      `lag sim ${net.fakeLatencyMs}ms (+${net.fakeJitterMs} jitter)  bots ${net.bots}`;
+      `lag sim ${net.fakeLatencyMs}ms (+${net.fakeJitterMs} jitter)`;
   }
 }

@@ -76,8 +76,7 @@ const CONFIG = {
     interpDelayTicks: 4,
     snapDistance: 1.3,
     fakeLatencyMs: 0,
-    fakeJitterMs: 0,
-    bots: 2
+    fakeJitterMs: 0
   },
   input: { joyRadius: 60, deadzone: 0.15 }
 };

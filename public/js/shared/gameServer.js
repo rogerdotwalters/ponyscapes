@@ -30,7 +30,7 @@ class GameServer {
     this.map.onChunkGenerated = chunk => this._onChunkGenerated(chunk);
     this.tick = 0;
     this.rng = mulberry32(seed ^ 0x9e3779b9);
-    this.players = {}; this.inputQueues = {}; this.bots = {};
+    this.players = {}; this.inputQueues = {};
     this.inventories = {}; this.inventoryRev = {}; this.inventorySentRev = {}; this.packSent = {}; this.packCheck = {};
     this.builtRev = 1; this.builtSentRev = {}; this.floorsRev = 1; this.floorsSentRev = {};
     this.stockRev = 1; this.stockSentRev = {}; this.carryNoticeAt = {};
@@ -56,7 +56,7 @@ class GameServer {
       pet:  (srv, id, p, act) => srv.friendship.act(id, srv.animals.animals[act.animal.id], 'pet'),
       treat: (srv, id, p, act) => srv._treat(id, p, act)
     });
-    this.trade = new TradeSystem({ players: this.players, inventories: this.inventories, bots: this.bots, rng: this.rng,
+    this.trade = new TradeSystem({ players: this.players, inventories: this.inventories, rng: this.rng,
       emit: e => this.pendingEvents.push(e), markInventoryChanged: id => { this.inventoryRev[id]++; }, notice: (id, text) => this._notice(id, text) });
     this.everTamed = {};                                   // ownerId -> { animalType: true }: the Pony Book remembers every kind you have kept
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
@@ -183,21 +183,21 @@ class GameServer {
   }
 
   /* ---- membership ---- */
-  addPlayer(isBot) {
+  addPlayer() {
     const slot = this._freeSlot();
     if (slot >= CONFIG.sim.maxPlayers) return null;
     const id = 'p' + (slot + 1);
     this.players[id] = createPlayer(slot, Village.spawns[slot]);
     Object.assign(this.players[id], this.vitalSettings[id] || {});
-    if (!isBot && !this.hostId) this.hostId = id;
+    if (!this.hostId) this.hostId = id;
     this.map.ensureAround(this.players[id].x, this.players[id].y, SERVER_STREAM_RADIUS);
     this.inventories[id] = createStarterInventory();
     this.progress.ensure(id); this.progressSent[id] = { value: -1 }; this.treasureMaps[id] = []; this.treasureRev[id] = 1; this.treasureSent[id] = 0;
     this.players[id].lv = this.progress.levels(id); this.players[id].maxHp = Skills.maxHp(this.players[id].lv); this.players[id].hp = this.players[id].maxHp;
-    if (CONFIG.sim.testKit && !isBot) this._giveStarterPony(id);
+    if (CONFIG.sim.testKit) this._giveStarterPony(id);
     this.inventoryRev[id] = 1; this.inventorySentRev[id] = 0; this.builtSentRev[id] = 0; this.floorsSentRev[id] = 0; this.stockSentRev[id] = 0;
     this._updateCompanions();
-    if (isBot) this.bots[id] = createBotBrain(); else this.inputQueues[id] = [];
+    this.inputQueues[id] = [];
     return id;
   }
   removePlayer(id) {
@@ -208,24 +208,20 @@ class GameServer {
     delete this.playerKeys[id]; delete this.petsClaimed[id];
     const boat = this.boats[this.players[id] && this.players[id].boat];
     if (boat) boat.occupant = '';
-    [this.players, this.inputQueues, this.bots, this.inventories, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
+    [this.players, this.inputQueues, this.inventories, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
       .forEach(t => delete t[id]);
     delete this.ringsSentRev[id]; delete this.settingsSentRev[id];
     delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
   }
-  /** Who is a person (as opposed to a bot): their ids, in seat order. */
+  /** Everyone playing: their ids, in seat order. */
   humanIds() { return Object.keys(this.inputQueues).sort(); }
 
-  /** A person joins. A bot gives up its seat if the table is full. Returns the new player id, or null if four people already sit here.
+  /** A person joins. Returns the new player id, or null if four people already sit here.
    *  `character` is a saved character (SaveData) to restore; without one they get a fresh starter pack. */
   /** `key` is the person's player key (their identity across sessions): their ponies left in the world come back to them. */
   joinHuman(character, name = '', appearance = null, key = '') {
-    if (this._freeSlot() >= CONFIG.sim.maxPlayers) {
-      const bot = Object.keys(this.bots).sort()[0];
-      if (!bot) return null;
-      this.removePlayer(bot);
-    }
-    const id = this.addPlayer(false);
+    if (this._freeSlot() >= CONFIG.sim.maxPlayers) return null;
+    const id = this.addPlayer();
     if (!id) return null;
     this.players[id].name = name;
     if (key) { this.playerKeys[id] = key; this.petsClaimed[id] = this._claimPets(id, key); }
@@ -234,10 +230,9 @@ class GameServer {
     if (look) { this.players[id].appearance = look; this.fitWardrobe(id); }
     return id;
   }
-  /** A person leaves: their seat goes back to a bot (up to the configured number) so the village stays lively. */
+  /** A person leaves: their seat is free again. */
   leaveHuman(id) {
     this.removePlayer(id);
-    if (Object.keys(this.bots).length < CONFIG.net.bots && this._freeSlot() < CONFIG.sim.maxPlayers) this.addPlayer(true);
   }
 
   _freeSlot() {
@@ -406,7 +401,7 @@ class GameServer {
       }
       p.buffs = buffs; p.companions = companions; p.abilities = abilities;
       p.carryStacks = Carry.stacksFor(p);
-      if (this.inventories[id]) this.inventories[id].carryStacks = this.bots[id] ? null : p.carryStacks;      // (a bot's trading stock is not limited)
+      if (this.inventories[id]) this.inventories[id].carryStacks = p.carryStacks;
       const maxHp = Skills.maxHp(p.lv) + buffs.health;
       if (maxHp !== p.maxHp) { if (maxHp > p.maxHp) p.hp += maxHp - p.maxHp; p.maxHp = maxHp; p.hp = Math.min(p.hp, p.maxHp); }
     }
@@ -537,7 +532,7 @@ class GameServer {
     const p = this.players[id]; p.emote = emote; p.emoteT = CONFIG.sim.emoteSeconds;
   }
 
-  /** Per-tick upkeep for everyone: timers, slow health regeneration, torches burning down, bots waving at people. */
+  /** Per-tick upkeep for everyone: timers, slow health regeneration, torches burning down. */
   _tickPlayer(id, p) {
     const S = CONFIG.sim;
     p.hurtT = Math.max(0, p.hurtT - TICK_DT); p.emoteT = Math.max(0, p.emoteT - TICK_DT);
@@ -545,16 +540,12 @@ class GameServer {
     this.dungeons.tickHints(id, p);
     if (p.emoteT === 0) p.emote = '';
     if (p.hp > 0 && p.hp < p.maxHp && p.hunger > 0 && p.thirst > 0) p.hp = Math.min(p.maxHp, p.hp + S.health.regenPerSecond * TICK_DT);
-    if (p.held === 'torch' && LightSources.isDark(this.tick) && !this.bots[id]) {
+    if (p.held === 'torch' && LightSources.isDark(this.tick)) {
       p.torchT += TICK_DT;
       if (p.torchT >= S.light.torchSeconds) {
         p.torchT = 0; this.inventories[id].remove('torch', 1); this.inventoryRev[id]++;
         this._notice(id, 'Your torch burned out');
       }
-    }
-    if (this.bots[id] && p.emoteT === 0 && this.rng() < 0.002) {
-      const human = this._humans().find(h => sameGrid(h, p) && Math.hypot(h.x - p.x, h.y - p.y) < 5);
-      if (human) this._handleEmote(id, 'wave');
     }
   }
 
@@ -565,27 +556,18 @@ class GameServer {
     this.tick++;
     this._farmDays();                                                                 // a new day: crops grow (farming.js)
     if (this.later.length) { const due = this.later.filter(l => l.at <= this.tick); if (due.length) { this.later = this.later.filter(l => l.at > this.tick); due.forEach(l => l.fn()); } }
-    let focus = null;
     for (const id in this.inputQueues) {
       const queue = this.inputQueues[id];
       // Each input is applied exactly once with a fixed dt, so client prediction matches bit-for-bit.
       this.eventGrid = gridOf(this.players[id]);                                       // (what they do is shown on their grid)
       for (let n = 0; n < CONFIG.sim.maxInputsPerTick && queue.length; n++) this._applyInput(id, queue.shift());
-      if (!focus) focus = this.players[id];
-    }
-    for (const id in this.bots) {
-      const bot = this.players[id]; this.eventGrid = gridOf(bot);
-      this._applyInput(id, sanitizeInput(botInput(this.bots[id], bot, this.mapOf(bot), this.rng, TICK_DT, focus && sameGrid(focus, bot) ? focus : null)));
     }
     this.eventGrid = '';
     for (const id in this.boats) {                                                   // drifting boats glide to a stop, then sleep
       const boat = this.boats[id];
       if (!boat.occupant && (boat.vx !== 0 || boat.vy !== 0)) stepBoat(boat, NO_INPUT, TICK_DT, this.map);
     }
-    for (const id in this.players) {                                                   // hunger / thirst drain for everyone (bots never starve)
-      const p = this.players[id];
-      if (this.bots[id]) { p.hunger = CONFIG.sim.hunger.max; p.thirst = CONFIG.sim.thirst.max; } else this.vitals.drain(p, TICK_DT);
-    }
+    for (const id in this.players) this.vitals.drain(this.players[id], TICK_DT);      // hunger / thirst drain for everyone
     this.lightCache = LightSources.collect(this.map, Object.values(this.players), this.animals.animals, LightSources.isDark(this.tick));
     if (this.tick % 10 === 0) this._updateCompanions();
     this._carryNotices();

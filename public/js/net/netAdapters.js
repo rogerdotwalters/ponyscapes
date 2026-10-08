@@ -32,7 +32,6 @@ class LocalAdapter extends NetAdapter {
     this.id = this.server.addPlayer(false);
     if (this.options.name) this.server.players[this.id].name = this.options.name;
     const look = CharacterLook.sanitize(this.options.appearance); if (look) { this.server.players[this.id].appearance = look; this.server.fitWardrobe(this.id); }
-    for (let i = 0; i < CONFIG.net.bots; i++) this.server.addPlayer(true);
     this.lastTime = performance.now();
     this.timer = setInterval(() => this._pump(), 8);          // the "server" runs on its own clock
     return Promise.resolve(JSON.parse(JSON.stringify(SnapshotBuilder.welcomeFor(this.server, this.id))));

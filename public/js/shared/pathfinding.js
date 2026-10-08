@@ -98,7 +98,7 @@ function smoothPath(map, nodes) {
   return out;
 }
 
-/* ---- path following (click-to-move AND bots) ---- */
+/* ---- path following (click-to-move) ---- */
 const makeNav = pts => ({ pts, i: 0, best: Infinity, stuck: 0 });
 const WAYPOINT_REACHED = 0.3 / TILE_SCALE, DESTINATION_REACHED = 0.12 / TILE_SCALE, STUCK_SECONDS = 1.2;
 

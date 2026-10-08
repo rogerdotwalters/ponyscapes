@@ -26,7 +26,7 @@ class InteriorSystem {
   /** The grid of the room this player goes into at a site: the shared one, or (a player building) their own copy. */
   gridFor(id, site) {
     if (site.def.instance !== 'player') return Grids.room(site.index);
-    const key = this.server.playerKeys[id] || 'seat:' + id;                     // (a bot or a keyless test player: by seat)
+    const key = this.server.playerKeys[id] || 'seat:' + id;                     // (a keyless test player: by seat)
     if (this.homes[key] === undefined) this.homes[key] = this.nextHome++;
     return Grids.room(site.index, this.homes[key]);
   }
