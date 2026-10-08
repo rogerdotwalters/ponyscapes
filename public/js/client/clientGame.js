@@ -406,7 +406,7 @@ class ClientGame {
     if (!this.grid) return { x: this.local.x, y: this.local.y };
     const site = Grids.siteOf(this.grid), g = Grids.parse(this.grid);
     if (site) return BuildingSites.doorFront(site);
-    const cave = g && g.kind === 'cave' ? this.worldMap.layers.dungeons.site(g.ring) : null;
+    const cave = g && g.kind === 'cave' ? this.worldMap.layers.dungeons.site(g.ring) : g && g.kind === 'dungeon' ? this.worldMap.terrain.caveSites.caves().find(c => c.index === g.dungeon) : null;
     return cave ? { x: cave.x, y: cave.y } : { x: this.local.x, y: this.local.y };
   }
 

@@ -34,7 +34,7 @@ class WeatherFx {
   onLightning(e) {
     const me = this.game.local; if (!me) return;
     const dist = Math.hypot(e.wx - me.x, e.wy - me.y), amp = clamp(1.15 - dist / 70, 0.3, 1);
-    const kind = this.game.map.kind, shield = kind === 'cave' ? 0 : kind === 'room' ? 0.35 : 1;      // a cave sees nothing; a room, a flicker at the window
+    const kind = this.game.map.kind, shield = kind === 'cave' || kind === 'dungeon' ? 0 : kind === 'room' ? 0.35 : 1;      // a cave sees nothing; a room, a flicker at the window
     if (shield > 0) {
       this.pulses.push({ t0: this.t, amp: amp * shield, k: 9 });
       if (e.double) this.pulses.push({ t0: this.t + 0.14, amp: amp * shield * 0.7, k: 7 });
@@ -69,7 +69,7 @@ class WeatherFx {
   draw(ctx, w, h, dt, dpr = 1, camera = null) {
     this.update(dt);
     const c = this.cur, kind = this.game.map.kind;
-    if (kind === 'cave') return;
+    if (kind === 'cave' || kind === 'dungeon') return;
     const outdoors = kind === 'world';
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (outdoors) {

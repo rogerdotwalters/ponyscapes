@@ -35,6 +35,7 @@ class TerrainGenerator {
     this.rockNoise = new PerlinNoise(this.seed + 707);
     this.clayNoise = new PerlinNoise(this.seed + 808);
     this.layers = new WorldLayers(this, this.seed);                         // rings, biomes, (zones), dungeons: each its own class
+    this.caveSites = new CaveSites(this, this.layers.rings);                // hand-made cliffs and cave mouths, stamped on top of the land (layers/caveSites.js)
   }
 
   /** Natural terrain height in roughly [-1, 1]; below seaLevel is water. */
@@ -51,8 +52,14 @@ class TerrainGenerator {
   moisture(tx, ty) { return this.moistureNoise.fractal(tx / 220, ty / 220, 3); }
   forestiness(tx, ty) { return this.forestNoise.fractal(tx / 80, ty / 80, 2); }
 
-  /** Final ground type of a tile. */
+  /** Final ground type of a tile: the land, with the cliff / cave stamps laid over it. */
   tile(tx, ty) {
+    const stamped = this.caveSites.tileAt(tx, ty);
+    return stamped >= 0 ? stamped : this.baseTile(tx, ty);
+  }
+
+  /** The generated land before any stamp is laid over it. */
+  baseTile(tx, ty) {
     const forced = Village.tile(tx, ty);
     if (forced >= 0) return forced;
     const T = TERRAIN, e = this.elevation(tx, ty);

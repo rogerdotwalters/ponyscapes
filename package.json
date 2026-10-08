@@ -10,7 +10,10 @@
     "deploy": "npm run deploy:relay && npm run deploy:pages",
     "bundle": "python3 tools/bundle.py",
     "art": "node tools/export-art.js",
-    "art:check": "node tools/export-art.js --check"
+    "art:check": "node tools/export-art.js --check",
+    "rooms": "node tools/cave-rooms.js build",
+    "rooms:samples": "node tools/cave-rooms.js samples",
+    "test:dungeon": "node tools/test-dungeon.js"
   },
   "devDependencies": { "wrangler": "^4.0.0" }
 }
