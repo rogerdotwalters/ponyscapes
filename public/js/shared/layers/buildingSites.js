@@ -5,7 +5,9 @@
 const BuildingSites = (() => {
   /** The village street: [building id, west x, north y]. The door is on the south face (see the building's `door`). */
   const PLACED = [['carpenter', 8, 23], ['general_store', 24, 23], ['veterinary', 30, 23], ['player_home', 14, 30],
-    ['storehouse', 28, 31], ['vacant_home', 23, 16], ['vacant_home', 28, 16], ['vacant_home', 33, 16]];   // (add new sites at the END: a room's grid is named by its index)
+    ['storehouse', 28, 31], ['vacant_home', 23, 16], ['vacant_home', 28, 16], ['vacant_home', 33, 16],
+    ['home_baker', 10, 16], ['home_child', 14, 16], ['home_elder', 12, 12], ['home_guard', 4, 12], ['home_carpenter', 13, 25], ['home_merchant', 17, 25],
+    ['home_veterinarian', 34, 23], ['home_farmer', 34, 31], ['home_fisher', 1, 23], ['home_blacksmith', 1, 16]];   // (add new sites at the END: a room's grid is named by its index)
   const list = PLACED.filter(([id]) => BuildingDefs.has(id)).map(([id, x0, y0], index) => {
     const def = BuildingDefs.get(id), [w, h] = def.size;
     return Object.freeze({ index, id, def, x0, y0, w, h, x1: x0 + w - 1, y1: y0 + h - 1, doorX: x0 + clamp(def.door, 0, w - 1), doorY: y0 + h - 1 });

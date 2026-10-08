@@ -48,7 +48,7 @@ class GameServer {
     this.lightCache = [];                                  // campfires + held torches, rebuilt every tick
     this.animals = new AnimalSystem({ map: this.map, mapOf: a => this.mapOf(a), rng: this.rng, getTick: () => this.tick, emit: e => this._emitFrom(this.animals.active, e),
       damagePlayer: (id, amount) => this._damagePlayer(id, amount), getLights: () => this.lightCache, onKilled: (a, def) => this.dungeons.onKilled(a, def) });
-    this.npcs = new NpcSystem({ map: this.map, rng: this.rng });                                    // the villagers (placed once the server is fully built, below)
+    this.npcs = new NpcSystem({ map: this.map, rng: this.rng, server: this });                                    // the villagers (placed once the server is fully built, below)
     this.friendship = new FriendshipSystem(this);                                                   // the heart meter, for people and animals alike
     Object.assign(InteractionHandlers, {
       talk: (srv, id, p, act) => srv.friendship.act(id, srv.npcs.npcs[act.npc.id], 'talk'),
@@ -286,9 +286,10 @@ class GameServer {
       case 'stockTake': this._handleStockTake(id, inventory, cmd); break;
       case 'upgrade': this._handleUpgrade(id, inventory, cmd); break;
       case 'drop': case 'destroy': {
-        const from = cmd.pack ? this._packPonyOf(id) : null;
-        if (cmd.pack && !from) break;
-        if (cmd.type === 'drop') this._handleDrop(id, from ? from.pack : inventory, cmd); else this._handleDestroy(id, from ? from.pack : inventory, cmd);
+        const from = cmd.pack ? this._packPonyOf(id) : null, chest = cmd.chest ? this._chestOf(id) : null;
+        if ((cmd.pack && !from) || (cmd.chest && !chest)) break;
+        const source = chest || (from ? from.pack : inventory);
+        if (cmd.type === 'drop') this._handleDrop(id, source, cmd); else this._handleDestroy(id, source, cmd);
         break;
       }
     }
@@ -585,7 +586,7 @@ class GameServer {
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
     this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick);
-    this.npcs.update(this.tick, this._humans().filter(h => !gridOf(h))); this.friendship.update(this.tick); this.wants.update(this.tick);
+    this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick);
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)
     this._streamWorld();
   }
@@ -642,7 +643,7 @@ class GameServer {
       if (spot) BoatSystem.leave(p, boat, spot); else this._notice(id, 'No shore nearby');
       return;
     }
-    const action = Interactions.find(map, outside ? this.boats : {}, p, p.held, this.animals.animals, id, outside ? this.npcs.npcs : {}, this.drops);   // (boats and villagers are in the overworld)
+    const action = Interactions.find(map, outside ? this.boats : {}, p, p.held, this.animals.animals, id, this.npcs.visible(), this.drops);   // (boats are in the overworld; a villager is on their own grid: a shopkeeper in the shop's room)
     if (!action) return;
     if (action.kind === 'dismount') this._dismount(id, p);
     else if (action.kind === 'pick') this._pickUp(id, action.forage);

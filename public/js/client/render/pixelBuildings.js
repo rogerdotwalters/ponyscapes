@@ -263,32 +263,10 @@ const PixelBuildings = (() => {
       const sx = spots[i++ % spots.length];
       if (sx === undefined) continue;
       const [x, y] = at(sx, S.h + 0.18, 0);
-      if (prop === 'firewood') {                                                  // a stack of split logs, ends out
-        for (let r = 0; r < 3; r++) for (let c = 0; c < 4 - r; c++) {
-          const lx = x - 9 + c * 5 + r * 2.5, ly = y - 4 - r * 4;
-          rect(lx, ly, 5, 4, '#6b4a2a'); rect(lx + 1, ly + 1, 3, 2, '#c99a62'); px(lx + 2, ly + 1, '#8a5a32');
-        }
-      } else if (prop === 'barrels') {
-        for (const [dx, dy] of [[-8, 0], [1, 1]]) {
-          rect(x + dx, y + dy - 13, 8, 13, '#7a5232'); rect(x + dx + 1, y + dy - 13, 2, 13, '#946840');
-          rect(x + dx, y + dy - 11, 8, 1, '#3a3430'); rect(x + dx, y + dy - 4, 8, 1, '#3a3430'); rect(x + dx + 1, y + dy - 14, 6, 1, '#5a3a22');
-        }
-      } else if (prop === 'crates') {
-        for (const [dx, dy, s] of [[-9, 0, 10], [1, 0, 9], [-5, -9, 8]]) {
-          rect(x + dx, y + dy - s, s, s, '#a07a4a'); rect(x + dx, y + dy - s, s, 1, '#c9a26b');
-          g.strokeStyle = '#5a3f2a'; g.lineWidth = 1; g.strokeRect(Math.round(x + dx) + 0.5, Math.round(y + dy - s) + 0.5, s - 1, s - 1);
-          px(x + dx + 2, y + dy - s + 2, '#5a3f2a'); px(x + dx + s - 3, y + dy - 3, '#5a3f2a');
-        }
-      } else if (prop === 'flowers') {                                            // a planter of flowers
-        rect(x - 8, y - 5, 16, 5, '#7a5232'); rect(x - 8, y - 5, 16, 1, '#946840');
-        for (let f = 0; f < 6; f++) { const fx = x - 7 + f * 2.6, fy = y - 8 - (f % 2) * 2; rect(fx, fy + 1, 1, 3, '#3f7a3a'); px(fx, fy, ['#e05a5a', '#f2c94c', '#e88ac0', '#f4f0e6'][f % 4]); }
-      } else if (prop === 'hay') {
-        rect(x - 9, y - 9, 16, 9, '#d9b45a'); rect(x - 9, y - 9, 16, 2, '#efd27a');
-        for (let s = 0; s < 6; s++) px(x - 8 + s * 3, y - 5 + (s % 2), '#b08a3a');
-        rect(x - 9, y - 6, 16, 1, '#8a6a2a');
-      }
+      if (PIXEL_PROPS[prop]) PixelDecor.stampProp(g, PIXEL_PROPS[prop], x + (prop === 'flowers' ? 0 : prop === 'hay' ? -1 : 0), y + 1);   // (pixel art with form: pixelDecor.js)
     }
   }
+  const PIXEL_PROPS = { firewood: 'firewood', barrels: 'barrels', crates: 'crates', flowers: 'flowers', hay: 'hay' };
 
   /** A colour ('#rrggbb', 'rgb()' or 'rgba()') as [r, g, b, alpha 0-255] (remembered). */
   const rgbaSeen = new LruCache(8000);

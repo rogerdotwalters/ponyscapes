@@ -73,29 +73,36 @@ window.PONYSCAPES_INTERIORS = {
   "player_home": {
     "name": "Your Home",
     "tiles": [
-      "WWVWWWVWWWVWWW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WwwwwwwwwwwwwW",
-      "WWWWmWWWWWWWWW"
+      "WWVWWWVWW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WWWWmWWWW"
     ],
     "furniture": [
-      { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "dresser", "x": 2, "y": 1, "rot": 0 }, { "id": "fireplace", "x": 3, "y": 1, "rot": 0 },
-      { "id": "bookshelf", "x": 5, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 6, "y": 1, "rot": 0 }, { "id": "medicine_cabinet", "x": 8, "y": 1, "rot": 0 },
-      { "id": "lumber_rack", "x": 9, "y": 1, "rot": 0 }, { "id": "loom", "x": 11, "y": 1, "rot": 0 },
-      { "id": "lamp", "x": 1, "y": 4, "rot": 0 }, { "id": "rug", "x": 3, "y": 3, "rot": 0 }, { "id": "table", "x": 7, "y": 3, "rot": 0 }, { "id": "chair", "x": 7, "y": 4, "rot": 0 },
-      { "id": "workbench", "x": 10, "y": 3, "rot": 0 }, { "id": "dye_press", "x": 12, "y": 5, "rot": 0 },
-      { "id": "exam_table", "x": 1, "y": 6, "rot": 0 }, { "id": "counter", "x": 8, "y": 6, "rot": 0 },
-      { "id": "crate", "x": 1, "y": 8, "rot": 0 }, { "id": "hay_bale", "x": 2, "y": 8, "rot": 0 }, { "id": "wool_bin", "x": 9, "y": 8, "rot": 0 },
-      { "id": "potted_plant", "x": 12, "y": 9, "rot": 0 }
+      { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "worn_chest", "x": 2, "y": 1, "rot": 0 }, { "id": "wardrobe", "x": 5, "y": 1, "rot": 0 },
+      { "id": "torn_rug", "x": 3, "y": 4, "rot": 0 }
     ],
-    "exit": [4, 10]
+    "exit": [4, 7]
+  },
+  "cottage": {
+    "name": "Cottage",
+    "tiles": [
+      "WWVWWWW",
+      "WwwwwwW",
+      "WwwwwwW",
+      "WwwwwwW",
+      "WwwwwwW",
+      "WWWmWWW"
+    ],
+    "furniture": [
+      { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "worn_chest", "x": 2, "y": 1, "rot": 0 }, { "id": "table", "x": 4, "y": 2, "rot": 0 },
+      { "id": "chair", "x": 3, "y": 3, "rot": 0 }, { "id": "torn_rug", "x": 2, "y": 3, "rot": 0 }, { "id": "lamp", "x": 5, "y": 1, "rot": 0 }
+    ],
+    "exit": [3, 5]
   },
   "storehouse": {
     "name": "Storehouse",

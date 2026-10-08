@@ -259,14 +259,7 @@ const StructureSprites = (() => {
   /** A stockpile: a wooden pallet heaped with its resource, fuller the more it holds, with a level sign once upgraded. */
   function drawStockpile(g, type, tx, ty, fill, level) {
     const ctx = g.ctx, [cx, cy] = tileCentre(tx, ty), resource = StructureDefs[type].stockpile;
-    drawWorldBox(g, [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.9], 5, '#9a6b3d', '#7a5230', '#5a3a20');           // pallet
-    const n = Math.round(clamp(fill, 0, 1) * 10), spots = [[-14, -9], [0, -10], [14, -9], [-7, -15], [7, -15], [-14, -18], [0, -19], [14, -18], [-7, -24], [7, -24]];
-    for (let i = 0; i < n; i++) {
-      const [dx, dy] = spots[i], x = cx + dx, y = cy + dy;
-      if (resource === 'wood') { g.ellipse(x, y, 8, 4.4, '#8a5f32'); g.ellipse(x + 6, y, 3, 4.2, '#d9b27a'); g.ellipse(x + 6, y, 1.4, 2, '#b98a52'); }
-      else if (resource === 'stone') { g.ellipse(x, y, 7, 5, '#8d8d93'); g.ellipse(x - 2, y - 2, 3.2, 2, '#b4b4ba'); }
-      else { g.ellipse(x, y, 7, 4.8, '#b8643c'); g.ellipse(x - 2, y - 1.6, 3, 1.8, '#d98a5c'); }
-    }
+    PixelDecor.drawStockpile(ctx, resource, cx, cy, fill);                                                 // (pixel art: pixelDecor.js)
     if (level > 1) {                                                                                           // a little sign with its level
       ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + 22, cy - 2); ctx.lineTo(cx + 22, cy - 26); ctx.stroke();
       g.roundRect(cx + 13, cy - 38, 18, 13, 3); ctx.fillStyle = '#e8d3a3'; ctx.fill();

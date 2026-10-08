@@ -82,21 +82,7 @@ const PropSprites = {
   },
 
   /** The beginner's loot chest. Open (and empty) once you have looted it. */
-  drawChest(g, sx, sy, opened) {
-    const ctx = g.ctx;
-    g.ellipse(sx + 2, sy + 2, 22, 9, 'rgba(0,0,0,.25)');
-    g.polygon([sx - 15, sy - 3, sx, sy + 4, sx, sy - 12, sx - 15, sy - 19], '#8a5a33');                       // front-left face
-    g.polygon([sx, sy + 4, sx + 15, sy - 3, sx + 15, sy - 19, sx, sy - 12], '#6f4626');                      // front-right face
-    ctx.strokeStyle = '#d9b45a'; ctx.lineWidth = 2; ctx.beginPath();
-    ctx.moveTo(sx - 7, sy + 0.5); ctx.lineTo(sx - 7, sy - 15.5); ctx.moveTo(sx + 7, sy + 0.5); ctx.lineTo(sx + 7, sy - 15.5); ctx.stroke();
-    if (opened) {
-      g.polygon([sx - 15, sy - 19, sx, sy - 12, sx + 15, sy - 19, sx, sy - 26], '#2b1c10');                  // dark inside
-      g.polygon([sx - 15, sy - 19, sx, sy - 26, sx, sy - 44, sx - 15, sy - 37], '#a97a45');                  // lid standing open
-    } else {
-      g.polygon([sx - 15, sy - 19, sx, sy - 12, sx + 15, sy - 19, sx, sy - 26], '#a97a45');                  // closed lid
-      g.ellipse(sx, sy - 12.5, 2.6, 2.6, '#d9b45a');                                                          // lock
-    }
-  },
+  drawChest(g, sx, sy, opened) { PixelDecor.drawChest(g.ctx, sx, sy, opened); },
 
   /** A few loose rocks lying in the grass. */
   drawStone(g, sx, sy, variant) {
@@ -148,28 +134,7 @@ const PropSprites = {
     }
   },
 
-  drawBarrel(g, sx, sy) {
-    const ctx = g.ctx;
-    g.ellipse(sx + 3, sy + 2, 11, 5, 'rgba(0,0,0,.25)');
-    ctx.save(); ctx.translate(sx, sy);
-    g.ellipse(0, 0, 9, 4.5, '#6f4626'); ctx.fillStyle = '#8a5a33'; ctx.fillRect(-9, -18, 18, 18);
-    g.ellipse(0, 0, 9, 4.5, '#8a5a33'); g.ellipse(0, -18, 9, 4.5, '#a8733f');
-    ctx.strokeStyle = '#3b2a1c'; ctx.lineWidth = 1.5; ctx.beginPath();
-    ctx.ellipse(0, -6, 9, 4.5, 0, 0, Math.PI); ctx.moveTo(9, -13); ctx.ellipse(0, -13, 9, 4.5, 0, 0, Math.PI); ctx.stroke();
-    ctx.restore();
-  },
+  drawBarrel(g, sx, sy) { PixelDecor.drawProp(g.ctx, 'barrel', sx, sy); },
 
-  drawWell(g, sx, sy) {
-    const ctx = g.ctx;
-    ctx.save(); ctx.translate(sx, sy);
-    g.ellipse(4, 3, 26, 12, 'rgba(0,0,0,.25)');
-    g.ellipse(0, 0, 20, 10, '#8d887c'); ctx.fillStyle = '#9a958a'; ctx.fillRect(-20, -16, 40, 16);
-    g.ellipse(0, 0, 20, 10, '#9a958a'); g.ellipse(0, -16, 20, 10, '#b8b3a6'); g.ellipse(0, -16, 14, 7, '#2b5f86');
-    ctx.strokeStyle = '#5b3f2a'; ctx.lineWidth = 4; ctx.beginPath();
-    ctx.moveTo(-17, -14); ctx.lineTo(-17, -52); ctx.moveTo(17, -14); ctx.lineTo(17, -52); ctx.stroke();
-    g.polygon([-27, -50, 0, -70, 27, -50], '#8b3f35'); g.polygon([-27, -50, 27, -50, 22, -45, -22, -45], '#5e2a24');
-    ctx.strokeStyle = '#d8c9a0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, -46); ctx.lineTo(0, -28); ctx.stroke();
-    ctx.fillStyle = '#7a5230'; ctx.fillRect(-4, -28, 8, 6);
-    ctx.restore();
-  }
+  drawWell(g, sx, sy) { PixelDecor.drawWell(g.ctx, sx, sy); }
 };
