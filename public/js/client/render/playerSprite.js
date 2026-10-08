@@ -16,7 +16,7 @@ const LASSO_LOOKS = {
 };
 const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
 const BEHIND_LIFT = 20;                          // riding towards the camera the rider sits further back, so higher up the screen, and peeks over the pony's head
-const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
+const SADDLE_HEIGHT = 21;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
   constructor(g) { this.g = g; this.walkPhase = {}; this.looks = new LruCache(100); }
