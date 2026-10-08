@@ -65,6 +65,8 @@ const CONFIG = {
   view: {
     tileW: 64 * TILE_SCALE, tileH: 32 * TILE_SCALE,
     maxDpr: 2,
+    maxDprTouch: 1.5,                                  // phones: fewer pixels to fill (a 2x screen draws 1.5x), the biggest single saving
+    maxLightsTouch: 6,                                 // night lighting on phones: only the nearest few lights get a cut-out
     zoomRef: { w: 900, h: 480 }, zoomMin: 0.7, zoomMax: 1.6,
     camSmooth: 7,
     wallH: 68, towerH: 120, houseH: 66, woodWallH: 62

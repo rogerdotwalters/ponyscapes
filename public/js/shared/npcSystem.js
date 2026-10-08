@@ -1,7 +1,7 @@
 'use strict';
 /* SHARED (server) - the villagers: they live near their homes, wander a little, turn to face you when you come close, and speak when you talk to them.
  * They are not solid (they never block a door) and they do not fight. */
-const NPC_ACTIVE_RADIUS = 48, NPC_NOTICE = 2.6, NPC_SPEED = 0.7;
+const NPC_ACTIVE_RADIUS = 36, NPC_NOTICE = 2.6, NPC_SPEED = 0.7;
 
 class NpcSystem {
   constructor({ map, rng }) { Object.assign(this, { map, rng }); this.npcs = {}; }

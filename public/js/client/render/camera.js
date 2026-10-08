@@ -6,7 +6,8 @@ class Camera {
   resize(cssW, cssH, devicePixelRatio) {
     const V = CONFIG.view;
     this.cssW = cssW; this.cssH = cssH;
-    this.dpr = Math.min(devicePixelRatio || 1, V.maxDpr);
+    const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    this.dpr = Math.min(devicePixelRatio || 1, touch ? V.maxDprTouch : V.maxDpr);
     this.zoom = clamp(Math.min(cssW / V.zoomRef.w, cssH / V.zoomRef.h), V.zoomMin, V.zoomMax);
     this.scale = this.dpr * this.zoom;
     const pixelW = Math.round(cssW * this.dpr), pixelH = Math.round(cssH * this.dpr);

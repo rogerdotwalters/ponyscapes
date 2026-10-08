@@ -49,7 +49,7 @@ const Fauna = {
   bossOf(ring) { return Object.values(AnimalDefs).find(d => d.boss && d.bossRing === ring) || null; }
 };
 const FAUNA_CHANCE = 0.5;                       // chance that a chunk holds an animal group
-const ANIMAL_ACTIVE_RADIUS = 50;                // animals farther than this from every player are frozen
+const ANIMAL_ACTIVE_RADIUS = 36;                // animals farther than this from every player are frozen
 const ANIMAL_SYNC_RADIUS = 70;                  // ... and not sent to clients
 const ANIMAL_RESPAWN_SECONDS = 300;
 

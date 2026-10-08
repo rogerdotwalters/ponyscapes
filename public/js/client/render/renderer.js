@@ -109,7 +109,12 @@ class Renderer {
     const cam = this.camera, s = cam.scale, toScreen = (wx, wy, lift = 0) => [(isoX(wx, wy) - cam.x + cam.w / 2) * s, (isoY(wx, wy) - lift - cam.y + cam.h / 2) * s];
     const [px, py] = toScreen(me.x, me.y, 18);
     const dark = DayCycle.daylight(this.game.hour()) < CONFIG.sim.light.darkBelow;
-    const lights = LightSources.collect(this.game.map, Object.values(state.players), state.animals, dark).map(l => {
+    let found = LightSources.collect(this.game.map, Object.values(state.players), state.animals, dark);
+    if (found.length > CONFIG.view.maxLightsTouch && matchMedia('(pointer: coarse)').matches) {          // phones: each light is a full-screen gradient, so keep the nearest few
+      const near = l => Math.hypot(l.x - me.x, l.y - me.y);
+      found = found.sort((a, b) => near(a) - near(b)).slice(0, CONFIG.view.maxLightsTouch);
+    }
+    const lights = found.map(l => {
       const [x, y] = toScreen(l.x, l.y, l.kind === 'torch' ? 24 : l.kind === 'pony' ? 22 : 6);
       const flicker = 1 + Math.sin(performance.now() / 140 + l.x * 3) * 0.03;
       return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * flicker, kind: l.kind };
