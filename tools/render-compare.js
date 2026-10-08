@@ -13,7 +13,8 @@ const W = +arg('w', 1280), H = +arg('h', 720);
 const SCENES = require('./render-scenes.js');
 
 const SEEDED_RANDOM = () => {                       // the same "random" numbers in every page
-  let a = 12345; Math.random = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  let a = 12345; window.__reseed = v => { a = v; };    // (the renderers' particles draw random numbers too: scenes reseed before stepping the world)
+  Math.random = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 };
 
 /** Opens a scene. With `fake` the page runs on Playwright's fake clock (timers, rAF and performance.now are virtual), so both renderers see the same
@@ -23,9 +24,9 @@ async function open(browser, renderer, sc, fake) {
   const errors = []; page.on('pageerror', e => errors.push(String(e))); page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   await page.addInitScript(SEEDED_RANDOM);
   if (fake) await page.clock.install({ time: 0 });
-  await page.goto(`${base}/index.html?${sc.query}&renderer=${renderer}`);
+  await page.goto(`${base}/index.html?${sc.query}&renderer=${renderer}${sc.seethrough ? '' : '&seethrough=0'}`);
   for (let i = 0; i < 400 && !(await page.evaluate(() => !!(window.ponyscapes && window.ponyscapes.renderer))); i++) { if (fake) await page.clock.runFor(50); await page.waitForTimeout(50); }
-  if (fake) { await page.clock.runFor(1500); await page.waitForTimeout(100); }
+  if (fake) { await page.clock.runFor(1500); await page.waitForTimeout(100); }                  // (the local server's own timer stalls on the fake clock: scenes step it by hand, see render-scenes.js)
   if (sc.setup) await sc.setup(page, !!fake);
   return { page, errors };
 }
@@ -39,7 +40,8 @@ async function open(browser, renderer, sc, fake) {
     for (const renderer of ['canvas', 'pixi']) {
       const row = { scene: name, renderer };
       { const { page, errors } = await open(browser, renderer, sc, true);                    // the deterministic frame: the game's canvas, read back right after drawing
-        const png = await page.evaluate(() => { const { game, renderer } = window.ponyscapes; for (let i = 0; i < 40; i++) renderer.render(game.getRenderState(1), 16, 5000); return document.getElementById('game').toDataURL('image/png'); });   // (40 draws: bakes everything, settles the camera)
+        const png = await page.evaluate(() => { const { game, renderer } = window.ponyscapes; renderer.camera.initialised = false; for (let i = 0; i < 40; i++) renderer.render(game.getRenderState(1), 16, 5000); window.__cam = [renderer.camera.x, renderer.camera.y, renderer.camera.scale]; return document.getElementById('game').toDataURL('image/png'); });
+        row.camera = await page.evaluate(() => window.__cam);   // (40 draws: bakes everything, settles the camera)
         fs.writeFileSync(path.join(out, `${name}-${renderer}.png`), Buffer.from(png.split(',')[1], 'base64')); row.errors = errors; await page.close(); }
       if (bench) { const { page, errors } = await open(browser, renderer, sc, false);        // the timings
         await page.waitForTimeout(5000);

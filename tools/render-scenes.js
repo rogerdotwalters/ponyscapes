@@ -3,20 +3,31 @@
 const settle = async (page, fake, ms = 600) => { if (fake) await page.clock.runFor(ms); else await page.waitForTimeout(ms); await page.waitForTimeout(100); };
 const ev = (page, fn, arg) => page.evaluate(fn, arg);
 
+/** Run the local server by hand (its own timer stalls on the fake clock) and send the client the snapshots. */
+async function stepServer(page, fake, n) {
+  await ev(page, n => { window.__reseed(777); const a = ponyscapes.adapter; for (let i = 0; i < n; i++) { a.server.step(); if (a.server.tick % CONFIG.net.snapshotEvery === 0) a._sendSnapshot(); } }, n);
+  await settle(page, fake, 100);
+}
+
 /** Get on Misty (the starting pony) and face `angle` (radians; Math.PI/4 faces the camera). */
 async function ride(page, fake, angle) {
-  for (let i = 0; i < 10; i++) {
-    if (await ev(page, () => !!ponyscapes.game.local.mount)) break;
-    await ev(page, () => ponyscapes.game.requestInteract()); await settle(page, fake, 400);
-  }
-  await ev(page, a => {                                                   // everyone in the picture faces `a`, whatever the simulation says
+  await ev(page, () => { const s = ponyscapes.adapter.server, me = s.players[ponyscapes.game.myId], a = Object.values(s.animals.animals).find(x => x.owner === me.id); me.x = a.x + 0.4; me.y = a.y + 0.4; });   // (stand next to Misty)
+  await stepServer(page, fake, 30);
+  for (let i = 0; i < 20 && !(await ev(page, () => !!ponyscapes.game.local.mount)); i++) { await ev(page, () => ponyscapes.game.requestInteract()); await settle(page, fake, 200); await stepServer(page, fake, 10); }
+  if (!(await ev(page, () => !!ponyscapes.game.local.mount))) throw new Error('could not mount the pony');
+  await ev(page, a => {                                                   // only the rider and the pony are left, standing still facing `a`, whatever the simulation says (villagers wander differently from run to run)
     const g = ponyscapes.game, get = g.getRenderState.bind(g);
-    g.getRenderState = al => { const st = get(al); for (const id in st.players) st.players[id] = { ...st.players[id], facing: a, vx: 0, vy: 0 }; for (const id in st.animals) if (st.animals[id].rider) st.animals[id] = { ...st.animals[id], facing: a }; return st; };
+    g.getRenderState = al => { const st = get(al); st.npcs = {}; for (const id in st.animals) if (!st.animals[id].rider) delete st.animals[id]; for (const id in st.players) st.players[id] = { ...st.players[id], x: 19.5, y: 25.5, facing: a, vx: 0, vy: 0 }; for (const id in st.animals) if (st.animals[id].rider) st.animals[id] = { ...st.animals[id], x: 19.5, y: 25.5, facing: a, vx: 0, vy: 0 }; return st; };
   }, angle);
-  await settle(page, fake, 300);
+  await stepServer(page, fake, 20);
 }
 
 module.exports = {
+  /** Pixi only (the canvas backend has no see-through effect): the player stands behind the General Store, under its roof. */
+  seethrough: { query: 'solo=1&hour=12', seethrough: true, setup: async (page, fake) => {
+    await ev(page, () => { const s = ponyscapes.adapter.server, me = s.players[ponyscapes.game.myId], site = BuildingSites.list.find(x => x.id === 'general_store'); me.x = site.x0 + 1.5; me.y = site.y0 - 0.2; });
+    await stepServer(page, fake, 30);
+  } },
   village: { query: 'solo=1&hour=12' },
   night: { query: 'solo=1&hour=23' },
   home: { query: 'solo=1&hour=12&enter=player_home', setup: (page, fake) => settle(page, fake, 1500) },
@@ -26,6 +37,6 @@ module.exports = {
   ride_right: { query: 'solo=1&hour=12', setup: (page, fake) => ride(page, fake, -Math.PI / 4) },
   two_players: { query: 'solo=1&hour=12', setup: async (page, fake) => {          // a second player on the host's server (what a joined friend looks like)
     await ev(page, () => { const s = ponyscapes.adapter.server, me = s.players[ponyscapes.game.myId], id = s.joinHuman('prince', 'Friend'); const f = s.players[id]; if (f) { f.x = me.x + 2.5; f.y = me.y - 1.5; } });
-    await settle(page, fake, 1500);
+    await stepServer(page, fake, 30);
   } },
 };

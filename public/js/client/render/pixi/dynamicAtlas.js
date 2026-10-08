@@ -44,6 +44,7 @@ class SpritePool {
     if (!s) { s = new PIXI.Sprite(); this.container.addChild(s); this.list[this.used] = s; }
     this.used++;
     s.texture = texture; s.position.set(x, y); s.scale.set(w / texture.width, h / texture.height); s.visible = true;
+    if (s.filters) s.filters = null;
     return s;
   }
   end() { for (let i = this.used; i < this.list.length; i++) this.list[i].visible = false; }

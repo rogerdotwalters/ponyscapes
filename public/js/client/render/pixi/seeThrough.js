@@ -7,8 +7,8 @@ const SeeThrough = (() => {
     in vec2 vTextureCoord;
     out vec4 finalColor;
     uniform sampler2D uTexture;
-    uniform vec4 uInputSize;
-    uniform vec4 uOutputFrame;
+    uniform highp vec4 uInputSize;
+    uniform highp vec4 uOutputFrame;
     uniform vec2 uCenter;          // the player, in device pixels
     uniform vec2 uRadii;           // the ellipse's inner (fully cut) and outer (untouched) reach, horizontally
     uniform vec2 uShape;           // vertical stretch of the ellipse, minimum alpha

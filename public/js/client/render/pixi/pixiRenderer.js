@@ -22,6 +22,7 @@ class PixiRenderer extends Renderer {
     this.overlayCanvas = document.createElement('canvas'); this.overlayCtx = this.overlayCanvas.getContext('2d');   // 2D layer 2: over the items
     this.pixel = { w: 0, h: 0 };
     this.blocks = new Map();                                                         // terrain block key -> { sprite, entry, canvas, seen }
+    this.seeThroughOn = new URLSearchParams(location.search).get('seethrough') !== '0';                 // ?seethrough=0 turns the effect off (for pixel comparisons with the canvas backend)
     this.frameNo = 0; this._ready = false; this.recorder = new CanvasRecorder.Recorder(); this.broken = new Set();
     this.blockSink = (entry, key, w, h) => this._block(entry, key, w, h);
     this.grassSink = (art, x, y, w, h) => this._grass(art, x, y, w, h);
@@ -36,7 +37,7 @@ class PixiRenderer extends Renderer {
       this.groundSprite = new PIXI.Sprite(); this.overlaySprite = new PIXI.Sprite();
       this.app.stage.addChild(this.worldA, this.groundSprite, this.worldB, this.overlaySprite);
       this.atlas = new DynamicAtlas(1024); this.grassPool = new SpritePool(this.grass); this.itemPool = new SpritePool(this.items);
-      this.stamps = new StampCache();
+      this.stamps = new StampCache(); this.seeThrough = SeeThrough.create();
       this._ready = true; this._fit();
     });
   }
@@ -117,7 +118,14 @@ class PixiRenderer extends Renderer {
 
   _drawWorld(items, now) {
     if (!this._ready) return;
-    const s = this.camera.scale, rec = this.recorder, real = this.ctx;
+    const s = this.camera.scale, rec = this.recorder, real = this.ctx, cam = this.camera, me = this.players && this.players[this.game.myId];
+    const ox = Math.round((cam.w / 2 - cam.x) * s), oy = Math.round((cam.h / 2 - cam.y) * s);                      // (the world's offset on screen, as in _endFrame)
+    let hole = null;                                                                                  // the see-through effect: the player's place on screen
+    if (this.seeThroughOn && me && !me.boat) {
+      const lift = (me.lift || 0) * FLY_HEIGHT, reach = 78 * s;
+      hole = { depth: me.x + me.y + (me.lift || 0) * 4, x: ox + isoX(me.x, me.y) * s, y: oy + (isoY(me.x, me.y) - 20 - lift) * s, inner: 34 * s, outer: reach, squash: 1.35 };
+      this.seeThrough.set(hole.x, hole.y, hole.inner, hole.outer);
+    }
     for (const item of items) {
       if (item.kind === 'grass') {                                                    // a clump near someone: already a picture
         if (item.art) { const t = this.atlas.texture(item.art.atlasKey, () => item.art); if (t) this.itemPool.place(t, item.x, item.y, item.w, item.h); }
@@ -130,7 +138,14 @@ class PixiRenderer extends Renderer {
       catch (e) { if (!this.broken.has(item.kind)) { this.broken.add(item.kind); console.error('pixi: drawing a "' + item.kind + '" failed:', e); } }
       finally { this.ctx = this.g.ctx = real; }
       const e = this.stamps.stamp(rec.end(), ax, ay, pool, still);
-      if (e) { const snap = still ? Math.floor : Math.round; this.itemPool.place(e.tex, (snap(ax * s) + e.ix) / s, (snap(ay * s) + e.iy) / s, e.w / s, e.h / s); }   // (whole device pixels)
+      if (e) {
+        const snap = still ? Math.floor : Math.round, px = snap(ax * s) + e.ix, py = snap(ay * s) + e.iy;          // (whole device pixels)
+        const sprite = this.itemPool.place(e.tex, px / s, py / s, e.w / s, e.h / s);
+        if (hole && (item.kind === 'structure' || item.kind === 'built') && item.depth > hole.depth) {          // a building in front of you, over where you are: cut it away round you
+          const l = ox + px, t = oy + py, dx = Math.max(l - hole.x, 0, hole.x - (l + e.w)), dy = Math.max(t - hole.y, 0, hole.y - (t + e.h)) / hole.squash;
+          if (Math.hypot(dx, dy) < hole.outer) sprite.filters = [this.seeThrough.filter];
+        }
+      }
     }
     this._useLayer(this.overlayCanvas, this.overlayCtx);                              // what follows (names, night, particles) goes on top
     this.ctx.setTransform(1, 0, 0, 1, 0, 0); this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
