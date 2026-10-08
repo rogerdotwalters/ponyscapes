@@ -316,7 +316,7 @@ class PlayerSprite {
 
     ctx.lineCap = 'round';
     if (tool.kind === 'bow') this._drawBow(handX, handY, dirX, dirY, perpX, perpY);
-    else if (tool.kind === 'leash') this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0, lassoLook(p.held));
+    else if (tool.kind === 'leash') { if (!(p.swingT > 0)) this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, false, lassoLook(p.held)); }   // while it is thrown the lasso has left the hand (the flying loop is drawn by the effects)
     else if (tool.kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
     else if (tool.kind === 'shears') this._drawShears(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0 ? Math.abs(Math.sin(p.swingT * 18)) : 0);
     else if (tool.kind === 'water') this._drawWateringCan(handX, handY, side, p.swingT > 0);
