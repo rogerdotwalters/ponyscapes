@@ -1,12 +1,14 @@
 # The Pixi renderer
 
-`?renderer=pixi` draws the game with PixiJS 8 (WebGL) instead of the 2D canvas. **The canvas renderer is still the default** and is unchanged in
-behaviour. Game logic (`js/shared/`) is untouched; only `js/client/render/`, `main.js` (backend choice) and `index.html` (one script tag) know about it.
+**PixiJS 8 (WebGL) is the default renderer.** The 2D-canvas renderer is retired but kept: `?renderer=canvas` selects it, and the game uses it automatically
+when WebGL is not available, when the Pixi scripts cannot be loaded (the single-file bundle of `tools/bundle.py` does not include Pixi), or if Pixi fails
+to start (the page then reloads once with `?renderer=canvas`). It cannot simply be deleted: `PixiRenderer extends Renderer` (`renderer.js`) and uses its
+logic for what is visible and in what order. Game logic (`js/shared/`) is untouched; only `js/client/render/`, `main.js` (backend choice) and `index.html`
+(one script tag) know about the backends.
 
-- `js/client/render/backend.js` - `RenderBackend.prepare(query)` / `create(name, opts)`. Pixi is fetched only when asked for (a failed load falls back to canvas).
-- `public/vendor/pixi/pixi.min.js` - PixiJS **8.8.1** (MIT, copied unmodified from the npm package `pixi.js@8.8.1`). Upgrade by replacing the file. No
-  bundler: it is a plain `<script>` added at run time. `tools/bundle.py` (single-file build) does not include it; the bundle is canvas-only.
-- `js/client/render/pixi/` - the backend (all of it loads only for `?renderer=pixi`).
+- `js/client/render/backend.js` - `RenderBackend.prepare(query)` / `create(name, opts)`. The Pixi scripts are fetched at start (about 680 KB for Pixi itself).
+- `public/vendor/pixi/pixi.min.js` - PixiJS **8.8.1** (MIT, copied unmodified from the npm package `pixi.js@8.8.1`). Upgrade by replacing the file. No bundler.
+- `js/client/render/pixi/` - the backend.
 - `?seethrough=0` turns the see-through effect off (the canvas backend has none; use it for pixel comparisons).
 
 ## How it works (the hybrid)
