@@ -28,6 +28,12 @@ class MenuUI {
     const maps = this.game.treasureMaps.length;
     this.body.innerHTML = '<div class="menugrid">' + sections.map(s =>
       `<button data-section="${s.id}"><span class="mg">${s.glyph}</span><span class="mt"><b>${s.label}</b><i>${s.id === 'treasure' && maps ? `${maps} map${maps === 1 ? '' : 's'} read` : s.sub}</i></span>${s.key ? `<kbd>${s.key}</kbd>` : ''}</button>`).join('') + '</div>' +
+      '<label class="menuSlide"><span><b>Night darkness</b><small>How dark the night looks on your screen.</small></span><input type="range" id="nightDark" min="0" max="100" step="1"><output id="nightDarkOut"></output></label>' +
       '<div class="menunote">Tap outside a window to close it.</div>';
+    const slider = this.body.querySelector('#nightDark'), out = this.body.querySelector('#nightDarkOut');
+    const show = () => { out.textContent = Math.round(slider.value) + '%'; };
+    slider.value = Math.round((NightSetting.value - NightSetting.MIN) / (NightSetting.MAX - NightSetting.MIN) * 100); show();
+    slider.addEventListener('input', () => { NightSetting.set(NightSetting.MIN + slider.value / 100 * (NightSetting.MAX - NightSetting.MIN)); show(); });
+    slider.addEventListener('keydown', e => e.stopPropagation());                                // (arrow keys must not walk the pony)
   }
 }

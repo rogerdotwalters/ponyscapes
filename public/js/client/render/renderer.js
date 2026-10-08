@@ -112,14 +112,21 @@ class Renderer {
     const [px, py] = toScreen(me.x, me.y, 18);
     const dark = DayCycle.daylight(this.game.hour()) < CONFIG.sim.light.darkBelow;
     let found = LightSources.collect(this.game.map, Object.values(state.players), state.animals, dark);
+    if (this.game.map.kind === 'world' && DayCycle.daylight(this.game.hour()) < CONFIG.sim.light.darkBelow + 0.25) {      // the lanterns beside the village doors come on at dusk (looks only: spiders ignore them)
+      for (const site of BuildingSites.list) {
+        const ex = site.def.exterior || {};
+        if (!(ex.props || ['lantern']).includes('lantern') || Math.hypot(site.doorX - me.x, site.doorY - me.y) > 40) continue;
+        found.push({ x: site.doorX + 0.5, y: site.doorY + 1, radius: 4.5, kind: 'lantern' });
+      }
+    }
     if (found.length > CONFIG.view.maxLightsTouch && matchMedia('(pointer: coarse)').matches) {          // phones: each light is a full-screen gradient, so keep the nearest few
       const near = l => Math.hypot(l.x - me.x, l.y - me.y);
       found = found.sort((a, b) => near(a) - near(b)).slice(0, CONFIG.view.maxLightsTouch);
     }
     const lights = found.map(l => {
-      const [x, y] = toScreen(l.x, l.y, l.kind === 'torch' ? 24 : l.kind === 'pony' ? 22 : 6);
-      const flicker = 1 + Math.sin(performance.now() / 140 + l.x * 3) * 0.03;
-      return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * flicker, kind: l.kind };
+      const [x, y] = toScreen(l.x, l.y, l.kind === 'torch' ? 24 : l.kind === 'lantern' ? 30 : l.kind === 'pony' ? 22 : 6);
+      const flick = lightFlicker(l.kind, l.x, l.y, performance.now());                // the flame's brightness; the pool of light breathes with it
+      return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * (1 + (flick - 1) * 0.5), kind: l.kind, flick };
     });
     this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, this.game.map.kind === 'cave' ? 0 : this.game.map.kind === 'room' ? 12 : this.game.hour(), px, py, s, lights);
     this.camera.applyTransform(this.ctx);
