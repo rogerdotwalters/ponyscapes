@@ -516,31 +516,34 @@ const PixelPony = (() => {
    * Draws a pony at its footprint (sx, sy). look: PonyLook.describe(...); dir: 'up'|'down'|'left'|'right' (the screen direction it faces);
    * anim: { moving, phase (radians of stride), now, seed, lift (shadow is skipped while flying) }. Returns { top, h }.
    */
+  /** What identifies a pony's colours in a cache key: worked out once per look object (a look is shared by every frame of that pony). */
+  const lookKeys = new WeakMap();
+  const lookKey = look => { let k = lookKeys.get(look); if (!k) { k = `${look.coat}|${look.mane.join()}|${look.mark}`; lookKeys.set(look, k); } return k; };
+
   function draw(ctx, look, dir, sx, sy, anim) {
-    const C = palette(look), kind = anim.kind || {};
-    C.wings = !!kind.wings; C.horn = !!kind.horn; C.flying = !!(kind.wings && anim.flying);
-    C.wf = C.flying ? Math.floor(anim.now / 85) % 4 : 0;                                          // the wingbeat
+    const kind = anim.kind || {}, fx = look.accessory || null, now = anim.now;
+    const wings = !!kind.wings, horn = !!kind.horn, flying = !!(wings && anim.flying), wf = flying ? Math.floor(now / 85) % 4 : 0;     // (the wingbeat)
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
-    const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 420 + anim.seed) % 4);
-    const pose = C.flying ? 'S0' : (anim.moving ? 'T' : 'S') + frame, F = POSES[pose];
-    C.ruffle = !C.flying && anim.moving && frame % 2 === 1;
-    const blink = !anim.moving && ((anim.now + anim.seed * 1311) % 4200) < 150;
+    const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((now / 420 + anim.seed) % 4);
+    const pose = flying ? 'S0' : (anim.moving ? 'T' : 'S') + frame, F = POSES[pose];
+    const blink = !anim.moving && ((now + anim.seed * 1311) % 4200) < 150;
     const view = dir === 'left' ? 'right' : dir;
-    C.ff = Math.floor(anim.now / 120) % 4; C.tw = Math.floor(anim.now / 350) % 8;                     // flame flicker, frost twinkle
-    const fxFrame = C.fx === 'flames' ? C.ff : C.fx === 'frost' || C.fx === 'stars' ? C.tw : 0;
-    const key = `${look.coat}|${look.mane.join()}|${look.mark}|${C.fx}${fxFrame}|${C.wings ? 'w' + (C.flying ? C.wf : 'f') : ''}${C.horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
+    const ff = Math.floor(now / 120) % 4, tw = Math.floor(now / 350) % 8;                           // flame flicker, frost twinkle
+    const fxFrame = fx === 'flames' ? ff : fx === 'frost' || fx === 'stars' ? tw : 0;
+    const key = `${lookKey(look)}|${fx}${fxFrame}|${wings ? 'w' + (flying ? wf : 'f') : ''}${horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
     let canvas = cache.get(key);
-    if (!canvas) {
+    if (!canvas) {                                                                                // (the palette is only worked out for a picture not made yet)
+      const C = palette(look);
+      C.wings = wings; C.horn = horn; C.flying = flying; C.wf = wf; C.ruffle = !flying && anim.moving && frame % 2 === 1; C.ff = ff; C.tw = tw;
       canvas = renderPacked(C, view, F, blink, pose);                                              // from the art pack, in this pony's colours ...
       if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink); ArtPack.stats.painted++; }   // ... or painted
       cache.set(key, canvas);
     }
     const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
-    if (!anim.lift) { ctx.fillStyle = 'rgba(0,0,0,.24)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, view === 'right' ? 20 : 11, 6, 0, 0, Math.PI * 2); ctx.fill(); }
-    ctx.save(); ctx.imageSmoothingEnabled = false;
-    if (dir === 'left') { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.drawImage(canvas, -w / 2, top, w, h); }
-    else ctx.drawImage(canvas, sx - w / 2, top, w, h);
-    ctx.restore();
+    if (!anim.lift) SpriteCache.shadow(ctx, sx, sy + 1, view === 'right' ? 20 : 11, 6, 0.24);
+    const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(dir === 'left' ? SpriteCache.mirror(key, canvas) : canvas, sx - w / 2, top, w, h);   // (facing left: a mirrored copy, made once)
+    ctx.imageSmoothingEnabled = smooth;
     drawFx(ctx, look, dir, view, sx, top + TOP * PX, anim.now, anim.seed, kind, anim.moving);
     return { top: top + TOP * PX, h: (GROUND + 1) * PX };
   }

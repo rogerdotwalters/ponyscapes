@@ -603,25 +603,29 @@ const PixelCharacter = (() => {
    * anim: { moving, phase (walk phase, radians), now, seed, hurt, crouch (world px pressed down), cut (art rows hidden from the bottom: riding) }.
    * Returns { top, headY, torsoTop } in screen space so tools, name tags and emotes line up.
    */
+  /** What identifies a character's colours and clothes in a cache key, without any JSON: the look's own values, and a number for each worn item's
+   *  look (those objects live as long as the item definitions do, so the same item always gets the same number). */
+  const lookIds = new WeakMap(); let lookCount = 0;
+  const lid = o => { if (!o) return 0; let n = lookIds.get(o); if (!n) { n = ++lookCount; lookIds.set(o, n); } return n; };
+  const figureKey = (L, w) => `${L.princess ? 1 : 0}${L.hairKind}|${L.hair}|${L.skin}|${L.outfit}|${L.trim}|${lid(w.crown)}.${lid(w.outfit)}.${lid(w.cape)}`;
+
   function draw(ctx, L, wardrobe, dir, sx, sy, anim) {
-    const C = palette(L, wardrobe);
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 650 + anim.seed) % 2);
-    const F = anim.moving ? WALK[frame] : IDLE[frame];
     const blink = !anim.moving && ((anim.now + anim.seed * 977) % 3600) < 130;
     const view = dir === 'right' ? 'left' : dir, hurt = !!anim.hurt;
-    const pose = (anim.moving ? 'w' : 'i') + frame, key = `${JSON.stringify(L)}|${JSON.stringify(wardrobe)}|${view}|${pose}|${blink ? 1 : 0}|${hurt ? 1 : 0}`;
+    const pose = (anim.moving ? 'w' : 'i') + frame, key = `${figureKey(L, wardrobe)}|${view}|${pose}|${blink ? 1 : 0}|${hurt ? 1 : 0}`;
     let canvas = cache.get(key);
-    if (!canvas) {
+    if (!canvas) {                                                                                // (the palette is only worked out for a picture not made yet)
+      const C = palette(L, wardrobe), F = anim.moving ? WALK[frame] : IDLE[frame];
       canvas = renderPacked(C, view, F, blink, hurt, pose);                                       // from the art pack, in this character's colours ...
       if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink, hurt); ArtPack.stats.painted++; }   // ... or painted
       cache.set(key, canvas);
     }
     const cut = Math.max(0, anim.cut | 0), w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
-    ctx.save(); ctx.imageSmoothingEnabled = false;
-    if (dir === 'right') { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.drawImage(canvas, 0, 0, W, H - cut, -w / 2, top, w, h); }
-    else ctx.drawImage(canvas, 0, 0, W, H - cut, sx - w / 2, top, w, h);
-    ctx.restore();
+    const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(dir === 'right' ? SpriteCache.mirror(key, canvas) : canvas, 0, 0, W, H - cut, sx - w / 2, top, w, h);   // (facing right: a mirrored copy, made once)
+    ctx.imageSmoothingEnabled = smooth;
     return { top, headY: top + (TOP + 9) * PX, torsoTop: top + (TOP + 17) * PX };
   }
 

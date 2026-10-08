@@ -5,7 +5,21 @@
  *     are boilerplate for now (_drawUp / _drawDown reuse the profile) until they are drawn, either as images or here.
  * (sx, sy) is the animal's footprint. Legs swing and rabbits hop with the animal's speed. */
 class AnimalSprite {
-  constructor(g) { this.g = g; this.state = {}; }
+  constructor(g) { this.g = g; this.state = {}; this.looks = new LruCache(400); this.specs = new WeakMap(); }
+
+  /** A pony's drawn look (PonyLook.describe), worked out once per set of numbers rather than once per frame. */
+  _look(numbers) {
+    const k = numbers ? numbers.join() : '';
+    let look = this.looks.get(k);
+    if (!look) { look = PonyLook.describe(numbers); this.looks.set(k, look); }
+    return look;
+  }
+  /** A creature's sprite spec (its data's sprite, defaulting to a sheep), made once per creature type. */
+  _spec(def) {
+    let spec = this.specs.get(def);
+    if (!spec) { spec = Object.assign({ kind: 'sheep' }, def.sprite || {}); this.specs.set(def, spec); }
+    return spec;
+  }
 
   /** @param {{near:boolean, ref:number}} [view] how close the local player is, and their own level for colouring a threat
    *  @param {{procedural?:boolean}} [opts] procedural: ignore images (the editor's previews of the built-in art) */
@@ -22,7 +36,7 @@ class AnimalSprite {
     const drawn = !opts.procedural && SpriteRegistry.drawCreature(ctx, animal.type, animal.look, dir, sx, sy, speed > 0.2, now);
     if (!drawn && PixelPony.covers(animal.type)) this._drawPixelPony(animal, st, dir, sx, sy, speed, now, seed);
     else if (!drawn && PixelCreatures.has((def.sprite && def.sprite.kind) || 'sheep')) {                // the retro pixel-art creatures (pixelCreatures.js)
-      const spec = Object.assign({ kind: 'sheep' }, def.sprite || {});
+      const spec = this._spec(def);
       PixelCreatures.draw(ctx, spec, sx, sy, st.flip, { moving: speed > 0.2, phase: st.phase, now, seed: (seed % 7) * 0.13, hunting: animal.state === 'chase',
         extra: spec.kind === 'deer' && seed % 2 === 0 ? 'stag' : animal.shorn ? 'shorn' : '' });
     }
@@ -36,11 +50,13 @@ class AnimalSprite {
 
   /** The retro pixel-art pony (pixelPony.js): its kind's wings and horn, its biome's effects, and a soft glow / magic aura behind it. */
   _drawPixelPony(animal, st, dir, sx, sy, speed, now, seed) {
-    const ctx = this.g.ctx, def = AnimalDefs[animal.type], look = PonyLook.describe(animal.look);
-    ctx.save(); ctx.translate(sx, sy);
-    if (look.glow) this._glow(look.glow, now);
-    if (def.mystical) this.g.ellipse(0, -22, 30, 24, `rgba(255,240,255,${0.10 + 0.04 * Math.sin(now / 500)})`);
-    ctx.restore();
+    const ctx = this.g.ctx, def = AnimalDefs[animal.type], look = this._look(animal.look);
+    if (look.glow || def.mystical) {                                                              // (only a glowing or magical pony needs the shifted origin)
+      ctx.save(); ctx.translate(sx, sy);
+      if (look.glow) this._glow(look.glow, now);
+      if (def.mystical) this.g.ellipse(0, -22, 30, 24, `rgba(255,240,255,${0.10 + 0.04 * Math.sin(now / 500)})`);
+      ctx.restore();
+    }
     PixelPony.draw(ctx, look, dir, sx, sy, { moving: speed > 0.2, phase: st.phase, now, seed: seed * 0.13, lift: animal.lift, flying: !!animal.flying,
       kind: { wings: !!def.wings, horn: !!def.horn, mystical: !!def.mystical } });
   }
@@ -69,20 +85,22 @@ class AnimalSprite {
   /** Name (for your own animals) and a coloured LEVEL badge: green = easy for you, yellow = even, orange = hard, red = deadly. A wild pony shows its rarity. */
   _nameTag(animal, sx, sy, view, height) {
     const g = this.g, ctx = g.ctx, def = AnimalDefs[animal.type], lv = animal.level || 1, mine = !!(animal.owner || animal.captor);
-    const look = def.pony ? PonyLook.describe(animal.look) : null, rarity = look ? look.rarity : rarityOf(def.rarity);
+    const look = def.pony ? this._look(animal.look) : null, rarity = look ? look.rarity : rarityOf(def.rarity);
     let label = '';
     const boss = def.boss ? '\u2605 ' : '';
     if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
     else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name}` : def.name);
     const threat = AnimalLevels.threat(lv, view ? view.ref : 1), color = { easy: '#8be28b', even: '#ffe08a', hard: '#ffab6b', deadly: '#ff6b6b' }[threat];
-    ctx.font = 'bold 11px Georgia, serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const badge = 'Lv ' + lv, bw = ctx.measureText(badge).width + 8, tw = ctx.measureText(label).width + 8, width = tw + bw + 4, y = sy - height;
-    const x0 = sx - width / 2;
-    g.roundRect(x0, y - 7, width, 14, 6); ctx.fillStyle = 'rgba(10,18,28,.62)'; ctx.fill();
-    g.roundRect(x0 + tw + 2, y - 6, bw, 12, 5); ctx.fillStyle = color; ctx.fill();
-    ctx.fillStyle = rarity.order ? rarity.color : '#ffd6e8'; ctx.fillText(label, x0 + 4, y);
-    ctx.fillStyle = '#10202f'; ctx.fillText(badge, x0 + tw + 6, y);
-    ctx.textAlign = 'center';
+    const font = 'bold 11px Georgia, serif', badge = 'Lv ' + lv, bw = SpriteCache.textWidth(font, badge) + 8, tw = SpriteCache.textWidth(font, label) + 8, width = tw + bw + 4, y = sy - height;
+    const textColor = rarity.order ? rarity.color : '#ffd6e8';
+    SpriteCache.stamp(ctx, `a|${label}|${badge}|${color}|${textColor}`, width, 14, width / 2, 7, g2 => {                // (the tag is painted once, then stamped)
+      const c = g2.ctx, x0 = -width / 2;
+      c.font = font; c.textAlign = 'left'; c.textBaseline = 'middle';
+      g2.roundRect(x0, -7, width, 14, 6); c.fillStyle = 'rgba(10,18,28,.62)'; c.fill();
+      g2.roundRect(x0 + tw + 2, -6, bw, 12, 5); c.fillStyle = color; c.fill();
+      c.fillStyle = textColor; c.fillText(label, x0 + 4, 0);
+      c.fillStyle = '#10202f'; c.fillText(badge, x0 + tw + 6, 0);
+    }, sx, y);
   }
 
   /** A pony in profile: round head with a big shiny eye, flowing striped mane and tail, a cutie mark on the flank, wings for
