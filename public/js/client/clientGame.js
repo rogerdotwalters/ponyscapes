@@ -18,6 +18,7 @@ class ClientGame {
     this.seq = 0; this.snapshots = []; this.remoteTick = 0; this.serverTick = 0;
     this.lastAck = 0; this.lastError = 0; this.hasSnapshot = false; this.welcomeBoats = {}; this.welcomeAnimals = {};
     this.npcs = {}; this.npcView = {}; this.friends = {}; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
+    this.weather = null;                               // the sky the server sent: { t: type, rain, wind, lightning, snow, dir } (weather.js)
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
     this.questLog = QuestLog.empty();                  // the host world's quests (questSystem.js)
@@ -59,6 +60,7 @@ class ClientGame {
     if (welcome.built) BuildSystem.replaceAll(this.worldMap, welcome.built);
     if (welcome.floors) BuildSystem.replaceFloors(this.worldMap, welcome.floors);
     if (welcome.farm) this.worldMap.farm = welcome.farm;
+    if (welcome.weather) this.weather = welcome.weather;
     if (welcome.stockpiles) Stockpiles.replaceAll(this.worldMap, welcome.stockpiles);
     applyTreeStates(this.worldMap, welcome.trees || {});
     applyForageStates(this.worldMap, welcome.forage || {});
@@ -225,6 +227,8 @@ class ClientGame {
   /** Host: the Admin page's live values (globalSpeed, dayShare, gameHoursPerRealHour). */
   setAdmin(values) { this.net.sendCommand({ type: 'admin', values }); }
   /** Host testing aid: jump the clock to an hour (0-24) of the current day, for everyone. */
+  /** Host only: set the weather now (a type id from Weather.TYPES), or 'auto' to let the season's table choose again. */
+  setWeather(id) { this.net.sendCommand({ type: 'weather', id }); }
   setTimeOfDay(hour) { this.net.sendCommand({ type: 'admin', values: {}, hour }); }
   setSetting(key, value) { this.net.sendCommand({ type: 'setting', key, value: !!value }); }
   requestDismount() { this.net.sendCommand({ type: 'dismount' }); }
@@ -355,6 +359,7 @@ class ClientGame {
     if (snapshot.rings) this._applyRings(snapshot.rings);
     if (snapshot.settings) { this.settings = snapshot.settings; this.events.emit('settingsChanged', this.settings); }
     if (snapshot.admin) { GameSettings.applyWire(snapshot.admin, false); this.events.emit('adminChanged'); }
+    if (snapshot.weather) { this.weather = snapshot.weather; this.events.emit('weatherChanged', this.weather); }
     if (snapshot.pets) { this.pets = snapshot.pets; this.events.emit('petsChanged'); }
     if (snapshot.quests) this.questMarks = snapshot.quests;                       // lost young you have tracked: shown on the map
     if (snapshot.book) this.book = snapshot.book;

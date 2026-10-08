@@ -56,6 +56,7 @@ const GrassRenderer = (() => {
     if (!map || map.kind !== 'world' || typeof Grass === 'undefined') return near;
     const t = now / 1000, season = Seasons.at(tick).season.id, { minX, maxX, minY, maxY } = bounds, farm = map.farm || {}, floors = map.floors || {};
     const close = movers.filter(m => m.x > range.tx0 - 2 && m.x < range.tx1 + 2 && m.y > range.ty0 - 2 && m.y < range.ty1 + 2);
+    const sky = Weather.view, blow = sky ? sky.wind : 0, lean = sky && blow > 0.15 ? Math.sign(Math.cos(sky.dir) - Math.sin(sky.dir)) * blow * 1.8 : 0;
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
     for (let ty = range.ty0; ty <= range.ty1; ty++) for (let tx = range.tx0; tx <= range.tx1; tx++) {
       const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H;
@@ -72,7 +73,7 @@ const GrassRenderer = (() => {
         if (d < 0.32) under = true;
         if (d < 0.95) push += Math.sign(((wx - wy) - (m.x - m.y)) || 1) * (1 - d / 0.95) * 6;                // away from them, on screen
       }
-      const wind = level > 1 ? Math.sin(t * 1.6 + tx * 0.45 + ty * 0.3) * (level === 3 ? 1.4 : 0.8) : 0;
+      const wind = level > 1 ? Math.sin(t * (1.6 + blow * 1.4) + tx * 0.45 + ty * 0.3) * (level === 3 ? 1.4 : 0.8) * (1 + blow * 1.6) + lean * (level === 3 ? 1.6 : 1) : 0;   // (a strong wind sways it faster and leans it downwind: weather.js)
       const bend = Math.max(-BEND, Math.min(BEND, Math.round(Math.round((h(5) - 0.5) * 2) + wind + push + (under ? Math.sign(push || 1) * 3 : 0))));
       const look = TerrainRenderer.lookOf(map, tx, ty), pal = paletteOf(look, season), art = clump(under ? Math.max(1, level - 1) : level, Math.floor(h(3) * 6), h(4) < 0.5, bend, pal, look.id + season);
       const sx = (wx - wy) * TILE_HALF_W, sy = (wx + wy) * TILE_HALF_H;

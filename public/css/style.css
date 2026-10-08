@@ -454,6 +454,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
   background:rgba(14,22,32,.72);border:1.5px solid rgba(227,194,122,.55);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
 #seasonBar .sbText{display:flex;align-items:center;gap:.45em;justify-content:center;white-space:nowrap;overflow:hidden}
 #seasonBar .sbName{color:var(--season,#7cc86a)}
+#seasonBar .sbWeather{font-size:1.05em;cursor:default}
 #seasonBar .sbDay,#seasonBar .sbDayShort{opacity:.85;font-weight:400}
 #seasonBar .sbDayShort,#seasonBar.compact .sbDay{display:none}
 #seasonBar.compact .sbDayShort{display:inline}
