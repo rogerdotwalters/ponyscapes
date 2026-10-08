@@ -12,6 +12,7 @@ const MARKER_LINGER_MS = 300;
 const PICK_LIFT_PX = { npc: 22, animal: 10 };                   // sprites stand above their feet: also test a point this far (logical px) below the tap
 const PICK_SLACK = { npc: 0.55, animal: 0.5 };                  // tiles beyond the body that still count as "on" it
 const WEAPON_KINDS = ['knife', 'spear', 'sword', 'bow'];
+const NOT_OBJECTS = ['drink', 'fill', 'dismount'];             // (water only counts when you press the key beside it: a tap near the shore must not send you drinking)
 const WALK_GIVE_UP_MS = 10000;                                  // walking to an action: give up after this long
 
 class TapActions {
@@ -25,7 +26,7 @@ class TapActions {
   /* ---- a finger held down: show what it is on ---- */
   hold(cssX, cssY) {
     const desc = this._describe(cssX, cssY);
-    this.highlight = { x: desc.x, y: desc.y, r: desc.type === 'ground' ? 0.6 : Math.max(0.8, (desc.radius || 0.3) * 3) };
+    this.highlight = { x: desc.x, y: desc.y, r: desc.type === 'ground' ? 0.6 : desc.type === 'object' ? 0.9 : Math.max(0.8, (desc.radius || 0.3) * 3) };
   }
   clearHold() { this.highlight = null; }
 
@@ -49,8 +50,20 @@ class TapActions {
     const hit = this._pick(cssX, cssY);
     if (hit && hit.type === 'npc') return { type: 'npc', id: hit.npc.id, x: hit.npc.x, y: hit.npc.y };
     if (hit && hit.type === 'animal') return { type: 'animal', id: hit.animal.id, x: hit.animal.x, y: hit.animal.y, radius: AnimalDefs[hit.animal.type].radius };
-    const w = this.camera.screenToWorld(cssX, cssY);
-    return { type: 'ground', x: w.x, y: w.y };
+    const w = this.camera.screenToWorld(cssX, cssY), obj = this._objectAt(w);
+    return obj ? { type: 'object', kind: obj.kind, x: w.x, y: w.y } : { type: 'ground', x: w.x, y: w.y };
+  }
+
+  /** A door, stockpile, chest, crop, pick-up, shop counter, boat... right where the pointer is: asks the interaction rules as if we stood on that spot. */
+  _objectAt(w) {
+    const g = this.game, me = g.local;
+    const found = this._interactionFrom(Object.assign({}, me, { x: w.x, y: w.y, mount: '', flying: false, facing: 0 }));
+    return found && !NOT_OBJECTS.includes(found.kind) ? found : null;
+  }
+  /** What the interact key would do from this player-like spot, counting objects only (not people and animals: they are handled on their own). */
+  _interactionFrom(p) {
+    const g = this.game;
+    try { return Interactions.find(g.map, g.latestBoats(), p, g.heldItemId(), {}, g.myId, {}, g.latestDrops()); } catch (e) { return null; }
   }
 
   _pick(cssX, cssY) {
@@ -72,7 +85,7 @@ class TapActions {
 
   /** The live thing a description points at (it may have moved), or null if it is gone. */
   _live(desc) {
-    if (desc.type === 'ground') return desc;
+    if (desc.type === 'ground' || desc.type === 'object') return desc;
     const view = this.game.getRenderState(1), src = desc.type === 'npc' ? view.npcs[desc.id] : view.animals[desc.id];
     return src ? Object.assign({}, desc, { x: src.x, y: src.y, animal: desc.type === 'animal' ? src : null, npc: desc.type === 'npc' ? Object.assign({ id: desc.id }, src) : null }) : null;
   }
@@ -80,14 +93,14 @@ class TapActions {
   /* ---- doing it: range first ---- */
   /** Decide what the pointer does to `desc`: act now if in reach, else walk there first (if allowed) or do nothing. */
   _perform(desc, mouse, arrived = false) {
-    const game = this.game, me = game.local, thing = this._live(desc);
+    const game = this.game, thing = this._live(desc);
     if (!thing) return false;
-    const plan = this._plan(thing, mouse), dist = Math.hypot(thing.x - me.x, thing.y - me.y);
+    const plan = this._plan(thing, mouse);
     if (plan.action === 'none') return false;
-    if (dist > plan.reach && !arrived) {
-      if (Controls.walkToAct && !game.riding) { this._walkThen(desc, plan.reach); return false; }
-      if (thing.type === 'ground' && Controls.tapToMove && !game.riding) { this.walkTo(thing); return false; }      // (opt-in) plain tap-to-walk on bare ground
-      game.events.emit('notice', { to: game.myId, text: thing.type === 'npc' ? `Walk closer to talk to ${thing.npc.name}` : thing.type === 'animal' ? 'Too far away: walk closer' : 'Too far away' });
+    if (plan.action === 'move') { if (!game.riding) this.walkTo(thing); return false; }
+    if (!plan.ready && !arrived) {
+      if (Controls.walkToAct && !game.riding) { this._walkThen(desc); return false; }
+      game.events.emit('notice', { to: game.myId, text: thing.type === 'npc' ? `Walk closer to talk to ${thing.npc.name}` : 'Too far away: walk closer' });
       return false;
     }
     this.input.setPath(null);
@@ -100,21 +113,28 @@ class TapActions {
     return false;
   }
 
-  /** What would happen, and how close you must be: { action: 'talk'|'aim'|'act'|'interact'|'none', reach, act?, repeat? }. */
+  /** What would happen and whether we are close enough already: { action: 'talk'|'aim'|'act'|'interact'|'move'|'none', ready, act?, repeat? }.
+   *  'move' = walk there (bare ground). People, animals, doors, stockpiles, crops, shop counters... are acted on once in reach (walking first if Controls.walkToAct). */
   _plan(thing, mouse) {
-    const game = this.game, held = game.heldItemId(), tool = ItemDB.getTool(held), weapon = !!tool && WEAPON_KINDS.includes(tool.kind);
-    if (thing.type === 'npc') return { action: 'talk', reach: CONFIG.sim.friendship.reach + 0.4 };
+    const game = this.game, me = game.local, held = game.heldItemId(), tool = ItemDB.getTool(held), weapon = !!tool && WEAPON_KINDS.includes(tool.kind);
+    const dist = Math.hypot(thing.x - me.x, thing.y - me.y), within = reach => ({ ready: dist <= reach });
+    if (thing.type === 'npc') return Object.assign({ action: 'talk' }, within(CONFIG.sim.friendship.reach + 0.4));
     if (thing.type === 'animal') {
       const a = thing.animal, def = AnimalDefs[a.type], near = CONFIG.sim.friendship.petReach + def.radius + 0.3;
-      if (tool && tool.kind === 'leash') return { action: 'aim', reach: tool.reach + def.radius };         // a lasso in hand: rope it
-      if (tool && tool.kind === 'brush') return { action: 'aim', reach: tool.reach + def.radius };
-      if (weapon && def.hostile) return { action: 'aim', reach: tool.reach + def.radius + 0.4 };          // a weapon: only monsters get attacked by a tap
+      if (tool && tool.kind === 'leash') return Object.assign({ action: 'aim' }, within(tool.reach + def.radius));         // a lasso in hand: rope it
+      if (tool && tool.kind === 'brush') return Object.assign({ action: 'aim' }, within(tool.reach + def.radius));
+      if (weapon && def.hostile) return Object.assign({ action: 'aim' }, within(tool.reach + def.radius + 0.4));           // a weapon: only monsters get attacked by a tap
       const food = held && game.inventory.has(held, 1) && ItemDefs[held] && ItemDefs[held].food;
-      return { action: 'act', reach: near, act: food || ItemDB.isApple(held) || Wants.accepts(a, held) ? 'feed' : 'pet' };
+      return Object.assign({ action: 'act', act: food || ItemDB.isApple(held) || Wants.accepts(a, held) ? 'feed' : 'pet' }, within(near));
     }
-    if (weapon) return mouse ? { action: 'aim', reach: Infinity, repeat: true } : { action: 'none', reach: 0 };   // (a click on PC swings; a touch does nothing: use Attack)
-    if (tool) return { action: 'aim', reach: tool.reach + 0.8, repeat: true };                            // water, hoe, axe...: use it there
-    return { action: 'interact', reach: 2.0 };                                                            // seeds, saplings, berries, doors...
+    if (thing.type === 'object') {                                                                                         // ready = the interact key would do the same thing from where we stand
+      const real = this._interactionFrom(me);
+      return { action: 'interact', ready: !!real && real.kind === thing.kind };
+    }
+    // bare ground
+    if (weapon) return mouse ? { action: 'aim', ready: true, repeat: true } : { action: Controls.tapToMove ? 'move' : 'none' };     // (a click on PC swings; on touch use Attack)
+    if (tool) { const ok = dist <= tool.reach + 0.8; return ok ? { action: 'aim', ready: true, repeat: true } : { action: Controls.tapToMove ? 'move' : 'none' }; }   // water, hoe, axe...: use it close by, walk when far
+    return Controls.tapToMove ? { action: 'move' } : { action: 'interact', ready: dist <= 2.0 };                           // seeds, saplings, doors...
   }
 
   _lasso(world) {
@@ -125,11 +145,11 @@ class TapActions {
   /** Use what is in your hand at a world point: aim, swing / shoot / water / till / chop. */
   _aimedUse(point, ms) { this.input.aimAt(point, { action: true, ms: ms || 220 }); }
 
-  /* ---- walking: to an action (Controls.walkToAct) or, opt-in, anywhere ---- */
-  _walkThen(desc, reach) {
+  /* ---- walking: to an action (Controls.walkToAct) or, with Controls.tapToMove, anywhere ---- */
+  _walkThen(desc) {
     const thing = this._live(desc);
     if (!this.walkTo(thing)) { this.game.events.emit('notice', { to: this.game.myId, text: 'No way to get there' }); return; }
-    this.pending = { desc, reach, until: performance.now() + WALK_GIVE_UP_MS };
+    this.pending = { desc, until: performance.now() + WALK_GIVE_UP_MS };
   }
 
   walkTo(world) {
@@ -145,13 +165,13 @@ class TapActions {
   /** Called every frame: carries out an action once the walk to it has brought you into reach. */
   tick() {
     const p = this.pending; if (!p) return;
-    const now = performance.now();
-    const thing = this._live(p.desc), me = this.game.local;
-    if (!thing || now > p.until || !this.game.local) { this.pending = null; return; }
-    const close = Math.hypot(thing.x - me.x, thing.y - me.y) <= p.reach;
-    if (close || !this.input.hasPath()) {                                    // arrived (or the path ran out / a key took over)
+    const now = performance.now(), thing = this._live(p.desc), me = this.game.local;
+    if (!thing || !me || now > p.until) { this.pending = null; return; }
+    const plan = this._plan(thing, false);
+    if (plan.ready) { this.pending = null; this._perform(p.desc, false, true); return; }          // in reach: do it
+    if (!this.input.hasPath()) {                                                                    // the path ran out (or a key took over)
       this.pending = null;
-      if (close) this._perform(p.desc, false, true);
+      if (Math.hypot(thing.x - me.x, thing.y - me.y) < 2.5) this._perform(p.desc, false, true);   // (right beside it: try anyway, the server decides)
     }
   }
 
