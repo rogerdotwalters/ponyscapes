@@ -71,3 +71,15 @@ node tools/render-flows.js                                # enter the home, open
 The comparison frames are deterministic: Playwright's fake clock, a seeded `Math.random`, the local server stepped by hand, camera and rider fixed.
 Timings are measured on a separate real-time page. **Headless Chromium has no GPU, so WebGL runs in software (SwiftShader): the Pixi numbers from this
 harness say little about real devices** (and the canvas numbers are CPU-only too).
+
+## Measured (headless Chromium, software WebGL, 1280x720; not representative of real devices)
+
+| scene | canvas FPS / JS ms per render | pixi FPS / JS ms per render | pixel difference (canvas vs pixi) |
+|---|---|---|---|
+| village | 8.6 / 16.7 | 7.0 / 19.9 | 0.24 % |
+| night | 6.7 / 23.5 | 3.9 / 25.3 | 0.19 % |
+| home | 2.4 / 16.1 | 2.8 / 15.0 | 0.15 % |
+| two players | 10.3 / 15.2 | 5.9 / 19.6 | 0.33 % |
+
+Riding in the four directions and flying: 0.77 - 0.89 %. These show no speed-up in this environment (everything is software-rendered, and the Pixi path still
+runs the item draw code in JS every frame to hash it); whether a real GPU is faster is **not measured**.
