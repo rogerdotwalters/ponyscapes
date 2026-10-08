@@ -362,8 +362,8 @@ class Renderer {
   _drawTapMarker(now) {
     const marker = this.getTapMarker(now);
     if (!marker) return;
-    const ctx = this.ctx, pulse = 1 + Math.sin(now / 150) * 0.12;
-    ctx.strokeStyle = 'rgba(255,240,170,.9)'; ctx.lineWidth = 2; ctx.beginPath();
-    ctx.ellipse(isoX(marker.x, marker.y), isoY(marker.x, marker.y), 16 * TILE_SCALE * pulse, 8 * TILE_SCALE * pulse, 0, 0, Math.PI * 2); ctx.stroke();
+    const ctx = this.ctx, pulse = 1 + Math.sin(now / 150) * 0.12, r = marker.r || 1;     // (r: a highlighted target is ringed larger)
+    ctx.strokeStyle = marker.r ? 'rgba(255,248,200,.95)' : 'rgba(255,240,170,.9)'; ctx.lineWidth = marker.r ? 3 : 2; ctx.beginPath();
+    ctx.ellipse(isoX(marker.x, marker.y), isoY(marker.x, marker.y), 16 * TILE_SCALE * pulse * r, 8 * TILE_SCALE * pulse * r, 0, 0, Math.PI * 2); ctx.stroke();
   }
 }

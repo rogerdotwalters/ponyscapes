@@ -8,7 +8,10 @@ class ControlsUI {
     tabs.addEventListener('click', e => { const t = e.target.closest('button'); if (t) this.show(t.dataset.tab); });
     closeButton.addEventListener('click', () => this.close());
     body.addEventListener('click', e => this._click(e));
-    body.addEventListener('change', e => { if (e.target.id === 'ctlTapMove') { Controls.setTapToMove(e.target.checked); this.refresh(); } });
+    body.addEventListener('change', e => {
+      const set = { ctlTapMove: 'setTapToMove', ctlFixedStick: 'setFixedJoystick', ctlWalkToAct: 'setWalkToAct' }[e.target.id];
+      if (set) { Controls[set](e.target.checked); this.refresh(); }
+    });
     window.addEventListener('keydown', e => this._onKey(e), true);
   }
 
@@ -65,8 +68,11 @@ class ControlsUI {
 
   _pointer() {
     const rows = CONTROL_POINTER_HELP.map(([what, does]) => `<div class="ctlHelpRow"><b>${what}</b><span>${does}</span></div>`).join('');
-    return '<div class="gtitle">Tap to walk</div>' +
-      `<label class="chk"><input type="checkbox" id="ctlTapMove"${Controls.tapToMove ? ' checked' : ''}><span><b>Tap the ground to walk there</b><small>Off by default: a tap uses what is in your hand instead. When on, a tap farther than a couple of tiles away walks (the joystick and keys still steer), and a tap close by still acts.</small></span></label>` +
+    return '<div class="gtitle">Joystick</div>' +
+      `<label class="chk"><input type="checkbox" id="ctlFixedStick"${Controls.fixedJoystick ? ' checked' : ''}><span><b>Fixed joystick</b><small>On: the stick stays put and only moves when you drag it, so taps never move it. Off: it floats to wherever your thumb lands.</small></span></label>` +
+      '<div class="gtitle">Taps</div>' +
+      `<label class="chk"><input type="checkbox" id="ctlWalkToAct"${Controls.walkToAct ? ' checked' : ''}><span><b>Walk to it, then act</b><small>When you lift your finger on something out of reach, walk there and do the action. Off: nothing happens when it is out of reach.</small></span></label>` +
+      `<label class="chk"><input type="checkbox" id="ctlTapMove"${Controls.tapToMove ? ' checked' : ''}><span><b>Tap the ground to walk there</b><small>Off by default. When on, tapping bare ground out of reach just walks there (the joystick and keys still steer).</small></span></label>` +
       '<div class="gtitle">What clicks and taps do</div>' + rows;
   }
 }

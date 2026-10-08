@@ -34,7 +34,8 @@ const CONTROL_ACTIONS = [
 
 /** What the pointer does (not rebindable). Shown on the Controls window. */
 const CONTROL_POINTER_HELP = [
-  ['Left click / tap', 'Use what is in your hand where you point: water, plant, hoe, chop, swing or shoot a weapon, build. Hold the mouse button to keep going.'],
+  ['Left click / tap', 'Use what is in your hand where you point: water, plant, hoe, chop, build. Hold a finger down to highlight what is under it; lift to act (out of reach: nothing, or walk there first if that switch is on). Hold the mouse button to keep going.'],
+  ['Weapons', 'A weapon in hand never attacks by itself, except against hostile monsters you tap. The Use button becomes Attack on a phone; on PC use E / Space or click.'],
   ['On a villager', 'Talk: a window offers their shop or quests, or they just say hello.'],
   ['On an animal', 'Hold food to feed it, a lasso to rope it, a weapon to attack; otherwise you pet it.'],
   ['Right click', 'Throw your lasso at the animal under the pointer (PC). Phones have a Lasso button.'],
@@ -46,6 +47,9 @@ const Controls = {
   /** action id -> [codes]. Only what differs from the defaults is saved. */
   map: {},
   tapToMove: false,                       // taps on the ground walk there (pathfinding): off unless you turn it on
+  fixedJoystick: true,                    // the on-screen stick stays where it is (off: it floats to wherever the thumb lands)
+  walkToAct: false,                       // releasing on something out of reach walks to it and then does the action (off: nothing happens when out of reach)
+  listeners: [],                          // called when a switch changes
   capturing: false,                       // the Controls window is waiting for a key: KeyboardInput stays quiet
   _byCode: null,
 
@@ -74,6 +78,8 @@ const Controls = {
   _set(id, keys) { this.map[id] = keys; this._byCode = null; },
 
   setTapToMove(on) { this.tapToMove = !!on; this.save(); },
+  setFixedJoystick(on) { this.fixedJoystick = !!on; this.save(); this.listeners.forEach(f => f()); },
+  setWalkToAct(on) { this.walkToAct = !!on; this.save(); },
 
   /** A readable name for a key code: KeyW -> W, ArrowUp -> Up, Space -> Space. */
   label(code) {
@@ -88,6 +94,8 @@ const Controls = {
       const raw = JSON.parse(localStorage.getItem(CONTROL_STORAGE_KEY) || 'null');
       if (!raw || typeof raw !== 'object') return;
       this.tapToMove = raw.tapToMove === true;
+      this.fixedJoystick = raw.fixedJoystick !== false;
+      this.walkToAct = raw.walkToAct === true;
       for (const a of CONTROL_ACTIONS) {
         const keys = raw.keys && raw.keys[a.id];
         if (Array.isArray(keys)) this.map[a.id] = keys.filter(c => typeof c === 'string' && c.length < 24 && !this.reserved(c)).slice(0, 2);
@@ -96,7 +104,7 @@ const Controls = {
     } catch (e) { /* no saved controls (or storage is blocked): the defaults */ }
   },
   save() {
-    try { localStorage.setItem(CONTROL_STORAGE_KEY, JSON.stringify({ tapToMove: this.tapToMove, keys: this.map })); } catch (e) { /* kept for this visit only */ }
+    try { localStorage.setItem(CONTROL_STORAGE_KEY, JSON.stringify({ tapToMove: this.tapToMove, fixedJoystick: this.fixedJoystick, walkToAct: this.walkToAct, keys: this.map })); } catch (e) { /* kept for this visit only */ }
   }
 };
 Controls.load();
