@@ -29,7 +29,7 @@ class AnimalDeltaEncoder {
       const a = states[id];
       if (Math.hypot(a.x - viewer.x, a.y - viewer.y) > R) continue;
       seen.add(id);
-      const dynamic = [r(a.x, 2), r(a.y, 2), r(a.vx, 1), r(a.vy, 1), r(a.facing, 2), a.hp, a.state, a.owner, a.captor, a.leashed ? 1 : 0, a.rider], json = JSON.stringify(dynamic);
+      const dynamic = [r(a.x, 2), r(a.y, 2), r(a.vx, 1), r(a.vy, 1), r(a.facing, 2), a.hp, a.state, a.owner, a.captor, a.leashed ? 1 : 0, a.rider, a.lift || 0], json = JSON.stringify(dynamic);
       if (!this.known.has(id)) { f[id] = DeltaCodec.quantize(a, 2); this.known.add(id); this.lastDynamic.set(id, json); continue; }   // (a full description already carries the moving part)
       if (this.lastDynamic.get(id) !== json) { u[id] = dynamic; this.lastDynamic.set(id, json); }          // an animal standing still costs nothing
     }
@@ -50,7 +50,7 @@ class AnimalDeltaDecoder {
     for (const id in delta.u || {}) {
       const prev = next[id], d = delta.u[id];
       if (!prev) continue;                                                // an update for an animal we never heard of: ignore it
-      next[id] = Object.assign({}, prev, { x: d[0], y: d[1], vx: d[2], vy: d[3], facing: d[4], hp: d[5], state: d[6], owner: d[7], captor: d[8], leashed: !!d[9], rider: d[10] });
+      next[id] = Object.assign({}, prev, { x: d[0], y: d[1], vx: d[2], vy: d[3], facing: d[4], hp: d[5], state: d[6], owner: d[7], captor: d[8], leashed: !!d[9], rider: d[10], lift: d[11] || 0 });
     }
     this.animals = next;
     return next;

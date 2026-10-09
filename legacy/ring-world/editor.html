@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Content Editor</title>
+<link rel="stylesheet" href="css/editor.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand"><b>Content Editor</b><span id="status"></span></div>
+  <nav id="tabs">
+    <button data-tab="items">Items</button>
+    <button data-tab="creatures">Creatures</button>
+    <button data-tab="characters">Characters</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+  <div class="actions">
+    <button id="btnPlay" title="Opens the game (solo) using this draft">Play-test draft</button>
+    <button id="btnDownload" class="primary" title="Save this as js/content/customContent.js">Download customContent.js</button>
+    <label class="btn" title="Load a customContent.js (or .json) you saved before">Import&hellip;<input id="importFile" type="file" accept=".js,.json" hidden></label>
+    <button id="btnDiscard" title="Throw the draft away and start again from the content file">Discard draft</button>
+  </div>
+</header>
+<div id="banner" hidden></div>
+<main>
+  <aside id="sidebar">
+    <div class="sidetools"><input id="search" type="search" placeholder="Search" autocomplete="off" spellcheck="false"><button id="btnNew">+ New</button></div>
+    <div id="list"></div>
+  </aside>
+  <section id="detail"><div class="empty">Pick something on the left, or press <b>+ New</b>.</div></section>
+</main>
+<footer>
+  <span>Pictures: </span>
+  <label><input type="radio" name="pickMode" value="path" checked> refer to <code>assets/&hellip;</code> (copy the file into <code>public/assets/</code>)</label>
+  <label><input type="radio" name="pickMode" value="embed"> embed in the content file (no copying, bigger file)</label>
+  <span class="sep">&middot;</span><a href="assets/README.md" target="_blank">Picture sizes &amp; conventions</a>
+</footer>
+<dialog id="newDialog">
+  <form method="dialog">
+    <h3 id="newTitle">New</h3>
+    <label>Id <small>(lower case, letters, digits and _ ; used in recipes and saves, cannot change later)</small><input id="newId" required pattern="[a-z][a-z0-9_]{0,39}" autocomplete="off" spellcheck="false"></label>
+    <label>Name<input id="newName" autocomplete="off"></label>
+    <label>Start from<select id="newTemplate"></select></label>
+    <div id="newError" class="error"></div>
+    <menu><button value="cancel" formnovalidate>Cancel</button><button id="newCreate" value="ok" class="primary">Create</button></menu>
+  </form>
+</dialog>
+
+<!-- the game's own definitions and artwork (for the built-in values and previews): the same scripts, in the same order, as index.html -->
+<script src="js/shared/config.js"></script>
+<script src="js/shared/mathUtils.js"></script>
+<script src="js/content/gameSettings.js"></script>
+<script src="js/shared/gameSettings.js"></script>
+<script src="js/shared/time.js"></script>
+<script src="js/shared/seasons.js"></script>
+<script src="js/shared/tileTypes.js"></script>
+<script src="js/shared/skills.js"></script>
+<script src="js/shared/characterDefs.js"></script>
+<script src="js/shared/noise.js"></script>
+<script src="js/content/customContent.js"></script>
+<script src="js/content/interiors.js"></script>
+<script src="js/content/caveRooms.js"></script>
+<script src="js/shared/roomCodes.js"></script>
+<script src="js/shared/contentPack.js"></script>
+<script src="js/shared/rarity.js"></script>
+<script src="js/core/registry.js"></script>
+<script src="js/data/items/materials.js"></script>
+<script src="js/data/items/foods.js"></script>
+<script src="js/data/items/tools.js"></script>
+<script src="js/data/items/weapons.js"></script>
+<script src="js/data/items/wardrobe.js"></script>
+<script src="js/data/items/placeables.js"></script>
+<script src="js/data/items/bags.js"></script>
+<script src="js/data/items/specials.js"></script>
+<script src="js/data/crops/crops.js"></script>
+<script src="js/data/trees/trees.js"></script>
+<script src="js/data/biomes/registry.js"></script>
+<script src="js/data/biomes/normal.js"></script>
+<script src="js/data/biomes/forest.js"></script>
+<script src="js/data/biomes/jungle.js"></script>
+<script src="js/data/biomes/apple.js"></script>
+<script src="js/data/biomes/ice.js"></script>
+<script src="js/data/biomes/fire.js"></script>
+<script src="js/data/biomes/crystal.js"></script>
+<script src="js/data/biomes/rainbow.js"></script>
+<script src="js/data/biomes/candy.js"></script>
+<script src="js/data/biomes/magic.js"></script>
+<script src="js/data/biomes/beach.js"></script>
+<script src="js/data/biomes/clay.js"></script>
+<script src="js/data/friendship/levels.js"></script>
+<script src="js/data/rings/registry.js"></script>
+<script src="js/data/rings/ring0.js"></script>
+<script src="js/data/rings/ring1.js"></script>
+<script src="js/data/rings/ring2.js"></script>
+<script src="js/data/rings/ring3.js"></script>
+<script src="js/data/rings/ring4.js"></script>
+<script src="js/data/dungeons/registry.js"></script>
+<script src="js/data/dungeons/cavern.js"></script>
+<script src="js/data/ponies/registry.js"></script>
+<script src="js/data/ponies/variants.js"></script>
+<script src="js/data/ponies/abilities.js"></script>
+<script src="js/data/ponies/kinds.js"></script>
+<script src="js/data/creatures/registry.js"></script>
+<script src="js/data/creatures/rabbit.js"></script>
+<script src="js/data/creatures/deer.js"></script>
+<script src="js/data/creatures/sheep.js"></script>
+<script src="js/data/creatures/elk.js"></script>
+<script src="js/data/creatures/bat.js"></script>
+<script src="js/data/creatures/spider.js"></script>
+<script src="js/data/creatures/bear.js"></script>
+<script src="js/data/creatures/centipede.js"></script>
+<script src="js/data/creatures/lion.js"></script>
+<script src="js/data/creatures/manticore.js"></script>
+<script src="js/data/creatures/beastman.js"></script>
+<script src="js/data/creatures/dragons.js"></script>
+<script src="js/data/creatures/bosses.js"></script>
+<script src="js/data/creatures/chicken.js"></script>
+<script src="js/data/creatures/duck.js"></script>
+<script src="js/data/creatures/goat.js"></script>
+<script src="js/data/creatures/cat.js"></script>
+<script src="js/data/creatures/dog.js"></script>
+<script src="js/data/creatures/fox.js"></script>
+<script src="js/data/creatures/owl.js"></script>
+<script src="js/data/creatures/boar.js"></script>
+<script src="js/data/creatures/wolf.js"></script>
+<script src="js/data/creatures/bear_cub.js"></script>
+<script src="js/data/creatures/jungle.js"></script>
+<script src="js/data/creatures/slime.js"></script>
+<script src="js/data/npcs/registry.js"></script>
+<script src="js/data/npcs/baker.js"></script>
+<script src="js/data/npcs/blacksmith.js"></script>
+<script src="js/data/npcs/farmer.js"></script>
+<script src="js/data/npcs/fisher.js"></script>
+<script src="js/data/npcs/merchant.js"></script>
+<script src="js/data/npcs/elder.js"></script>
+<script src="js/data/npcs/child.js"></script>
+<script src="js/data/npcs/guard.js"></script>
+<script src="js/data/npcs/carpenter.js"></script>
+<script src="js/data/npcs/veterinarian.js"></script>
+<script src="js/data/puzzles/registry.js"></script>
+<script src="js/data/puzzles/rune_stone.js"></script>
+<script src="js/data/puzzles/pond_dial.js"></script>
+<script src="js/data/puzzles/broken_tablet.js"></script>
+<script src="js/data/quests/registry.js"></script>
+<script src="js/data/quests/elder_stone.js"></script>
+<script src="js/data/quests/baker_eggs.js"></script>
+<script src="js/data/quests/elder_dial.js"></script>
+<script src="js/data/quests/guard_tablet.js"></script>
+<script src="js/data/buildings/registry.js"></script>
+<script src="js/data/buildings/carpenter.js"></script>
+<script src="js/data/buildings/veterinary.js"></script>
+<script src="js/data/buildings/general_store.js"></script>
+<script src="js/data/buildings/player_home.js"></script>
+<script src="js/data/buildings/storehouse.js"></script>
+<script src="js/data/buildings/vacant_home.js"></script>
+<script src="js/data/buildings/npc_homes.js"></script>
+<script src="js/data/furniture/registry.js"></script>
+<script src="js/data/furniture/basic.js"></script>
+<script src="js/data/interiors/tiles.js"></script>
+<script src="js/shared/itemDefs.js"></script>
+<script src="js/shared/recipeDefs.js"></script>
+<script src="js/shared/resourceDefs.js"></script>
+<script src="js/shared/ponyDefs.js"></script>
+<script src="js/shared/animalDefs.js"></script>
+<script src="js/shared/animalLevels.js"></script>
+<script src="js/shared/enemyCodes.js"></script>
+<script src="js/shared/ponyProgress.js"></script>
+<script src="js/shared/friendship.js"></script>
+<script src="js/shared/being.js"></script>
+<script src="js/shared/animal.js"></script>
+<script src="js/shared/npc.js"></script>
+<script src="js/shared/npcSystem.js"></script>
+<script src="js/shared/friendshipSystem.js"></script>
+<script src="js/shared/ponyAbilities.js"></script>
+<script src="js/shared/inventory.js"></script>
+<script src="js/shared/layers/buildingSites.js"></script>
+<script src="js/shared/layers/interiorSpace.js"></script>
+<script src="js/shared/village.js"></script>
+<script src="js/shared/layers/ringLayer.js"></script>
+<script src="js/shared/layers/biomeLayer.js"></script>
+<script src="js/shared/layers/zoneLayer.js"></script>
+<script src="js/shared/layers/dungeonSpace.js"></script>
+<script src="js/shared/layers/dungeonLayer.js"></script>
+<script src="js/shared/layers/caveSites.js"></script>
+<script src="js/shared/layers/worldLayers.js"></script>
+<script src="js/shared/terrainGenerator.js"></script>
+<script src="js/shared/world.js"></script>
+<script src="js/shared/grids.js"></script>
+<script src="js/shared/collision.js"></script>
+<script src="js/shared/boat.js"></script>
+<script src="js/shared/buildSystem.js"></script>
+<script src="js/shared/stockpiles.js"></script>
+<script src="js/shared/pathfinding.js"></script>
+<script src="js/shared/playerMovement.js"></script>
+<script src="js/shared/treeSystem.js"></script>
+<script src="js/shared/forageSystem.js"></script>
+<script src="js/shared/interaction.js"></script>
+<script src="js/shared/vitalsSystem.js"></script>
+<script src="js/shared/equipment.js"></script>
+<script src="js/shared/lightSources.js"></script>
+<script src="js/shared/emoteDefs.js"></script>
+<script src="js/shared/tradeSystem.js"></script>
+<script src="js/shared/penSystem.js"></script>
+<script src="js/shared/behaviors/registry.js"></script>
+<script src="js/shared/behaviors/timid.js"></script>
+<script src="js/shared/behaviors/nocturnal.js"></script>
+<script src="js/shared/behaviors/predator.js"></script>
+<script src="js/shared/behaviors/territorial.js"></script>
+<script src="js/shared/animalSystem.js"></script>
+<script src="js/shared/craftingSystem.js"></script>
+<script src="js/shared/toolHandlers.js"></script>
+<script src="js/shared/toolSystem.js"></script>
+<script src="js/shared/treasure.js"></script>
+<script src="js/shared/saveData.js"></script>
+<script src="js/shared/worldProgress.js"></script>
+<script src="js/shared/dungeonSystem.js"></script>
+<script src="js/shared/interiorSystem.js"></script>
+<script src="js/shared/sleepSystem.js"></script>
+<script src="js/shared/wildPonies.js"></script>
+<script src="js/shared/wantSystem.js"></script>
+<script src="js/shared/puzzles.js"></script>
+<script src="js/shared/questSystem.js"></script>
+<script src="js/shared/gameServer.js"></script>
+<script src="js/shared/serverOwned.js"></script>
+<script src="js/shared/packSystem.js"></script>
+<script src="js/shared/shopSystem.js"></script>
+<script src="js/shared/homeCrafts.js"></script>
+<script src="js/shared/farming.js"></script>
+<script src="js/shared/weather.js"></script>
+<script src="js/shared/groves.js"></script>
+<script src="js/shared/hedges.js"></script>
+<script src="js/shared/grass.js"></script>
+<script src="js/shared/snapshotBuilder.js"></script>
+<script src="js/client/render/isoProjection.js"></script>
+<script src="js/client/render/gfx.js"></script>
+<script src="js/client/render/spriteCache.js"></script>
+<script src="js/client/render/spriteRegistry.js"></script>
+<script src="js/client/render/pixelCharacter.js"></script>
+<script src="js/client/render/artPack.js"></script>
+<script src="js/client/render/pixelPony.js"></script>
+<script src="js/client/render/pixelCreatures.js"></script>
+<script src="js/client/render/pixelProps.js"></script>
+<script src="js/client/render/playerSprite.js"></script>
+<script src="js/client/render/creatures/registry.js"></script>
+<script src="js/client/render/creatures/rabbit.js"></script>
+<script src="js/client/render/creatures/deer.js"></script>
+<script src="js/client/render/creatures/sheep.js"></script>
+<script src="js/client/render/creatures/spider.js"></script>
+<script src="js/client/render/creatures/pony.js"></script>
+<script src="js/client/render/creatures/bear.js"></script>
+<script src="js/client/render/creatures/lion.js"></script>
+<script src="js/client/render/creatures/dragon.js"></script>
+<script src="js/client/render/creatures/bat.js"></script>
+<script src="js/client/render/creatures/centipede.js"></script>
+<script src="js/client/render/creatures/beastman.js"></script>
+<script src="js/client/render/creatures/bird.js"></script>
+<script src="js/client/render/creatures/canine.js"></script>
+<script src="js/client/render/creatures/goat.js"></script>
+<script src="js/client/render/creatures/boar.js"></script>
+<script src="js/client/render/heartMeter.js"></script>
+<script src="js/client/render/wantBubble.js"></script>
+<script src="js/client/render/animalSprite.js"></script>
+<script src="js/client/ui/itemIcons.js"></script>
+<script src="js/editor/editor.js"></script>
+</body>
+</html>

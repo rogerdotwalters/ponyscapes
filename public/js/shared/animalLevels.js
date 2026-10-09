@@ -15,7 +15,7 @@ const AnimalLevels = {
    *  With the zone layer (`layers.zones`) the level comes from the ring's band; WITHOUT it every creature just uses its own base level. */
   roll(type, x, y, h, layers) {
     const def = AnimalDefs[type], zones = layers && layers.zones;
-    if (def && def.boss) return Rings.all().find(r => r.index === def.bossRing).levelMax;           // a boss is always the top level of its area
+    if (def && def.boss) return Zones.all().find(r => r.index === def.bossRing).levelMax;           // a boss is always the top level of its area
     if (zones) return clamp(zones.levelAt(x, y, h), 1, CONFIG.sim.levels.max);
     const base = (def && def.levelBase) || 1, spread = 1 + base * 0.12;
     return clamp(Math.round(base + (h - 0.5) * 2 * spread), 1, CONFIG.sim.levels.max);

@@ -261,7 +261,7 @@ const TerrainRenderer = (() => {
           }
         }
       }
-      if (rings && rings.barrierAt(tx, ty)) drawBarrier(ctx, cx, cy, t, tx, ty);          // a sealed ring's magical wall
+      if (rings && rings.gateAt(tx, ty) >= 0) drawBarrier(ctx, cx, cy, t, tx, ty);          // a shut gateway's magical wall (the far sea's barrier is invisible)
       if (anyFloors && map.floors[tileKey(tx, ty)]) StructureSprites.drawFloor(ctx, cx, cy);   // built floors sit on top of the ground
     }
     ctx.imageSmoothingEnabled = smooth;

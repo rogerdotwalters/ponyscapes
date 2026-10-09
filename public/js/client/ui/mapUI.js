@@ -143,13 +143,11 @@ class MapUI {
     if (far) {
       ctx.font = 'bold 10px Georgia'; ctx.textAlign = 'left';
       const rings = g.worldMap.layers.rings;
-      for (const def of Rings.all()) {                                                                         // name each ring where it is in view
-        const mid = (def.index + 0.5) * rings.width, locked = !rings.isUnlocked(def.index), txt = `${locked ? '\u{1F512} ' : ''}${def.name}  Lv ${def.levelMin}-${def.levelMax}`;
-        for (let k = 0; k < 36; k++) {
-          const a = -Math.PI / 4 + k * Math.PI / 18, [lx, ly] = toMap(O.x + Math.cos(a) * (def.index ? mid : 120), O.y + Math.sin(a) * (def.index ? mid : 120));
-          if (lx < 30 || ly < 26 || lx > size - 150 || ly > size - 14) continue;
-          ctx.fillStyle = 'rgba(10,20,30,.78)'; ctx.fillRect(lx - 3, ly - 9, ctx.measureText(txt).width + 8, 13); ctx.fillStyle = def.color; ctx.fillText(txt, lx + 1, ly + 1); break;
-        }
+      for (const def of Zones.all()) {                                                                         // name each zone over its middle
+        const c = rings.centreOf(def.index), locked = !rings.isUnlocked(def.index), txt = `${locked ? '\u{1F512} ' : ''}${def.name}  Lv ${def.levelMin}-${def.levelMax}`;
+        const [lx, ly] = toMap(def.index ? c.x : O.x + 40, def.index ? c.y : O.y + 70);
+        if (lx < 30 || ly < 26 || lx > size - 150 || ly > size - 14) continue;
+        ctx.fillStyle = 'rgba(10,20,30,.78)'; ctx.fillRect(lx - 3, ly - 9, ctx.measureText(txt).width + 8, 13); ctx.fillStyle = def.color; ctx.fillText(txt, lx + 1, ly + 1);
       }
     }
     if (inside(ox, oy)) { ctx.fillStyle = '#ffe9a8'; ctx.strokeStyle = '#6b3d1c'; ctx.lineWidth = 1.4; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 3 : 7; ctx.lineTo(ox + Math.cos(a) * r, oy + Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.stroke(); }

@@ -5,8 +5,8 @@
 const TILE_SCALE = 1.5;
 
 const CONFIG = {
-  /** The layered world: ring width (tiles), how far a ring edge may wander, the biome region size, and whether the OPTIONAL level-zone layer exists. */
-  world: { ringWidth: 400, ringWobble: 70, biomeCell: 240, villageBiomeRadius: 90, zones: true },
+  /** The zoned world (js/data/zones/, layers/zoneLayer.js), in tiles: how far a zone's edge wobbles, how thick its cliff wall is, how wide a gateway is (each side of the middle), how much a child overlaps its parent (1 = just touching), and how wide the open sea round the map is (past it, an invisible barrier). */
+  world: { zoneWarp: 8, wallWidth: 3, gateHalfWidth: 3, zoneOverlap: 0.88, seaWidth: 14 },
   sim: {
     tickRate: 30,
     mapW: 40, mapH: 40,
@@ -33,6 +33,18 @@ const CONFIG = {
       xpPerPoint: 1.5, minXp: 2                                 // skill XP for a friendly act (it trains the skill even when you are at the cap)
     },          // a cape's DEF: each point soaks 2% of damage, never more than half
     health: { max: 100, regenPerSecond: 0.35, respawnFraction: 0.5 },
+    /** Difficulty: easy / medium / hard. `downed` is what happens when health hits 0 inside a dungeon (and its lair): you drop to your knees, the view darkens, and
+     *  you get back up after `seconds` with `reviveFraction` of your health; snacks shorten the wait (`snackSeconds` per point of the food's hunger) and add health
+     *  (`snackHp` per point) for when you rise; a teammate pressing Interact within `reach` lifts you at once, in any mode; `graceSeconds` after getting up nothing can
+     *  hurt you. Only easy is written so far, so every mode uses it (medium / hard point at the same rules until they get their own). Outside dungeons you still wake in the village. */
+    difficulty: {
+      default: 'easy',
+      modes: {
+        easy:   { label: 'Easy',   downed: { seconds: 7, reviveFraction: 0.5, snackSeconds: 0.15, snackHp: 0.6, reach: 1.6, graceSeconds: 2 } },
+        medium: { label: 'Medium', like: 'easy' },
+        hard:   { label: 'Hard',   like: 'easy' }
+      }
+    },
     /** Bulk resources (see stockpiles.js): stacks of EACH you may carry = base + Constitution level + perPony for every pony with you
      *  (ridden or leashed, up to maxPonyBonus) + Pack Pony buffs. Everything else is delivered to stockpiles. */
     carry: { limited: ['wood', 'stone', 'clay'], base: 0, perPony: 1, maxPonyBonus: 3, noticeSeconds: 4 },

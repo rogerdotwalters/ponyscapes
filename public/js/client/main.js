@@ -100,9 +100,25 @@ function launch(choice, query) {
     const townUI = new TownUI({ panel: $('townPanel'), body: $('townBody'), closeButton: $('townClose'), game });
     const shopUI = new ShopUI({ panel: $('shopPanel'), body: $('shopBody'), closeButton: $('shopClose'), game, requestOpen: () => panels.open('shop') });
     const tradeUI = new TradeUI({ panel: $('tradePanel'), body: $('tradeBody'), closeButton: $('tradeClose'), game, requestOpen: () => panels.open('trade') });
-    const toasts = new Toasts($('toasts')), sleepUI = new SleepUI({ game });
+    const toasts = new Toasts($('toasts')), sleepUI = new SleepUI({ game }), downedUI = new DownedUI({ game });
     if (ContentPack.source === 'draft') toasts.show('Playing your content editor draft (this browser only)', 'info', 6000);
-    game.events.on('bossDefeated', e => toasts.show(e.appeased ? `The ${e.name} is at peace with her cubs home! ${e.final ? 'The realm is free.' : e.nextRing + ' is open.'}` : e.final ? `The ${e.name} is defeated! The realm is free.` : `The ${e.name} has fallen! ${e.nextRing} is open.`, 'ok', 8000));
+    game.events.on('bossDefeated', e => toasts.show(e.appeased ? `The ${e.name} is at peace with her cubs home! ${e.final ? 'Her cave is quiet at last.' : e.nextRing + ' is open.'}` : e.final ? `The ${e.name} is defeated! Her cave is quiet at last.` : `The ${e.name} has fallen! ${e.nextRing} is open.`, 'ok', 8000));
+    /* the Slime Warren: which rooms have had their slimes beaten (the exit is drawn as plain rock until then), and the cave mouth stays rubble until the Cave Bear is down */
+    game.clearedRooms = new Set();
+    game.events.on('roomState', e => { if (e.cleared) game.clearedRooms.add(e.grid); });
+    game.events.on('roomCleared', e => { game.clearedRooms.add(e.grid); toasts.show('The way on has opened!', 'ok', 4000); });
+    game.events.on('kingDefeated', () => toasts.show('The Slime King is defeated!', 'ok', 8000));
+    const exitOf = new WeakMap();
+    StructureSprites.sealed = (o, tx, ty) => {
+      if (o === OBJ.CAVEMOUTH) {                                                          // outside: a mouth whose dungeon wants a guardian down first
+        const mouth = game.map.terrain && game.map.terrain.caveSites && game.map.terrain.caveSites.caves().find(c => Math.floor(c.x) === tx && Math.floor(c.y) === ty), def = mouth && Dungeons.all()[mouth.index];
+        return !!(def && def.requires && !game.defeated.includes(def.requires.defeated));
+      }
+      const plan = game.map.plan;                                                         // inside: the exit of a room that still has slimes to beat
+      if (!plan || !plan.dungeon || !plan.dungeon.waves || !plan.dungeon.waves[plan.index] || game.clearedRooms.has(game.grid)) return false;
+      let m = exitOf.get(plan); if (!m) exitOf.set(plan, m = plan._middle(plan.room.exits));
+      return m.x === tx && m.y === ty;
+    };
     game.events.on('nightSkipped', () => toasts.show('The night passes...', 'info', 3000));
     game.events.on('enteredCave', () => toasts.show('You descend into the cave...', 'info', 3000));
     game.events.on('dungeonChest', e => { DungeonState.opened.add(DungeonState.key(game.grid, e.tx, e.ty)); const prop = game.map.peekPropAt(e.tx, e.ty); if (prop) prop.opened = true; });       // (a dungeon chest somebody opened)
@@ -200,7 +216,7 @@ function launch(choice, query) {
         debug.update(frameMs);
         healthBar.config.max = game.local.maxHp; journalUI.tick(frameMs); mapUI.tick(frameMs); gearUI.tick(frameMs); if (sessionUI) sessionUI.tick(frameMs);
         const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health
-        healthBar.update(game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); clockUI.update(game.hour()); seasonUI.update(Seasons.at(game.clockTick), game.weather); sleepUI.update();
+        healthBar.update(game.local.down > 0 ? game.local.downHp : game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); clockUI.update(game.hour()); seasonUI.update(Seasons.at(game.clockTick), game.weather); sleepUI.update(); downedUI.update();
         craftingUI.tick(frameMs); townUI.tick(frameMs); dialogueUI.tick(frameMs); puzzleUI.tick(frameMs); shopUI.tick(frameMs); showAbilities();
         const held = ItemDB.getTool(game.heldItemId()), armed = !!held && WEAPON_KINDS.includes(held.kind);       // a weapon in hand: the Use button becomes Attack
         if (armed !== attackShown) { attackShown = armed; $('btnAct').textContent = armed ? 'Attack' : 'Use'; $('btnAct').classList.toggle('attack', armed); }

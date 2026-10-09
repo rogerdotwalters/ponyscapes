@@ -5,7 +5,7 @@ const CHIP_COLORS = ['#c9a06a', '#8a5a33', '#b58a55'], LEAF_COLORS = ['#468a40',
 
 class Effects {
   constructor(bus, game) {
-    this.game = game; this.arrows = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {};
+    this.game = game; this.arrows = []; this.rings = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {};
     game.events.on('chop', e => this._onChop(e));
     game.events.on('fell', e => this._onFell(e));
     game.events.on('pressed', e => { const c = e.color || '#7b45c4'; this._burst(e.x, e.y, 12, [c, c, '#ffffff'], 14); });   // a splash of the dye's colour at the press
@@ -29,6 +29,15 @@ class Effects {
     game.events.on('fish', e => { this._burst(e.x, e.y, 10, SPLASH_COLORS, 6); this._float(e, 'Caught a fish!'); });
     game.events.on('hurt', e => this._float(e, `-${e.amount} hp`));
     game.events.on('died', e => this._float(e, 'Knocked out! Back at the village'));
+    game.events.on('downed', e => this._float(e, 'Down! Eat a snack to get up sooner'));
+    game.events.on('snack', e => this._float(e, `Yum! -${e.seconds}s  +${e.hp} hp`));
+    game.events.on('revived', e => this._float(e, e.by ? 'Picked up!' : 'Back on your feet'));
+    game.events.on('lifted', e => this._float(e, 'Picked them up!'));
+    const SLIME = ['#5fbf6a', '#8fe08a', '#3a8f4a', '#c4f5b8'];
+    game.events.on('slimePuff', e => this._burst(e.x, e.y, 10, SLIME, 8));                                    // a slime wells up out of the floor
+    game.events.on('slimeLeap', e => this._burst(e.x, e.y, 14, SLIME, 6));                                    // the Slime King pushes off
+    game.events.on('slimeWindup', e => this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: e.seconds }));       // a red ring on the floor where he will land (slimeking.js)
+    game.events.on('slimeSlam', e => { this._burst(e.x, e.y, 36, SLIME, 14); this._burst(e.x, e.y, 16, DUST_COLORS, 6); this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: 0.5, wave: true }); });   // the landing: slime and dust fly, a shock ring spreads
     game.events.on('loot', e => this._float(e, 'Chest opened!'));
     game.events.on('tradeDone', e => this._float(e, 'Trade complete'));
     game.events.on('bite', e => this._burst(e.x, e.y, 8, ['#4a3a5a', '#2b2233', '#a24a4a'], 12));
@@ -185,6 +194,16 @@ class Effects {
       if (!look.tails) for (const [px, py] of tail(look.rope, 0)) { stamp(px, py, 4, look.dark); stamp(px, py, 2, look.rope); }                // plain rope end for the simple lassos
       for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [2, 2], [-2, 2], [2, -2]]) stamp(hx + ox, hy + oy, 2, look.dark);       // the ring: dark rim round a bright centre
       stamp(hx, hy, 2, look.honda); stamp(hx - 1, hy - 1, 2, '#ffffff');
+    }
+    this.rings = this.rings.filter(r => (r.age += dt) < r.life);                                           // the Slime King's landing marks: a ring that fills as the jump nears, and the shock ring after
+    for (const r of this.rings) {
+      const cx = isoX(r.x, r.y), cy = isoY(r.x, r.y), t = r.age / r.life, k = TILE_HALF_W * Math.SQRT2;
+      ctx.beginPath();
+      if (r.wave) { ctx.ellipse(cx, cy, r.r * k * (0.3 + 0.7 * t), r.r * k * (0.3 + 0.7 * t) / 2, 0, 0, Math.PI * 2); ctx.strokeStyle = `rgba(190,255,170,${(0.8 * (1 - t)).toFixed(2)})`; ctx.lineWidth = 4 * (1 - t) + 1; ctx.stroke(); }
+      else {
+        ctx.ellipse(cx, cy, r.r * k, r.r * k / 2, 0, 0, Math.PI * 2); ctx.strokeStyle = 'rgba(255,70,50,.85)'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(cx, cy, r.r * k * t, r.r * k * t / 2, 0, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,70,50,${(0.12 + 0.28 * t).toFixed(2)})`; ctx.fill();
+      }
     }
     this.floaters = this.floaters.filter(f => (f.age += dt) < (f.style === 'levelup' ? 2.4 : 1.4));
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

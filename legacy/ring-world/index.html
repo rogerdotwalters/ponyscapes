@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2c6b99">
+<title>Ponyscapes</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="loading"><div class="ldBox"><div class="ldTitle">Ponyscapes</div><div class="ldText">Loading the game...</div><div class="ldBar"><i></i></div></div></div>
+<div id="lobby" hidden>
+  <div class="lobbyCard scrollable">
+    <h1>Ponyscapes</h1>
+    <div class="lobbySub">A small fantasy world, for up to four friends</div>
+    <label class="lobbyField" id="nameField">Character name<input id="lobbyName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Player"></label>
+    <div id="lobbyError" hidden role="alert"></div>
+    <section id="lobbyMain" class="lobbyPane">
+      <div id="charCard"><canvas id="charMini" width="60" height="64"></canvas><div class="charInfo"><b id="charCardName"></b><span id="charCardDesc"></span></div><button id="charEdit" type="button">Edit character</button></div>
+      <button id="lobbySolo" class="big">Play solo</button>
+      <button id="lobbyHost" class="big">Host a game</button>
+      <button id="lobbyJoin" class="big">Join a game</button>
+      <div class="lobbyNote">Hosting keeps the world and every player's character in <b>your</b> browser's database.</div>
+    </section>
+    <section id="lobbyCreator" class="lobbyPane" hidden>
+      <h2>Create your character</h2>
+      <div class="creatorTop">
+        <div class="charStage">
+          <canvas id="charPreview" width="168" height="200"></canvas>
+          <div class="stageCtl"><button id="charTurnL" type="button" aria-label="Turn left">&#9664;</button><button id="charWalk" type="button">Walk</button><button id="charTurnR" type="button" aria-label="Turn right">&#9654;</button></div>
+          <div class="charViews"><canvas width="60" height="88" data-view="down"></canvas><canvas width="60" height="88" data-view="left"></canvas><canvas width="60" height="88" data-view="up"></canvas></div>
+        </div>
+        <div class="creatorSide"><div class="seg" id="bodySeg"></div><button id="charRandom" type="button" class="alt small">Surprise me</button></div>
+      </div>
+      <div class="optRow"><span>Hair style</span><div class="chips" id="hairChips"></div></div>
+      <div class="optRow"><span>Hair colour</span><div class="swatches" id="hairColors"></div></div>
+      <div class="optRow"><span>Skin</span><div class="swatches" id="skinColors"></div></div>
+      <div class="optRow"><span>Eyes</span><div class="swatches" id="eyeColors"></div></div>
+      <div class="optRow"><span>Shirt</span><div class="swatches" id="outfitColors"></div></div>
+      <div class="optRow"><span>Shirt style</span><div class="chips textChips" id="shirtStyles"></div></div>
+      <div class="optRow"><span id="pantsLabel">Pants</span><div class="swatches" id="pantsColors"></div></div>
+      <div class="optRow"><span id="pantsStyleLabel">Pants style</span><div class="chips textChips" id="pantsStyles"></div></div>
+      <div class="optRow"><span>Shoes</span><div class="swatches" id="shoeColors"></div></div>
+      <div class="optRow"><span>Trim</span><div class="swatches" id="trimColors"></div></div>
+      <button id="charDone" class="big">Done</button>
+    </section>
+    <section id="lobbyHostPane" class="lobbyPane" hidden>
+      <h2>Host a game</h2>
+      <div id="worldList" class="scrollable"></div>
+      <div id="saveWarning" class="lobbyWarn" hidden>This browser cannot keep saves after you close the page.</div>
+      <button id="hostStart" class="big">Start &amp; invite friends</button>
+      <button id="hostOffline" class="big alt">Play offline (still saved)</button>
+      <button class="back" data-back type="button">&larr; Back</button>
+    </section>
+    <section id="lobbyJoinPane" class="lobbyPane" hidden>
+      <h2>Join a game</h2>
+      <label class="lobbyField">Room code<input id="joinCode" maxlength="5" autocomplete="off" spellcheck="false" autocapitalize="characters" placeholder="ABCDE"></label>
+      <button id="joinGo" class="big">Join</button>
+      <button class="back" data-back type="button">&larr; Back</button>
+    </section>
+    <section id="lobbyBusy" class="lobbyPane" hidden><div class="spinner"></div><div id="lobbyBusyText"></div></section>
+    <details id="lobbyAdvanced"><summary>Relay address</summary>
+      <input id="lobbyRelay" placeholder="wss://your-worker.workers.dev/ws" autocomplete="off" spellcheck="false">
+      <div id="lobbyRelayNote"></div>
+    </details>
+  </div>
+</div>
+<div id="sessionBadge" hidden></div>
+<div id="toasts"></div>
+<div id="endOverlay" hidden><div class="endCard"><h2>Session over</h2><div id="endText"></div><button id="endBack" class="big">Back to the lobby</button></div></div>
+<div id="panelBackdrop" hidden></div>
+
+<div id="topBtns">
+  <button class="tbtn" id="btnMenu" tabindex="-1" title="Menu: every section of the game">&#9776; Menu</button>
+  <button class="tbtn" id="btnMap" tabindex="-1" title="Map (M)">Map</button>
+  <button class="tbtn" id="btnFs" tabindex="-1" title="Fullscreen">&#x26F6;</button>
+  <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
+</div>
+<pre id="dbg" hidden></pre>
+<div id="hint">WASD move (screen-relative) &middot; always full speed (Dexterity and Animal Friendship let you get closer to animals) &middot; hold E / Space or the left mouse button: use the tool in your hand where you point &middot; right click: throw your lasso &middot; click a villager to talk, an animal to feed or pet it &middot; Menu &gt; Controls: rebind keys &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; farming: a hoe tills grass or dirt, a watering can waters it each day, F with seeds plants (in their season), F at a ripe crop harvests &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K: your pony's rarity abilities while riding &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
+<div id="portraitHint">Rotate your phone to landscape for the best view</div>
+
+<div id="toolbar"></div>
+<button class="ubtn" id="btnEmote" tabindex="-1" title="Emotes (V)">&#9786;</button>
+<div id="emoteWheel" hidden></div>
+<div id="healthBar" class="vital health"><div id="healthFill" class="fill"></div><span id="healthLabel" class="vlabel">Healthy</span></div>
+<div id="hungerBar" class="vital"><div id="hungerFill" class="fill"></div><span id="hungerLabel" class="vlabel">Fed</span></div>
+<div id="thirstBar" class="vital water"><div id="thirstFill" class="fill"></div><span id="thirstLabel" class="vlabel">Hydrated</span></div>
+<div id="clock" hidden></div>
+<div id="seasonBar"><div class="sbClock"><canvas width="20" height="20"></canvas><span class="sbPhase"></span></div><div class="sbSeason"><div class="sbText"><span class="sbIcon"></span><b class="sbName"></b><span class="sbDay"></span><span class="sbDayShort"></span><span class="sbWeather"></span></div><div class="sbTrack"><div class="sbFill"></div></div></div><div class="sbNews" hidden></div></div>
+<div id="abilityBar" hidden></div>
+<div id="inventoryPanel" hidden>
+  <header><span>Inventory</span><button id="invClose" tabindex="-1">&#x2715;</button></header>
+  <div id="invPicked">Tap an item to move, drop or destroy it</div>
+  <div id="invActions"><button id="invUse" tabindex="-1" hidden></button><button id="invDrop1" tabindex="-1" disabled>Drop 1</button><button id="invDropAll" tabindex="-1" disabled>Drop all</button><button id="invDestroy" class="danger" tabindex="-1" disabled>Destroy</button></div>
+  <div id="invBody" class="scrollable"></div>
+</div>
+
+<div id="craftPanel" hidden>
+  <header><span>Crafting</span><button id="craftClose" tabindex="-1">&#x2715;</button></header>
+  <div id="craftList" class="scrollable"></div>
+</div>
+
+<div id="settingsPanel" hidden>
+  <header><span>Dev settings (host)</span><button id="settingsClose" tabindex="-1">&#x2715;</button></header>
+  <div id="settingsList" class="scrollable"></div>
+</div>
+
+<div id="controlsPanel" hidden>
+  <header><span>Controls</span><button id="controlsClose" tabindex="-1">&#x2715;</button></header>
+  <div id="controlsTabs" class="subtabs"></div>
+  <div id="controlsBody" class="scrollable"></div>
+</div>
+<div id="puzzlePanel" hidden>
+  <header><span id="puzzleTitle">Puzzle</span><button id="puzzleClose" tabindex="-1">&#x2715;</button></header>
+  <div id="puzzleBody"></div>
+</div>
+<div id="dialoguePanel" hidden>
+  <header><span id="dialogueTitle">Villager</span><button id="dialogueClose" tabindex="-1">&#x2715;</button></header>
+  <div id="dialogueBody"></div>
+</div>
+
+<div id="gearPanel" hidden>
+  <header><span>Wardrobe</span><button id="gearClose" tabindex="-1">&#x2715;</button></header>
+  <div id="gearBody" class="scrollable"></div>
+</div>
+<div id="confirmPanel" hidden>
+  <header><span id="confirmTitle">Let go?</span></header>
+  <div id="confirmText"></div>
+  <div id="confirmBtns"><button id="confirmGo" tabindex="-1">Let go</button><button id="confirmKeep" tabindex="-1">Keep it</button></div>
+</div>
+<div id="sessionPanel" hidden>
+  <header><span>Session</span><button id="sessionClose" tabindex="-1">&#x2715;</button></header>
+  <div id="sessionBody" class="scrollable"></div>
+</div>
+<div id="menuPanel" hidden>
+  <header><span>Menu</span><button id="menuClose" tabindex="-1">&#x2715;</button></header>
+  <div id="menuBody" class="scrollable"></div>
+</div>
+<div id="mapPanel" hidden>
+  <header><span>Map</span><button id="mapClose" tabindex="-1">&#x2715;</button></header>
+  <div id="mapBody" class="scrollable"></div>
+</div>
+<div id="journalPanel" hidden>
+  <header><span>Journal</span><button id="journalClose" tabindex="-1">&#x2715;</button></header>
+  <div id="journalTabs"></div>
+  <div id="journalBody" class="scrollable"></div>
+</div>
+<div id="ponyPanel" hidden>
+  <header><span>Pony Book</span><button id="ponyClose" tabindex="-1">&#x2715;</button></header>
+  <div id="ponyBody" class="scrollable"></div>
+</div>
+<div id="townPanel" hidden>
+  <header><span>Town</span><button id="townClose" tabindex="-1">&#x2715;</button></header>
+  <div id="townBody" class="scrollable"></div>
+</div>
+<div id="shopPanel" hidden>
+  <header><span>Shop</span><button id="shopClose" tabindex="-1">&#x2715;</button></header>
+  <div id="shopBody" class="scrollable"></div>
+</div>
+<div id="tradePanel" hidden>
+  <header><span>Trade</span><button id="tradeClose" tabindex="-1">&#x2715;</button></header>
+  <div id="tradeBody" class="scrollable"></div>
+</div>
+
+<button class="pbtn" id="btnFly" tabindex="-1" style="display:none">Fly</button>
+
+<div id="touchUI" hidden>
+  <div id="joyZone"><div id="joyBase"><div id="joyKnob"></div></div></div>
+  <button class="pbtn" id="btnRot" tabindex="-1" style="display:none">Rot</button>
+  <button class="pbtn" id="btnBoard" tabindex="-1" style="display:none">Board</button>
+  <button class="pbtn danger" id="btnRelease" tabindex="-1" style="display:none">Let go</button>
+  <button class="pbtn ability" id="btnAbility" tabindex="-1" style="display:none"></button>
+  <button class="pbtn" id="btnLasso" tabindex="-1" title="Throw your lasso (L)">Lasso</button>
+  <button class="pbtn" id="btnDrop" tabindex="-1" title="Drop what is in your hand (X)">Drop</button>
+  <button class="pbtn" id="btnBag" tabindex="-1" title="Your bag (I)"><span class="bagIcon" aria-hidden="true"></span><span>Bag</span></button>
+  <button class="pbtn" id="btnAct" tabindex="-1">Use</button>
+</div>
+
+<!-- shared (will run on the server too) -->
+<script src="relay-config.js" defer></script>
+<script src="js/shared/config.js" defer></script>
+<script src="js/shared/mathUtils.js" defer></script>
+<script src="js/content/gameSettings.js" defer></script>
+<script src="js/shared/gameSettings.js" defer></script>
+<script src="js/shared/time.js" defer></script>
+<script src="js/shared/seasons.js" defer></script>
+<script src="js/shared/tileTypes.js" defer></script>
+<script src="js/shared/skills.js" defer></script>
+<script src="js/shared/characterDefs.js" defer></script>
+<script src="js/shared/noise.js" defer></script>
+<!-- your content (written by editor.html), merged over the built-in definitions -->
+<script src="js/content/customContent.js" defer></script>
+<script src="js/content/interiors.js" defer></script>
+<script src="js/content/caveRooms.js" defer></script>
+<script src="js/shared/roomCodes.js" defer></script>
+<script src="js/shared/contentPack.js" defer></script>
+<script src="js/shared/rarity.js" defer></script>
+<script src="js/core/registry.js" defer></script>
+<script src="js/data/items/materials.js" defer></script>
+<script src="js/data/items/foods.js" defer></script>
+<script src="js/data/items/tools.js" defer></script>
+<script src="js/data/items/weapons.js" defer></script>
+<script src="js/data/items/wardrobe.js" defer></script>
+<script src="js/data/items/placeables.js" defer></script>
+<script src="js/data/items/bags.js" defer></script>
+<script src="js/data/items/specials.js" defer></script>
+<script src="js/data/crops/crops.js" defer></script>
+<script src="js/data/trees/trees.js" defer></script>
+<script src="js/data/biomes/registry.js" defer></script>
+<script src="js/data/biomes/normal.js" defer></script>
+<script src="js/data/biomes/forest.js" defer></script>
+<script src="js/data/biomes/jungle.js" defer></script>
+<script src="js/data/biomes/apple.js" defer></script>
+<script src="js/data/biomes/ice.js" defer></script>
+<script src="js/data/biomes/fire.js" defer></script>
+<script src="js/data/biomes/crystal.js" defer></script>
+<script src="js/data/biomes/rainbow.js" defer></script>
+<script src="js/data/biomes/candy.js" defer></script>
+<script src="js/data/biomes/magic.js" defer></script>
+<script src="js/data/biomes/beach.js" defer></script>
+<script src="js/data/biomes/clay.js" defer></script>
+<script src="js/data/friendship/levels.js" defer></script>
+<script src="js/data/rings/registry.js" defer></script>
+<script src="js/data/rings/ring0.js" defer></script>
+<script src="js/data/rings/ring1.js" defer></script>
+<script src="js/data/rings/ring2.js" defer></script>
+<script src="js/data/rings/ring3.js" defer></script>
+<script src="js/data/rings/ring4.js" defer></script>
+<script src="js/data/dungeons/registry.js" defer></script>
+<script src="js/data/dungeons/cavern.js" defer></script>
+<script src="js/data/ponies/registry.js" defer></script>
+<script src="js/data/ponies/variants.js" defer></script>
+<script src="js/data/ponies/abilities.js" defer></script>
+<script src="js/data/ponies/kinds.js" defer></script>
+<script src="js/data/creatures/registry.js" defer></script>
+<script src="js/data/creatures/rabbit.js" defer></script>
+<script src="js/data/creatures/deer.js" defer></script>
+<script src="js/data/creatures/sheep.js" defer></script>
+<script src="js/data/creatures/elk.js" defer></script>
+<script src="js/data/creatures/bat.js" defer></script>
+<script src="js/data/creatures/spider.js" defer></script>
+<script src="js/data/creatures/bear.js" defer></script>
+<script src="js/data/creatures/centipede.js" defer></script>
+<script src="js/data/creatures/lion.js" defer></script>
+<script src="js/data/creatures/manticore.js" defer></script>
+<script src="js/data/creatures/beastman.js" defer></script>
+<script src="js/data/creatures/dragons.js" defer></script>
+<script src="js/data/creatures/bosses.js" defer></script>
+<script src="js/data/creatures/chicken.js" defer></script>
+<script src="js/data/creatures/duck.js" defer></script>
+<script src="js/data/creatures/goat.js" defer></script>
+<script src="js/data/creatures/cat.js" defer></script>
+<script src="js/data/creatures/dog.js" defer></script>
+<script src="js/data/creatures/fox.js" defer></script>
+<script src="js/data/creatures/owl.js" defer></script>
+<script src="js/data/creatures/boar.js" defer></script>
+<script src="js/data/creatures/wolf.js" defer></script>
+<script src="js/data/creatures/bear_cub.js" defer></script>
+<script src="js/data/creatures/jungle.js" defer></script>
+<script src="js/data/creatures/slime.js" defer></script>
+<script src="js/data/npcs/registry.js" defer></script>
+<script src="js/data/npcs/baker.js" defer></script>
+<script src="js/data/npcs/blacksmith.js" defer></script>
+<script src="js/data/npcs/farmer.js" defer></script>
+<script src="js/data/npcs/fisher.js" defer></script>
+<script src="js/data/npcs/merchant.js" defer></script>
+<script src="js/data/npcs/elder.js" defer></script>
+<script src="js/data/npcs/child.js" defer></script>
+<script src="js/data/npcs/guard.js" defer></script>
+<script src="js/data/npcs/carpenter.js" defer></script>
+<script src="js/data/npcs/veterinarian.js" defer></script>
+<script src="js/data/puzzles/registry.js" defer></script>
+<script src="js/data/puzzles/rune_stone.js" defer></script>
+<script src="js/data/puzzles/pond_dial.js" defer></script>
+<script src="js/data/puzzles/broken_tablet.js" defer></script>
+<script src="js/data/quests/registry.js" defer></script>
+<script src="js/data/quests/elder_stone.js" defer></script>
+<script src="js/data/quests/baker_eggs.js" defer></script>
+<script src="js/data/quests/elder_dial.js" defer></script>
+<script src="js/data/quests/guard_tablet.js" defer></script>
+<script src="js/data/buildings/registry.js" defer></script>
+<script src="js/data/buildings/carpenter.js" defer></script>
+<script src="js/data/buildings/veterinary.js" defer></script>
+<script src="js/data/buildings/general_store.js" defer></script>
+<script src="js/data/buildings/player_home.js" defer></script>
+<script src="js/data/buildings/storehouse.js" defer></script>
+<script src="js/data/buildings/vacant_home.js" defer></script>
+<script src="js/data/buildings/npc_homes.js" defer></script>
+<script src="js/data/furniture/registry.js" defer></script>
+<script src="js/data/furniture/basic.js" defer></script>
+<script src="js/data/interiors/tiles.js" defer></script>
+<script src="js/shared/itemDefs.js" defer></script>
+<script src="js/shared/recipeDefs.js" defer></script>
+<script src="js/shared/resourceDefs.js" defer></script>
+<script src="js/shared/ponyDefs.js" defer></script>
+<script src="js/shared/animalDefs.js" defer></script>
+<script src="js/shared/animalLevels.js" defer></script>
+<script src="js/shared/enemyCodes.js" defer></script>
+<script src="js/shared/ponyProgress.js" defer></script>
+<script src="js/shared/friendship.js" defer></script>
+<script src="js/shared/being.js" defer></script>
+<script src="js/shared/animal.js" defer></script>
+<script src="js/shared/npc.js" defer></script>
+<script src="js/shared/npcSystem.js" defer></script>
+<script src="js/shared/friendshipSystem.js" defer></script>
+<script src="js/shared/ponyAbilities.js" defer></script>
+<script src="js/shared/inventory.js" defer></script>
+<script src="js/shared/layers/buildingSites.js" defer></script>
+<script src="js/shared/layers/interiorSpace.js" defer></script>
+<script src="js/shared/village.js" defer></script>
+<script src="js/shared/layers/ringLayer.js" defer></script>
+<script src="js/shared/layers/biomeLayer.js" defer></script>
+<script src="js/shared/layers/zoneLayer.js" defer></script>
+<script src="js/shared/layers/dungeonSpace.js" defer></script>
+<script src="js/shared/layers/dungeonLayer.js" defer></script>
+<script src="js/shared/layers/caveSites.js" defer></script>
+<script src="js/shared/layers/worldLayers.js" defer></script>
+<script src="js/shared/terrainGenerator.js" defer></script>
+<script src="js/shared/world.js" defer></script>
+<script src="js/shared/grids.js" defer></script>
+<script src="js/shared/collision.js" defer></script>
+<script src="js/shared/boat.js" defer></script>
+<script src="js/shared/buildSystem.js" defer></script>
+<script src="js/shared/stockpiles.js" defer></script>
+<script src="js/shared/pathfinding.js" defer></script>
+<script src="js/shared/playerMovement.js" defer></script>
+<script src="js/shared/treeSystem.js" defer></script>
+<script src="js/shared/forageSystem.js" defer></script>
+<script src="js/shared/interaction.js" defer></script>
+<script src="js/shared/vitalsSystem.js" defer></script>
+<script src="js/shared/equipment.js" defer></script>
+<script src="js/shared/lightSources.js" defer></script>
+<script src="js/shared/emoteDefs.js" defer></script>
+<script src="js/shared/tradeSystem.js" defer></script>
+<script src="js/shared/penSystem.js" defer></script>
+<script src="js/shared/behaviors/registry.js" defer></script>
+<script src="js/shared/behaviors/timid.js" defer></script>
+<script src="js/shared/behaviors/nocturnal.js" defer></script>
+<script src="js/shared/behaviors/predator.js" defer></script>
+<script src="js/shared/behaviors/territorial.js" defer></script>
+<script src="js/shared/animalSystem.js" defer></script>
+<script src="js/shared/craftingSystem.js" defer></script>
+<script src="js/shared/toolHandlers.js" defer></script>
+<script src="js/shared/toolSystem.js" defer></script>
+<script src="js/shared/treasure.js" defer></script>
+<script src="js/shared/saveData.js" defer></script>
+<script src="js/shared/worldProgress.js" defer></script>
+<script src="js/shared/dungeonSystem.js" defer></script>
+<script src="js/shared/interiorSystem.js" defer></script>
+<script src="js/shared/sleepSystem.js" defer></script>
+<script src="js/shared/wildPonies.js" defer></script>
+<script src="js/shared/wantSystem.js" defer></script>
+<script src="js/shared/puzzles.js" defer></script>
+<script src="js/shared/questSystem.js" defer></script>
+<script src="js/shared/gameServer.js" defer></script>
+<script src="js/shared/serverOwned.js" defer></script>
+<script src="js/shared/tapActions.js" defer></script>
+<script src="js/shared/packSystem.js" defer></script>
+<script src="js/shared/shopSystem.js" defer></script>
+<script src="js/shared/homeCrafts.js" defer></script>
+<script src="js/shared/farming.js" defer></script>
+<script src="js/shared/weather.js" defer></script>
+<script src="js/shared/groves.js" defer></script>
+<script src="js/shared/hedges.js" defer></script>
+<script src="js/shared/grass.js" defer></script>
+<!-- network -->
+<script src="js/shared/snapshotBuilder.js" defer></script>
+<script src="js/shared/deltaCodec.js" defer></script>
+<script src="js/shared/relayProtocol.js" defer></script>
+<script src="js/net/netAdapters.js" defer></script>
+<script src="js/net/relayConnection.js" defer></script>
+<script src="js/net/saveStore.js" defer></script>
+<script src="js/net/hostAdapter.js" defer></script>
+<script src="js/net/remoteAdapter.js" defer></script>
+<!-- client -->
+<script src="js/client/eventBus.js" defer></script>
+<script src="js/client/clientGame.js" defer></script>
+<script src="js/client/gameLoop.js" defer></script>
+<script src="js/client/input/controlSettings.js" defer></script>
+<script src="js/client/input/keyboardInput.js" defer></script>
+<script src="js/client/input/touchControls.js" defer></script>
+<script src="js/client/input/inputController.js" defer></script>
+<script src="js/client/input/tapToMove.js" defer></script>
+<script src="js/client/input/canvasPointer.js" defer></script>
+<script src="js/client/render/isoProjection.js" defer></script>
+<script src="js/client/render/gfx.js" defer></script>
+<script src="js/client/render/spriteCache.js" defer></script>
+<script src="js/client/render/camera.js" defer></script>
+<script src="js/client/render/biomeEffects.js" defer></script>
+<script src="js/client/render/autoTile.js" defer></script>
+<script src="js/client/render/terrainRenderer.js" defer></script>
+<script src="js/client/render/structureSprites.js" defer></script>
+<script src="js/client/render/interiorSprites.js" defer></script>
+<script src="js/client/render/propSprites.js" defer></script>
+<script src="js/client/render/spriteRegistry.js" defer></script>
+<script src="js/client/render/pixelCharacter.js" defer></script>
+<script src="js/client/render/artPack.js" defer></script>
+<script src="js/client/render/pixelBuildings.js" defer></script>
+<script src="js/client/render/pixelDecor.js" defer></script>
+<script src="js/client/render/grassRenderer.js" defer></script>
+<script src="js/client/render/pixelPony.js" defer></script>
+<script src="js/client/render/pixelCreatures.js" defer></script>
+<script src="js/client/render/pixelProps.js" defer></script>
+<script src="js/client/render/pixelTerrain.js" defer></script>
+<script src="js/client/render/playerSprite.js" defer></script>
+<script src="js/client/render/boatSprite.js" defer></script>
+<script src="js/client/render/creatures/registry.js" defer></script>
+<meta name="lazy-script" content="js/client/render/creatures/rabbit.js">
+<meta name="lazy-script" content="js/client/render/creatures/deer.js">
+<meta name="lazy-script" content="js/client/render/creatures/sheep.js">
+<meta name="lazy-script" content="js/client/render/creatures/spider.js">
+<meta name="lazy-script" content="js/client/render/creatures/pony.js">
+<meta name="lazy-script" content="js/client/render/creatures/bear.js">
+<meta name="lazy-script" content="js/client/render/creatures/lion.js">
+<meta name="lazy-script" content="js/client/render/creatures/dragon.js">
+<meta name="lazy-script" content="js/client/render/creatures/bat.js">
+<meta name="lazy-script" content="js/client/render/creatures/centipede.js">
+<meta name="lazy-script" content="js/client/render/creatures/beastman.js">
+<meta name="lazy-script" content="js/client/render/creatures/bird.js">
+<meta name="lazy-script" content="js/client/render/creatures/canine.js">
+<meta name="lazy-script" content="js/client/render/creatures/goat.js">
+<meta name="lazy-script" content="js/client/render/creatures/boar.js">
+<script src="js/client/render/heartMeter.js" defer></script>
+<script src="js/client/render/wantBubble.js" defer></script>
+<script src="js/client/render/questSprites.js" defer></script>
+<script src="js/client/render/animalSprite.js" defer></script>
+<script src="js/client/render/lighting.js" defer></script>
+<script src="js/client/render/effects.js" defer></script>
+<script src="js/client/render/weatherFx.js" defer></script>
+<script src="js/client/audio/audioCore.js" defer></script>
+<script src="js/client/audio/weatherAudio.js" defer></script>
+<script src="js/client/audio/sfx.js" defer></script>
+<script src="js/client/audio/worldSfx.js" defer></script>
+<script src="js/client/audio/music.js" defer></script>
+<script src="js/client/render/renderer.js" defer></script>
+<script src="js/client/render/backend.js" defer></script>
+<script src="js/client/ui/itemIcons.js" defer></script>
+<script src="js/client/ui/slotView.js" defer></script>
+<script src="js/client/ui/toolbarUI.js" defer></script>
+<script src="js/client/ui/inventoryUI.js" defer></script>
+<script src="js/client/ui/craftingUI.js" defer></script>
+<script src="js/client/ui/settingsUI.js" defer></script>
+<script src="js/client/ui/controlsUI.js" defer></script>
+<script src="js/client/ui/dialogueUI.js" defer></script>
+<script src="js/client/ui/puzzleUI.js" defer></script>
+<script src="js/client/ui/panelGroup.js" defer></script>
+<script src="js/client/ui/vitalsUI.js" defer></script>
+<script src="js/client/ui/sleepUI.js" defer></script>
+<script src="js/client/ui/wardrobeUI.js" defer></script>
+<script src="js/client/ui/ponyBookUI.js" defer></script>
+<script src="js/client/ui/tradeUI.js" defer></script>
+<script src="js/client/ui/townUI.js" defer></script>
+<script src="js/client/ui/shopUI.js" defer></script>
+<script src="js/client/ui/emoteUI.js" defer></script>
+<script src="js/client/ui/journalUI.js" defer></script>
+<script src="js/client/ui/menuUI.js" defer></script>
+<script src="js/client/ui/confirmUI.js" defer></script>
+<script src="js/client/ui/lobbyUI.js" defer></script>
+<script src="js/client/ui/sessionUI.js" defer></script>
+<script src="js/client/ui/mapUI.js" defer></script>
+<script src="js/client/ui/uiLayout.js" defer></script>
+<script src="js/client/ui/debugOverlay.js" defer></script>
+<script src="js/client/loader.js" defer></script>
+<script src="js/client/main.js" defer></script>
+</body>
+</html>

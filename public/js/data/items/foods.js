@@ -1,6 +1,6 @@
 'use strict';
 /* DATA - foods. One line per entry. EVERY food and drink lives here and only here. hunger/thirst are what it restores; category decides how it behaves (berry, fruit, meat, drink). A raw food names what it cooks into. */
-const Foods = new Registry('foods', { required: ['name', 'category', 'maxStack'], check: f => (['berry', 'fruit', 'meat', 'drink'].includes(f.category) ? null : 'has an unknown category') });
+const Foods = new Registry('foods', { required: ['name', 'category', 'maxStack'], check: f => (['berry', 'fruit', 'meat', 'drink', 'mushroom'].includes(f.category) ? null : 'has an unknown category') });
 Foods.registerAll([
   { id: 'jug_water', name: 'Jug of Water', category: 'drink', maxStack: 5, hunger: 0, thirst: 35, returns: 'jug' },
   { id: 'rabbit_meat', name: 'Raw Rabbit', category: 'meat', maxStack: 10, hunger: 9, thirst: 0, cooksInto: 'cooked_rabbit', recipe: { id: 'cook_rabbit', name: 'Roast Rabbit' } },
@@ -9,6 +9,11 @@ Foods.registerAll([
   { id: 'raspberry', name: 'Raspberry', category: 'berry', maxStack: 30, hunger: 8, thirst: 2, color: '#d6336c' },
   { id: 'blackberry', name: 'Blackberry', category: 'berry', maxStack: 30, hunger: 9, thirst: 2, color: '#3d2b5e' },
   { id: 'blueberry', name: 'Blueberry', category: 'berry', maxStack: 30, hunger: 9, thirst: 2, color: '#4a6fd1' },
+  { id: 'button_mushroom', name: 'Button Mushroom', category: 'mushroom', maxStack: 30, hunger: 6, thirst: 0, color: '#e6d9bd' },
+  { id: 'red_cap', name: 'Red Cap', category: 'mushroom', maxStack: 30, hunger: 7, thirst: 0, color: '#c9382c' },
+  { id: 'honey_cap', name: 'Honey Cap', category: 'mushroom', maxStack: 30, hunger: 8, thirst: 0, color: '#d9a03a' },
+  { id: 'violet_cap', name: 'Violet Cap', category: 'mushroom', maxStack: 30, hunger: 7, thirst: 1, color: '#8e5cc4' },
+  { id: 'glow_cap', name: 'Glow Cap', category: 'mushroom', maxStack: 30, hunger: 9, thirst: 1, color: '#5fd6c8' },
   { id: 'cranberry', name: 'Cranberry', category: 'berry', maxStack: 30, hunger: 6, thirst: 2, color: '#c0392b' },
   { id: 'lingonberry', name: 'Lingonberry', category: 'berry', maxStack: 30, hunger: 7, thirst: 2, color: '#e8575a' },
   { id: 'juniper', name: 'Juniper Berry', category: 'berry', maxStack: 30, hunger: 5, thirst: 2, color: '#6b78b5' },

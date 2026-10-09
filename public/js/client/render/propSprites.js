@@ -2,6 +2,7 @@
 /* CLIENT - trees, stumps, barrels, the well. (sx, sy) is the prop's footprint on screen. */
 const TREE_SCALE_BASE = 1.35, TREE_SCALE_STEP = 0.07, STUMP_SCALE = 1.3;
 
+const speciesWash = id => { const t = id && typeof TreeSpecies !== 'undefined' && TreeSpecies.get(id); return t && t.tint ? t.tint : null; };
 const TREE_TINT = Object.fromEntries(Biomes.all().filter(b => b.treeTint).map(b => [b.id, b.treeTint]));      // (from the biome table)
 
 const PropSprites = {
@@ -22,9 +23,12 @@ const PropSprites = {
     for (let i = 0; i < 3; i++) { ctx.strokeStyle = `rgba(${150 + i * 40},${200 + i * 20},255,${(0.7 - i * 0.18).toFixed(2)})`; ctx.lineWidth = 2.4 - i * 0.5; ctx.beginPath(); ctx.ellipse(sx, sy - 14, 9 - i * 2.2, 17 - i * 3.5, 0, t + i, t + i + Math.PI * 1.5); ctx.stroke(); }
     g.ellipse(sx, sy - 14, 5, 12, 'rgba(210,235,255,.5)');
   },
-  drawTree(g, sx, sy, variant, shakeX, fruit, biome) { PixelProps.drawTree(g.ctx, sx, sy, variant, shakeX, fruit, biome, TREE_TINT[biome] || PropSprites.seasonTint); },     // retro pixel art (pixelProps.js); the season's colour where the biome has none
+  /** A standing tree; `species` (TreeSpecies id) gives it its own wash of colour (spruce bluer, ash paler). */
+  drawTree(g, sx, sy, variant, shakeX, fruit, biome, species) { PixelProps.drawTree(g.ctx, sx, sy, variant, shakeX, fruit, biome, TREE_TINT[biome] || PropSprites.seasonTint, speciesWash(species)); },     // retro pixel art (pixelProps.js); the season's colour where the biome has none
   /** A felled tree on its way down (see Effects.fall). */
-  drawFallingTree(g, sx, sy, variant, angle, alpha, biome) { PixelProps.drawFalling(g.ctx, sx, sy, variant, angle, alpha, TREE_TINT[biome] || PropSprites.seasonTint); },
+  drawFallingTree(g, sx, sy, variant, angle, alpha, biome, species) { PixelProps.drawFalling(g.ctx, sx, sy, variant, angle, alpha, TREE_TINT[biome] || PropSprites.seasonTint, speciesWash(species)); },
+  /** Mushrooms (a 'bush' prop with `plant: 'mushroom'`): a cluster of caps in its item's colour. */
+  drawMushroom(g, sx, sy, plant, shakeX) { const def = ItemDB.get(plant.berry); PixelProps.drawMushroom(g.ctx, sx, sy, plant.v | 0, def ? def.color : '#c33', !!plant.ripe, shakeX); },
   seasonTint: null,                                                                // (set by the renderer each frame: Seasons)
 
   /** A small mound of sand with a faint glint: something is buried here (dig it up with a shovel). */

@@ -22,7 +22,7 @@ function buildCreatureDef(d, id) {
   for (const [k, lo, hi] of [['hp', 1, 9999], ['radius', 0.08, 1], ['wanderSpeed', 0, 10], ['fleeSpeed', 0, 12], ['fleeSeconds', 0, 30], ['followSpeed', 0, 12], ['chaseSpeed', 0, 12], ['hunt', 0, 40], ['levelBase', 1, 99], ['tameApples', 1, 20], ['weight', 0, 100]]) {
     if (d[k] !== undefined) out[k] = num(d[k], lo, hi, d[k]);
   }
-  out.ring = Math.round(num(d.ring, 0, Math.max(0, Rings.size - 1), 0));
+  out.ring = Math.round(num(d.ring, 0, 4, 0));                                                // (a creature tier, 0 to 4: see Fauna and the zones' `fauna`)
   if (d.everyRing !== undefined) out.everyRing = !!d.everyRing;
   const min = Math.max(1, Math.round(num(d.group && d.group[0], 1, 20, 1))); out.group = [min, Math.max(min, Math.round(num(d.group && d.group[1], 1, 20, min)))];
   if (Array.isArray(d.biomes)) out.biomes = d.biomes.filter(b => Biomes.has(b)); else delete out.biomes;

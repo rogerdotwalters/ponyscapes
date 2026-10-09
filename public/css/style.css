@@ -502,6 +502,15 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 #loading .ldBar[hidden]{display:none}
 #loading .ldBar i{display:block;height:100%;width:0;background:#e3c27a;transition:width .15s}
 
+/* down in a dungeon (js/client/ui/downedUI.js): the edges of the view go dark; clicks pass through so the hotbar still works */
+#downedOverlay{position:fixed;inset:0;z-index:39;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:22vh;gap:8px;background:radial-gradient(ellipse at center,rgba(0,0,0,.25) 0%,rgba(2,2,8,.8) 55%,rgba(0,0,0,.95) 100%);color:#e9dede;font:600 15px Georgia,serif;text-shadow:0 1px 3px #000;opacity:0;pointer-events:none;transition:opacity .6s}
+#downedOverlay.on{opacity:1}
+#downedOverlay .dnTitle{font-size:26px;letter-spacing:.06em;color:#ff9a9a}
+#downedOverlay .dnTime{font-size:18px}
+#downedOverlay .dnHint{font-size:13px;opacity:.85;text-align:center;padding:0 16px}
+#downedOverlay .dnBar{width:min(260px,60vw);height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}
+#downedOverlay .dnBar i{display:block;height:100%;background:#ff9a9a;transition:width .3s linear}
+
 /* asleep (js/client/ui/sleepUI.js) */
 #sleepOverlay{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:44vh;gap:10px;background:rgba(4,8,22,.72);color:#dfe6ff;font:600 15px Georgia,serif;opacity:0;pointer-events:none;transition:opacity 1.2s}
 #sleepOverlay.on{opacity:1}

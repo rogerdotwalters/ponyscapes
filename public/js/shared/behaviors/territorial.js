@@ -4,7 +4,7 @@
 const TERRITORY_STANCE = { idle: 0.6, walk: 1, run: 1, row: 0.8 };                  // (everyone moves at full speed: standing still is the only quiet)
 Behaviors.register(Object.assign({}, Behaviors.get('predator'), {
   id: 'territorial',
-  range(a, def, h) { const base = def.aggro || def.hunt, stance = TERRITORY_STANCE[h.state] || 1; return a.aggroT > 0 ? base * 2 : base * stance; },
+  range(a, def, h) { if (a.wave) return 90; const base = def.aggro || def.hunt, stance = TERRITORY_STANCE[h.state] || 1; return a.aggroT > 0 ? base * 2 : base * stance; },
   think(sys, a, def, humans, dt) {
     a.aggroT = Math.max(0, (a.aggroT || 0) - dt);
     a.attackT = Math.max(0, a.attackT - dt);

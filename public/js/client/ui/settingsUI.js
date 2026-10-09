@@ -18,6 +18,7 @@ class SettingsUI {
     this._createLock();
     this.body = document.createElement('div'); this.body.className = 'adminBody'; list.appendChild(this.body);
     this._createTesting();
+    this._createAct1();
     if (CONFIG.sim.vitals) { this.body.insertAdjacentHTML('beforeend', '<div class="gtitle">Players</div>'); for (let slot = 0; slot < CONFIG.sim.maxPlayers; slot++) this._createRow(slot); }
     this._createWorld();
     this._createNightLook();
@@ -62,10 +63,27 @@ class SettingsUI {
     el.innerHTML =
       '<div class="admHead"><div class="gtitle">Testing</div><button class="admLock">Lock</button></div>' +
       '<label class="chk"><input type="checkbox" data-setting="testPony"><span><b>Flying test pony</b><small>A level 12 pegasus appears beside you. Ride it with no Horsemanship needed, then press B (or tap Fly).</small></span></label>' +
+      `<label class="admSlide"><span><b>Difficulty</b><small>When health runs out in a dungeon you drop to your knees: wait 7 seconds, eat snacks to hurry, or be picked up (Interact) by a teammate. Medium and hard use the easy rules for now.</small></span><select data-difficulty>${Object.entries(CONFIG.sim.difficulty.modes).map(([k, m]) => `<option value="${k}">${m.label}</option>`).join('')}</select></label>` +
       '<label class="chk"><input type="checkbox" data-setting="hostilesOff"><span><b>Hostile mobs off</b><small>Monsters and guardians stop attacking. They still wander around.</small></span></label>';
     for (const box of el.querySelectorAll('input')) box.addEventListener('change', () => this.game.setSetting(box.dataset.setting, box.checked));
+    this.difficulty = el.querySelector('[data-difficulty]'); this.difficulty.addEventListener('change', () => this.game.setDifficulty(this.difficulty.value));
     el.querySelector('.admLock').addEventListener('click', () => { this.unlocked = false; this._showLocked(); });
     this.body.appendChild(el); this.testBox = el;
+  }
+
+  /** Act 1 (the Old Cavern, the Cave Bear and the Slime Warren): tests for the story so far. */
+  _createAct1() {
+    const el = document.createElement('div'); el.className = 'testBox';
+    const warren = Dungeons.all()[1] ? Dungeons.all()[1].rooms : [];
+    el.innerHTML =
+      '<div class="gtitle">Act 1</div>' +
+      '<label class="chk"><input type="checkbox" data-setting="botPlayer"><span><b>Bot player</b><small>A second player joins you (checked) or leaves (unchecked). It follows you into caves, fights, and picks you up when you are down, to try party play alone.</small></span></label>' +
+      '<label class="chk"><input type="checkbox" data-setting="bearDefeated"><span><b>Cave Bear defeated</b><small>Checked: the Cave Bear counts as beaten, so the rubble clears from the Slime Warren (the second cave in the hills). Unchecked: the bear is back.</small></span></label>' +
+      '<div class="admRow" style="flex-wrap:wrap;gap:6px;margin-top:6px"><button data-tp="warren" tabindex="-1">Slime Warren: level 1</button>' +
+      warren.map((r, i) => (i ? `<button data-tp="warren:${i}" tabindex="-1">${i === warren.length - 1 ? 'Slime King' : 'Level ' + (i + 1)}</button>` : '')).join('') + '</div>';
+    el.addEventListener('click', e => { const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp === 'warren' ? 'warren:0' : b.dataset.tp); });
+    for (const box of el.querySelectorAll('input')) box.addEventListener('change', () => this.game.setSetting(box.dataset.setting, box.checked));
+    this.body.appendChild(el); this.act1Box = el;
   }
 
   _createRow(slot) {
@@ -264,18 +282,18 @@ class SettingsUI {
   /** "The Heartland, 70% of the way out" for a `from` in rings. */
   static ringSpot(from, short) {
     if (!(from > 0)) return 'everywhere';
-    const index = Math.min(Rings.size - 1, Math.floor(from)), ring = Rings.all().find(r => r.index === index), pct = Math.round((from - index) * 100), name = ring ? ring.name : 'ring ' + index;
+    const index = Math.min(Zones.size - 1, Math.floor(from)), ring = Zones.all().find(r => r.index === index), pct = Math.round((from - index) * 100), name = ring ? ring.name : 'ring ' + index;
     return short ? name.replace(/^The /, '') + ' ' + pct + '%' : 'from ' + name + (pct ? `, ${pct}% of the way out` : '');
   }
   _createBiomes() {
     const el = document.createElement('details'); el.className = 'admBox admTrees';
     const rarities = GameSettings.BIOME_RARITIES.map(r => `<option value="${r}">${r[0].toUpperCase() + r.slice(1)}</option>`).join('');
     el.innerHTML = '<summary><b>Biomes</b> <small>(used from the next time a world is started or continued)</small></summary>' +
-      '<p class="admNote">Rarity: how often a region of the map is this biome (Never = not at all). Starts: the nearest to the village it appears, in rings ' +
+      '<p class="admNote"><b>Not used while the world is made of zones:</b> each zone (js/data/zones/) now says which biomes it holds and how much of it each covers. These sliders only matter if the old ring world (legacy/ring-world/) is put back. Rarity: how often a region of the map is this biome (Never = not at all). Starts: the nearest to the village it appears, in rings ' +
       '(0.7 = the outer edge of the Heartland, 2.5 = halfway through the Deepwood); from there outward it can turn up anywhere. The village is always meadow. New land only.</p>' +
       this._biomes().map(id => `<details class="admBiome" data-bb="${id}"><summary>${Biomes.get(id).name}<small data-bsum="${id}"></small></summary>` +
         `<label class="admSlide"><span><b>Rarity</b></span><select data-bb="${id}" data-f="rarity">${rarities}</select><output></output></label>` +
-        `<label class="admSlide"><span><b>Starts</b></span><input type="range" min="0" max="${Rings.size}" step="0.05" data-bb="${id}" data-f="from"><output data-bo="${id}"></output></label>` +
+        `<label class="admSlide"><span><b>Starts</b></span><input type="range" min="0" max="${Zones.size}" step="0.05" data-bb="${id}" data-f="from"><output data-bo="${id}"></output></label>` +
         `<div class="admRow"><button data-breset="${id}">As built</button></div></details>`).join('') +
       '<div class="admPending" hidden>Biome changes are saved: they apply when you next start or continue a world.</div>';
     for (const input of el.querySelectorAll('[data-bb][data-f]')) {
@@ -397,7 +415,8 @@ class SettingsUI {
       const slot = Number(row.dataset.slot), who = row.querySelector('.who');
       if (who) who.innerHTML = `<i style="background:${CONFIG.sim.slotColors[slot]}"></i>${LobbyUI.escape(this.game.playerName('p' + (slot + 1)))}${slot === 0 ? ' (you, host)' : ''}`;
     }
-    for (const box of (this.testBox ? this.testBox.querySelectorAll('input') : [])) box.checked = !!(this.game.settings && this.game.settings[box.dataset.setting]);
+    for (const box of [...(this.testBox ? this.testBox.querySelectorAll('input') : []), ...(this.act1Box ? this.act1Box.querySelectorAll('input') : [])]) box.checked = !!(this.game.settings && this.game.settings[box.dataset.setting]);
+    if (this.difficulty && this.game.settings) this.difficulty.value = Downed.mode(this.game.settings.difficulty);
     for (const { id, vital, select } of this.selects) {
       const p = players[id];
       select.value = p ? p[vital + 'Mode'] : 'normal';

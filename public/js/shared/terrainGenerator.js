@@ -8,10 +8,12 @@
  *     lakes, bays and the odd sea, not the default.
  *   moisture / forest / patch noise decide grass vs dirt and where trees cluster.
  *
+ * Where the land ENDS is the zone layer's business (layers/zoneLayer.js): this generator makes the land inside each zone.
+ *
  * tile(tx, ty) is a PURE function of the seed and the coordinates, which is what lets chunks be generated in any
  * order, discarded, and regenerated identically on the client and the server. */
 const TERRAIN = Object.freeze({
-  continentScale: 1 / 170, hillScale: 1 / 55, detailScale: 1 / 15,
+  continentScale: 1 / 85, hillScale: 1 / 28, detailScale: 1 / 15,           // (half the old scales: a half-size map keeps the same mix of lakes, coasts and hills)
   weight: Object.freeze({ continent: 0.58, hills: 0.28, detail: 0.14 }),
   contrast: 1.9,                  // stretches the layered noise so coasts and highlands have real range
   landBias: 0.0,                  // pushes the world toward land (seaLevel is calibrated against it)
@@ -22,6 +24,7 @@ const TERRAIN = Object.freeze({
 });
 
 const VILLAGE_LAND_LIFT = 1.2;
+const WALL_LAND_LIFT = 1.7, WALL_LAND_REACH = 16;     // the ground rises toward every cliff wall (so a lake or the sea never floods a gateway's approach)
 
 class TerrainGenerator {
   constructor(seed) {
@@ -34,7 +37,7 @@ class TerrainGenerator {
     this.patchNoise = new PerlinNoise(this.seed + 606);
     this.rockNoise = new PerlinNoise(this.seed + 707);
     this.clayNoise = new PerlinNoise(this.seed + 808);
-    this.layers = new WorldLayers(this, this.seed);                         // rings, biomes, (zones), dungeons: each its own class
+    this.layers = new WorldLayers(this, this.seed);                         // zones, biomes, dungeons: each its own class
     this.caveSites = new CaveSites(this, this.layers.rings);                // hand-made cliffs and cave mouths, stamped on top of the land (layers/caveSites.js)
   }
 
@@ -49,8 +52,8 @@ class TerrainGenerator {
   }
 
   // the everyday biomes (meadow / forest / wetland / dry) sweep across much larger areas than the first version
-  moisture(tx, ty) { return this.moistureNoise.fractal(tx / 220, ty / 220, 3); }
-  forestiness(tx, ty) { return this.forestNoise.fractal(tx / 80, ty / 80, 2); }
+  moisture(tx, ty) { return this.moistureNoise.fractal(tx / 110, ty / 110, 3); }
+  forestiness(tx, ty) { return this.forestNoise.fractal(tx / 50, ty / 50, 2); }
 
   /** Final ground type of a tile: the land, with the cliff / cave stamps laid over it. */
   tile(tx, ty) {
@@ -58,12 +61,23 @@ class TerrainGenerator {
     return stamped >= 0 ? stamped : this.baseTile(tx, ty);
   }
 
+  /** The solid thing standing on a tile: a hill / cave mouth stamp, else the cliff wall round a zone (as tall as a ridge or a bluff). OBJ.NONE for open ground. */
+  objAt(tx, ty) {
+    const stamped = this.caveSites.objAt(tx, ty);
+    if (stamped !== OBJ.NONE) return stamped;
+    return this.layers.zones.kindAt(tx, ty) === ZONE_KIND.WALL ? (hash3(this.seed, tx, ty, 95) < 0.45 ? OBJ.CLIFF2 : OBJ.CLIFF3) : OBJ.NONE;
+  }
+  /** Is this tile part of a gateway (kept clear: nothing grows, lives or is dropped there)? */
+  isGate(tx, ty) { return this.layers.zones.kindAt(tx, ty) === ZONE_KIND.GATE; }
+
   /** The generated land before any stamp is laid over it. */
   baseTile(tx, ty) {
     const forced = Village.tile(tx, ty);
     if (forced >= 0) return forced;
+    const kind = this.layers.zones.kindAt(tx, ty);                              // the zones' own ground: cliff walls, gateways, the sea round the map
+    if (kind !== ZONE_KIND.LAND) return kind === ZONE_KIND.WALL ? TILE.STONE : kind === ZONE_KIND.GATE ? TILE.DIRT : TILE.WATER;
     const T = TERRAIN, e = this.elevation(tx, ty);
-    const shore = e + VILLAGE_LAND_LIFT * Village.influence(tx, ty);          // the village is lifted out of the sea, not turned into rock
+    const wd = this.layers.zones.wallDistance(tx, ty), shore = e + VILLAGE_LAND_LIFT * Village.influence(tx, ty) + (wd < WALL_LAND_REACH ? WALL_LAND_LIFT * (1 - wd / WALL_LAND_REACH) : 0);          // the village is lifted out of the sea, not turned into rock
     if (shore < T.seaLevel - T.wadeBand) return TILE.WATER;
     if (shore < T.seaLevel) return TILE.SHALLOW;
     if (shore < T.seaLevel + T.beachWidth) return TILE.SAND;
@@ -99,10 +113,24 @@ class TerrainGenerator {
     if (h >= MAX_BUSH_CHANCE || Village.blocksTrees(tx, ty)) return null;
     const biome = this.biomeAt(tx, ty, tileType);
     if (h >= BushChance[biome]) return null;
-    const table = BiomeBerries[biome], total = table.reduce((n, [, w]) => n + w, 0);
+    const table = Flora.bushesIn(biome) || BiomeBerries[biome], total = table.reduce((n, [, w]) => n + w, 0);       // (the biome's plant list: js/data/flora/)
     let roll = hash3(this.seed, tx, ty, 12) * total;
     for (const [berry, weight] of table) { if ((roll -= weight) < 0) return { biome, berry }; }
     return { biome, berry: table[0][0] };
+  }
+
+  /** The species of the tree that grows on this tile, from its biome's plant list (js/data/flora/), or null for a biome without one (the older apple / oak / pine rules decide). */
+  treeSpeciesAt(tx, ty) {
+    const list = Flora.treesIn(this.layers.biomes.at(tx, ty));
+    return list ? Flora.pick(list, hash3(this.seed, tx, ty, 97)) : null;
+  }
+  /** A patch of mushrooms on this tile? Returns the mushroom's item id or null. Only biomes whose plant list has mushrooms grow them. */
+  mushroomAt(tx, ty, tileType) {
+    if (tileType !== TILE.GRASS && tileType !== TILE.DIRT) return null;
+    const h = hash3(this.seed, tx, ty, 98);
+    if (h >= MAX_MUSHROOM_CHANCE || Village.blocksTrees(tx, ty)) return null;
+    const flora = Flora.get(this.layers.biomes.at(tx, ty));
+    return flora && flora.mushrooms && h < flora.mushroomChance ? Flora.pick(flora.mushrooms, hash3(this.seed, tx, ty, 99)) : null;
   }
 
   /** A loose stone on this tile? Rocky ground is full of them. Returns true / false. */
@@ -160,7 +188,7 @@ class TerrainGenerator {
   clayAt(tx, ty, tileType) { return tileType === TILE.CLAY && hash3(this.seed, tx, ty, 24) < CLAY_DEPOSIT_CHANCE; }
 
   /** The animal home in this chunk, or null: { node: { type, tx, ty, x, y, count, biome, variant }, members: [{ type, x, y, gene, variant, level, biome }] }.
-   *  Deterministic, so a chunk always holds the same home. WHAT lives here is decided by the RING (each creature's own data says which ring it belongs to and
+   *  Deterministic, so a chunk always holds the same home. WHAT lives here is decided by the ZONE (each creature's own data says which ring it belongs to and
    *  how common it is). Wild ponies have no home: they come and go with the mornings (wildPonies.js), so a pony roll gives no group here.
    *  `free(tx, ty)` (optional) says whether a tile may hold the home's marker (no tree or bush on it). */
   animalGroup(cx, cy, tileOf, free) {
@@ -169,8 +197,8 @@ class TerrainGenerator {
       const tx = cx * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 30 + attempt) * CHUNK_SIZE);
       const ty = cy * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 50 + attempt) * CHUNK_SIZE);
       const tile = tileOf(tx, ty);
-      if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1 || (free && !free(tx, ty))) continue;   // not in the village, not on rock / water
-      const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolAt(this.layers.rings.at(tx + 0.5, ty + 0.5).index, biome);
+      if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1 || this.isGate(tx, ty) || (free && !free(tx, ty))) continue;   // not in the village, not on rock / water, not in a gateway
+      const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolAt(this.layers.zones.faunaAt(tx + 0.5, ty + 0.5), biome);
       if (!fauna.length) continue;
       const total = fauna.reduce((n, f) => n + f.weight, 0);
       let roll = hash3(this.seed, cx, cy, 22) * total, chosen = fauna[0];

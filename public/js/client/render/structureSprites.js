@@ -28,10 +28,14 @@ const StructureSprites = (() => {
   /** A cliff / hill tile (layers/caveSites.js) or the wall of a room dungeon's cave: ray-cast pixel rock (pixelBuildings.js), the same craft as the village walls. */
   function drawRock(g, cx, cy, item) {
     const o = item.o;
+    if ((o === OBJ.CAVEMOUTH || o === OBJ.CAVEMOUTH_IN) && StructureSprites.sealed && StructureSprites.sealed(o, item.tx, item.ty)) {          // a cave mouth that is still shut (rubble until the bear is beaten; the way on until the slimes are)
+      if (o === OBJ.CAVEMOUTH) PixelBuildings.drawRock(g.ctx, 'cliff', 2, item.tx, item.ty, cx, cy, item.look); else PixelBuildings.drawRock(g.ctx, 'cave', 1, item.tx, item.ty, cx, cy);
+      return;
+    }
     if (o === OBJ.CAVEMOUTH) PixelBuildings.drawRock(g.ctx, 'mouth', 1, item.tx, item.ty, cx, cy);
     else if (o === OBJ.CAVEMOUTH_IN) PixelBuildings.drawRock(g.ctx, 'cavemouth', 1, item.tx, item.ty, cx, cy);
     else if (isCaveRockObj(o)) PixelBuildings.drawRock(g.ctx, 'cave', o === OBJ.CAVEROCK_LOW ? 0 : 1, item.tx, item.ty, cx, cy);
-    else PixelBuildings.drawRock(g.ctx, 'cliff', o - OBJ.CLIFF1, item.tx, item.ty, cx, cy);
+    else PixelBuildings.drawRock(g.ctx, 'cliff', o - OBJ.CLIFF1, item.tx, item.ty, cx, cy, item.look);
   }
 
   function drawWall(g, cx, cy, item) { PixelBuildings.drawPiece(g.ctx, 'wall', cx, cy, item && item.tx, item && item.ty); }                    // crenellated fieldstone (pixelBuildings.js)
@@ -378,5 +382,5 @@ const StructureSprites = (() => {
     ctx.globalAlpha = 1;
   }
 
-  return { draw, drawBuiltChunk, drawDoorLeaf, openDoorLeafBox, drawStation, drawFloor, drawGhost };
+  return { draw, drawBuiltChunk, drawDoorLeaf, openDoorLeafBox, drawStation, drawFloor, drawGhost, sealed: null };      // sealed(o, tx, ty): is this cave mouth still shut? (set by main.js)
 })();

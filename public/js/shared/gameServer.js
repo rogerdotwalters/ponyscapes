@@ -62,12 +62,14 @@ class GameServer {
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
+    this.downed = new DownedSystem(this);                                    // going down in a dungeon instead of waking in the village (downed.js)
+    this.bots = new BotSystem(this);                                         // the test bot (botSystem.js)
     this.sleep = new SleepSystem(this);                                      // bedtime, the forced sleep and skipping the night (sleepSystem.js)
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
     this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
-    this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
+    this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
@@ -296,6 +298,7 @@ class GameServer {
       case 'craft': this._craftWithLasso(id, inventory, cmd); break;
       case 'place': this._handlePlace(id, inventory, cmd); break;
       case 'setVitals': this._handleSetVitals(id, cmd); break;
+      case 'setDifficulty': if (id === this.hostId) this.downed.setMode(cmd.mode); break;                 // host only: easy / medium / hard
       case 'stockTake': this._handleStockTake(id, inventory, cmd); break;
       case 'upgrade': this._handleUpgrade(id, inventory, cmd); break;
       case 'drop': case 'destroy': {
@@ -425,7 +428,7 @@ class GameServer {
       p.carryStacks = Carry.stacksFor(p);
       if (this.inventories[id]) this.inventories[id].carryStacks = p.carryStacks;
       const maxHp = Skills.maxHp(p.lv) + buffs.health;
-      if (maxHp !== p.maxHp) { if (maxHp > p.maxHp) p.hp += maxHp - p.maxHp; p.maxHp = maxHp; p.hp = Math.min(p.hp, p.maxHp); }
+      if (maxHp !== p.maxHp) { if (maxHp > p.maxHp && p.hp > 0) p.hp += maxHp - p.maxHp; p.maxHp = maxHp; p.hp = Math.min(p.hp, p.maxHp); }
     }
   }
 
@@ -517,11 +520,11 @@ class GameServer {
   /* ---- health ---- */
   _damagePlayer(id, amount) {
     const p = this.players[id];
-    if (!p || p.hp <= 0) return;
+    if (!p || p.hp <= 0 || p.graceT > 0) return;                                  // (down, or just back on your feet: nothing hurts you)
     const taken = Math.max(1, Math.round(amount * (1 - Wardrobe.damageReduction(p.gear))));
     p.hp = Math.max(0, p.hp - taken); p.hurtT = 0.4;
     this.pendingEvents.push({ type: 'hurt', to: id, amount: taken, hp: p.hp });
-    if (p.hp <= 0) this._knockOut(id);
+    if (p.hp <= 0 && !this.downed.goDown(id)) this._knockOut(id);                 // in a dungeon you drop to your knees (downed.js); anywhere else you wake in the village
   }
 
   /** Knocked out: back to the village with half health. Nothing is lost. */
@@ -560,6 +563,7 @@ class GameServer {
     p.hurtT = Math.max(0, p.hurtT - TICK_DT); p.emoteT = Math.max(0, p.emoteT - TICK_DT);
     if (p.abilityCd[0] > 0 || p.abilityCd[1] > 0) p.abilityCd = p.abilityCd.map(t => Math.max(0, t - TICK_DT));
     this.dungeons.tickHints(id, p);
+    this.downed.tick(id, p);
     if (p.emoteT === 0) p.emote = '';
     if (p.hp > 0 && p.hp < p.maxHp && p.hunger > 0 && p.thirst > 0) p.hp = Math.min(p.maxHp, p.hp + S.health.regenPerSecond * TICK_DT);
     if (p.held === 'torch' && LightSources.isDark(this.tick)) {
@@ -579,6 +583,7 @@ class GameServer {
     this._farmDays();                                                                 // a new day: crops grow (farming.js)
     this.weather.update();                                                            // rain, wind, lightning (weather.js)
     if (this.later.length) { const due = this.later.filter(l => l.at <= this.tick); if (due.length) { this.later = this.later.filter(l => l.at > this.tick); due.forEach(l => l.fn()); } }
+    this.bots.update();                                                               // (the test bot writes its input first)
     for (const id in this.inputQueues) {
       const queue = this.inputQueues[id];
       // Each input is applied exactly once with a fixed dt, so client prediction matches bit-for-bit.
@@ -596,6 +601,7 @@ class GameServer {
     this._carryNotices();
     for (const id in this.players) this._tickPlayer(id, this.players[id]);
     this.trade.update();
+    this.dungeons.update();                                                           // the Slime Warren's waves (dungeonSystem.js)
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
@@ -626,6 +632,7 @@ class GameServer {
   _applyInput(id, input) {
     const p = this.players[id], inventory = this.inventories[id];
     if (p.flyCd > 0) p.flyCd = Math.max(0, +(p.flyCd - TICK_DT).toFixed(4));                  // the wings rest between flights
+    if (p.down > 0) { stepPlayer(p, input, TICK_DT, this.mapOf(p)); this.downed.input(id, p, inventory, input); return; }   // (on your knees: you can only eat a snack; stepPlayer keeps the input acknowledged)
     if (p.asleep) { stepPlayer(p, input, TICK_DT, this.mapOf(p)); if (input.interact) this.sleep.useBed(id, p); return; }   // (asleep: nothing but getting up; stepPlayer keeps the input acknowledged)
     if (p.boat) this._row(id, p, inventory, input);
     else if (p.mount) this._ride(id, p, inventory, input);
@@ -651,6 +658,7 @@ class GameServer {
   /** The interact key: get off whatever we are on (boat or pony), otherwise do the NEAREST of pick up / ride / board / drink / fill. */
   _interact(id, p) {
     if (p.flying) return;                                                                          // nothing to pick, open or enter from the air: land first
+    if (this.downed.lift(id, p)) return;                                                           // a teammate on their knees beside you: pick them up
     const map = this.mapOf(p), outside = !gridOf(p);
     if (!p.boat) { const cave = findCaveInteraction(map, p); if (cave) { InteractionHandlers[cave.kind](this, id, p, cave); return; } }   // a cave mouth wins, even from a pony's back
     if (p.boat) {
@@ -829,8 +837,21 @@ class GameServer {
   applySetting(key, value) {
     if (key === 'hostilesOff') { this.settings.hostilesOff = value; this.animals.hostilesOff = value; }
     else if (key === 'testPony') { this.settings.testPony = value; this._setTestPony(value); }
+    else if (key === 'botPlayer') this.settings.botPlayer = this.bots.set(value);
+    else if (key === 'bearDefeated') this._setBearDefeated(value);
     else return;
     this.settingsRev++;
+  }
+
+  /** Act 1 testing aid: the Cave Bear counts as defeated (the Slime Warren's rubble clears, and so does the way to the next zone) or alive again. */
+  _setBearDefeated(on) {
+    const ring = 0, lair = Grids.cave(ring);
+    if (on) {
+      for (const [id, a] of Object.entries(this.animals.animals)) if (a.type === 'boss_cave_bear' && gridOf(a) === lair) delete this.animals.animals[id];     // (the bear leaves the lair)
+      delete this.dungeons.bosses[ring];
+      this.dungeons.conquer(ring, 'Cave Bear', false);
+    } else this.worldProgress.undefeatBoss(ring);
+    this.settings.bearDefeated = this.worldProgress.isDefeated(ring);
   }
 
   /** On: a level 12 pegasus appears beside the host, theirs to ride with no Horsemanship needed. Off: it goes away (and the host is set down first). */
@@ -917,6 +938,7 @@ class GameServer {
     if (maps.some(m => m.kind === 'dungeon' && m.ring === ring)) { this._notice(id, 'You already know where the cave in this area is'); return; }
     if (maps.length >= TREASURE.maxMaps) { this._notice(id, 'Your journal is full of maps: dig up a treasure first'); return; }
     const site = this.map.layers.dungeons.site(ring);
+    if (!site) { this._notice(id, 'There is no cave in this area'); return; }
     inventory.remove(p.held, 1); this.inventoryRev[id]++;
     maps.push({ key: 'cave' + ring, tx: Math.floor(site.x), ty: Math.floor(site.y), kind: 'dungeon', ring }); this.treasureRev[id]++;
     this.pendingEvents.push({ type: 'mapAdded', to: id, tx: Math.floor(site.x), ty: Math.floor(site.y), kind: 'dungeon', ringName: rings.def(ring).name });

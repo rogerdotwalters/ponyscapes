@@ -5,6 +5,7 @@ const assert = require('assert'), fs = require('fs'), path = require('path');
 const { run } = require('./headless')();
 const png = require('./pngGrey'), { CaveRoom, RoomCode } = require('../public/js/shared/roomCodes');
 let passed = 0;
+const same = (a, b, m) => assert.strictEqual(JSON.stringify(a), JSON.stringify(b), m);                // (compares by value, across the game's own context)
 const test = (name, fn) => { try { fn(); passed++; console.log('  ok   ' + name); } catch (e) { console.error('  FAIL ' + name + '\n       ' + (e.stack || e).split('\n').slice(0, 4).join('\n       ')); process.exitCode = 1; } };
 
 test('enemy numbers: from 1000, unique, one for every non-pony creature', () => {
@@ -96,6 +97,15 @@ test('a player walks the whole dungeon: in, room by room, chests, enemies, out',
       const act = findCaveInteraction(world, p); log.push(['exitOffer', act && act.kind]);
       press(); log.push(['moved', p.grid]);
     }
+    // the last layer: the Cave Bear's lair, with its guardian in the arena; the way back up is the last room, and the entrances lead back out
+    const boss = Object.values(s.animals.animals).filter(a => a.grid === 'cave:0' && AnimalDefs[a.type].boss).map(a => a.type);
+    log.push(['lair', p.grid + ':' + boss.join()]);
+    const up = DungeonSpace.exit(); at(up.x + 1.2, up.y);
+    const leave = findCaveInteraction(s.mapOf(p), p); log.push(['lairExit', leave && leave.kind]);
+    press(); log.push(['upstairs', p.grid]);
+    for (let r = 2; r >= 0; r--) {
+      const plan = s.mapOf(p).plan, spot = plan._landing(plan.room.entrances); at(spot.x, spot.y); press();
+    }
     log.push(['back outside', p.grid === '' && Math.hypot(p.x - mouth.x, p.y - (mouth.y + 1.6)) < 0.5]);
     return { log, counts };
   })()`);
@@ -105,7 +115,8 @@ test('a player walks the whole dungeon: in, room by room, chests, enemies, out',
   assert(out.log.filter(l => l[0] === 'chestGave').every(l => l[1] === true), kinds);
   assert(out.log.filter(l => l[0] === 'chestAgain').every(l => l[1] === true), kinds);
   assert(out.log.filter(l => l[0] === 'exitOffer').every(l => l[1] === 'dungeon_next'), kinds);
-  assert.strictEqual(JSON.stringify(out.log.filter(l => l[0] === 'moved').map(l => l[1])), JSON.stringify(['dungeon:0:1', 'dungeon:0:2', '']), kinds);
+  assert.strictEqual(JSON.stringify(out.log.filter(l => l[0] === 'moved').map(l => l[1])), JSON.stringify(['dungeon:0:1', 'dungeon:0:2', 'cave:0']), kinds);
+  assert(kinds.includes('lair=cave:0:boss_cave_bear') && kinds.includes('lairExit=leave_cave') && kinds.includes('upstairs=dungeon:0:2'), kinds);
   assert(out.log.find(l => l[0] === 'back outside')[1], kinds);
   for (const [spawned, wanted] of out.counts) assert.strictEqual(spawned, wanted);
 });
@@ -181,6 +192,122 @@ test('debug teleport: village, cave mouth and each dungeon room (host only)', ()
   assert.strictEqual(r.out[0], '@' + r.mouth.join(',')); assert.strictEqual(r.out[1].split('@')[0], 'dungeon:0:2'); assert.strictEqual(r.out[2].split('@')[0], 'dungeon:0:0');
   assert.strictEqual(r.out[3].split('@')[0], ''); assert.strictEqual(r.out[4].split('@')[0], '');                      // (room:9 does not exist: you stay where you were)
   assert(r.refused);
+});
+
+test('zone graph: sub zones are placed round their parent from the seed, touch it, and keep clear of each other', () => {
+  const sigs = new Set();
+  for (const seed of [1, 7, 99, 4242, 31337, 424242]) {
+    const r = run(`(() => { const Z = new World(${seed}).terrain.layers.zones, n = Z.layout(), o = CONFIG.sim.levels.origin;
+      const again = new World(${seed}).terrain.layers.zones.layout().map(q => [Math.round(q.x), Math.round(q.y), Math.round(q.r)]).join();
+      const pairs = []; for (const a of n) for (const b of n) if (a.def.index < b.def.index) pairs.push({ a: a.def.id, b: b.def.id, related: a.parent === b || b.parent === a, gap: Math.hypot(a.x - b.x, a.y - b.y) / (a.r + b.r) });
+      return { count: n.length, root: [n[0].x, n[0].y, o.x, o.y], pairs, sig: n.map(q => [Math.round(q.x), Math.round(q.y), Math.round(q.r)]).join(), again }; })()`);
+    assert.strictEqual(r.count, 4); same(r.root.slice(0, 2), r.root.slice(2), 'the root zone is at the village'); assert.strictEqual(r.sig, r.again, 'same seed, same layout');
+    for (const p of r.pairs) { if (p.related) assert(p.gap > 0.8 && p.gap < 0.95, 'a sub zone overlaps its parent a little: ' + JSON.stringify(p)); else assert(p.gap >= 1.05, 'zones keep clear: ' + JSON.stringify(p)); }
+    sigs.add(r.sig);
+  }
+  assert(sigs.size >= 5, 'different seeds lay the zones out differently');
+});
+
+test('zone graph: every zone has its biome, cliff walls of that biome, a gateway to its parent, and open sea round the map behind an invisible barrier', () => {
+  const r = run(`(() => { const w = new World(4242), T = w.terrain, Z = T.layers.zones, n = Z.layout(), o = CONFIG.sim.levels.origin, out = { biomes: [], fauna: [], gates: [], walls: 0, wallsSolid: true, sea: [], far: [] };
+    for (const q of n) { out.biomes.push(T.layers.biomes.at(Math.floor(q.x), Math.floor(q.y))); out.fauna.push(Z.faunaAt(q.x, q.y)); }
+    for (let y = -300; y <= 300; y++) for (let x = -300; x <= 300; x++) {
+      const tx = Math.floor(o.x + x), ty = Math.floor(o.y + y), k = Z.kindAt(tx, ty);
+      if (k === ZONE_KIND.GATE) out.gates[Z._chunk(tx, ty).gate[((ty & 15) << 4) | (tx & 15)]] = true;
+      if (k === ZONE_KIND.WALL && x % 3 === 0) { out.walls++; if (!isCliffObj(T.objAt(tx, ty)) || T.baseTile(tx, ty) !== TILE.STONE) out.wallsSolid = false; }
+    }
+    const sea = Z.kindAt(Math.floor(o.x + Z.edge - 8), Math.floor(o.y)), farAt = Math.floor(o.x + Z.edge + 40);
+    out.seaKind = [Z.kindAt(Math.floor(o.x - n[0].r - 8), Math.floor(o.y + 3 * 0)), Z.kindAt(farAt, Math.floor(o.y)), Z.barrierAt(farAt, Math.floor(o.y)), T.baseTile(farAt, Math.floor(o.y)) === TILE.WATER];
+    out.cliffLook = ['normal', 'forest', 'apple', 'mushroom'].map(b => !!(Biomes.get(b) || {}).cliff);
+    return out; })()`);
+  same(r.biomes, ['normal', 'forest', 'apple', 'mushroom']); same(r.fauna, [0, 1, 0, 0]);
+  assert(r.gates[1] && r.gates[2] && r.gates[3] && !r.gates[0], 'a gateway into each sub zone: ' + JSON.stringify(r.gates));
+  assert(r.walls > 500 && r.wallsSolid, 'cliff walls are solid cliffs on stone');
+  assert(r.seaKind[1] === 4 && r.seaKind[2] === true && r.seaKind[3] === true, 'beyond the sea is an invisible barrier over water: ' + JSON.stringify(r.seaKind));
+  same(r.cliffLook, [false, true, true, true]);
+});
+
+test('zone graph: gateways switch on and off; walking from the village reaches only the zones whose gateways are open', () => {
+  for (const seed of [4242, 7]) {
+    const r = run(`(() => { const w = new World(${seed}), T = w.terrain, Z = T.layers.zones, o = CONFIG.sim.levels.origin, n = Z.layout();
+      const ok = (x, y) => { const k = Z.kindAt(x, y); return (k === ZONE_KIND.LAND || k === ZONE_KIND.GATE) && !Z.barrierAt(x, y); };
+      const reach = () => { const R = Math.ceil(Z.edge), seen = new Set(), key = (x, y) => (x + 1000) * 4000 + y + 1000, q = [[Math.floor(o.x), Math.floor(o.y)]]; seen.add(key(q[0][0], q[0][1]));
+        for (let i = 0; i < q.length; i++) { const [x, y] = q[i]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (Math.abs(nx - o.x) > R || Math.abs(ny - o.y) > R || seen.has(key(nx, ny)) || !ok(nx, ny)) continue; seen.add(key(nx, ny)); q.push([nx, ny]); } }
+        return n.map(z => seen.has(key(Math.floor(z.x), Math.floor(z.y)))); };
+      const start = reach(); Z.unlock(1); const opened = reach(); Z.lock(1); const shut = reach(); Z.lock(2); const orchardShut = reach();
+      const ws = new GameServer(${seed}); ws.worldProgress.defeatBoss(0); const afterBoss = ws.map.layers.rings.isUnlocked(1); ws.worldProgress.setGate(1, false); const closedByHand = !ws.map.layers.rings.isUnlocked(1);
+      const w2 = new GameServer(${seed}); w2.worldProgress.restore([], { 2: false }); const restored = [w2.map.layers.rings.isUnlocked(2), w2.map.layers.rings.isUnlocked(3), w2.map.layers.rings.isUnlocked(1)];
+      return { start, opened, shut, orchardShut, afterBoss, closedByHand, restored, wire: new WorldProgress(Z).toWire() }; })()`);
+    same(r.start, [true, false, true, true], 'the forest gate starts shut: ' + JSON.stringify(r.start));
+    same(r.opened, [true, true, true, true]); same(r.shut, [true, false, true, true]); same(r.orchardShut, [true, false, false, true]);
+    assert(r.afterBoss && r.closedByHand); same(r.restored, [false, true, false]);
+  }
+});
+
+test('zone graph: a shut gateway is solid and bare, an open one is walkable ground', () => {
+  const r = run(`(() => { const w = new World(4242), T = w.terrain, Z = T.layers.zones, o = CONFIG.sim.levels.origin; let gate = null;
+    for (let y = -200; y <= 200 && !gate; y++) for (let x = -200; x <= 200; x++) { const tx = Math.floor(o.x + x), ty = Math.floor(o.y + y); if (Z.kindAt(tx, ty) === ZONE_KIND.GATE && Z._chunk(tx, ty).gate[((ty & 15) << 4) | (tx & 15)] === 1) { gate = [tx, ty]; break; } }
+    w.ensureAround(gate[0], gate[1], 2);
+    const shut = [w.isSolid(gate[0], gate[1]), Z.gateAt(gate[0], gate[1]), T.baseTile(gate[0], gate[1]) === TILE.DIRT, !!w.peekPropAt(gate[0] + 0.5, gate[1] + 0.5)];
+    Z.unlock(1); const open = [w.isSolid(gate[0], gate[1]), Z.gateAt(gate[0], gate[1]), w.navBlocked(gate[0], gate[1])];
+    return { shut, open }; })()`);
+  same(r.shut, [true, 1, true, false]); same(r.open, [false, -1, false]);
+});
+
+test('plant lists: each zone grows exactly the trees, berries and mushrooms its list says', () => {
+  const r = run(`(() => { const w = new World(4242), Z = w.terrain.layers.zones, out = {};
+    for (const n of Z.layout()) {
+      const trees = {}, drops = new Set(), berries = {}, mush = {}; let badVariant = 0;
+      for (let dy = -48; dy <= 48; dy += 16) for (let dx = -48; dx <= 48; dx += 16) { const x = Math.floor(n.x + dx), y = Math.floor(n.y + dy); if (Z.at(x, y).index !== n.def.index || Z.kindAt(x, y) !== ZONE_KIND.LAND) continue; w.ensureAround(x, y, 1); }
+      for (const c of w.chunks.values()) for (const p of c.props) {
+        const tx = Math.floor(p.x), ty = Math.floor(p.y); if (Z.at(tx, ty).index !== n.def.index || Z.kindAt(tx, ty) !== ZONE_KIND.LAND) continue;
+        if (p.t === 'tree') { const sp = TreeSpecies.of(p); trees[sp] = (trees[sp] || 0) + 1; if (p.forage) drops.add(p.drop); if (p.sp && (p.v % 2 === 1) !== (TreeSpecies.get(sp).look === "pine")) badVariant++; }
+        else if (p.t === 'bush' && p.plant === 'mushroom') mush[p.berry] = (mush[p.berry] || 0) + 1;
+        else if (p.t === 'bush' && (w.tile(tx, ty) === TILE.GRASS || w.tile(tx, ty) === TILE.DIRT)) berries[p.berry] = (berries[p.berry] || 0) + 1;
+      }
+      out[n.def.id] = { trees, drops: [...drops], berries, mush, badVariant };
+    }
+    return out; })()`);
+  const keys = o => Object.keys(o).sort().join();
+  assert.strictEqual(keys(r.meadows.trees), 'apple,pine', 'meadow: apples and some pine, no oak: ' + JSON.stringify(r.meadows.trees));
+  assert(r.meadows.trees.apple > r.meadows.trees.pine, 'meadow: more apples than pines'); assert.strictEqual(keys(r.meadows.berries), 'raspberry'); assert.strictEqual(keys(r.meadows.mush), '');
+  assert.strictEqual(keys(r.orchard.trees), 'apple,oak', 'orchard: oak and apples, no pine: ' + JSON.stringify(r.orchard.trees)); assert(r.orchard.drops.length >= 3, 'orchard: various apples: ' + r.orchard.drops);
+  assert.strictEqual(keys(r.forest.trees), 'hard_pine,spruce', 'forest: hard pine and spruce: ' + JSON.stringify(r.forest.trees)); assert.strictEqual(keys(r.forest.berries), 'blackberry'); assert.strictEqual(keys(r.forest.mush), '');
+  assert.strictEqual(keys(r.mushroom.trees), 'ash', 'mushroom kingdom: ash: ' + JSON.stringify(r.mushroom.trees)); assert(Object.keys(r.mushroom.mush).length >= 4, 'mushroom kingdom: various mushrooms: ' + JSON.stringify(r.mushroom.mush));
+  for (const z of Object.values(r)) assert.strictEqual(z.badVariant, 0, 'pines are drawn as pines and leafy trees as leafy ones');
+});
+
+test('plant spreading: trees seed their own kind beside them, in season, in their own biome, never on walls or gateways, and within the daily cap', () => {
+  const r = run(`(() => { const s = new GameServer(4242), id = s.addPlayer(), p = s.players[id], Z = s.map.layers.zones, T = s.map.terrain, found = [], dayIn = i => { for (let d = 0; d < 400; d++) if (Seasons.indexOfDay(d + 1) === i) return d; };
+    const result = { zones: {}, perDayMax: 0, bad: [], grown: 0 };
+    for (const n of Z.layout()) {
+      p.x = n.x; p.y = n.y; s.map.ensureAround(n.x, n.y, 4);
+      const before = Object.keys(s._farm()).length, species = {};
+      for (let day = 0; day < 40; day++) { const d = dayIn(day % 4); const got = s._spreadFlora(d); result.perDayMax = Math.max(result.perDayMax, got); }
+      for (const [key, e] of Object.entries(s._farm())) { if (!Groves.isKey(key) || e.g) continue; const [tx, ty] = Groves.tileOf(key);
+        if (Z.at(tx, ty).index !== n.def.index) continue;
+        species[e.t] = (species[e.t] || 0) + 1;
+        if (!Flora.allows(T.layers.biomes.at(tx, ty), e.t)) result.bad.push('wrong biome ' + e.t + '@' + tx + ',' + ty);
+        if (Z.kindAt(tx, ty) !== ZONE_KIND.LAND || Z.wallDistance(tx, ty) < 2) result.bad.push('on a wall or gate ' + tx + ',' + ty);
+        let near = false; for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) { const q = s.map.peekPropAt(tx + x, ty + y); if (q && q.t === 'tree' && TreeSpecies.of(q) === e.t) near = true; }
+        if (!near) result.bad.push('no parent ' + e.t + '@' + tx + ',' + ty);
+      }
+      result.zones[n.def.id] = species;
+      for (const key of Object.keys(s._farm())) if (Groves.isKey(key)) delete s._farm()[key];                  // (a clean farm for the next zone, so the daily cap is not spent already)
+    }
+    p.x = Z.layout()[0].x; p.y = Z.layout()[0].y; s.map.ensureAround(p.x, p.y, 4); for (let day = 0; day < 40; day++) s._spreadFlora(dayIn(day % 4));
+    const waiting = Object.entries(s._farm()).filter(([k, e]) => Groves.isKey(k) && !e.g);
+    result.waiting = waiting.length;
+    for (const [k, e] of waiting) for (let i = 0; i < 20 && !e.g; i++) s._growGrove(k, e);           // let them all grow up
+    for (const [k, e] of waiting) { const [tx, ty] = Groves.tileOf(k), q = s.map.peekPropAt(tx, ty); if (e.g && q && q.t === 'tree' && q.sp === e.t) result.grown++; }
+    result.grownOf = waiting.filter(([k, e]) => e.g && s.map.peekChunkOfTile(...Groves.tileOf(k))).length;
+    return result; })()`);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.bad)), [], 'every sprout is right: ' + r.bad.slice(0, 4));
+  assert(r.perDayMax <= 12 && r.waiting <= 300, 'daily cap: ' + r.perDayMax + ' / waiting ' + r.waiting);
+  const sp = id => Object.keys(r.zones[id]).sort().join();
+  assert(r.zones.meadows.apple > 0 && r.zones.orchard.oak > 0 && (r.zones.forest.spruce > 0 || r.zones.forest.hard_pine > 0) && r.zones.mushroom.ash > 0, 'trees sprout in every zone: ' + JSON.stringify(r.zones));
+  assert(!/oak/.test(sp('meadows')) && !/pine/.test(sp('orchard')) && !/apple|oak|\bpine\b/.test(sp('forest')) && sp('mushroom') === 'ash', 'only the zone\'s own kinds: ' + JSON.stringify(r.zones));
+  assert(r.grownOf > 0 && r.grown === r.grownOf, 'a grown sapling stands as a tree of its kind: ' + r.grown + ' of ' + r.grownOf);
 });
 
 console.log(process.exitCode ? 'FAILED' : `all ${passed} checks passed`);

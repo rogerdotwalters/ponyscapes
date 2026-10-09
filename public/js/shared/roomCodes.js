@@ -106,7 +106,9 @@ const CaveRooms = (() => {
     const room = r && /^[a-z][a-z0-9_]{0,39}$/.test(id) ? CaveRoom.fromRows(id, r.rows, r.name) : null;
     if (room && !room.problems().length) rooms[id] = Object.freeze(room);
   }
-  return { rooms, get: id => rooms[id] || null, ids: () => Object.keys(rooms) };
+  /** Add a room made by code (the Slime Warren's: slimeRooms.js). It must have no problems. */
+  const register = room => { if (room && !room.problems().length) rooms[room.id] = Object.freeze(room); };
+  return { rooms, get: id => rooms[id] || null, ids: () => Object.keys(rooms), register };
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { RoomCode, RoomPixels, CaveRoom, isEnemyCode, roomCodeOfGrey, roomGreyOfCode, ROOM_MAX_SIDE };

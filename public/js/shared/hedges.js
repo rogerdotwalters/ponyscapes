@@ -97,7 +97,7 @@ class HedgeCutterHandler {
     let best = null;
     for (let ty = py - span; ty <= py + span; ty++) for (let tx = px - span; tx <= px + span; tx++) {
       const prop = this.map.propAt(tx, ty);
-      if (!prop || prop.t !== 'bush' || prop.cut) continue;
+      if (!prop || prop.t !== 'bush' || prop.plant || prop.cut) continue;
       const dist = Math.hypot(prop.x - p.x, prop.y - p.y);
       if (dist <= tool.reach + 0.4 && (!best || dist < best.dist)) best = { tx, ty, prop, dist };
     }
@@ -108,7 +108,7 @@ class HedgeCutterHandler {
   isValid(p, target, tool) {
     const f = target.found, prop = this.map.propAt(f.tx, f.ty);
     if (!prop || Math.hypot(prop.x - p.x, prop.y - p.y) > tool.reach + 0.4 + IMPACT_REACH_SLACK) return false;
-    return target.kind === 'trim' ? prop.t === 'hedge' && prop.alive : prop.t === 'bush' && !prop.cut;
+    return target.kind === 'trim' ? prop.t === 'hedge' && prop.alive : prop.t === 'bush' && !prop.plant && !prop.cut;
   }
   apply(id, target) { if (target.kind === 'trim') this.trimHedge(id, target.found); else this.cutBush(id, target.found); }
 }

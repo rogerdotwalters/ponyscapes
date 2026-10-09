@@ -34,10 +34,10 @@ class PlayerSprite {
     if (mounted) { sy -= SADDLE_HEIGHT + (SEAT_LIFT[SpriteRegistry.dirOf(p.facing)] || 0); rowPhase = now / 140; }   // (the seat is tuned per view: facing the camera the pony is drawn over its rider, who sits up behind its head)                       // up in the saddle, arms swinging with the gait
     if (wading) this._drawRipples(sx, sy, now);
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
-    if (!p.boat && this._holding(p)) pose.hideArm = pose.ux >= 0 ? 1 : -1;                  // the hand holding a tool is the game's coded arm (toolPose.js): the baked one is left out
+    if (!p.boat && !(p.down > 0) && this._holding(p)) pose.hideArm = pose.ux >= 0 ? 1 : -1;                  // the hand holding a tool is the game's coded arm (toolPose.js): the baked one is left out
     if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
     this._drawBody(p, sx, sy, pose, riding, now, opts);
-    if (!p.boat) this._drawHeldItem(p, sx, pose, now);                                  // the rider swings the lasso / spear from the saddle too
+    if (!p.boat && !(p.down > 0)) this._drawHeldItem(p, sx, pose, now);                                  // the rider swings the lasso / spear from the saddle too (nobody holds anything while down)
     if (wading) { this.g.ellipse(sx, sy - 2, 12, 5.5, 'rgba(110,185,215,.55)'); }     // the water line over the lower legs
     this._drawNameTag(p, isMe, sx, pose);
     this._drawEmote(p, sx, pose);
@@ -100,7 +100,7 @@ class PlayerSprite {
     walk.lastX = p.x; walk.lastY = p.y;
 
     const moving = p.state !== 'idle', run = p.state === 'run';
-    const crouch = p.boat ? 12 : p.mount ? 8 : 0;                                                  // seated in the boat
+    const crouch = p.boat ? 12 : p.mount ? 8 : p.down > 0 ? 14 : 0;                                // seated in the boat, or down on your knees (downed.js)
     const bob = riding ? 0 : moving ? Math.abs(Math.sin(walk.phase)) * (run ? 3 : 1.8) : Math.sin(now / 500 + p.slot) * 0.6;
     const legSwing = riding ? Math.sin(rowPhase) * 5 : moving ? Math.sin(walk.phase) * (run ? 5 : 3.5) : 0;   // arms follow the oars
     const fx = Math.cos(p.facing), fy = Math.sin(p.facing);

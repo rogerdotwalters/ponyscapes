@@ -98,7 +98,7 @@ class WantSystem {
     const s = this.s;
     for (const def of Object.values(AnimalDefs)) {
       const q = def.wants && def.wants.quest;
-      if (!q || !def.boss || this.appeased[def.bossRing] || s.worldProgress.isDefeated(def.bossRing)) continue;
+      if (!q || !def.boss || !Dungeons.all().some(d => d.lair !== undefined && d.ring === def.bossRing) || this.appeased[def.bossRing] || s.worldProgress.isDefeated(def.bossRing)) continue;
       const item = Object.keys(ItemDefs).find(k => ItemDefs[k].creature === q.creature);
       let found = this.progress[def.bossRing] || 0;
       for (const a of Object.values(s.animals.animals)) if (a.type === q.creature && !a.delivered) found++;
@@ -111,9 +111,9 @@ class WantSystem {
   /** A lost young somewhere on open grass in its ring, well away from the village. */
   _placeLost(type, ring) {
     const s = this.s, R = s.map.layers.rings, o = CONFIG.sim.levels.origin;
-    const inner = ring === 0 ? 45 : ring * R.width + 20, outer = ring === 0 ? Math.min(R.width * 0.85, 160) : (ring + 1) * R.width - 20;
+    const zone = R.centreOf(ring), inner = ring === 0 ? 45 : 10, outer = zone.r * 0.8;                   // (round the zone's middle: the village's, for zone 1)
     for (let attempt = 0; attempt < 40; attempt++) {
-      const angle = s.rng() * Math.PI * 2, r = inner + s.rng() * (outer - inner), tx = Math.floor(o.x + Math.cos(angle) * r), ty = Math.floor(o.y + Math.sin(angle) * r);
+      const angle = s.rng() * Math.PI * 2, r = inner + s.rng() * (outer - inner), tx = Math.floor(zone.x + Math.cos(angle) * r), ty = Math.floor(zone.y + Math.sin(angle) * r);
       s.map.ensureAround(tx, ty, 0);
       if (s.map.tile(tx, ty) !== TILE.GRASS || s.map.navBlocked(tx, ty) || R.at(tx + 0.5, ty + 0.5).index !== ring) continue;
       const a = s.animals.animals[s.animals.spawn(type, tx + 0.5, ty + 0.5, undefined, { level: 1 })];
