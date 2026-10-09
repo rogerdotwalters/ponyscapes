@@ -58,6 +58,8 @@ round it, from the world seed.
 
 To see what the generator makes, open **`/map-preview.html`**: a Regenerate button (new random seed), a seed box, Previous, an auto-regenerate timer and an "open all gateways" switch. `?seed=123` opens one seed. It uses the game's own world code and never touches saved worlds.
 
+**The Slime Warren** (Act 1, `data/dungeons/slime_warren.js`): once the Cave Bear is beaten a second cave in the hills clears its rubble. Five levels of about 50 x 50 tiles (made by code, `shared/slimeRooms.js`), each filling with green slimes in waves: the dungeon data sets, per level, the most slimes alive at once, the seconds between new ones, their level and how many come in all. Beat every one and the way on opens. The last room is the Slime King, who leaps at you and slams the ground (`shared/behaviors/slimeking.js`). Menu > Dev settings > **Act 1** has a *Bot player* checkbox (a second player that follows, fights and picks you up), a *Cave Bear defeated* checkbox and teleports into each level. Check it with `npm run test:warren`. Caves are dark: bring a torch.
+
 The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
 
 ## How saving works

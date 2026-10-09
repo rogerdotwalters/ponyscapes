@@ -103,6 +103,22 @@ function launch(choice, query) {
     const toasts = new Toasts($('toasts')), sleepUI = new SleepUI({ game }), downedUI = new DownedUI({ game });
     if (ContentPack.source === 'draft') toasts.show('Playing your content editor draft (this browser only)', 'info', 6000);
     game.events.on('bossDefeated', e => toasts.show(e.appeased ? `The ${e.name} is at peace with her cubs home! ${e.final ? 'Her cave is quiet at last.' : e.nextRing + ' is open.'}` : e.final ? `The ${e.name} is defeated! Her cave is quiet at last.` : `The ${e.name} has fallen! ${e.nextRing} is open.`, 'ok', 8000));
+    /* the Slime Warren: which rooms have had their slimes beaten (the exit is drawn as plain rock until then), and the cave mouth stays rubble until the Cave Bear is down */
+    game.clearedRooms = new Set();
+    game.events.on('roomState', e => { if (e.cleared) game.clearedRooms.add(e.grid); });
+    game.events.on('roomCleared', e => { game.clearedRooms.add(e.grid); toasts.show('The way on has opened!', 'ok', 4000); });
+    game.events.on('kingDefeated', () => toasts.show('The Slime King is defeated!', 'ok', 8000));
+    const exitOf = new WeakMap();
+    StructureSprites.sealed = (o, tx, ty) => {
+      if (o === OBJ.CAVEMOUTH) {                                                          // outside: a mouth whose dungeon wants a guardian down first
+        const mouth = game.map.terrain && game.map.terrain.caveSites && game.map.terrain.caveSites.caves().find(c => Math.floor(c.x) === tx && Math.floor(c.y) === ty), def = mouth && Dungeons.all()[mouth.index];
+        return !!(def && def.requires && !game.defeated.includes(def.requires.defeated));
+      }
+      const plan = game.map.plan;                                                         // inside: the exit of a room that still has slimes to beat
+      if (!plan || !plan.dungeon || !plan.dungeon.waves || !plan.dungeon.waves[plan.index] || game.clearedRooms.has(game.grid)) return false;
+      let m = exitOf.get(plan); if (!m) exitOf.set(plan, m = plan._middle(plan.room.exits));
+      return m.x === tx && m.y === ty;
+    };
     game.events.on('nightSkipped', () => toasts.show('The night passes...', 'info', 3000));
     game.events.on('enteredCave', () => toasts.show('You descend into the cave...', 'info', 3000));
     game.events.on('dungeonChest', e => { DungeonState.opened.add(DungeonState.key(game.grid, e.tx, e.ty)); const prop = game.map.peekPropAt(e.tx, e.ty); if (prop) prop.opened = true; });       // (a dungeon chest somebody opened)

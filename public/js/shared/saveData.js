@@ -180,7 +180,7 @@ const SaveData = {
     server.trees.respawns = world.treeRespawns.map(r => Object.assign({}, r));
     server.forage.regrows = world.forageRegrows.map(r => Object.assign({}, r));
     server.downed.setMode(world.difficulty); server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;
-    server.worldProgress.restore(world.bossesDefeated || [], world.gates);                      // the guardians that are down, and the gateways that opened
+    server.worldProgress.restore(world.bossesDefeated || [], world.gates); server.settings.bearDefeated = server.worldProgress.isDefeated(0);                      // the guardians that are down, and the gateways that opened
     server.builtRev++; server.floorsRev++; server.stockRev++;
   },
 

@@ -63,12 +63,13 @@ class GameServer {
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
     this.downed = new DownedSystem(this);                                    // going down in a dungeon instead of waking in the village (downed.js)
+    this.bots = new BotSystem(this);                                         // the test bot (botSystem.js)
     this.sleep = new SleepSystem(this);                                      // bedtime, the forced sleep and skipping the night (sleepSystem.js)
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
     this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
-    this.settings = { hostilesOff: false, testPony: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
+    this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
@@ -582,6 +583,7 @@ class GameServer {
     this._farmDays();                                                                 // a new day: crops grow (farming.js)
     this.weather.update();                                                            // rain, wind, lightning (weather.js)
     if (this.later.length) { const due = this.later.filter(l => l.at <= this.tick); if (due.length) { this.later = this.later.filter(l => l.at > this.tick); due.forEach(l => l.fn()); } }
+    this.bots.update();                                                               // (the test bot writes its input first)
     for (const id in this.inputQueues) {
       const queue = this.inputQueues[id];
       // Each input is applied exactly once with a fixed dt, so client prediction matches bit-for-bit.
@@ -599,6 +601,7 @@ class GameServer {
     this._carryNotices();
     for (const id in this.players) this._tickPlayer(id, this.players[id]);
     this.trade.update();
+    this.dungeons.update();                                                           // the Slime Warren's waves (dungeonSystem.js)
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
@@ -834,8 +837,21 @@ class GameServer {
   applySetting(key, value) {
     if (key === 'hostilesOff') { this.settings.hostilesOff = value; this.animals.hostilesOff = value; }
     else if (key === 'testPony') { this.settings.testPony = value; this._setTestPony(value); }
+    else if (key === 'botPlayer') this.settings.botPlayer = this.bots.set(value);
+    else if (key === 'bearDefeated') this._setBearDefeated(value);
     else return;
     this.settingsRev++;
+  }
+
+  /** Act 1 testing aid: the Cave Bear counts as defeated (the Slime Warren's rubble clears, and so does the way to the next zone) or alive again. */
+  _setBearDefeated(on) {
+    const ring = 0, lair = Grids.cave(ring);
+    if (on) {
+      for (const [id, a] of Object.entries(this.animals.animals)) if (a.type === 'boss_cave_bear' && gridOf(a) === lair) delete this.animals.animals[id];     // (the bear leaves the lair)
+      delete this.dungeons.bosses[ring];
+      this.dungeons.conquer(ring, 'Cave Bear', false);
+    } else this.worldProgress.undefeatBoss(ring);
+    this.settings.bearDefeated = this.worldProgress.isDefeated(ring);
   }
 
   /** On: a level 12 pegasus appears beside the host, theirs to ride with no Horsemanship needed. Off: it goes away (and the host is set down first). */
