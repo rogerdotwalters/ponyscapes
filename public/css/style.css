@@ -582,3 +582,5 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .transport button:active{background:rgba(227,194,122,.35)}
 .transport .autoBtn{flex:1.4;font:700 14px Georgia,serif}
 .transport .autoBtn.on{border-color:#e3c27a;background:rgba(227,194,122,.22)}
+.transport .ambBtn{flex:1.4;font:700 13px Georgia,serif}
+.transport .ambBtn.on{border-color:#e3c27a;background:rgba(227,194,122,.22)}

@@ -15,6 +15,10 @@
  *   DANCE   "Rainbow Hoofdance": a cheery dance track at 124 bpm: four-on-the-floor kick, offbeat hats and bass, a pumping mix, a drop, a breakdown,
  *           a riser and a second drop a whole step up.
  *   HARMONY "Harmony Hooves": a bright, bouncy friendship anthem at 120 bpm: pizzicato verses, a rising pre-chorus and a soaring chorus.
+ * AMBIENT: every tune also has an ambient version made from the same key and chords: slow strings and a drone, and a sparse scatter of bells, harp,
+ * flute and twinkles (storm, tempest and battle add wind, a heartbeat or far-off drums), with no tune and no beat. In Auto the ambient version is what
+ * plays; the real tune comes in only rarely (about one chance in eight at the end of each minute-long ambient loop), plays once through, and the ambient
+ * returns. In the Soundtrack player a picked track plays in full unless you switch the Ambient button on.
  * Changing mood crossfades: the old tune fades out while the new one begins on its first bar. In a room the music is muffled.
  * Volume: Menu > Controls > Mouse & touch (0 switches it off). */
 const PonyMusic = (() => {
@@ -183,6 +187,18 @@ const PonyMusic = (() => {
   const FORMS = { calm: MEADOW, storm: GLOOM, battle: GALLOP, tempest: TEMPEST, parade: PARADE, dance: DANCE, harmony: HARMONY };
   /** A scale position (0 = E4, seven to the octave) as a MIDI note. */
   const posNote = p => 64 + 12 * Math.floor(p / 7) + HARMONIC[((p % 7) + 7) % 7];
+  const FULL_CHANCE = 0.12;                                                                         // the chance, at the end of each ambient loop, that the real tune plays
+  /** The ambient loop: 16 bars of 4 seconds (a chord every two bars), so a minute and four seconds. Its chords come from the tune's own. */
+  const AMB_FORM = { bars: 16, stepDur: () => 0.5, where: bi => ({ sec: { id: 'amb', bars: 16 }, idx: bi, first: 0 }) };
+  const AMB = {
+    calm: { gain: 1.1, form: MEADOW, key: 2, minor: false, pad: { cutoff: 1000, tremolo: 3.5, depth: 0.2 }, drone: 0.5, bell: 0.16, harp: 0.2, flute: 0.05, pizz: 0.05, spark: 0.5, gliss: 0.25 },
+    storm: { gain: 1, form: GLOOM, key: 0, minor: true, pad: { cutoff: 600, tremolo: 5, depth: 0.5 }, drone: 0.9, bell: 0.05, harp: 0.06, flute: 0.03, violin: 0.03, toll: true, drumRoll: 0.35, wind: 0.6, spark: 0.25 },
+    tempest: { gain: 1, form: TEMPEST, key: 4, minor: true, pad: { cutoff: 800, tremolo: 6, depth: 0.5 }, drone: 0.8, bell: 0.05, harp: 0.05, violin: 0.05, heart: true, wind: 0.8, spark: 0.3 },
+    battle: { gain: 1.05, form: GALLOP, key: 2, minor: true, pad: { cutoff: 900, tremolo: 8, depth: 0.5 }, drone: 0.8, bell: 0.05, harp: 0.06, violin: 0.03, pulse: true, wind: 0.4, spark: 0.2 },
+    parade: { gain: 1.1, form: PARADE, key: 0, minor: false, pad: { cutoff: 1300, tremolo: 4, depth: 0.2 }, drone: 0.4, bell: 0.2, harp: 0.25, flute: 0.05, pizz: 0.06, spark: 0.5, gliss: 0.3 },
+    dance: { gain: 1.6, form: DANCE, key: 7, minor: false, pad: { cutoff: 1400, tremolo: 5, depth: 0.25 }, drone: 0.4, bell: 0.2, harp: 0.2, flute: 0.04, synth: 0.12, tick: 0.12, spark: 0.5, gliss: 0.3 },
+    harmony: { gain: 1.3, form: HARMONY, key: 5, minor: false, pad: { cutoff: 1300, tremolo: 4, depth: 0.2 }, drone: 0.4, bell: 0.22, harp: 0.24, flute: 0.05, pizz: 0.08, spark: 0.55, gliss: 0.3 }
+  };
   const HOSTILE_RANGE = 11, HOLD_BATTLE = 7, HOLD_STORM = 5, HOLD_TEMPEST = 8;                           // tiles; seconds the mood lingers after the cause is gone
 
   let flute = null, harp = null, hall = null;
@@ -200,7 +216,7 @@ const PonyMusic = (() => {
   class Music {
     constructor() {
       this.ctx = null; this.timer = 0; this.nextTime = 0; this.step = 0; this.bar = 0;
-      Music.current = this; this.forced = '';                                              // forced: a track picked in the Soundtrack player ('' = follow the game)
+      Music.current = this; this.forced = ''; this.forcedAmb = false; this.fullNow = false; this._passed = -1; this._cycle = 8;       // forced: a track picked in the Soundtrack player ('' = follow the game)
       this.theme = 'calm'; this.mood = { night: 0, indoors: 0, cave: 0 }; this.hurtT = 0; this.lastHp = null; this.battleT = 0; this.stormT = 0; this.tempestT = 0; this.lines = { a: [], b: [] }; this.cpos = -3; this.marks = []; this.paused = false; this.pausePos = 0; this.last = 0;
       GameAudio.onReady(ctx => { this.ctx = ctx; this._build(); });
     }
@@ -242,11 +258,16 @@ const PonyMusic = (() => {
 
     /** The Soundtrack player: play one track until told otherwise (it starts from its beginning), or give the choice back to the game. */
     play(id) { if (!THEMES[id]) return; this.forced = id; if (this.paused) this.resume(); if (this.ctx && this.fade) this._switchTo(id, this.ctx.currentTime); }
-    auto() { this.forced = ''; }
+    auto() { this.forced = ''; this.fullNow = false; }
+    /** Is the ambient version of the tune sounding? In Auto, nearly always; for a track picked in the player, only if Ambient is on. */
+    get ambient() { return this.forced ? this.forcedAmb : !this.fullNow; }
+    _formOf(name) { return name === this.theme && this.ambient ? AMB_FORM : FORMS[name]; }
+    /** Ambient mode for a picked track (restarts it). */
+    setAmbient(on) { this.forcedAmb = !!on; if (this.forced && this.ctx && this.fade) this._switchTo(this.theme, this.ctx.currentTime); }
     /* ---- the player: skip, scrub, pause. Every tune is a cycle of bars (the calm, storm and battle tunes: 8 bars; the tempest: its whole form),
      * so a position in it is seconds into the cycle, and seeking starts the bar that second falls in. ---- */
     _table(name = this.theme) {
-      const form = FORMS[name], starts = []; let at = 0;
+      const form = this._formOf(name), starts = []; let at = 0;
       for (let i = 0; i < form.bars; i++) { starts.push(at); at += 8 * form.stepDur(i); }
       return { starts, total: at, bars: form.bars };
     }
@@ -276,7 +297,7 @@ const PonyMusic = (() => {
     pause() { if (!this.ctx || this.paused) return; this.pausePos = this.position(); this.paused = true; this.gate.gain.setTargetAtTime(0, this.ctx.currentTime, 0.04); }
     resume() { if (!this.ctx || !this.paused) return; this.paused = false; this.marks = []; this.gate.gain.setTargetAtTime(1, this.ctx.currentTime, 0.05); this.nextTime = Math.max(this.nextTime, this.ctx.currentTime + 0.25); }
     /** The title of the tune playing now. */
-    get title() { return THEMES[this.theme].title; }
+    get title() { return THEMES[this.theme].title + (this.ambient ? ' \u2013 ambient' : ''); }
 
     /** Called every frame with the game and the weather layers being shown. */
     update(game, weather) {
@@ -296,7 +317,7 @@ const PonyMusic = (() => {
       this.buses[this.theme].gain.setTargetAtTime(0, now, from.fadeOut / 3); this.pumps[this.theme].gain.cancelScheduledValues(now); this.pumps[this.theme].gain.setValueAtTime(1, now);
       this.buses[name].gain.setTargetAtTime(to.level, now + 0.05, to.fadeIn / 3);
       this.theme = name; this.bus = this.buses[name];
-      this.step = 0; this.bar = 0; this.marks = []; this.pausePos = 0; this.nextTime = Math.max(this.nextTime, now + 0.2);      // (the new tune starts on its first bar)
+      this.step = 0; this.bar = 0; this.fullNow = false; this._passed = -1; this.marks = []; this.pausePos = 0; this.nextTime = Math.max(this.nextTime, now + 0.2);      // (the new tune starts on its first bar)
     }
 
     /* ---- the players ---- */
@@ -420,6 +441,13 @@ const PonyMusic = (() => {
     _gliss(t, key, vel, minor = false) { const sc = minor ? MIN7 : MAJ7; for (let i = 0; i < 12; i++) this._harp(t + i * 0.04, 60 + key + 12 * Math.floor(i / 7) + sc[i % 7], vel * (0.45 + i / 24), 0.6); }
     /** A twinkle: six bells, quick, climbing the chord of `key` (a cold minor one if asked). */
     _sparkle(t, key, vel, minor = false) { (minor ? [0, 3, 7, 12, 15, 19] : [0, 4, 7, 12, 16, 19]).forEach((d, i) => this._bell(t + i * 0.055, 72 + key + d, vel * (0.5 + i / 12))); }
+    /** Wind: a slow swell of filtered noise that rises and falls over `len` seconds. */
+    _wind(t, len, vel) {
+      const ctx = this.ctx, n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      n.buffer = GameAudio.noise(); n.loop = true; f.type = 'bandpass'; f.Q.value = 0.8; f.frequency.setValueAtTime(380, t); f.frequency.linearRampToValueAtTime(900, t + len * 0.5); f.frequency.linearRampToValueAtTime(420, t + len);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.1 * vel, t + len * 0.5); g.gain.linearRampToValueAtTime(0.0001, t + len);
+      n.connect(f); f.connect(g); g.connect(this.bus); n.start(t, Math.random() * 1.5); n.stop(t + len + 0.1);
+    }
     /** A cymbal crash: a long wash of bright noise. */
     _crash(t, vel) {
       const ctx = this.ctx, n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
@@ -458,7 +486,7 @@ const PonyMusic = (() => {
     /** The tempest, step by step. See TEMPEST for the form. */
     _scheduleTempest() {
       const ctx = this.ctx, KEY = THEMES.tempest.key, total = TEMPEST.bars;
-      while (this.nextTime < ctx.currentTime + 0.6) {
+      while (this._go()) {
         const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx, first } = TEMPEST.where(bi);
         const dur = TEMPEST.durOf(sec, idx), chord = TEMPEST.chords[bi], root = KEY + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const pcs = [root % 12, third % 12, fifth % 12], chordTones = [root + 48, third + 48, fifth + 48];
@@ -554,7 +582,7 @@ const PonyMusic = (() => {
     _scheduleParade() {
       const ctx = this.ctx, total = PARADE.bars, MAJ = [0, 2, 4, 5, 7, 9, 11];
       const lead = (deg, key) => 72 + key + 12 * Math.floor((deg - 1) / 7) + MAJ[(((deg - 1) % 7) + 7) % 7];             // a scale degree as a MIDI note
-      while (this.nextTime < ctx.currentTime + 0.6) {
+      while (this._go()) {
         const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = PARADE.where(bi), dur = PARADE.stepDur(bi), id = sec.id;
         const chord = PARADE.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
@@ -605,7 +633,7 @@ const PonyMusic = (() => {
     _scheduleDance() {
       const ctx = this.ctx, total = DANCE.bars, MAJ = [0, 2, 4, 5, 7, 9, 11];
       const lead = (deg, key) => 60 + key + 12 * Math.floor((deg - 1) / 7) + MAJ[(((deg - 1) % 7) + 7) % 7];
-      while (this.nextTime < ctx.currentTime + 0.6) {
+      while (this._go()) {
         const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = DANCE.where(bi), dur = DANCE.stepDur(bi), id = sec.id, odd = s % 2 === 1;
         const chord = DANCE.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
@@ -651,7 +679,7 @@ const PonyMusic = (() => {
     _scheduleHarmony() {
       const ctx = this.ctx, total = HARMONY.bars, MAJ = [0, 2, 4, 5, 7, 9, 11];
       const lead = (deg, key) => 60 + key + 12 * Math.floor((deg - 1) / 7) + MAJ[(((deg - 1) % 7) + 7) % 7];
-      while (this.nextTime < ctx.currentTime + 0.6) {
+      while (this._go()) {
         const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = HARMONY.where(bi), dur = HARMONY.stepDur(bi), id = sec.id;
         const chord = HARMONY.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
@@ -708,7 +736,7 @@ const PonyMusic = (() => {
     _scheduleMeadow() {
       const ctx = this.ctx, total = MEADOW.bars, night = !!this.mood.night;
       const lead = (deg, key) => 60 + key + 12 * Math.floor((deg - 1) / 7) + MAJ7[(((deg - 1) % 7) + 7) % 7];
-      while (this.nextTime < ctx.currentTime + 0.6) {
+      while (this._go()) {
         const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = MEADOW.where(bi), dur = MEADOW.stepDur(bi), id = sec.id;
         const chord = MEADOW.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
@@ -739,7 +767,7 @@ const PonyMusic = (() => {
     _scheduleGloom() {
       const ctx = this.ctx, total = GLOOM.bars;
       const lead = (deg, key) => 60 + key + 12 * Math.floor((deg - 1) / 7) + MIN7[(((deg - 1) % 7) + 7) % 7];
-      while (this.nextTime < ctx.currentTime + 0.6) {
+      while (this._go()) {
         const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = GLOOM.where(bi), dur = GLOOM.stepDur(bi), id = sec.id, V = id === 'b' ? 1.1 : 1;
         const chord = GLOOM.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const chordTones = [root + 48, third + 48, fifth + 48], hits = ((GLOOM.MELODY[id] || [])[idx] || []).filter(n => n[0] === s);
@@ -765,7 +793,7 @@ const PonyMusic = (() => {
     _scheduleGallop() {
       const ctx = this.ctx, total = GALLOP.bars;
       const lead = (deg, key) => 60 + key + 12 * Math.floor((deg - 1) / 7) + MIN7[(((deg - 1) % 7) + 7) % 7];
-      while (this.nextTime < ctx.currentTime + 0.6) {
+      while (this._go()) {
         const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = GALLOP.where(bi), dur = GALLOP.stepDur(bi), id = sec.id;
         const chord = GALLOP.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
@@ -788,11 +816,61 @@ const PonyMusic = (() => {
       }
     }
 
+    /** The ambient version of the playing tune, step by step (a step is half a second, eight to a bar). Same key and chords as the tune, but no tune and no
+     *  beat: a slow string pad and a drone, with bells, harp, flute and twinkles scattered thinly over the top, and (storm, tempest, battle) wind, a
+     *  heartbeat or far-off drums. See AMB for each tune's mix. */
+    _scheduleAmbient() {
+      const ctx = this.ctx, cfg = AMB[this.theme], form = cfg.form, rnd = Math.random, night = !!this.mood.night && this.theme === 'calm';
+      const A = 0.55 * cfg.gain * (night ? 0.7 : 1), pent = cfg.minor ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9];
+      while (this._go()) {
+        const bi = Math.floor(this.step / 8) % 16, s = this.step % 8, t = this.nextTime, dur = 0.5;
+        const chord = form.chords[(Math.floor(bi / 2) * 2) % form.chords.length], key = chord.length > 2 ? chord[2] : cfg.key, root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
+        const tones = [root, third, fifth], d = night ? 0.5 : 1;
+        // a note somewhere in lo..hi, mostly a chord tone, sometimes another note of the key's pentatonic
+        const pick = (lo, hi) => { const pool = []; for (let n = lo; n <= hi; n++) { const pcs = ((n % 12) + 12) % 12; if (tones.some(x => x % 12 === pcs)) { pool.push(n, n, n); } else if (pent.some(x => (key + x) % 12 === pcs)) pool.push(n); } return pool.length ? pool[rnd() * pool.length | 0] : lo; };
+        if (s === 0) { this.marks.push({ t, bar: bi }); if (this.marks.length > 16) this.marks.shift(); }
+        if (s === 0 && bi % 2 === 0) {                                                                                           // a new chord every two bars
+          this._pad(t, [root + 48, third + 48, fifth + 48], 8.5, A * 1.2, { cutoff: cfg.pad.cutoff, tremolo: cfg.pad.tremolo, depth: cfg.pad.depth, attack: 3 });
+          this._cello(t, 36 + root, 8, A * cfg.drone * 1.2);
+          if (cfg.toll) this._harp(t + 0.1, root + 36, A * 0.7, 2);
+          if (cfg.wind && rnd() < cfg.wind) this._wind(t + 1, 7, A * 0.9);
+          if (cfg.drumRoll && rnd() < cfg.drumRoll) this._drum(t + 2.5, A * 0.55, 2.2);
+          if (cfg.gliss && bi % 8 === 0 && rnd() < cfg.gliss) this._gliss(t + 0.2, key, A * 0.5, cfg.minor);
+        }
+        if (cfg.heart && s === 0) { this._drum(t, A * 0.5, 1.8); this._drum(t + 0.27, A * 0.35, 2); }                          // a heartbeat, every bar
+        if (cfg.pulse && s === 0 && bi % 2 === 1) this._drum(t, A * 0.7, 2.2);                                                  // a slow, far-off war drum
+        if (s === 2 && bi % 4 === 2 && cfg.spark && rnd() < cfg.spark) this._sparkle(t, key, A * 0.6, cfg.minor);
+        if (cfg.bell && rnd() < cfg.bell * d) this._bell(t, pick(72, 90), A * (0.5 + rnd() * 0.5));
+        if (cfg.harp && rnd() < cfg.harp * d) this._harp(t, pick(cfg.toll ? 40 : 55, cfg.toll ? 64 : 79), A * (0.4 + rnd() * 0.5), 1.2);
+        if (cfg.flute && rnd() < cfg.flute * d) this._flute(t, pick(64, 79), 2.5 + rnd() * 2, A * 0.7, cfg.minor ? 1.8 : 0.9);
+        if (cfg.violin && rnd() < cfg.violin * d) this._violin(t, pick(76, 90), 3 + rnd() * 3, A * 0.5, rnd() < 0.5 ? -0.4 : 0.4, true);
+        if (cfg.pizz && !night && s % 2 === 0 && rnd() < cfg.pizz) this._pizz(t, pick(48, 64), A * 0.6);
+        if (cfg.synth && rnd() < cfg.synth * d) this._synth(t, pick(60, 76), 0.6, A * 0.6);
+        if (cfg.tick && s % 2 === 1 && rnd() < cfg.tick * d) this._hat(t, A * 0.35);
+        this.nextTime += dur; this.step++;
+      }
+    }
+
+    /** May the scheduler place another step? Not past a lookahead of 0.6 s, and not across the end of a cycle (that is handled in between, see _cycleEnd). */
+    _go() { return this.nextTime < this.ctx.currentTime + 0.6 && !(this.step > 0 && this.step % this._cycle === 0 && this._passed !== this.step); }
+    /** A tune (or its ambient loop) has just played through. In Auto: after a full tune the ambient returns; after an ambient loop there is a small chance
+     *  the real tune comes in (once through). A picked track simply loops. */
+    _cycleEnd() {
+      if (this.forced) return;
+      if (this.fullNow) { this.fullNow = false; this.step = 0; this.marks = []; }
+      else if (Math.random() < FULL_CHANCE) { this.fullNow = true; this.step = 0; this.marks = []; }
+    }
+
     _schedule() {
       const ctx = this.ctx; if (!ctx || ctx.state !== 'running') { if (ctx) this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.2); return; }
       if (this.paused) { this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.3); return; }
-      const run = { calm: '_scheduleMeadow', storm: '_scheduleGloom', battle: '_scheduleGallop', tempest: '_scheduleTempest', parade: '_scheduleParade', dance: '_scheduleDance', harmony: '_scheduleHarmony' }[this.theme];
-      this[run]();
+      const full = { calm: '_scheduleMeadow', storm: '_scheduleGloom', battle: '_scheduleGallop', tempest: '_scheduleTempest', parade: '_scheduleParade', dance: '_scheduleDance', harmony: '_scheduleHarmony' };
+      for (let guard = 0; guard < 3; guard++) {
+        this._cycle = 8 * this._formOf(this.theme).bars;
+        this[this.ambient ? '_scheduleAmbient' : full[this.theme]]();
+        if (this.step > 0 && this.step % this._cycle === 0 && this._passed !== this.step) { this._passed = this.step; this._cycleEnd(); continue; }
+        break;
+      }
     }
   }
   Music.TRACKS = ['calm', 'storm', 'tempest', 'battle', 'parade', 'dance', 'harmony'].map(id => ({ id, title: THEMES[id].title, blurb: THEMES[id].blurb }));
