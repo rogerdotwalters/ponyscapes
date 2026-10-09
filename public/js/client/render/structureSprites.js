@@ -31,7 +31,7 @@ const StructureSprites = (() => {
     if (o === OBJ.CAVEMOUTH) PixelBuildings.drawRock(g.ctx, 'mouth', 1, item.tx, item.ty, cx, cy);
     else if (o === OBJ.CAVEMOUTH_IN) PixelBuildings.drawRock(g.ctx, 'cavemouth', 1, item.tx, item.ty, cx, cy);
     else if (isCaveRockObj(o)) PixelBuildings.drawRock(g.ctx, 'cave', o === OBJ.CAVEROCK_LOW ? 0 : 1, item.tx, item.ty, cx, cy);
-    else PixelBuildings.drawRock(g.ctx, 'cliff', o - OBJ.CLIFF1, item.tx, item.ty, cx, cy);
+    else PixelBuildings.drawRock(g.ctx, 'cliff', o - OBJ.CLIFF1, item.tx, item.ty, cx, cy, item.look);
   }
 
   function drawWall(g, cx, cy, item) { PixelBuildings.drawPiece(g.ctx, 'wall', cx, cy, item && item.tx, item && item.ty); }                    // crenellated fieldstone (pixelBuildings.js)

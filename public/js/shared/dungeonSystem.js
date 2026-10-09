@@ -1,7 +1,7 @@
 'use strict';
 /* SHARED - the dungeons. The cave mouth in the cliffs takes you (and your mount, and any pet on a rope) through the dungeon's rooms. A dungeon with a `lair` ends in
  * its zone's guardian lair, the LAST layer: its own GRID ('cave:<zone>'), where the guardian waits in the arena, always the TOP level of its area; defeating it
- * opens the next zone for everyone. Also: the hint when you touch the wall at the edge of the world. */
+ * opens the zones it guards for everyone. Also: the hint when you touch a shut gateway. */
 
 /** Pure (client + server): is there a cave mouth to enter, or a way out, within reach? */
 function findCaveInteraction(map, p) {
@@ -199,8 +199,8 @@ class DungeonSystem {
   conquer(ring, name, appeased) {
     const s = this.server;
     if (!s.worldProgress.defeatBoss(ring)) return;
-    const R = s.map.layers.rings;
-    s.pendingEvents.push({ type: 'bossDefeated', ring, name, appeased: !!appeased, nextRing: ring + 1 < R.count ? R.def(ring + 1).name : '', final: ring + 1 >= R.count });
+    const opened = s.worldProgress.opens(ring).map(z => z.name);
+    s.pendingEvents.push({ type: 'bossDefeated', ring, name, appeased: !!appeased, nextRing: opened.join(' and '), final: !opened.length });
     for (const pid in s.treasureMaps) {                                                      // everybody's scroll to this cave is used up
       const before = s.treasureMaps[pid].length;
       s.treasureMaps[pid] = s.treasureMaps[pid].filter(m => !(m.kind === 'dungeon' && m.ring === ring));
@@ -208,14 +208,13 @@ class DungeonSystem {
     }
   }
 
-  /** Touching a sealed barrier tells you what to do about it (at most every few seconds). */
+  /** Touching a shut gateway tells you what to do about it (at most every few seconds). */
   tickHints(id, p) {
     if (this.server.tick % 30 !== 0 || gridOf(p)) return;
     const rings = this.server.map.layers.rings, ring = rings.barrierNear(p.x, p.y, 2.6);
     if (ring < 0 || (this.hintAt[id] || -999) > this.server.tick - 300) return;
     this.hintAt[id] = this.server.tick;
-    const guard = rings.def(ring - 1);
-    if (!rings.def(ring)) this.server._notice(id, `A shimmering barrier marks the edge of ${guard.name}. Nothing lies beyond it, yet`);          // (the wall round the world)
-    else this.server._notice(id, `A shimmering barrier seals ${rings.def(ring).name}. Defeat the ${guard.bossName} in the lair at the bottom of the cave in ${guard.name} to open it`);
+    const sealed = rings.def(ring), guard = Zones.all().find(z => z.id === sealed.unlockedBy);
+    this.server._notice(id, guard && guard.bossName ? `A shimmering barrier seals the way to ${sealed.name}. Defeat the ${guard.bossName} in the lair at the bottom of the cave in ${guard.name} to open it` : `A shimmering barrier seals the way to ${sealed.name}. Something must open it first`);
   }
 }

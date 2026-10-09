@@ -8,6 +8,8 @@
  *     lakes, bays and the odd sea, not the default.
  *   moisture / forest / patch noise decide grass vs dirt and where trees cluster.
  *
+ * Where the land ENDS is the zone layer's business (layers/zoneLayer.js): this generator makes the land inside each zone.
+ *
  * tile(tx, ty) is a PURE function of the seed and the coordinates, which is what lets chunks be generated in any
  * order, discarded, and regenerated identically on the client and the server. */
 const TERRAIN = Object.freeze({
@@ -22,6 +24,7 @@ const TERRAIN = Object.freeze({
 });
 
 const VILLAGE_LAND_LIFT = 1.2;
+const WALL_LAND_LIFT = 1.7, WALL_LAND_REACH = 16;     // the ground rises toward every cliff wall (so a lake or the sea never floods a gateway's approach)
 
 class TerrainGenerator {
   constructor(seed) {
@@ -45,7 +48,7 @@ class TerrainGenerator {
     const hills = this.hills.fractal(tx * T.hillScale, ty * T.hillScale, 3);
     const detail = this.detail.fractal(tx * T.detailScale, ty * T.detailScale, 2);
     const layered = w.continent * continent + w.hills * hills + w.detail * detail;
-    return T.contrast * layered + T.landBias - this.layers.zones.edgeSink(tx, ty);       // the zone ends in a beach and open sea
+    return T.contrast * layered + T.landBias;
   }
 
   // the everyday biomes (meadow / forest / wetland / dry) sweep across much larger areas than the first version
@@ -58,12 +61,23 @@ class TerrainGenerator {
     return stamped >= 0 ? stamped : this.baseTile(tx, ty);
   }
 
+  /** The solid thing standing on a tile: a hill / cave mouth stamp, else the cliff wall round a zone (as tall as a ridge or a bluff). OBJ.NONE for open ground. */
+  objAt(tx, ty) {
+    const stamped = this.caveSites.objAt(tx, ty);
+    if (stamped !== OBJ.NONE) return stamped;
+    return this.layers.zones.kindAt(tx, ty) === ZONE_KIND.WALL ? (hash3(this.seed, tx, ty, 95) < 0.45 ? OBJ.CLIFF2 : OBJ.CLIFF3) : OBJ.NONE;
+  }
+  /** Is this tile part of a gateway (kept clear: nothing grows, lives or is dropped there)? */
+  isGate(tx, ty) { return this.layers.zones.kindAt(tx, ty) === ZONE_KIND.GATE; }
+
   /** The generated land before any stamp is laid over it. */
   baseTile(tx, ty) {
     const forced = Village.tile(tx, ty);
     if (forced >= 0) return forced;
+    const kind = this.layers.zones.kindAt(tx, ty);                              // the zones' own ground: cliff walls, gateways, the sea round the map
+    if (kind !== ZONE_KIND.LAND) return kind === ZONE_KIND.WALL ? TILE.STONE : kind === ZONE_KIND.GATE ? TILE.DIRT : TILE.WATER;
     const T = TERRAIN, e = this.elevation(tx, ty);
-    const shore = e + VILLAGE_LAND_LIFT * Village.influence(tx, ty);          // the village is lifted out of the sea, not turned into rock
+    const wd = this.layers.zones.wallDistance(tx, ty), shore = e + VILLAGE_LAND_LIFT * Village.influence(tx, ty) + (wd < WALL_LAND_REACH ? WALL_LAND_LIFT * (1 - wd / WALL_LAND_REACH) : 0);          // the village is lifted out of the sea, not turned into rock
     if (shore < T.seaLevel - T.wadeBand) return TILE.WATER;
     if (shore < T.seaLevel) return TILE.SHALLOW;
     if (shore < T.seaLevel + T.beachWidth) return TILE.SAND;
@@ -169,8 +183,8 @@ class TerrainGenerator {
       const tx = cx * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 30 + attempt) * CHUNK_SIZE);
       const ty = cy * CHUNK_SIZE + Math.floor(hash3(this.seed, cx, cy, 50 + attempt) * CHUNK_SIZE);
       const tile = tileOf(tx, ty);
-      if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1 || (free && !free(tx, ty))) continue;   // not in the village, not on rock / water
-      const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolAt(this.layers.rings.at(tx + 0.5, ty + 0.5).index, biome);
+      if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || Village.influence(tx, ty) >= 1 || this.isGate(tx, ty) || (free && !free(tx, ty))) continue;   // not in the village, not on rock / water, not in a gateway
+      const biome = this.biomeAt(tx, ty, tile), fauna = Fauna.poolAt(this.layers.zones.faunaAt(tx + 0.5, ty + 0.5), biome);
       if (!fauna.length) continue;
       const total = fauna.reduce((n, f) => n + f.weight, 0);
       let roll = hash3(this.seed, cx, cy, 22) * total, chosen = fauna[0];

@@ -11,6 +11,7 @@
  *   apples   (optional) which apples its apple trees bear, [[itemId, weight]]; default plain red apples
  *   edgeApples (optional) { neighbouring biome: [apple, chance] }: each of its apple trees within EDGE_APPLE_RANGE tiles of that biome has
  *            this chance of bearing that apple instead (now and then an Orchard tree beside a Crystal Hollow bears crystal apples)
+ *   cliff    (optional) the colours of the cliff walls round a zone of this biome: { base, moss, mossLight, grass: [3] }; default grey rock
  *   treeBoost            extra tree density (jungle is thick, ice is bare)
  *   levels   [min, max] level of the wild creatures here IN THE HEARTLAND (ring 0). Farther rings step every biome up by as much as the
  *            ring's own band steps up (meadow 1-5 in the Heartland is 5-10 in the Wilds; jungle 3-8 is 7-13). See ZoneLayer.

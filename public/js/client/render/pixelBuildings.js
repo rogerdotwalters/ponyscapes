@@ -405,6 +405,13 @@ const PixelBuildings = (() => {
   };
   ROCK.cavemouth = ROCK.cave;                                                         // (inside a cave: a mouth in the cave's own stone)
   ROCK.mouth = ROCK.cliff;                                                          // (a cave mouth is a block of cliff with an opening cut in its south face)
+  /** A cliff takes its colours from its zone's biome (`cliff` in the biome's data); the style 'cliff:<biome>' is made the first time it is asked for. */
+  function biomeStyle(style, biome) {
+    const b = style === 'cliff' && biome && Biomes.get(biome), key = 'cliff:' + biome;
+    if (!b || !b.cliff) return style;
+    if (!ROCK[key]) ROCK[key] = Object.assign({}, ROCK.cliff, b.cliff);
+    return key;
+  }
   const ROCK_VARIANTS = 6, BAYER4 = [0, 0.5, 0.75, 0.25];
   /** Uneven courses of rock, from the ground up: each 5-11 art pixels tall (the same for every tile, so the layers run on across a whole cliff). */
   const COURSES = (() => { const out = []; let z = 0; for (let r = 0; z < 120; r++) { out.push(z); z += 5 + Math.floor(hash(r, 91) * 7); } return out; })();
@@ -473,7 +480,7 @@ const PixelBuildings = (() => {
   function rockArt(style, level, variant) {
     const key = `rock|${style}|${level}|${variant}`;
     if (cache.has(key)) return cache.get(key);
-    const R = ROCK[style], look = style === 'mouth' ? 'cliff' : style === 'cavemouth' ? 'cave' : style, H = R.heights[level], M = 3, minX = Math.floor(-1.1 * HWa) - M, maxX = Math.ceil(1.1 * HWa) + M, minY = Math.floor(-H - 0.6 * HHa) - M, maxY = Math.ceil(2.05 * HHa) + M;
+    const R = ROCK[style], look = style === 'mouth' || style.startsWith('cliff:') ? 'cliff' : style === 'cavemouth' ? 'cave' : style, H = R.heights[level], M = 3, minX = Math.floor(-1.1 * HWa) - M, maxX = Math.ceil(1.1 * HWa) + M, minY = Math.floor(-H - 0.6 * HHa) - M, maxY = Math.ceil(2.05 * HHa) + M;
     const canvas = document.createElement('canvas'); canvas.width = maxX - minX; canvas.height = maxY - minY;
     const g = canvas.getContext('2d');
     for (let py = 0; py < canvas.height; py++) for (let px = 0; px < canvas.width; px++) {
@@ -524,8 +531,8 @@ const PixelBuildings = (() => {
     ctx.imageSmoothingEnabled = smooth;
   }
   /** Draw a tile of rock standing on tile (tx, ty) (its ground centre at cx, cy in world pixels). The variant comes from the tile, so the face never repeats in rows. */
-  function drawRock(ctx, style, level, tx, ty, cx, cy) {
-    const A = rockArt(style, level, Math.floor(hash(tx, ty, 77) * ROCK_VARIANTS)), smooth = ctx.imageSmoothingEnabled;
+  function drawRock(ctx, style, level, tx, ty, cx, cy, biome) {
+    const A = rockArt(biomeStyle(style, biome), level, Math.floor(hash(tx, ty, 77) * ROCK_VARIANTS)), smooth = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(A.canvas, cx + A.minX * ART, cy - TILE_HALF_H + A.minY * ART, A.canvas.width * ART, A.canvas.height * ART);
     ctx.imageSmoothingEnabled = smooth;

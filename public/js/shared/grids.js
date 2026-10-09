@@ -16,7 +16,7 @@ const sameGrid = (a, b) => gridOf(a) === gridOf(b);
 
 /** An instance has no rings, biomes or cave sites: these answer for it. */
 const NO_LAYERS = Object.freeze({
-  rings: Object.freeze({ count: 0, width: 1, barrierAt: () => 0, barrierNear: () => -1, at: () => ({ index: 0 }), isUnlocked: () => true, def: () => ({ name: '' }), setUnlocked() {} }),
+  rings: Object.freeze({ count: 0, width: 1, barrierAt: () => 0, barrierNear: () => -1, gateAt: () => -1, at: () => ({ index: 0 }), isUnlocked: () => true, def: () => ({ name: '' }), setUnlocked() {} }),
   biomes: Object.freeze({ at: () => 'normal' }), zones: null,
   dungeons: Object.freeze({ site: () => null, sites: () => [], nearestTo: () => null })
 });

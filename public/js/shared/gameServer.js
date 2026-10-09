@@ -917,6 +917,7 @@ class GameServer {
     if (maps.some(m => m.kind === 'dungeon' && m.ring === ring)) { this._notice(id, 'You already know where the cave in this area is'); return; }
     if (maps.length >= TREASURE.maxMaps) { this._notice(id, 'Your journal is full of maps: dig up a treasure first'); return; }
     const site = this.map.layers.dungeons.site(ring);
+    if (!site) { this._notice(id, 'There is no cave in this area'); return; }
     inventory.remove(p.held, 1); this.inventoryRev[id]++;
     maps.push({ key: 'cave' + ring, tx: Math.floor(site.x), ty: Math.floor(site.y), kind: 'dungeon', ring }); this.treasureRev[id]++;
     this.pendingEvents.push({ type: 'mapAdded', to: id, tx: Math.floor(site.x), ty: Math.floor(site.y), kind: 'dungeon', ringName: rings.def(ring).name });

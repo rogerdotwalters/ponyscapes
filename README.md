@@ -44,9 +44,16 @@ Players can still point at any relay from the lobby ("Relay address") or with `?
 
 ## The world
 
-The map is made of **zones** (`public/js/data/zones/`, one small file each). For now there is one: **The Meadows**, a 200-tile island around the village that is
-meadow with one orchard patch (about 15% of the land), ending in a beach, open sea and a wall of light. The cave in its hills is the **Old Cavern**; its last
-layer is the Cave Bear's lair. The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
+The map is a **tree of zones** (`public/js/data/zones/`, one small file each; `layers/zoneLayer.js` lays them out). The root, **The Meadows**, holds the village. Sub zones branch
+off it (now: the Orchard, the Mushroom Kingdom, and the Forest, the next zone on), and a sub zone can have sub zones of its own. A zone's children are placed at random angles
+round it, from the world seed.
+
+* every zone has **one biome**, is walled in by **cliffs of that biome's colours**, and joins its parent through a **gateway** in the wall
+* the whole map floats in open sea, behind an **invisible barrier** (boats and flying ponies cannot leave)
+* a gateway can be **shut**: `locked: true` in the zone's data, opened by a guardian (`unlockedBy`) or by hand with `worldProgress.setGate(zoneIndex, true | false)`. A shut gate is a solid, shimmering barrier for now (visuals for story beats come later)
+* the Cave Bear's lair is the last layer of the Old Cavern, in the Meadows' hills
+
+The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
 
 ## How saving works
 
