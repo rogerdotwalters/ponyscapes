@@ -147,36 +147,36 @@ class InventoryUI {
     this.shape = shape;
     const bagName = bag && ItemDefs[bag] ? ItemDefs[bag].name : 'No bag';
     const html = [`<div class="invpurse"><img alt="" src="${ItemIcons.url('gold_coin')}"><b>Coin purse</b><span id="invCoins">0</span><button id="invDropCoins" tabindex="-1" title="Tip out 10 coins (or all you have, if fewer)">Drop 10</button></div>`,
-      `<div class="invsec">Inventory: ${bagName}<small>${belt} belt + ${inv.size - belt} bag slots</small></div><div class="invgrid" data-sec="inv"></div>`];
-    if (chest) html.push(`<div class="invsec">${chest.name}<small>${chest.inventory.size} slots</small></div><div class="invgrid" data-sec="chest"></div>`);
-    if (pack) {
+      '<div class="invgrid" data-sec="all">',
+      `<div class="invsec"><span>${bagName}</span><small>${belt} belt + ${inv.size - belt} bag slots</small></div>`, '<!--me-->'];
+    if (chest) html.push(`<div class="invsec"><span>${chest.name}</span><small>${chest.inventory.size} slots</small></div>`, '<!--chest-->');
+    if (pack) {                                                                                  // the pony's pack is part of the same grid: its slots follow yours, tinted
       const star = pack.main ? ' <span title="Your main pony: it follows you everywhere">&#x2605;</span>' : '';
-      const mainBtn = canMain ? '<button id="invMainPony" tabindex="-1" title="Make it the pony that follows you everywhere">&#x2605; Make main pony</button>' : '';
-      html.push(`<div class="invsec">${pack.riding ? 'Riding' : 'Beside you'}: ${pack.name}${star}${mainBtn}<small>${pack.inventory.size} pack slots</small></div>`);
+      const mainBtn = canMain ? '<button id="invMainPony" tabindex="-1" title="Make it the pony that follows you everywhere">&#x2605; Make main</button>' : '';
+      html.push(`<div class="invsec pony"><span>${pack.riding ? 'Riding' : 'Beside you'}: ${pack.name}${star}</span>${mainBtn}<small>${pack.inventory.size} pack slots</small></div>`);
       html.push(`<div class="invbags">${pack.bags.map((b, k) => b
         ? `<button class="invbag filled" data-bag="${k}" tabindex="-1" title="Take the ${ItemDefs[b].name} off (into your bag)"><img alt="" src="${ItemIcons.url(b)}">${ItemDefs[b].name} &#x2715;</button>`
         : `<button class="invbag" data-bag="${k}" tabindex="-1" title="An empty bag slot: pick a pony bag from your bag, then tap here">empty bag slot</button>`).join('')}</div>`);
-      html.push(pack.inventory.size ? '<div class="invgrid" data-sec="pack"></div>' : '<div class="invnote">No bags on this pony yet: buy saddlebags at the General Store.</div>');
+      html.push(pack.inventory.size ? '<!--pack-->' : '<div class="invnote">No bags on this pony yet: buy saddlebags at the General Store.</div>');
     } else html.push('<div class="invnote">Ride one of your ponies, or stand next to it, to open its pack.</div>');
+    html.push('</div>');
     this.body.innerHTML = html.join('');
     this.slotEls = { me: [], pack: [], chest: [] };
-    const invGrid = this.body.querySelector('[data-sec="inv"]'), packGrid = this.body.querySelector('[data-sec="pack"]');
-    for (let i = 0; i < inv.size; i++) {
-      const el = SlotView.create(i, i < belt ? i + 1 : '');
-      if (i < belt) el.classList.add('belt');
-      this._bindSlot(el, 'me', i);
-      invGrid.appendChild(el); this.slotEls.me.push(el);
-    }
-    const chestGrid = this.body.querySelector('[data-sec="chest"]');
-    if (chestGrid) for (let i = 0; i < chest.inventory.size; i++) {
-      const el = SlotView.create(i, ''); this._bindSlot(el, 'chest', i);
-      chestGrid.appendChild(el); this.slotEls.chest.push(el);
-    }
-    if (packGrid) for (let i = 0; i < pack.inventory.size; i++) {
-      const el = SlotView.create(i, '');
-      this._bindSlot(el, 'pack', i);
-      packGrid.appendChild(el); this.slotEls.pack.push(el);
-    }
+    const fill = (marker, sec, n, list, num) => {                                               // swap a marker comment for n slots, all in the one grid
+      const node = [...this.body.querySelector('.invgrid').childNodes].find(c => c.nodeType === 8 && c.data === marker);
+      if (!node) return;
+      for (let i = 0; i < n; i++) {
+        const el = SlotView.create(i, num ? num(i) : '');
+        if (num && i < belt) el.classList.add('belt');
+        if (sec === 'pack') el.classList.add('ponyslot');
+        this._bindSlot(el, sec, i);
+        node.parentNode.insertBefore(el, node); list.push(el);
+      }
+      node.remove();
+    };
+    fill('me', 'me', inv.size, this.slotEls.me, i => (i < belt ? i + 1 : ''));
+    if (chest) fill('chest', 'chest', chest.inventory.size, this.slotEls.chest);
+    if (pack && pack.inventory.size) fill('pack', 'pack', pack.inventory.size, this.slotEls.pack);
   }
 
   refresh() {

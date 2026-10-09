@@ -15,7 +15,7 @@ const LASSO_LOOKS = {
   lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
 };
 const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
-const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
+const SADDLE_HEIGHT = 15, FACING_LIFT = 14;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
   constructor(g) { this.g = g; this.walkPhase = {}; this.looks = new LruCache(100); }
@@ -30,7 +30,7 @@ class PlayerSprite {
 
   draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false, opts = {}) {
     const mounted = !!p.mount, riding = !!p.boat || mounted;
-    if (mounted) { sy -= SADDLE_HEIGHT; rowPhase = now / 140; }                       // up in the saddle, arms swinging with the gait
+    if (mounted) { sy -= SADDLE_HEIGHT + (SpriteRegistry.dirOf(p.facing) === 'down' ? FACING_LIFT : 0); rowPhase = now / 140; }   // (facing the camera the pony is drawn over its rider, who sits up behind its head)                       // up in the saddle, arms swinging with the gait
     if (wading) this._drawRipples(sx, sy, now);
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
     if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
@@ -71,10 +71,14 @@ class PlayerSprite {
 
   /** The retro pixel-art body (pixelCharacter.js): it walks with the stride, breathes and blinks when idle, and sits lower when riding. */
   _drawPixel(p, sx, sy, pose, riding, now, L) {
-    const moving = p.state !== 'idle' && !riding;
-    const at = PixelCharacter.draw(this.g.ctx, L, this._wardrobe(p, pose.gear), pose.dir, sx, sy, {
+    const moving = p.state !== 'idle' && !riding, W8 = this._wardrobe(p, pose.gear), ctx = this.g.ctx;
+    const hip = sy - PixelCharacter.H * PixelCharacter.PX + pose.crouch + 25 * PixelCharacter.PX;                // where the hips are (row 25 of the art)
+    const legs = !!p.mount;                                                                                         // astride a pony: seated legs, one behind the other
+    if (legs) PixelCharacter.riderLegs(ctx, L, W8, pose.dir, sx, hip, 'far', { moving: p.state !== 'idle', now });
+    const at = PixelCharacter.draw(ctx, L, W8, pose.dir, sx, sy, {
       moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0,
       crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: riding ? 11 : pose.crouch ? 2 : 0 });
+    if (legs) PixelCharacter.riderLegs(ctx, L, W8, pose.dir, sx, hip, 'near', { moving: p.state !== 'idle', now });
     pose.headY = at.headY; pose.torsoTop = at.torsoTop;
   }
 
@@ -94,7 +98,7 @@ class PlayerSprite {
     walk.lastX = p.x; walk.lastY = p.y;
 
     const moving = p.state !== 'idle', run = p.state === 'run';
-    const crouch = riding ? 12 : 0;                                                  // seated in the boat
+    const crouch = p.boat ? 12 : p.mount ? 8 : 0;                                                  // seated in the boat
     const bob = riding ? 0 : moving ? Math.abs(Math.sin(walk.phase)) * (run ? 3 : 1.8) : Math.sin(now / 500 + p.slot) * 0.6;
     const legSwing = riding ? Math.sin(rowPhase) * 5 : moving ? Math.sin(walk.phase) * (run ? 5 : 3.5) : 0;   // arms follow the oars
     const fx = Math.cos(p.facing), fy = Math.sin(p.facing);

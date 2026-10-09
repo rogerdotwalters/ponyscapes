@@ -86,6 +86,15 @@ tools/bundle.py       packs the game into one self-contained HTML file
 
 `public/js/shared/hedges.js`. Buy or craft a **Hedge Cutter** (General Store, or stone + string + plank). **Use** it beside a berry bush to cut it down: you get a **Hedge Bush** (and the berries, if it was ripe) and the wild bush is a low stub for a few minutes. Hold the Hedge Bush and press the interact key on open grass or dirt (next to your home, along a path) to plant it as a solid, **trimmed** hedge. **Use** the cutter on a planted hedge to trim it into the next shape (block, ball, tiers); a **shovel** digs it up again. Hedges are saved with the farm table (`h<tx>,<ty>` keys) and sent to every player.
 
+## Look and feel
+
+* **Retro medieval UI.** The panels, buttons, slots and HUD plaques share one theme at the end of `public/css/style.css` (oak, iron-and-gold stepped borders, parchment text).
+* **Inventory.** The action buttons (Wear / To pony / Drop / Destroy) sit at the top; below them is ONE grid: your belt and bag, then your pony's pack slots (tinted green) in the same flow, so a stack moves between them with one tap or drag.
+* **Stable and barn.** Big buildings the size of the village houses (the stable 3 x 2 tiles, the barn 5 x 4), painted by the same pixel-art ray-caster (`pixelBuildings.js`) with their own look in `FARM_LOOKS` (`structureSprites.js`). Placing one claims its whole footprint, anchored on the north-west tile (`StructureDefs.size`; the other tiles are `*_part`); the hammer takes the whole building down. The **Barn** is crafted at the table, shelters ponies like a stable, reaches a little farther and gives a bigger apple discount. Fences and gates are hard-edged pixel art on the houses' 1.5 px grid (inked rails with grain, capped posts, braced plank gates).
+* **Riders** sit astride the pony with seated legs (`PixelCharacter.riderLegs`, one leg behind the other in every view); **sleepers** are the character themself in their own colours (`Renderer._drawSleeper`).
+* **Tools.** `python3 tools/make_retro_tools.py public/assets/items` paints every tool's icon and in-hand picture as outlined pixel art (registered in `js/content/customContent.js`).
+* `node tools/render-compare.js --scene stable|sleeping|inventory|ride_left ...` shoots these scenes.
+
 ## Controls
 
 * **Mouse / touch** (not rebindable): left click or tap uses what is in your hand where you point (water, plant, hoe, chop, swing or shoot a weapon; hold the mouse button to repeat). On a villager it talks (a window offers their shop, any quests and gifts; with nothing to offer they just say hello). On an animal it feeds it (food in hand), ropes it (lasso in hand), attacks it (weapon in hand) or pets it. **Right click** throws the lasso in the lasso slot at the animal under the pointer; phones keep the **Lasso** button. Swords sweep a 120 degree fan and hit every animal in it.

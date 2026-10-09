@@ -39,6 +39,7 @@ const BASE_RECIPES = ({
   make_fishing_rod:   makeRecipe('make_fishing_rod', 'Fishing Rod', [ing('plank', 2), ing('rope', 2)], [ing('fishing_rod', 1)], { station: 'crafting_table', tools: ['knife'] }),
   make_brick_form:    makeRecipe('make_brick_form', 'Brick Form', [ing('plank', 4), ing('rope', 1)], [ing('brick_form', 1)], { station: 'crafting_table', tools: ['knife'] }),
   make_stable:        makeRecipe('make_stable', 'Stable', [ing('plank', 12), ing('rope', 3), ing('string', 4)], [ing('stable', 1)], { station: 'crafting_table', tools: ['stone_hammer', 'knife'] }),
+  make_barn:          makeRecipe('make_barn', 'Barn', [ing('plank', 24), ing('rope', 6), ing('string', 6), ing('stone', 8)], [ing('barn', 1)], { station: 'crafting_table', tools: ['stone_hammer', 'knife'] }),
   make_clay_furnace:  makeRecipe('make_clay_furnace', 'Clay Furnace', [ing('brick', 8)], [ing('clay_furnace', 1)], { station: 'crafting_table' }),
   make_stockpile_wood:  makeRecipe('make_stockpile_wood', 'Wood Stockpile', [ing('plank', 10), ing('rope', 2)], [ing('stockpile_wood', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
   make_stockpile_stone: makeRecipe('make_stockpile_stone', 'Stone Stockpile', [ing('plank', 8), ing('stone', 6), ing('rope', 1)], [ing('stockpile_stone', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
@@ -66,6 +67,6 @@ const COOK_RECIPES = Object.fromEntries(Foods.where(f => f.cooksInto && f.recipe
 const RecipeDefs = Object.freeze(Object.assign({}, BASE_RECIPES, COOK_RECIPES, WARDROBE_RECIPES));
 
 /** Display names of the stations. */
-const StationNames = Object.freeze({ crafting_table: 'Crafting Table', clay_furnace: 'Clay Furnace', campfire: 'Campfire', stable: 'Stable' });
+const StationNames = Object.freeze({ crafting_table: 'Crafting Table', clay_furnace: 'Clay Furnace', campfire: 'Campfire', stable: 'Stable', barn: 'Barn' });
 /** A recipe's station can be one id or a list of alternatives. */
 const stationList = recipe => (Array.isArray(recipe.station) ? recipe.station : recipe.station ? [recipe.station] : []);

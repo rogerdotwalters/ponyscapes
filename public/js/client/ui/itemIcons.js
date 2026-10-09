@@ -173,6 +173,14 @@ const ItemIcons = (() => {
       ctx.fillStyle = '#d9b64a'; ctx.beginPath(); ctx.ellipse(24, 38, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();               // hay
       ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(14, 20); ctx.lineTo(14, 40); ctx.moveTo(34, 20); ctx.lineTo(34, 40); ctx.stroke();
     },
+    barn(ctx) {
+      ctx.lineJoin = 'round'; ctx.lineWidth = 1.8; ctx.strokeStyle = '#2a170c';
+      ctx.fillStyle = '#b4382c'; ctx.fillRect(7, 20, 34, 21); ctx.strokeRect(7, 20, 34, 21);
+      ctx.fillStyle = '#6d5d58'; ctx.beginPath(); ctx.moveTo(3, 22); ctx.lineTo(24, 5); ctx.lineTo(45, 22); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#f1e8d6'; ctx.fillRect(15, 26, 18, 15); ctx.strokeRect(15, 26, 18, 15);
+      ctx.strokeStyle = '#8c2b22'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(15, 26); ctx.lineTo(33, 41); ctx.moveTo(33, 26); ctx.lineTo(15, 41); ctx.moveTo(24, 26); ctx.lineTo(24, 41); ctx.stroke();
+      ctx.fillStyle = '#2a170c'; ctx.fillRect(21, 12, 6, 6); ctx.fillStyle = '#e8cc6a'; ctx.fillRect(21, 16, 6, 2);
+    },
     stone(ctx) {
       for (const [x, y, rx, ry, c] of [[22, 30, 14, 9, '#8d8d93'], [33, 33, 8, 6, '#a8a8ae'], [13, 34, 7, 5, '#76767c']]) {
         ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();

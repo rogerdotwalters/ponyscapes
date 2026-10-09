@@ -161,34 +161,69 @@ const StructureSprites = (() => {
 
   /** An open door: the leaf swung 90 degrees into the tile, hinged at one end of the doorway. */
   function drawDoorLeaf(g, item) {
-    if (item.low) drawWorldBox(g, item.box, 24, FENCE_WOOD.top, FENCE_WOOD.left, FENCE_WOOD.right);           // an open gate leaf
+    if (item.low) { const sp = spanOf(item.box); pixelPanel(g, sp, 5, 28, 0, 1); for (const lift of RAIL_LIFTS) pixelRail(g, sp, lift); }   // an open gate leaf: a braced panel between two rails
     else drawWorldBox(g, item.box, V.woodWallH - 4, DOOR_WOOD.top, DOOR_WOOD.left, DOOR_WOOD.right);
   }
 
   /* ---- fences and gates: low posts and two rails, so animals are penned in but you can still see them ---- */
-  const FENCE_WOOD = { top: '#c4975a', left: '#a47040', right: '#835a30' }, FENCE_HEIGHT = 30;
-  const postBox = (box, slot, atEnd) => {
-    const [x0, y0, x1, y1] = box, w = 0.075;
-    return (slot === 'n' || slot === 's') ? (atEnd ? [x1 - w, y0, x1, y1] : [x0, y0, x0 + w, y1]) : (atEnd ? [x0, y1 - w, x1, y1] : [x0, y0, x1, y0 + w]);
-  };
-
+  /* ---- fences and gates in hard-edged retro pixels (the same 1.5 px art pixel as the houses): inked rails with wood grain, capped posts, braced gates ---- */
+  const FPX = 1.5, F_INK = '#1c140e', F_WOOD = ['#7a4f27', '#a8763f', '#c99a5b', '#e0b878'], F_PLANK = ['#b98a4e', '#d9b274', '#ecd196'];   // dark, mid, light, highlight
+  const snap = v => Math.round(v / FPX) * FPX;
+  /** Fill art pixels: a column (x) from art row r0 up to r1 above the ground point y, in a colour. Rows count upward from the ground. */
+  function fcol(ctx, x, y, r0, r1, c) { ctx.fillStyle = c; ctx.fillRect(x, y - r1 * FPX, FPX, (r1 - r0) * FPX); }
+  /** The centre line of a slab box in screen space: [x0, y0, x1, y1] (the long axis), and whether it runs along world x. */
+  function spanOf(box) {
+    const [x0, y0, x1, y1] = box, alongX = (x1 - x0) >= (y1 - y0);
+    const [ax, ay] = alongX ? project(x0, (y0 + y1) / 2) : project((x0 + x1) / 2, y0), [bx, by] = alongX ? project(x1, (y0 + y1) / 2) : project((x0 + x1) / 2, y1);
+    return [ax, ay, bx, by];
+  }
+  /** One 3-row inked rail along the span: ink above and below, wood between with a lit top row and a little grain. t0..t1: the part of the span to paint. */
+  function pixelRail(g, sp, lift, t0 = 0, t1 = 1) {
+    const ctx = g.ctx, [ax, ay, bx, by] = sp, n = Math.max(1, Math.round(Math.abs(bx - ax) / FPX)), r0 = Math.round(lift / FPX);
+    for (let i = Math.floor(n * t0); i < Math.ceil(n * t1); i++) {
+      const t = (i + 0.5) / n, x = snap(ax + (bx - ax) * t), y = snap(ay + (by - ay) * t);
+      fcol(ctx, x, y, r0 - 1, r0, F_INK); fcol(ctx, x, y, r0, r0 + 1, F_WOOD[0]); fcol(ctx, x, y, r0 + 1, r0 + 3, F_WOOD[1]);
+      if (i % 5 === 2) fcol(ctx, x, y, r0 + 2, r0 + 3, F_WOOD[0]);                                // a grain mark
+      fcol(ctx, x, y, r0 + 3, r0 + 4, F_WOOD[2]); fcol(ctx, x, y, r0 + 4, r0 + 5, F_WOOD[3]); fcol(ctx, x, y, r0 + 5, r0 + 6, F_INK);
+    }
+  }
+  /** A square post with a pale cap, ink all round, lit on its left face (art pixels: 4 wide, 20 tall). */
+  function pixelPost(g, x, y) {
+    const ctx = g.ctx, x0 = snap(x) - 2 * FPX;
+    fcol(ctx, x0, y, 0, 21, F_INK); fcol(ctx, x0 + 3 * FPX, y, 0, 21, F_INK);                       // ink sides
+    fcol(ctx, x0 + FPX, y, 0, 19, F_WOOD[2]); fcol(ctx, x0 + 2 * FPX, y, 0, 19, F_WOOD[1]);          // lit left, shaded right
+    fcol(ctx, x0 + FPX, y, 6, 7, F_WOOD[1]); fcol(ctx, x0 + FPX, y, 13, 14, F_WOOD[1]);               // grain
+    fcol(ctx, x0 + 2 * FPX, y, 4, 5, F_WOOD[0]); fcol(ctx, x0 + 2 * FPX, y, 11, 12, F_WOOD[0]);
+    fcol(ctx, x0 - FPX, y, 19, 20, F_INK); fcol(ctx, x0 + 4 * FPX, y, 19, 20, F_INK);                // the cap overhangs the post
+    fcol(ctx, x0, y, 19, 20, F_WOOD[3]); fcol(ctx, x0 + FPX, y, 19, 20, F_WOOD[3]); fcol(ctx, x0 + 2 * FPX, y, 19, 20, F_WOOD[2]); fcol(ctx, x0 + 3 * FPX, y, 19, 20, F_WOOD[1]);
+    fcol(ctx, x0 - FPX, y, 20, 21, F_INK); fcol(ctx, x0, y, 20, 21, F_INK); fcol(ctx, x0 + FPX, y, 20, 21, F_INK); fcol(ctx, x0 + 2 * FPX, y, 20, 21, F_INK); fcol(ctx, x0 + 3 * FPX, y, 20, 21, F_INK); fcol(ctx, x0 + 4 * FPX, y, 20, 21, F_INK);
+    fcol(ctx, x0, y, -1, 0, F_INK); fcol(ctx, x0 + FPX, y, -1, 0, F_INK); fcol(ctx, x0 + 2 * FPX, y, -1, 0, F_INK); fcol(ctx, x0 + 3 * FPX, y, -1, 0, F_INK);   // the foot
+  }
+  /** A plank panel between the rails with a diagonal brace (t0..t1 of the whole gate, so the brace runs through its chunks). */
+  function pixelPanel(g, sp, lift0, lift1, t0, t1, g0 = 0, g1 = 1) {
+    const ctx = g.ctx, [ax, ay, bx, by] = sp, n = Math.max(1, Math.round(Math.abs(bx - ax) / FPX)), r0 = Math.round(lift0 / FPX), r1 = Math.round(lift1 / FPX);
+    for (let i = Math.floor(n * t0); i < Math.ceil(n * t1); i++) {
+      const t = (i + 0.5) / n, x = snap(ax + (bx - ax) * t), y = snap(ay + (by - ay) * t), tg = g0 + (g1 - g0) * t;
+      fcol(ctx, x, y, r0, r1, i % 3 === 0 ? F_PLANK[0] : i % 3 === 1 ? F_PLANK[1] : F_PLANK[2]);
+      if (i % 5 === 4) fcol(ctx, x, y, r0, r1, '#5a3a1e');                                         // a seam between planks
+      const brace = r0 + 1 + Math.round(tg * (r1 - r0 - 4));                                      // the diagonal brace, two pixels thick, inked
+      fcol(ctx, x, y, brace - 1, brace + 3, F_INK); fcol(ctx, x, y, brace, brace + 2, F_WOOD[2]);
+    }
+  }
+  const RAIL_LIFTS = [6, 19];
   function drawFenceFrame(g, chunk) {
-    drawWorldBox(g, chunk.box, 5, FENCE_WOOD.top, FENCE_WOOD.left, FENCE_WOOD.right, 8);
-    drawWorldBox(g, chunk.box, 5, FENCE_WOOD.top, FENCE_WOOD.left, FENCE_WOOD.right, 20);
-    if (chunk.index === 0) drawWorldBox(g, postBox(chunk.box, chunk.slot, false), FENCE_HEIGHT, '#d1a566', '#b07c46', '#8d6234');   // one post at each end of a tile's fence, rails between
-    if (chunk.index === WALL_CHUNK_COUNT - 1) drawWorldBox(g, postBox(chunk.box, chunk.slot, true), FENCE_HEIGHT, '#d1a566', '#b07c46', '#8d6234');
+    const sp = spanOf(chunk.box);
+    for (const lift of RAIL_LIFTS) pixelRail(g, sp, lift);                                          // two rails ...
+    if (chunk.index === 0) pixelPost(g, sp[0], sp[1]);                                              // ... between a post at each end of a tile's fence
+    if (chunk.index === WALL_CHUNK_COUNT - 1) pixelPost(g, sp[2], sp[3]);
   }
 
-  function drawGateChunk(g, chunk) {                              // closed gate: the fence frame plus a braced panel in the middle
+  function drawGateChunk(g, chunk) {                              // closed gate: the fence frame plus a braced plank panel through the middle
+    const sp = spanOf(chunk.box);
+    if (chunk.index === 1 || chunk.index === 2) pixelPanel(g, sp, 5, 28, 0, 1, (chunk.index - 1) / 2, chunk.index / 2);
     drawFenceFrame(g, chunk);
-    if (chunk.index !== 1 && chunk.index !== 2) return;
-    const [x0, y0, x1, y1] = chunk.box, alongX = chunk.slot === 'n' || chunk.slot === 's';
-    const [px, py, qx, qy] = alongX ? [...project(x0, y1), ...project(x1, y1)] : [...project(x1, y0), ...project(x1, y1)];
-    const quad = [px, py - 5, qx, qy - 5, qx, qy - 25, px, py - 25], ctx = g.ctx;
-    g.polygon(quad, 'rgba(150,100,55,.92)');
-    ctx.strokeStyle = '#5a3f2a'; ctx.lineWidth = 1.6; ctx.beginPath();
-    ctx.moveTo(quad[0], quad[1]); ctx.lineTo(quad[4], quad[5]); ctx.moveTo(quad[2], quad[3]); ctx.lineTo(quad[6], quad[7]);
-    ctx.stroke();
+    if (chunk.index === 1) pixelPost(g, sp[0], sp[1]);                                              // the gate's own posts
+    if (chunk.index === 2) pixelPost(g, sp[2], sp[3]);
   }
 
   function drawBuiltChunk(g, chunk) {
@@ -235,23 +270,34 @@ const StructureSprites = (() => {
     drawWorldBox(g, [tx + 0.62, ty + 0.2, tx + 0.8, ty + 0.38], 56, '#a85f33', '#8f4f2b', '#74401f');            // chimney
   }
 
-  /** A roofed stall: three plank walls, a pitched roof, hay and a water trough at the open front. */
-  function drawStable(g, tx, ty) {
-    const ctx = g.ctx, [cx, cy] = tileCentre(tx, ty);
-    drawWorldBox(g, [tx + 0.08, ty + 0.08, tx + 0.92, ty + 0.92], 6, '#b98e55', '#a97a45', '#8a5f32');                // plank floor / base
-    drawWorldBox(g, [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.2], 40, '#a97a45', '#8a5f32', '#8a5f32');                  // back wall
-    drawWorldBox(g, [tx + 0.1, ty + 0.1, tx + 0.2, ty + 0.9], 40, '#a97a45', '#8a5f32', '#6f4a28');                  // side wall
-    for (let i = 0; i < 4; i++) {                                                                                      // plank lines on the back wall
-      const [x, y] = project(tx + 0.18 + i * 0.2, ty + 0.2); ctx.strokeStyle = 'rgba(60,35,15,.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y - 40); ctx.stroke();
+  /* ---- the stable and the barn: big buildings the size of the village's houses, ray-cast by the same pixel-art painter (pixelBuildings.js).
+   *  Their tiles are drawn as slices, one per front tile, exactly like a house. ---- */
+  const FARM_LOOKS = {
+    stable: { wall: '#d9c18c', roof: '#8a3f2f', trim: '#4a3322', stone: '#8d8a83', glass: '#aab7e4', infill: 'planks', chimney: false, dormer: false, props: ['hay', 'barrels', 'lantern'] },
+    barn:   { wall: '#b4382c', roof: '#5d4c47', trim: '#efe3cc', stone: '#8d8a83', glass: '#aab7e4', infill: 'planks', chimney: false, dormer: true, props: ['hay', 'crates', 'hay', 'lantern'] }
+  };
+  const farmSites = new Map();                                                                     // 'type@tx,ty' -> the house-like description PixelBuildings paints from
+  function farmSite(a) {
+    const id = `${a.type}@${a.tx},${a.ty}`;
+    let site = farmSites.get(id);
+    if (!site) {
+      const def = StructureDefs[a.type], door = def.door || 1;
+      site = { index: 'farm:' + id, id, x0: a.tx, y0: a.ty, x1: a.tx + a.w - 1, y1: a.ty + a.h - 1, w: a.w, h: a.h, facing: 's', doorX: a.tx + door, doorY: a.ty + a.h - 1, def: { name: def.name, exterior: FARM_LOOKS[a.type] } };
+      farmSites.set(id, site);
     }
-    ctx.save(); ctx.translate(0, -42);
-    drawWorldBox(g, [tx + 0.02, ty + 0.02, tx + 0.98, ty + 0.98], 6, '#c75b3c', '#a84a30', '#8a3c26');
-    ctx.restore();
-    const [hx, hy] = project(tx + 0.62, ty + 0.62);                                                                    // hay in the stall
-    g.ellipse(hx, hy - 8, 13, 6, '#d9b64a'); g.ellipse(hx - 3, hy - 11, 8, 4, '#e8cc6a');
-    ctx.strokeStyle = '#b8932f'; ctx.lineWidth = 1; ctx.beginPath(); for (let i = -2; i <= 2; i++) { ctx.moveTo(hx + i * 4, hy - 9); ctx.lineTo(hx + i * 4 + 2, hy - 14); } ctx.stroke();
-    const [tx2, ty2] = project(tx + 0.62, ty + 0.9);                                                                   // trough
-    g.ellipse(tx2, ty2 - 4, 12, 5, '#6f4a28'); g.ellipse(tx2, ty2 - 5, 9, 3.4, '#4d86b0');
+    return site;
+  }
+  /** One tile of a stable or barn: its slice of the building (the building is painted once). Returns nothing for a tile that is not on its front. */
+  function drawFarmTile(g, info, type, tx, ty) {
+    const a = info && info.anchor; if (!a) return;
+    const site = farmSite(a);
+    if (a.tx === tx && a.ty === ty && !info.complete) { for (const [x, y] of footprintOf(a.type, a.tx, a.ty)) PixelBuildings.drawTile(g.ctx, site, x, y); return; }   // (an old, one-tile stable: draw all of it from the anchor)
+    PixelBuildings.drawTile(g.ctx, site, tx, ty);
+    if (tx === site.doorX && ty === site.y1) {                                                      // the picture on the hanging sign by the door
+      const sg = PixelBuildings.signAt(site), ctx = g.ctx;
+      ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#2a1c10';
+      ctx.fillText(a.type === 'barn' ? '\u{1F33E}' : '\u{1F40E}', sg.x + 5 * PixelBuildings.ART, sg.y + 8 * PixelBuildings.ART);
+    }
   }
 
   /** A ring of stones, crossed logs and a flickering flame. */
@@ -284,7 +330,7 @@ const StructureSprites = (() => {
     if (StructureDefs[type] && StructureDefs[type].stockpile) drawStockpile(g, type, tx, ty, info ? info.fill : 0, info ? info.level : 1);
     else if (type === 'crafting_table') drawCraftingTable(g, tx, ty);
     else if (type === 'campfire') drawCampfire(g, tx, ty);
-    else if (type === 'stable') drawStable(g, tx, ty);
+    else if (StructureDefs[type].size || StructureDefs[type].partOf) drawFarmTile(g, info, type, tx, ty);
     else drawClayFurnace(g, tx, ty);
   }
 
@@ -310,6 +356,16 @@ const StructureSprites = (() => {
     ctx.strokeStyle = `rgba(${rgb},.95)`; ctx.lineWidth = 2; ctx.stroke();
     ctx.globalAlpha = target.valid ? 0.65 : 0.35;
     if (target.layer === 'floor') drawFloor(ctx, cx, cy);
+    else if (target.layer === 'station' && StructureDefs[target.structure].size) {                   // a big building: its whole footprint and the building itself
+      const a = { type: target.structure, tx: target.tx, ty: target.ty, w: StructureDefs[target.structure].size[0], h: StructureDefs[target.structure].size[1] };
+      ctx.globalAlpha = 1;
+      for (const [fx, fy] of footprintOf(a.type, a.tx, a.ty)) {
+        const [px, py] = project(fx, fy); ctx.beginPath(); ctx.moveTo(px, py + 0); ctx.lineTo(px + TILE_HALF_W, py + TILE_HALF_H); ctx.lineTo(px, py + 2 * TILE_HALF_H); ctx.lineTo(px - TILE_HALF_W, py + TILE_HALF_H); ctx.closePath();
+        ctx.fillStyle = `rgba(${rgb},.22)`; ctx.fill(); ctx.strokeStyle = `rgba(${rgb},.7)`; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.globalAlpha = target.valid ? 0.7 : 0.4;
+      for (const [fx, fy] of footprintOf(a.type, a.tx, a.ty)) PixelBuildings.drawTile(ctx, farmSite(a), fx, fy);
+    }
     else if (target.layer === 'station') drawStation(g, target.structure, target.tx, target.ty);
     else {
       const [x0, y0, x1, y1] = slabBox(target.tx, target.ty, target.slot), alongX = target.slot === 'n' || target.slot === 's';

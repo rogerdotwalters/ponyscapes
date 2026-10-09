@@ -158,7 +158,7 @@ class MapUI {
       const H = Village.home, [hx, hy] = toMap((H.x0 + H.x1 + 1) / 2, (H.y0 + H.y1 + 1) / 2);                       // home
       if (inside(hx, hy)) { ctx.fillStyle = '#fff'; ctx.strokeStyle = '#6b3d1c'; ctx.lineWidth = 1.6; ctx.fillRect(hx - 5, hy - 2, 10, 7); ctx.strokeRect(hx - 5, hy - 2, 10, 7); ctx.fillStyle = '#b5482f'; ctx.beginPath(); ctx.moveTo(hx - 7, hy - 2); ctx.lineTo(hx, hy - 9); ctx.lineTo(hx + 7, hy - 2); ctx.closePath(); ctx.fill(); ctx.stroke(); }
       for (const key in g.worldMap.built) {                                                                               // stables
-        const tile = g.worldMap.built[key]; if (!tile || tile.c !== 'stable') continue;
+        const tile = g.worldMap.built[key]; if (!tile || (tile.c !== 'stable' && tile.c !== 'barn')) continue;
         const [x, y] = toMap(keyTileX(key) + 0.5, keyTileY(key) + 0.5); if (!inside(x, y)) continue;
         ctx.fillStyle = '#8a5a2c'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.fillRect(x - 4, y - 4, 8, 8); ctx.strokeRect(x - 4, y - 4, 8, 8);
       }
