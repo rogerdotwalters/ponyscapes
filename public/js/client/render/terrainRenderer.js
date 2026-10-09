@@ -92,7 +92,25 @@ const TerrainRenderer = (() => {
   scratch.width = tint.width = AutoTile.TW; scratch.height = tint.height = AutoTile.TH;
   const sc = scratch.getContext('2d'), tc = tint.getContext('2d');
   const ART = AutoTile.TW / (2 * TILE_HALF_W);                                        // art pixels per world pixel
-  const CAVE_EDGE_ALPHA = 0.5;                                                           // a cave pool's edge: the floor fringe over the water is half see-through, no coloured rim
+  const CAVE_EDGE = ['#15171c', '#1b1e24', '#22252c', '#1a1c21', '#292d35', '#1e2127'];   // a cave pool's border: dark greys, varied along the edge
+  const edgeArt = new Map();
+  /** A pool's border for one fringe mask: a line 1-2 pixels wide along the fringe's edge, each pixel one of the dark greys (varying in short runs along it). */
+  function caveEdge(m) {
+    let c = edgeArt.get(m);
+    if (c) return c;
+    const W = AutoTile.TW, H = AutoTile.TH, fill = m.fill.getContext('2d').getImageData(0, 0, W, H).data, rim = m.rim.getContext('2d').getImageData(0, 0, W, H).data;
+    c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), isRim = (x, y) => x >= 0 && y >= 0 && x < W && y < H && rim[(y * W + x) * 4 + 3] > 0, h = (x, y, k) => { let v = (x * 374761393 + y * 668265263 + k * 2147483647) | 0; v = (v ^ (v >> 13)) * 1274126177; return ((v ^ (v >> 16)) >>> 0) / 4294967296; };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (fill[(y * W + x) * 4 + 3] === 0) continue;
+      const edge = isRim(x, y), thick = !edge && (isRim(x + 1, y) || isRim(x - 1, y) || isRim(x, y + 1) || isRim(x, y - 1)) && h(x >> 1, y >> 1, 3) < 0.55;      // (now and then a second pixel in)
+      if (!edge && !thick) continue;
+      g.fillStyle = CAVE_EDGE[Math.floor((h(x >> 1, y >> 1, 1) * 0.7 + h(x, y, 2) * 0.3) * CAVE_EDGE.length)];
+      g.fillRect(x, y, 1, 1);
+    }
+    edgeArt.set(m, c);
+    return c;
+  }
   const FOAM = '#eef8fb', SHALLOW_RIM = 'rgba(190,235,245,.7)', WET = 'rgba(30,55,80,.3)';
   const watery = l => !!l && !!AutoTile.WATERY[l.kind];
   /** Paint over a tile the fringes of every neighbouring ground that outranks it. Land running out over water is the SHORE: the outer half of
@@ -116,13 +134,13 @@ const TerrainRenderer = (() => {
         tc.globalCompositeOperation = 'destination-out'; tc.drawImage(thin.fill, 0, 0);
         sc.globalCompositeOperation = 'source-atop'; sc.drawImage(tint, 0, 0);
       }
-      if (!soft) {                                                                       // (a cave pool has no coloured edge: the fringe is see-through instead, below)
+      if (soft) { sc.globalCompositeOperation = 'source-over'; sc.drawImage(caveEdge(m), 0, 0); }          // a cave pool: a thin dark grey border instead of foam
+      else {
         const rim = !watery(here) ? l.dark : watery(l) ? SHALLOW_RIM : FOAM;             // a dark outline on land; on water, foam where the beach meets it
         tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = rim; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
         tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.rim, 0, 0);
         sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // and a dark rim where it meets this tile's own ground
       }
-      if (soft) { ctx.globalAlpha = CAVE_EDGE_ALPHA; ctx.drawImage(scratch, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H); ctx.globalAlpha = 1; continue; }
       ctx.drawImage(scratch, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
     }
   }
