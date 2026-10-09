@@ -264,18 +264,18 @@ class SettingsUI {
   /** "The Heartland, 70% of the way out" for a `from` in rings. */
   static ringSpot(from, short) {
     if (!(from > 0)) return 'everywhere';
-    const index = Math.min(Zones.size - 1, Math.floor(from)), ring = Zones.all().find(r => r.index === index), pct = Math.round((from - index) * 100), name = ring ? ring.name : 'ring ' + index;
+    const index = Math.min(Rings.size - 1, Math.floor(from)), ring = Rings.all().find(r => r.index === index), pct = Math.round((from - index) * 100), name = ring ? ring.name : 'ring ' + index;
     return short ? name.replace(/^The /, '') + ' ' + pct + '%' : 'from ' + name + (pct ? `, ${pct}% of the way out` : '');
   }
   _createBiomes() {
     const el = document.createElement('details'); el.className = 'admBox admTrees';
     const rarities = GameSettings.BIOME_RARITIES.map(r => `<option value="${r}">${r[0].toUpperCase() + r.slice(1)}</option>`).join('');
     el.innerHTML = '<summary><b>Biomes</b> <small>(used from the next time a world is started or continued)</small></summary>' +
-      '<p class="admNote"><b>Not used while the world is made of zones:</b> each zone (js/data/zones/) now says which biomes it holds and how much of it each covers. These sliders only matter if the old ring world (legacy/ring-world/) is put back. Rarity: how often a region of the map is this biome (Never = not at all). Starts: the nearest to the village it appears, in rings ' +
+      '<p class="admNote">Rarity: how often a region of the map is this biome (Never = not at all). Starts: the nearest to the village it appears, in rings ' +
       '(0.7 = the outer edge of the Heartland, 2.5 = halfway through the Deepwood); from there outward it can turn up anywhere. The village is always meadow. New land only.</p>' +
       this._biomes().map(id => `<details class="admBiome" data-bb="${id}"><summary>${Biomes.get(id).name}<small data-bsum="${id}"></small></summary>` +
         `<label class="admSlide"><span><b>Rarity</b></span><select data-bb="${id}" data-f="rarity">${rarities}</select><output></output></label>` +
-        `<label class="admSlide"><span><b>Starts</b></span><input type="range" min="0" max="${Zones.size}" step="0.05" data-bb="${id}" data-f="from"><output data-bo="${id}"></output></label>` +
+        `<label class="admSlide"><span><b>Starts</b></span><input type="range" min="0" max="${Rings.size}" step="0.05" data-bb="${id}" data-f="from"><output data-bo="${id}"></output></label>` +
         `<div class="admRow"><button data-breset="${id}">As built</button></div></details>`).join('') +
       '<div class="admPending" hidden>Biome changes are saved: they apply when you next start or continue a world.</div>';
     for (const input of el.querySelectorAll('[data-bb][data-f]')) {

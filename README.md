@@ -42,6 +42,12 @@ Try everything locally with `npm run dev` (that Worker) or, for the Pages setup,
 
 Players can still point at any relay from the lobby ("Relay address") or with `?relay=wss://...` in the link; `public/relay-config.js` stays empty for Pages.
 
+## The world
+
+The map is made of **zones** (`public/js/data/zones/`, one small file each). For now there is one: **The Meadows**, a 200-tile island around the village that is
+meadow with one orchard patch (about 15% of the land), ending in a beach, open sea and a wall of light. The cave in its hills is the **Old Cavern**; its last
+layer is the Cave Bear's lair. The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
+
 ## How saving works
 
 * The **host's browser database (IndexedDB)** holds each world and, inside it, one character per person who ever played. A friend is recognised by a secret key their own device keeps, so coming back on the same device restores their pack, skills, ponies and position.

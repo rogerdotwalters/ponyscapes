@@ -5,8 +5,8 @@
 const TILE_SCALE = 1.5;
 
 const CONFIG = {
-  /** The zoned world (js/data/zones/): how far a zone's coast may wander from a perfect circle (tiles), and how far from the village the meadow is always plain meadow. Half the size of the old ring world (legacy/ring-world/). */
-  world: { zoneWobble: 35, villageBiomeRadius: 64 },
+  /** The layered world: ring width (tiles), how far a ring edge may wander, the biome region size, and whether the OPTIONAL level-zone layer exists. */
+  world: { ringWidth: 400, ringWobble: 70, biomeCell: 240, villageBiomeRadius: 90, zones: true },
   sim: {
     tickRate: 30,
     mapW: 40, mapH: 40,

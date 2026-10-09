@@ -96,6 +96,15 @@ test('a player walks the whole dungeon: in, room by room, chests, enemies, out',
       const act = findCaveInteraction(world, p); log.push(['exitOffer', act && act.kind]);
       press(); log.push(['moved', p.grid]);
     }
+    // the last layer: the Cave Bear's lair, with its guardian in the arena; the way back up is the last room, and the entrances lead back out
+    const boss = Object.values(s.animals.animals).filter(a => a.grid === 'cave:0' && AnimalDefs[a.type].boss).map(a => a.type);
+    log.push(['lair', p.grid + ':' + boss.join()]);
+    const up = DungeonSpace.exit(); at(up.x + 1.2, up.y);
+    const leave = findCaveInteraction(s.mapOf(p), p); log.push(['lairExit', leave && leave.kind]);
+    press(); log.push(['upstairs', p.grid]);
+    for (let r = 2; r >= 0; r--) {
+      const plan = s.mapOf(p).plan, spot = plan._landing(plan.room.entrances); at(spot.x, spot.y); press();
+    }
     log.push(['back outside', p.grid === '' && Math.hypot(p.x - mouth.x, p.y - (mouth.y + 1.6)) < 0.5]);
     return { log, counts };
   })()`);
@@ -105,7 +114,8 @@ test('a player walks the whole dungeon: in, room by room, chests, enemies, out',
   assert(out.log.filter(l => l[0] === 'chestGave').every(l => l[1] === true), kinds);
   assert(out.log.filter(l => l[0] === 'chestAgain').every(l => l[1] === true), kinds);
   assert(out.log.filter(l => l[0] === 'exitOffer').every(l => l[1] === 'dungeon_next'), kinds);
-  assert.strictEqual(JSON.stringify(out.log.filter(l => l[0] === 'moved').map(l => l[1])), JSON.stringify(['dungeon:0:1', 'dungeon:0:2', '']), kinds);
+  assert.strictEqual(JSON.stringify(out.log.filter(l => l[0] === 'moved').map(l => l[1])), JSON.stringify(['dungeon:0:1', 'dungeon:0:2', 'cave:0']), kinds);
+  assert(kinds.includes('lair=cave:0:boss_cave_bear') && kinds.includes('lairExit=leave_cave') && kinds.includes('upstairs=dungeon:0:2'), kinds);
   assert(out.log.find(l => l[0] === 'back outside')[1], kinds);
   for (const [spawned, wanted] of out.counts) assert.strictEqual(spawned, wanted);
 });
@@ -181,6 +191,26 @@ test('debug teleport: village, cave mouth and each dungeon room (host only)', ()
   assert.strictEqual(r.out[0], '@' + r.mouth.join(',')); assert.strictEqual(r.out[1].split('@')[0], 'dungeon:0:2'); assert.strictEqual(r.out[2].split('@')[0], 'dungeon:0:0');
   assert.strictEqual(r.out[3].split('@')[0], ''); assert.strictEqual(r.out[4].split('@')[0], '');                      // (room:9 does not exist: you stay where you were)
   assert(r.refused);
+});
+
+test('zone 1: half-size island, ~15% one orchard patch, the rest meadow, a wall at the edge, no cave mouth outside the dungeon', () => {
+  for (const seed of [1, 7, 99, 4242]) {
+    const r = run(`(() => { const w = new World(${seed}), T = w.terrain, L = T.layers, o = CONFIG.sim.levels.origin, R = Zones.all()[0].radius;
+      let land = 0, apple = 0, normal = 0, other = 0;
+      for (let y = -R; y <= R; y += 4) for (let x = -R; x <= R; x += 4) {
+        const tx = Math.floor(o.x + x), ty = Math.floor(o.y + y), t = T.baseTile(tx, ty);
+        if ((t !== TILE.GRASS && t !== TILE.DIRT) || Math.hypot(x, y) < CONFIG.world.villageBiomeRadius) continue;
+        land++; const b = L.biomes.at(tx, ty); if (b === 'apple') apple++; else if (b === 'normal') normal++; else other++;
+      }
+      let walled = 0, sea = 0; for (let a = 0; a < 360; a += 5) { const c = Math.cos(a * Math.PI / 180), n = Math.sin(a * Math.PI / 180);
+        for (let d = R - 60; d < R + 60; d += 0.5) if (L.rings.barrierAt(Math.floor(o.x + c * d), Math.floor(o.y + n * d))) { walled++; break; }
+        const far = T.baseTile(Math.floor(o.x + c * (R + 45)), Math.floor(o.y + n * (R + 45))); if (far === TILE.WATER || far === TILE.SHALLOW || far === TILE.SAND) sea++; }
+      return { land, apple, normal, other, walled, sea, patches: L.biomes.patches.length, sites: L.dungeons.sites().length, mouths: T.caveSites.caves().length, ring: L.rings.at(o.x + R * 0.5, o.y).index }; })()`);
+    assert.strictEqual(r.other, 0, JSON.stringify(r)); assert.strictEqual(r.patches, 1, JSON.stringify(r));
+    assert(Math.abs(r.apple / r.land - 0.15) < 0.03, 'orchard share ' + r.apple / r.land + ' ' + JSON.stringify(r));
+    assert.strictEqual(r.walled, 72, 'the wall closes the whole circle: ' + JSON.stringify(r)); assert.strictEqual(r.sea, 72, 'open sea beyond the wall all round: ' + JSON.stringify(r));
+    assert.strictEqual(r.sites, 0); assert.strictEqual(r.mouths, 1);
+  }
 });
 
 console.log(process.exitCode ? 'FAILED' : `all ${passed} checks passed`);
