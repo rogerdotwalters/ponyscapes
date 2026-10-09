@@ -556,17 +556,8 @@ const ItemIcons = (() => {
     else for (const [x, y] of [[14, 29], [26, 29], [36, 29], [20, 21], [31, 21], [25, 13]]) { ctx.fillStyle = '#b8643c'; ctx.beginPath(); ctx.ellipse(x, y, 6, 4.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d98a5c'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 1.5, 2.6, 1.6, 0, 0, Math.PI * 2); ctx.fill(); }
   }
   for (const f of Foods.all()) if (f.category === 'mushroom') painters[f.id] = mushroomPainter(f.color);
-  /** The coin system's coins (coins.js): three stacked coins in the kind's metal, gem coins with their stone. */
-  for (const t of Coins.TIERS) painters[t.id] = ctx => {
-    for (const [x, y] of [[18, 30], [30, 26], [24, 17]]) {
-      ctx.fillStyle = t.edge[1]; ctx.beginPath(); ctx.arc(x, y + 1.5, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = t.edge[0]; ctx.strokeStyle = '#2a170c'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = t.face[1]; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = t.face[0]; ctx.beginPath(); ctx.arc(x - 1.5, y - 1.5, 4, 0, Math.PI * 2); ctx.fill();
-      if (t.gem) { ctx.fillStyle = t.gem; ctx.strokeStyle = '#2a170c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y - 4.5); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 4.5); ctx.lineTo(x - 4, y); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(x - 1.5, y - 2.5, 1.5, 1.5); }
-      else { ctx.fillStyle = t.face[2]; ctx.font = 'bold 9px Georgia'; ctx.textAlign = 'center'; ctx.fillText(t.letter, x, y + 3.2); }
-    }
-  };
+  /** The coin system's coins (coins.js): one big pixel coin of the kind (coinArt.js), so a shop's "x2 [coin]" is the coin you drag from the bag. */
+  Coins.TIERS.forEach((t, i) => { painters[t.id] = ctx => { ctx.imageSmoothingEnabled = false; CoinArt.draw(ctx, 24, 25, 16, 0.9, i); }; });
   painters.stockpile_wood = ctx => stockpileIcon(ctx, 'wood');
   painters.stockpile_stone = ctx => stockpileIcon(ctx, 'stone');
   painters.stockpile_clay = ctx => stockpileIcon(ctx, 'clay');

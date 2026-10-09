@@ -1,7 +1,9 @@
 'use strict';
 /* CLIENT - the coin bag: the Coins button floats a cutaway (vertically sliced) sack over the world, with no window round it (tap outside to close). It holds
- * ALL your coins, real ones of ten kinds (coins.js: copper, silver, gold, platinum, titanium, then the gem coins), drawn as big shaded 3D coins that move on a
- * small physics world: gravity, coins stacking and sliding on each other and on the bag's walls, tumbling when they fall.
+ * ALL your coins, real ones of ten kinds (coins.js: copper, silver, gold, platinum, titanium, then the gem coins), drawn as big pixel-art medieval coins
+ * (coinArt.js) that move on a small physics world: gravity, coins stacking and sliding on each other and on the bag's walls, tumbling when they fall.
+ *   - at a SHOP counter the bag opens beside the shop window in PAY mode (startPay): you hold a coin and drag it onto the counter tray; the coins you
+ *     put down count towards the price, and the shop gives change
  *   - press a coin and drag it: inside the bag it shoves the others about; let go over the game world to DROP it there (the server puts it on the ground
  *     at that spot, within a few tiles of you: whoever steps close picks it up, which is how coins change hands)
  *   - double-tap a coin to BREAK it into the kind below (a platinum into ten gold ...), "Merge coins" turns every full set back into the next kind
@@ -10,8 +12,10 @@
 class CoinBagUI {
   constructor({ panel, canvas, count, breakdown, mergeButton, game, camera }) {
     this.panel = panel; this.canvas = canvas; this.countEl = count; this.breakEl = breakdown; this.game = game; this.camera = camera;
-    this.S = 4; canvas.width = CoinBagUI.W * this.S; canvas.height = CoinBagUI.H * this.S;
+    this.S = 3; this._fit();
     this.ctx = canvas.getContext('2d');
+    this.pay = null; this.offered = Coins.empty();                                                    // pay mode: { zone, onOffer } and the coins put down on the counter so far
+    window.addEventListener('resize', () => this.isOpen && this._fit());
     this.coins = []; this.queue = []; this.drag = null; this.ghost = null; this.raf = 0; this.last = 0;
     this.pendingOut = Coins.empty(); this.pendingT = 0; this.lastCoins = Coins.empty(); this.hint = null; this.lastTap = null; this.hidden = 0;
     mergeButton.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); game.coinChange('merge'); });
@@ -22,18 +26,41 @@ class CoinBagUI {
     game.events.on('inventoryChanged', () => this._purseChanged());
   }
 
+  /** The canvas is drawn at a whole number of screen pixels per art pixel (2 to 4), as big as the screen allows, so the pixels stay crisp. */
+  _fit() {
+    const avail = Math.min(540, window.innerHeight - (this.pay ? 190 : 300)), k = Math.max(2, Math.min(4, Math.floor(avail / CoinBagUI.H)));
+    this.S = k; this.canvas.width = CoinBagUI.W * k; this.canvas.height = CoinBagUI.H * k;
+    this.canvas.style.width = CoinBagUI.W * k + 'px'; this.canvas.style.height = CoinBagUI.H * k + 'px';
+  }
+
+  /* ---- pay mode (the shop): coins dragged onto `zone` (an element) are put down on the counter instead of dropped on the world ---- */
+  startPay({ zone, onOffer }) {
+    this.pay = { zone, onOffer }; this.offered = Coins.empty(); this.panel.classList.add('pay');
+    if (!this.isOpen) this.open(); else { this._fit(); this._reconcile(); }
+  }
+  endPay() {
+    if (!this.pay) return;
+    this.pay.zone.classList.remove('over'); this.pay = null; this.offered = Coins.empty(); this.panel.classList.remove('pay');
+    if (this.isOpen) { this._fit(); this._reconcile(); }
+  }
+  /** Take a coin back off the counter into the bag. */
+  unoffer(t) { if (this.offered[t] > 0) { this.offered[t]--; this._reconcile(); if (this.pay) this.pay.onOffer(this.offered.slice()); } }
+  /** The coins on the counter have been handed to the shop (the server will take them): they leave the bag for good once the purse catches up. */
+  commitOffer() { for (let t = 0; t < Coins.N; t++) this.pendingOut[t] += this.offered[t]; this.offered = Coins.empty(); this.pendingT = 0; if (this.pay) this.pay.onOffer(this.offered.slice()); this._reconcile(); }
+
   get isOpen() { return !this.panel.hidden; }
   toggle() { this.isOpen ? this.close() : this.open(); }
   open() {
     const was = this.isOpen; this.panel.hidden = false;
     if (was) return;
-    this.coins = []; this.queue = []; this.pendingOut = Coins.empty(); this.hint = null; this.lastTap = null;
+    this.coins = []; this.queue = []; this.pendingOut = Coins.empty(); this.hint = null; this.lastTap = null; this._fit();
+    if (!this.pay) this.offered = Coins.empty();
     this.lastCoins = (this.game.inventory.coins || Coins.empty()).slice(); this._reconcile();
     this.last = performance.now(); this.raf = requestAnimationFrame(t => this._frame(t));
     if (typeof Sfx !== 'undefined' && Sfx.bag) Sfx.bag(true);
   }
   close() {
-    const was = this.isOpen; this.panel.hidden = true; this._endDrag(); cancelAnimationFrame(this.raf); this.raf = 0;
+    const was = this.isOpen; this.panel.hidden = true; this._endDrag(); cancelAnimationFrame(this.raf); this.raf = 0; this.endPay();
     if (was && typeof Sfx !== 'undefined' && Sfx.bag) Sfx.bag(false);
   }
 
@@ -49,12 +76,12 @@ class CoinBagUI {
     if (y < 135) return 56 + 4 * (y - 100) / 35;
     const k = (y - 135) / 30; return k >= 1 ? 0 : 60 * Math.sqrt(1 - k * k);
   }
-  static radiusOf(t) { return 7 + 0.85 * t; }                                                       // a bigger kind is a bigger coin
+  static radiusOf(t) { return 8 + 0.9 * t; }                                                       // a bigger kind is a bigger coin
 
   /* ---- keeping the pile in step with the purse ---- */
   /** What the bag should show: the purse's coins (less those just dragged out and not yet confirmed), at most ~64 of them. */
   _desired() {
-    const have = this.game.inventory.coins || Coins.empty(), want = have.map((n, t) => Math.max(0, n - this.pendingOut[t])), sum = want.reduce((a, b) => a + b, 0), cap = 64;
+    const have = this.game.inventory.coins || Coins.empty(), want = have.map((n, t) => Math.max(0, n - this.pendingOut[t] - this.offered[t])), sum = want.reduce((a, b) => a + b, 0), cap = 64;
     this.hidden = 0; if (sum <= cap) return want;
     const out = want.map(n => (n ? Math.max(1, Math.floor(n * cap / sum)) : 0));
     this.hidden = sum - out.reduce((a, b) => a + b, 0); return out;
@@ -149,35 +176,16 @@ class CoinBagUI {
     g.fillStyle = '#c9a86a'; for (let y = 20; y < 160; y += 5) { const h = Math.round(hw(y)); g.fillRect(cx - h - 3, y, 1, 2); g.fillRect(cx + h + 2, y, 1, 2); }   // stitching down the cut edges
     g.fillStyle = '#1d120a'; g.fillRect(cx - 28, 14, 56, 7); g.fillStyle = '#9a6a38'; g.fillRect(cx - 27, 15, 54, 5); g.fillStyle = '#b98550'; g.fillRect(cx - 27, 15, 54, 1);   // the folded rim of the neck
     g.fillStyle = '#1d120a'; g.fillRect(cx - 26, 20, 52, 1); g.fillStyle = '#2a1a0e'; g.fillRect(cx - 17, 21, 34, 2);
-    g.imageSmoothingEnabled = true;
     const order = [...this.coins].sort((a, b) => a.y - b.y);
     for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) this._shadow(g, c);
-    for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) this._coin(g, c, !!(this.drag && c === this.drag.coin));
+    for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) CoinArt.draw(g, c.x, c.y, c.r, 0.5 + 0.36 * Math.abs(Math.cos(c.flip)), c.t, !!(this.drag && c === this.drag.coin));
     g.imageSmoothingEnabled = false;                                                                   // the rope is drawn over the neck, in front of the coins pouring in
     g.fillStyle = '#1d120a'; g.fillRect(cx - 24, 33, 48, 6); g.fillStyle = '#d6be8c'; g.fillRect(cx - 23, 34, 46, 4); g.fillStyle = '#a08a5a'; for (let x = cx - 23; x < cx + 23; x += 3) g.fillRect(x, 36, 1, 2);
     g.fillStyle = '#1d120a'; g.fillRect(cx + 17, 36, 9, 12); g.fillStyle = '#d6be8c'; g.fillRect(cx + 18, 37, 3, 9); g.fillRect(cx + 22, 37, 3, 7);
   }
-  _shadow(g, c) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(c.x + 1, c.y + c.r * 0.38 + 2, c.r * 0.95, c.r * 0.6, 0, 0, Math.PI * 2); g.fill(); }
-  /** One coin as a shaded 3D disc: a reeded edge (its thickness), a face in the kind's metal with a rim, a stamped ring and its mark (a letter, or a cut gem). */
-  _coin(g, c, lifted) {
-    const T = Coins.TIERS[c.t], r = c.r, f = 0.5 + 0.36 * Math.abs(Math.cos(c.flip)), ry = r * f, th = Math.max(2, r * 0.3), x = c.x, y = c.y - th * 0.5;
-    for (let s = th; s >= 0; s -= 0.7) { g.fillStyle = Math.round(s / 0.7) % 2 ? T.edge[0] : T.edge[1]; g.beginPath(); g.ellipse(x, y + s, r, ry, 0, 0, Math.PI * 2); g.fill(); }   // the edge, reeded
-    g.strokeStyle = '#1d120a'; g.lineWidth = 0.7; g.beginPath(); g.ellipse(x, y + th, r, ry, 0, 0, Math.PI); g.stroke();
-    const grad = g.createRadialGradient(x - r * 0.35, y - ry * 0.4, r * 0.1, x, y, r * 1.05); grad.addColorStop(0, T.face[0]); grad.addColorStop(0.55, T.face[1]); grad.addColorStop(1, T.face[2]);
-    g.fillStyle = lifted ? T.face[0] : grad; g.beginPath(); g.ellipse(x, y, r, ry, 0, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = '#1d120a'; g.lineWidth = 0.8; g.stroke();                                           // the rim
-    g.strokeStyle = T.face[2]; g.globalAlpha = 0.55; g.lineWidth = 0.7; g.beginPath(); g.ellipse(x, y, r * 0.78, ry * 0.78, 0, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;   // the stamped ring
-    g.strokeStyle = T.face[0]; g.globalAlpha = 0.6; g.beginPath(); g.ellipse(x - 0.5, y - 0.5, r * 0.78, ry * 0.78, 0, Math.PI * 1.05, Math.PI * 1.6); g.stroke(); g.globalAlpha = 1;   // its lit side
-    if (T.gem) {                                                                                       // a cut gem in the middle
-      const gr = r * 0.46; g.beginPath();
-      for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + Math.PI / 8; g[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * gr, y + Math.sin(a) * gr * f); }
-      g.closePath(); g.fillStyle = T.gem; g.fill(); g.strokeStyle = '#1d120a'; g.lineWidth = 0.7; g.stroke();
-      g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.ellipse(x - gr * 0.3, y - gr * f * 0.35, gr * 0.28, gr * f * 0.2, -0.5, 0, Math.PI * 2); g.fill();
-    } else if (T.letter) {
-      g.save(); g.translate(x, y + r * 0.02); g.scale(1, f); g.font = `bold ${(r * 1.05).toFixed(1)}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillStyle = T.face[0]; g.fillText(T.letter, 0.5, 0.7); g.fillStyle = T.face[2]; g.fillText(T.letter, 0, 0); g.restore();
-    }
-    g.fillStyle = 'rgba(255,255,255,.65)'; g.beginPath(); g.ellipse(x - r * 0.5, y - ry * 0.55, r * 0.2, ry * 0.12, -0.6, 0, Math.PI * 2); g.fill();   // a glint
+  _shadow(g, c) {                                                                                       // a dark pixel ellipse under the coin
+    g.fillStyle = 'rgba(0,0,0,.3)'; const rx = Math.round(c.r), ry = Math.max(2, Math.round(c.r * 0.5)), cx = Math.round(c.x) + 1, cy = Math.round(c.y + c.r * 0.35) + 2;
+    for (let j = -ry; j <= ry; j++) { const w = Math.round(rx * Math.sqrt(1 - (j * j) / (ry * ry))); g.fillRect(cx - w, cy + j, w * 2 + 1, 1); }
   }
 
   /* ---- the pointer: press a coin, drag it, let go ---- */
@@ -200,11 +208,17 @@ class CoinBagUI {
     d.vx = (p.x - d.lx) / dtm * 1000 * 0.5 + d.vx * 0.5; d.vy = (p.y - d.ly) / dtm * 1000 * 0.5 + d.vy * 0.5; d.lx = p.x; d.ly = p.y; d.lt = now;
     d.coin.x = p.x; d.coin.y = p.y; d.coin.px = p.x; d.coin.py = p.y;
     d.out = !p.in; this._ghostAt(d.out ? e : null, d.coin.t);
+    if (this.pay) this.pay.zone.classList.toggle('over', this._inZone(e));
   }
   _up(e, cancelled) {
     const d = this.drag; if (!d || e.pointerId !== d.id) return;
     const p = this._local(e), c = d.coin, T = Coins.TIERS[c.t];
-    if (!cancelled && !p.in && d.moved) {                                                               // let go over the world: drop it there
+    if (this.pay) this.pay.zone.classList.remove('over');
+    if (!cancelled && !p.in && d.moved && this.pay) {                                                   // paying: let go over the counter to put the coin down (anywhere else, it goes back in the bag)
+      if (this._inZone(e)) {
+        this.coins.splice(this.coins.indexOf(c), 1); this.offered[c.t]++; this.pay.onOffer(this.offered.slice()); this._endDrag(); return;
+      }
+    } else if (!cancelled && !p.in && d.moved) {                                                         // let go over the world: drop it there
       const w = this.camera.screenToWorld(e.clientX, e.clientY);
       this.game.dropCoins(T.id, 1, w.x, w.y);
       this.coins.splice(this.coins.indexOf(c), 1); this.pendingOut[c.t]++; this.pendingT = 0;
@@ -224,15 +238,17 @@ class CoinBagUI {
     if (cancelled || !p.in || !this._inside(c)) { c.x = CoinBagUI.CX + (Math.random() - 0.5) * 10; c.y = 26 + c.r; c.vx = 0; c.vy = 0; c.px = c.x; c.py = c.y; }   // out of bounds: back in through the neck
     this._endDrag();
   }
+  _inZone(e) { const r = this.pay.zone.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; }
   _inside(c) { return c.y >= 22 && c.y <= 165 && Math.abs(c.x - CoinBagUI.CX) <= CoinBagUI.halfWidth(Math.min(c.y, 134)) + 2; }
   _endDrag() { this.drag = null; this.canvas.classList.remove('grabbing'); this._ghostAt(null); }
-  /** The coin that follows the pointer once it has left the bag (so it can be seen on its way to the world). */
+  /** The coin that follows the pointer once it has left the bag (so it can be seen on its way to the world or the counter): the same pixel coin, a canvas of its own. */
   _ghostAt(e, t) {
     if (!e) { if (this.ghost) { this.ghost.remove(); this.ghost = null; } return; }
-    const T = Coins.TIERS[t], size = Math.round(34 + t * 3);
-    if (!this.ghost) { this.ghost = document.createElement('div'); this.ghost.className = 'coinGhost'; document.body.appendChild(this.ghost); }
-    const gs = this.ghost.style; gs.width = gs.height = size + 'px'; gs.marginLeft = gs.marginTop = -size / 2 + 'px';
-    gs.background = `radial-gradient(circle at 35% 30%, ${T.face[0]} 0 15%, ${T.face[1]} 16% 62%, ${T.face[2]} 63%)`; gs.left = e.clientX + 'px'; gs.top = e.clientY + 'px';
-    this.ghost.textContent = T.letter || '◆'; this.ghost.style.color = T.gem || T.face[2];
+    if (!this.ghost || this.ghost.tier !== t || this.ghost.k !== this.S) {
+      if (this.ghost) this.ghost.remove();
+      const r = CoinBagUI.radiusOf(t), c = CoinArt.canvas(t, r, this.S, 0.9); c.className = 'coinGhost'; c.tier = t; c.k = this.S;
+      document.body.appendChild(c); this.ghost = c;
+    }
+    const gs = this.ghost.style; gs.left = e.clientX - this.ghost.width / 2 + 'px'; gs.top = e.clientY - this.ghost.height / 2 + 'px';
   }
 }

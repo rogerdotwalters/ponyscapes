@@ -285,7 +285,7 @@ class GameServer {
       case 'packMove': this._packMove(id, inventory, cmd); break;                                           // between your bag and your pony's pack (packSystem.js)
       case 'ponyBagOn': this._ponyBagOn(id, inventory, cmd.from); break;
       case 'ponyBagOff': this._ponyBagOff(id, inventory, cmd.index); break;
-      case 'buy': if (typeof cmd.item === 'string') this._buy(id, cmd.item); break;                          // at a shop counter (shopSystem.js)
+      case 'buy': if (typeof cmd.item === 'string') this._buy(id, cmd.item, cmd.pay); break;                          // at a shop counter (shopSystem.js)
       case 'unequip': this._handleUnequip(id, inventory, cmd.slot); break;
       case 'emote': this._handleEmote(id, cmd.id); break;
       case 'release': this._handleRelease(id, cmd); break;

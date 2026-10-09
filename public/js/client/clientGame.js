@@ -119,7 +119,8 @@ class ClientGame {
   dropCoins(item, count, x, y) { this.net.sendCommand(Number.isFinite(x) && Number.isFinite(y) ? { type: 'dropCoins', item, count, x, y } : { type: 'dropCoins', item, count }); }
   /** The coin bag's exchange: break a coin into the kind below, or merge everything up. */
   coinChange(mode, item) { this.net.sendCommand({ type: 'coinChange', mode, item }); }
-  buy(item) { this.net.sendCommand({ type: 'buy', item }); }
+  /** Buy at the shop counter. `pay`: the coins you put on the counter, a count of each kind (coins.js); the shop gives change. */
+  buy(item, pay) { this.net.sendCommand({ type: 'buy', item, pay }); }
   _applyPack(wire) {
     this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
     this.events.emit('packChanged');
