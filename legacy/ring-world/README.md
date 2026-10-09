@@ -14,6 +14,8 @@ This folder keeps the **old procedural map** in case we ever want to go back to 
 
 ## What replaced it (see `public/js/`)
 
+First a single 200-tile island (`ring-world-final` is the last commit before that), then a **tree of zones** (the Meadows with sub zones and gateways: see the main README). The details below are the single-island step; the zone tree builds on it.
+
 * The map is about **half the size**: one zone, 200 tiles from the village, ending in a beach, open sea and a thin wall of light.
 * **Zones** (`data/zones/`, `shared/layers/zoneLayer.js`) replace the rings. Zone 1, **The Meadows**, is meadow with exactly **one orchard patch (~15%)**.
   The patch is placed from the world seed and sized by measurement (`shared/layers/biomeLayer.js`), so it is procedural but the same for everyone.

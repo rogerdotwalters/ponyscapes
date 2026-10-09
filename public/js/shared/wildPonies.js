@@ -49,7 +49,7 @@ class WildPonies {
 
   /** A newcomer arrives at (x, y). Returns whether a pony could be made (some biomes have none to offer). */
   _place(r, x, y) {
-    const map = this.s.map, ring = map.layers.rings.at(x, y).index, pool = Fauna.poolAt(ring, r.biome).filter(f => f.pony);
+    const map = this.s.map, ring = map.layers.zones.faunaAt(x, y), pool = Fauna.poolAt(ring, r.biome).filter(f => f.pony);
     if (!pool.length) { r.pending = 0; return false; }
     let roll = this.s.rng() * pool.reduce((n, f) => n + f.weight, 0), pick = pool[0];
     for (const f of pool) if ((roll -= f.weight) < 0) { pick = f; break; }

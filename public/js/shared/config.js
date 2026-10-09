@@ -5,8 +5,8 @@
 const TILE_SCALE = 1.5;
 
 const CONFIG = {
-  /** The zoned world (js/data/zones/): how far a zone's coast may wander from a perfect circle (tiles), and how far from the village the meadow is always plain meadow. Half the size of the old ring world (legacy/ring-world/). */
-  world: { zoneWobble: 35, villageBiomeRadius: 64 },
+  /** The zoned world (js/data/zones/, layers/zoneLayer.js), in tiles: how far a zone's edge wobbles, how thick its cliff wall is, how wide a gateway is (each side of the middle), how much a child overlaps its parent (1 = just touching), and how wide the open sea round the map is (past it, an invisible barrier). */
+  world: { zoneWarp: 8, wallWidth: 3, gateHalfWidth: 3, zoneOverlap: 0.88, seaWidth: 14 },
   sim: {
     tickRate: 30,
     mapW: 40, mapH: 40,
