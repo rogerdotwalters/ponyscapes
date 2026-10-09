@@ -62,12 +62,13 @@ class GameServer {
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
+    this.downed = new DownedSystem(this);                                    // going down in a dungeon instead of waking in the village (downed.js)
     this.sleep = new SleepSystem(this);                                      // bedtime, the forced sleep and skipping the night (sleepSystem.js)
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
     this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
-    this.settings = { hostilesOff: false, testPony: false }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
+    this.settings = { hostilesOff: false, testPony: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
@@ -296,6 +297,7 @@ class GameServer {
       case 'craft': this._craftWithLasso(id, inventory, cmd); break;
       case 'place': this._handlePlace(id, inventory, cmd); break;
       case 'setVitals': this._handleSetVitals(id, cmd); break;
+      case 'setDifficulty': if (id === this.hostId) this.downed.setMode(cmd.mode); break;                 // host only: easy / medium / hard
       case 'stockTake': this._handleStockTake(id, inventory, cmd); break;
       case 'upgrade': this._handleUpgrade(id, inventory, cmd); break;
       case 'drop': case 'destroy': {
@@ -425,7 +427,7 @@ class GameServer {
       p.carryStacks = Carry.stacksFor(p);
       if (this.inventories[id]) this.inventories[id].carryStacks = p.carryStacks;
       const maxHp = Skills.maxHp(p.lv) + buffs.health;
-      if (maxHp !== p.maxHp) { if (maxHp > p.maxHp) p.hp += maxHp - p.maxHp; p.maxHp = maxHp; p.hp = Math.min(p.hp, p.maxHp); }
+      if (maxHp !== p.maxHp) { if (maxHp > p.maxHp && p.hp > 0) p.hp += maxHp - p.maxHp; p.maxHp = maxHp; p.hp = Math.min(p.hp, p.maxHp); }
     }
   }
 
@@ -517,11 +519,11 @@ class GameServer {
   /* ---- health ---- */
   _damagePlayer(id, amount) {
     const p = this.players[id];
-    if (!p || p.hp <= 0) return;
+    if (!p || p.hp <= 0 || p.graceT > 0) return;                                  // (down, or just back on your feet: nothing hurts you)
     const taken = Math.max(1, Math.round(amount * (1 - Wardrobe.damageReduction(p.gear))));
     p.hp = Math.max(0, p.hp - taken); p.hurtT = 0.4;
     this.pendingEvents.push({ type: 'hurt', to: id, amount: taken, hp: p.hp });
-    if (p.hp <= 0) this._knockOut(id);
+    if (p.hp <= 0 && !this.downed.goDown(id)) this._knockOut(id);                 // in a dungeon you drop to your knees (downed.js); anywhere else you wake in the village
   }
 
   /** Knocked out: back to the village with half health. Nothing is lost. */
@@ -560,6 +562,7 @@ class GameServer {
     p.hurtT = Math.max(0, p.hurtT - TICK_DT); p.emoteT = Math.max(0, p.emoteT - TICK_DT);
     if (p.abilityCd[0] > 0 || p.abilityCd[1] > 0) p.abilityCd = p.abilityCd.map(t => Math.max(0, t - TICK_DT));
     this.dungeons.tickHints(id, p);
+    this.downed.tick(id, p);
     if (p.emoteT === 0) p.emote = '';
     if (p.hp > 0 && p.hp < p.maxHp && p.hunger > 0 && p.thirst > 0) p.hp = Math.min(p.maxHp, p.hp + S.health.regenPerSecond * TICK_DT);
     if (p.held === 'torch' && LightSources.isDark(this.tick)) {
@@ -626,6 +629,7 @@ class GameServer {
   _applyInput(id, input) {
     const p = this.players[id], inventory = this.inventories[id];
     if (p.flyCd > 0) p.flyCd = Math.max(0, +(p.flyCd - TICK_DT).toFixed(4));                  // the wings rest between flights
+    if (p.down > 0) { stepPlayer(p, input, TICK_DT, this.mapOf(p)); this.downed.input(id, p, inventory, input); return; }   // (on your knees: you can only eat a snack; stepPlayer keeps the input acknowledged)
     if (p.asleep) { stepPlayer(p, input, TICK_DT, this.mapOf(p)); if (input.interact) this.sleep.useBed(id, p); return; }   // (asleep: nothing but getting up; stepPlayer keeps the input acknowledged)
     if (p.boat) this._row(id, p, inventory, input);
     else if (p.mount) this._ride(id, p, inventory, input);
@@ -651,6 +655,7 @@ class GameServer {
   /** The interact key: get off whatever we are on (boat or pony), otherwise do the NEAREST of pick up / ride / board / drink / fill. */
   _interact(id, p) {
     if (p.flying) return;                                                                          // nothing to pick, open or enter from the air: land first
+    if (this.downed.lift(id, p)) return;                                                           // a teammate on their knees beside you: pick them up
     const map = this.mapOf(p), outside = !gridOf(p);
     if (!p.boat) { const cave = findCaveInteraction(map, p); if (cave) { InteractionHandlers[cave.kind](this, id, p, cave); return; } }   // a cave mouth wins, even from a pony's back
     if (p.boat) {
