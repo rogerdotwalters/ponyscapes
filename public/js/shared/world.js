@@ -188,7 +188,11 @@ function generateChunk(world, cx, cy) {
       t: 'tree', x: tx + 0.5 + (hash3(T.seed, tx, ty, 2) - 0.5) * 0.3, y: ty + 0.5 + (hash3(T.seed, tx, ty, 3) - 0.5) * 0.3,
       r: 0.33 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 4) * 8), hp: TreeDef.maxHp, alive: true
     };
-    if (T.appleTreeAt(tx, ty)) Object.assign(tree, { forage: 'apple_tree', drop: T.appleKindAt ? T.appleKindAt(tx, ty) : 'apple', ripe: true });   // fruit you can pick (the biome's kinds of apple); the tree can still be chopped
+    const species = T.treeSpeciesAt ? T.treeSpeciesAt(tx, ty) : null, kind = species && TreeSpecies.get(species);
+    if (kind) {                                                                                  // the biome's plant list says which tree (odd variants are pines, even ones leafy)
+      tree.sp = species; tree.v = 2 * Math.floor(hash3(T.seed, tx, ty, 4) * 4) + (kind.look === 'pine' ? 1 : 0);
+      if (kind.fruit) Object.assign(tree, { forage: 'apple_tree', drop: T.appleKindAt(tx, ty), ripe: true });
+    } else if (T.appleTreeAt(tx, ty)) Object.assign(tree, { forage: 'apple_tree', drop: T.appleKindAt ? T.appleKindAt(tx, ty) : 'apple', ripe: true });   // fruit you can pick (the biome's kinds of apple); the tree can still be chopped
     addChunkProp(chunk, li, withSavedState(world, tx, ty, tree));
   }
   const tileOf = (tx, ty) => (tx >= x0 && tx < x0 + CHUNK_SIZE && ty >= y0 && ty < y0 + CHUNK_SIZE)
@@ -214,6 +218,12 @@ function addForageable(world, chunk, li, tx, ty) {
     prop = {
       t: 'bush', x: tx + 0.5 + (hash3(T.seed, tx, ty, 13) - 0.5) * 0.4, y: ty + 0.5 + (hash3(T.seed, tx, ty, 14) - 0.5) * 0.4,
       r: 0.2 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 15) * 4), berry: found.berry, drop: found.berry, biome: found.biome
+    };
+  } else if (T.mushroomAt && T.mushroomAt(tx, ty, tile)) {
+    const kind = T.mushroomAt(tx, ty, tile);                                                    // mushrooms: picked like berries (a 'bush' that is drawn as a cluster of caps)
+    prop = {
+      t: 'bush', plant: 'mushroom', x: tx + 0.5 + (hash3(T.seed, tx, ty, 13) - 0.5) * 0.4, y: ty + 0.5 + (hash3(T.seed, tx, ty, 14) - 0.5) * 0.4,
+      r: 0.16 / TILE_SCALE, v: Math.floor(hash3(T.seed, tx, ty, 15) * 4), berry: kind, drop: kind, biome: T.biomeAt(tx, ty, tile)
     };
   } else if (T.flaxAt(tx, ty, tile)) {
     prop = {

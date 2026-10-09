@@ -254,4 +254,60 @@ test('zone graph: a shut gateway is solid and bare, an open one is walkable grou
   same(r.shut, [true, 1, true, false]); same(r.open, [false, -1, false]);
 });
 
+test('plant lists: each zone grows exactly the trees, berries and mushrooms its list says', () => {
+  const r = run(`(() => { const w = new World(4242), Z = w.terrain.layers.zones, out = {};
+    for (const n of Z.layout()) {
+      const trees = {}, drops = new Set(), berries = {}, mush = {}; let badVariant = 0;
+      for (let dy = -48; dy <= 48; dy += 16) for (let dx = -48; dx <= 48; dx += 16) { const x = Math.floor(n.x + dx), y = Math.floor(n.y + dy); if (Z.at(x, y).index !== n.def.index || Z.kindAt(x, y) !== ZONE_KIND.LAND) continue; w.ensureAround(x, y, 1); }
+      for (const c of w.chunks.values()) for (const p of c.props) {
+        const tx = Math.floor(p.x), ty = Math.floor(p.y); if (Z.at(tx, ty).index !== n.def.index || Z.kindAt(tx, ty) !== ZONE_KIND.LAND) continue;
+        if (p.t === 'tree') { const sp = TreeSpecies.of(p); trees[sp] = (trees[sp] || 0) + 1; if (p.forage) drops.add(p.drop); if (p.sp && (p.v % 2 === 1) !== (TreeSpecies.get(sp).look === "pine")) badVariant++; }
+        else if (p.t === 'bush' && p.plant === 'mushroom') mush[p.berry] = (mush[p.berry] || 0) + 1;
+        else if (p.t === 'bush' && (w.tile(tx, ty) === TILE.GRASS || w.tile(tx, ty) === TILE.DIRT)) berries[p.berry] = (berries[p.berry] || 0) + 1;
+      }
+      out[n.def.id] = { trees, drops: [...drops], berries, mush, badVariant };
+    }
+    return out; })()`);
+  const keys = o => Object.keys(o).sort().join();
+  assert.strictEqual(keys(r.meadows.trees), 'apple,pine', 'meadow: apples and some pine, no oak: ' + JSON.stringify(r.meadows.trees));
+  assert(r.meadows.trees.apple > r.meadows.trees.pine, 'meadow: more apples than pines'); assert.strictEqual(keys(r.meadows.berries), 'raspberry'); assert.strictEqual(keys(r.meadows.mush), '');
+  assert.strictEqual(keys(r.orchard.trees), 'apple,oak', 'orchard: oak and apples, no pine: ' + JSON.stringify(r.orchard.trees)); assert(r.orchard.drops.length >= 3, 'orchard: various apples: ' + r.orchard.drops);
+  assert.strictEqual(keys(r.forest.trees), 'hard_pine,spruce', 'forest: hard pine and spruce: ' + JSON.stringify(r.forest.trees)); assert.strictEqual(keys(r.forest.berries), 'blackberry'); assert.strictEqual(keys(r.forest.mush), '');
+  assert.strictEqual(keys(r.mushroom.trees), 'ash', 'mushroom kingdom: ash: ' + JSON.stringify(r.mushroom.trees)); assert(Object.keys(r.mushroom.mush).length >= 4, 'mushroom kingdom: various mushrooms: ' + JSON.stringify(r.mushroom.mush));
+  for (const z of Object.values(r)) assert.strictEqual(z.badVariant, 0, 'pines are drawn as pines and leafy trees as leafy ones');
+});
+
+test('plant spreading: trees seed their own kind beside them, in season, in their own biome, never on walls or gateways, and within the daily cap', () => {
+  const r = run(`(() => { const s = new GameServer(4242), id = s.addPlayer(), p = s.players[id], Z = s.map.layers.zones, T = s.map.terrain, found = [], dayIn = i => { for (let d = 0; d < 400; d++) if (Seasons.indexOfDay(d + 1) === i) return d; };
+    const result = { zones: {}, perDayMax: 0, bad: [], grown: 0 };
+    for (const n of Z.layout()) {
+      p.x = n.x; p.y = n.y; s.map.ensureAround(n.x, n.y, 4);
+      const before = Object.keys(s._farm()).length, species = {};
+      for (let day = 0; day < 40; day++) { const d = dayIn(day % 4); const got = s._spreadFlora(d); result.perDayMax = Math.max(result.perDayMax, got); }
+      for (const [key, e] of Object.entries(s._farm())) { if (!Groves.isKey(key) || e.g) continue; const [tx, ty] = Groves.tileOf(key);
+        if (Z.at(tx, ty).index !== n.def.index) continue;
+        species[e.t] = (species[e.t] || 0) + 1;
+        if (!Flora.allows(T.layers.biomes.at(tx, ty), e.t)) result.bad.push('wrong biome ' + e.t + '@' + tx + ',' + ty);
+        if (Z.kindAt(tx, ty) !== ZONE_KIND.LAND || Z.wallDistance(tx, ty) < 2) result.bad.push('on a wall or gate ' + tx + ',' + ty);
+        let near = false; for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) { const q = s.map.peekPropAt(tx + x, ty + y); if (q && q.t === 'tree' && TreeSpecies.of(q) === e.t) near = true; }
+        if (!near) result.bad.push('no parent ' + e.t + '@' + tx + ',' + ty);
+      }
+      result.zones[n.def.id] = species;
+      for (const key of Object.keys(s._farm())) if (Groves.isKey(key)) delete s._farm()[key];                  // (a clean farm for the next zone, so the daily cap is not spent already)
+    }
+    p.x = Z.layout()[0].x; p.y = Z.layout()[0].y; s.map.ensureAround(p.x, p.y, 4); for (let day = 0; day < 40; day++) s._spreadFlora(dayIn(day % 4));
+    const waiting = Object.entries(s._farm()).filter(([k, e]) => Groves.isKey(k) && !e.g);
+    result.waiting = waiting.length;
+    for (const [k, e] of waiting) for (let i = 0; i < 20 && !e.g; i++) s._growGrove(k, e);           // let them all grow up
+    for (const [k, e] of waiting) { const [tx, ty] = Groves.tileOf(k), q = s.map.peekPropAt(tx, ty); if (e.g && q && q.t === 'tree' && q.sp === e.t) result.grown++; }
+    result.grownOf = waiting.filter(([k, e]) => e.g && s.map.peekChunkOfTile(...Groves.tileOf(k))).length;
+    return result; })()`);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.bad)), [], 'every sprout is right: ' + r.bad.slice(0, 4));
+  assert(r.perDayMax <= 12 && r.waiting <= 300, 'daily cap: ' + r.perDayMax + ' / waiting ' + r.waiting);
+  const sp = id => Object.keys(r.zones[id]).sort().join();
+  assert(r.zones.meadows.apple > 0 && r.zones.orchard.oak > 0 && (r.zones.forest.spruce > 0 || r.zones.forest.hard_pine > 0) && r.zones.mushroom.ash > 0, 'trees sprout in every zone: ' + JSON.stringify(r.zones));
+  assert(!/oak/.test(sp('meadows')) && !/pine/.test(sp('orchard')) && !/apple|oak|\bpine\b/.test(sp('forest')) && sp('mushroom') === 'ash', 'only the zone\'s own kinds: ' + JSON.stringify(r.zones));
+  assert(r.grownOf > 0 && r.grown === r.grownOf, 'a grown sapling stands as a tree of its kind: ' + r.grown + ' of ' + r.grownOf);
+});
+
 console.log(process.exitCode ? 'FAILED' : `all ${passed} checks passed`);

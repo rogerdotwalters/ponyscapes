@@ -158,6 +158,7 @@ Object.assign(GameServer.prototype, {
         if (plot.idle >= FARM_IDLE_DAYS) delete farm[key];                                            // left dry and empty: it grasses over
       }
     }
+    if (prev >= this._today() - 1 && typeof this._spreadFlora === 'function') this._spreadFlora(prev);                       // the trees seed their neighbours (floraSystem.js; only for the day that has just ended, not a long catch-up)
     this._farmChanged();
   },
   /** The farm, only when it changed since last sent (else null). */

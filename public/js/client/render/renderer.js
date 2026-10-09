@@ -271,12 +271,14 @@ class Renderer {
     }
     const prop = item.prop;
     if (prop.t === 'tree') {
-      if (prop.alive) PropSprites.drawTree(g, item.gx, item.gy, prop.v, this.effects.treeShakeX(item.key, now), prop.forage ? prop : null, this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));
+      if (prop.alive) PropSprites.drawTree(g, item.gx, item.gy, prop.v, this.effects.treeShakeX(item.key, now), prop.forage ? prop : null, this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)), prop.sp);
       else {
         PropSprites.drawStump(g, item.gx, item.gy);
         const fall = this.effects.fall(item.key, now);                                  // just felled: the tree topples, then breaks into logs
-        if (fall) PropSprites.drawFallingTree(g, item.gx, item.gy, prop.v, fall.angle, fall.alpha, this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));
+        if (fall) PropSprites.drawFallingTree(g, item.gx, item.gy, prop.v, fall.angle, fall.alpha, this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)), prop.sp);
       }
+    } else if (prop.t === 'bush' && prop.plant === 'mushroom') {
+      PropSprites.drawMushroom(g, item.gx, item.gy, prop, this.effects.treeShakeX(item.key, now, 1.5));
     } else if (prop.t === 'bush') {
       for (const id in this.players || {}) { const q = this.players[id]; if (q && !q.flying && Math.hypot(q.x - prop.x, q.y - prop.y) < 0.55) { this.effects.rustle(item.key, prop.x, prop.y); break; } }      // brushing past shakes it, as a tree shakes when chopped
       PropSprites.drawBush(g, item.gx, item.gy, prop, this.effects.treeShakeX(item.key, now, 2.5), this.game.map.biome(Math.floor(prop.x), Math.floor(prop.y)));

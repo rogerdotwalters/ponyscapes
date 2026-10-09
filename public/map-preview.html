@@ -278,7 +278,8 @@ function marks(T, Z, R, o, S) {                                              // 
 }
 function describe(T, Z, seed) {
   const lines = ['Seed ' + seed, ''];
-  for (const n of Z.layout()) lines.push(`${n.def.name}\n  biome ${n.def.biome}, radius ${Math.round(n.r)}${n.parent ? ', off ' + n.parent.def.name + ' at ' + Math.round(n.angle * 180 / Math.PI) + ' deg' : ' (the village)'}${n.def.locked ? ', gate shut' : ''}`);
+  const names = list => (list || []).map(([id]) => (TreeSpecies.get(id) || ItemDB.get(id) || { name: id }).name).join(', ');
+  for (const n of Z.layout()) { const f = Flora.get(n.def.biome); lines.push(`${n.def.name}\n  biome ${n.def.biome}, radius ${Math.round(n.r)}${n.parent ? ', off ' + n.parent.def.name + ' at ' + Math.round(n.angle * 180 / Math.PI) + ' deg' : ' (the village)'}${n.def.locked ? ', gate shut' : ''}${f ? '\n  trees: ' + names(f.trees) + '\n  bushes: ' + names(f.bushes) + (f.mushrooms ? '\n  mushrooms: ' + names(f.mushrooms) : '') : ''}`); }
   const caves = T.caveSites.caves(); lines.push('', 'Cave mouth: ' + (caves.length ? Math.round(caves[0].x - CONFIG.sim.levels.origin.x) + ', ' + Math.round(caves[0].y - CONFIG.sim.levels.origin.y) + ' from the village' : 'none'));
   $('info').textContent = lines.join('\n');
 }

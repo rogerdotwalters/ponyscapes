@@ -70,11 +70,11 @@ const PixelProps = (() => {
 
   /** The trunk and crown canvases for one look. */
   /** fruit: the colour of the apples among its leaves, or null. */
-  function treeArt(variant, tint, fruit) {
-    const pine = variant % 2 === 1, m = 0.95 + (variant % 5) * 0.05, key = `${pine ? 'p' : 'l'}|${m}|${tint || ''}|${fruit || ''}`;
+  function treeArt(variant, tint, fruit, wash) {
+    const pine = variant % 2 === 1, m = 0.95 + (variant % 5) * 0.05, key = `${pine ? 'p' : 'l'}|${m}|${tint || ''}|${fruit || ''}|${wash || ''}`;
     if (cache.has(key)) return cache.get(key);
     const cw = Math.ceil(W * m), ch = Math.ceil(H * m), bark = BARK.map(c => tint && tint.includes('235,246,255') ? mix(c, '#dfe8ef', 0.35) : c);   // (snowy bark is a little frosted)
-    const pal = (pine ? NEEDLE : LEAF).map(c => tinted(c, tint));
+    const pal = (pine ? NEEDLE : LEAF).map(c => tinted(tinted(c, wash), tint));                 // (the species' own wash first, then the season's / biome's)
     const T = canvas(cw, ch), tc = T.getContext('2d'), Cn = canvas(cw, ch), cc = Cn.getContext('2d');
     if (pine) {
       trunk(tc, m, AX, 64, GROUND, 6, bark);
@@ -113,8 +113,8 @@ const PixelProps = (() => {
   }
 
   /** A standing tree at (sx, sy); the crown sways by shakeX (when chopped). fruit: an apple tree's forage state (apples while ripe). */
-  function drawTree(ctx, sx, sy, variant, shakeX, fruit, biome, tint) {
-    const art = treeArt(variant, tint, fruit && fruit.ripe ? (ItemDefs[fruit.drop] && ItemDefs[fruit.drop].color) || '#d9382b' : null), u = PX, left = sx - AX * art.m * u, top = sy - GROUND * art.m * u;
+  function drawTree(ctx, sx, sy, variant, shakeX, fruit, biome, tint, wash) {
+    const art = treeArt(variant, tint, fruit && fruit.ripe ? (ItemDefs[fruit.drop] && ItemDefs[fruit.drop].color) || '#d9382b' : null, wash), u = PX, left = sx - AX * art.m * u, top = sy - GROUND * art.m * u;
     ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(sx + 5, sy + 3, 26 * art.m, 11 * art.m, 0, 0, Math.PI * 2); ctx.fill();
     ctx.save(); ctx.imageSmoothingEnabled = false;
     ctx.drawImage(art.trunk, left, top, art.w * u, art.h * u);
@@ -142,8 +142,8 @@ const PixelProps = (() => {
   }
 
   /** A felled tree toppling: rotated about its foot by `angle` (radians, + to the right), fading out by `alpha` as it breaks into logs. */
-  function drawFalling(ctx, sx, sy, variant, angle, alpha, tint) {
-    const art = treeArt(variant, tint, null), u = PX;
+  function drawFalling(ctx, sx, sy, variant, angle, alpha, tint, wash) {
+    const art = treeArt(variant, tint, null, wash), u = PX;
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alpha;
     ctx.translate(sx, sy - 2); ctx.rotate(angle);
     const left = -AX * art.m * u, top = -GROUND * art.m * u;
@@ -206,6 +206,32 @@ const PixelProps = (() => {
     ctx.restore();
   }
 
+  /* ---- mushrooms: a little cluster of caps on short stems, in the item's colour (flora: the Mushroom Kingdom). Picked, only the stems are left. ---- */
+  function mushroomArt(variant, color, ripe) {
+    const key = `m|${variant % 4}|${color}|${ripe ? 1 : 0}`;
+    if (cache.has(key)) return cache.get(key);
+    const W = 30, H = 22, c = canvas(W, H), g = c.getContext('2d'), v = variant % 4;
+    const caps = [[[9, 15, 5], [20, 13, 6], [15, 18, 3]], [[12, 14, 6], [22, 17, 4]], [[7, 17, 4], [15, 12, 6], [23, 16, 4]], [[16, 13, 7], [8, 18, 3], [24, 19, 3]]][v];
+    for (const [x, y, r] of caps) {
+      g.fillStyle = '#e9e0c6'; g.fillRect(x - 1, y, 2, 20 - y);                                                      // the stem
+      g.fillStyle = shade('#e9e0c6', 0.7); g.fillRect(x, y, 1, 20 - y);
+      if (!ripe) continue;
+      for (let yy = -r; yy <= 1; yy++) for (let xx = -r; xx <= r; xx++) {                                              // the cap: a dome, lit on the left
+        if (xx * xx / (r * r) + yy * yy / ((r * 0.7) * (r * 0.7)) > 1) continue;
+        g.fillStyle = xx + yy < -r * 0.7 ? light(color, 0.35) : xx > r * 0.4 ? shade(color, 0.7) : color; g.fillRect(x + xx, y + yy - 1, 1, 1);
+        if ((xx * 7 + yy * 3 + v) % 5 === 0 && yy < 0) { g.fillStyle = light(color, 0.7); g.fillRect(x + xx, y + yy - 1, 1, 1); }     // spots
+      }
+    }
+    outline(g, '#1e140c', W, H);
+    cache.set(key, c);
+    return c;
+  }
+  function drawMushroom(ctx, sx, sy, variant, color, ripe, shakeX) {
+    const c = mushroomArt(variant, color, ripe), u = PX * 1.7;                                                   // (a little larger than a pixel of the trees: they are small things)
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(sx + 1, sy + 1, 17, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(c, sx - 15 * u + Math.round((shakeX || 0) / u) * u, sy - 20 * u, c.width * u, c.height * u); ctx.restore();
+  }
+
   /* ---- hedges: a berry bush cut down and planted, TRIMMED: a neat block, a round ball or tiers, in the same dithered leaves (no berries). ---- */
   const HW = 48, HH = 50, HGROUND = 45, HAX = 24;
   function hedgeArt(variant, style, tint) {
@@ -247,7 +273,7 @@ const PixelProps = (() => {
     ctx.restore();
   }
 
-  return { drawTree, drawBush, drawHedge, drawSapling, drawFalling, drawStump, tinted, treeArt, stumpArt };
+  return { drawTree, drawMushroom, drawBush, drawHedge, drawSapling, drawFalling, drawStump, tinted, treeArt, stumpArt };
 })();
 
 /* ---- LOGS: a cut log lying on the ground (and the log's icon) ---- */
