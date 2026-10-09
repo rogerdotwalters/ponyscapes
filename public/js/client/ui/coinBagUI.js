@@ -26,11 +26,22 @@ class CoinBagUI {
     game.events.on('inventoryChanged', () => this._purseChanged());
   }
 
-  /** The canvas is drawn at a whole number of screen pixels per art pixel (2 to 4), as big as the screen allows, so the pixels stay crisp. */
+  /** Size and place the bag: as big as the screen allows (a whole number of screen pixels per art pixel when it can be 2 or more, else a fraction so it still
+   *  fits a phone). Paying: the shop window is a slim card (top left in landscape, across the top in portrait) and the bag takes the room that is left. */
   _fit() {
-    const avail = Math.min(540, window.innerHeight - (this.pay ? 190 : 300)), k = Math.max(2, Math.min(4, Math.floor(avail / CoinBagUI.H)));
+    const vw = window.innerWidth, vh = window.innerHeight, box = { l: 8, t: 8, r: vw - 8, b: vh - 8 };
+    if (this.pay) {
+      const card = document.getElementById('shopPanel'), s = card && !card.hidden ? card.getBoundingClientRect() : null;
+      if (s) { if (vw > vh * 1.15) box.l = Math.min(vw * 0.55, s.right + 8); else box.t = Math.min(vh * 0.6, s.bottom + 8); }
+    }
+    const text = this.pay ? 34 : vh < 520 ? 84 : 124;                                                 // room for the total (and, outside a shop, the hint and Merge button)
+    let css = Math.min((box.r - box.l) / CoinBagUI.W, (box.b - box.t - text) / CoinBagUI.H, 4);
+    css = css >= 2 ? Math.floor(css) : Math.max(0.9, css);
+    const k = Math.max(2, Math.min(4, Math.round(css)));                                              // (drawn at 2-4x, shown at css: crisp when they match)
     this.S = k; this.canvas.width = CoinBagUI.W * k; this.canvas.height = CoinBagUI.H * k;
-    this.canvas.style.width = CoinBagUI.W * k + 'px'; this.canvas.style.height = CoinBagUI.H * k + 'px';
+    this.canvas.style.width = Math.round(CoinBagUI.W * css) + 'px'; this.canvas.style.height = Math.round(CoinBagUI.H * css) + 'px';
+    this.panel.style.setProperty('padding', `${box.t}px ${vw - box.r}px ${vh - box.b}px ${box.l}px`, 'important');
+    this.panel.classList.toggle('small', vh < 520 || vw < 600);
   }
 
   /* ---- pay mode (the shop): coins dragged onto `zone` (an element) are put down on the counter instead of dropped on the world ---- */
@@ -51,7 +62,7 @@ class CoinBagUI {
   get isOpen() { return !this.panel.hidden; }
   toggle() { this.isOpen ? this.close() : this.open(); }
   open() {
-    const was = this.isOpen; this.panel.hidden = false;
+    const was = this.isOpen; this.panel.hidden = false; document.body.classList.add('coinsOpen');
     if (was) return;
     this.coins = []; this.queue = []; this.pendingOut = Coins.empty(); this.hint = null; this.lastTap = null; this._fit();
     if (!this.pay) this.offered = Coins.empty();
@@ -60,7 +71,7 @@ class CoinBagUI {
     if (typeof Sfx !== 'undefined' && Sfx.bag) Sfx.bag(true);
   }
   close() {
-    const was = this.isOpen; this.panel.hidden = true; this._endDrag(); cancelAnimationFrame(this.raf); this.raf = 0; this.endPay();
+    const was = this.isOpen; this.panel.hidden = true; document.body.classList.remove('coinsOpen'); this._endDrag(); cancelAnimationFrame(this.raf); this.raf = 0; this.endPay();
     if (was && typeof Sfx !== 'undefined' && Sfx.bag) Sfx.bag(false);
   }
 
@@ -189,11 +200,13 @@ class CoinBagUI {
   }
 
   /* ---- the pointer: press a coin, drag it, let go ---- */
-  _local(e) { const r = this.canvas.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * CoinBagUI.W, y: (e.clientY - r.top) / r.height * CoinBagUI.H, in: e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom }; }
+  /** Where the dragged coin is: under the pointer, or (a finger) a little ABOVE it so the coin is not hidden by the fingertip. */
+  _pt(e, lift = true) { return { x: e.clientX, y: e.clientY - (lift && e.pointerType === 'touch' ? 46 : 0) }; }
+  _local(e, lift = true) { const r = this.canvas.getBoundingClientRect(), q = this._pt(e, lift); return { x: (q.x - r.left) / r.width * CoinBagUI.W, y: (q.y - r.top) / r.height * CoinBagUI.H, in: q.x >= r.left && q.x <= r.right && q.y >= r.top && q.y <= r.bottom }; }
   _down(e) {
     if (this.drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
     e.preventDefault(); e.stopPropagation();
-    const p = this._local(e); let best = null, bd = Infinity;
+    const p = this._local(e, false); let best = null, bd = Infinity;
     for (const c of this.coins) { const d = Math.hypot(c.x - p.x, c.y - p.y) - c.r; if (d < 3 && d < bd) { bd = d; best = c; } }                  // (the nearest one under the finger, with a little slack)
     if (!best) return;
     try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* (the pointer is already gone) */ }
@@ -207,19 +220,19 @@ class CoinBagUI {
     if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 5) d.moved = true;
     d.vx = (p.x - d.lx) / dtm * 1000 * 0.5 + d.vx * 0.5; d.vy = (p.y - d.ly) / dtm * 1000 * 0.5 + d.vy * 0.5; d.lx = p.x; d.ly = p.y; d.lt = now;
     d.coin.x = p.x; d.coin.y = p.y; d.coin.px = p.x; d.coin.py = p.y;
-    d.out = !p.in; this._ghostAt(d.out ? e : null, d.coin.t);
-    if (this.pay) this.pay.zone.classList.toggle('over', this._inZone(e));
+    d.out = !p.in; this._ghostAt(d.out ? this._pt(e) : null, d.coin.t);
+    if (this.pay) this.pay.zone.classList.toggle('over', this._inZone(this._pt(e)));
   }
   _up(e, cancelled) {
     const d = this.drag; if (!d || e.pointerId !== d.id) return;
     const p = this._local(e), c = d.coin, T = Coins.TIERS[c.t];
     if (this.pay) this.pay.zone.classList.remove('over');
     if (!cancelled && !p.in && d.moved && this.pay) {                                                   // paying: let go over the counter to put the coin down (anywhere else, it goes back in the bag)
-      if (this._inZone(e)) {
+      if (this._inZone(this._pt(e))) {
         this.coins.splice(this.coins.indexOf(c), 1); this.offered[c.t]++; this.pay.onOffer(this.offered.slice()); this._endDrag(); return;
       }
     } else if (!cancelled && !p.in && d.moved) {                                                         // let go over the world: drop it there
-      const w = this.camera.screenToWorld(e.clientX, e.clientY);
+      const q = this._pt(e), w = this.camera.screenToWorld(q.x, q.y);
       this.game.dropCoins(T.id, 1, w.x, w.y);
       this.coins.splice(this.coins.indexOf(c), 1); this.pendingOut[c.t]++; this.pendingT = 0;
       this._endDrag(); return;
@@ -238,7 +251,7 @@ class CoinBagUI {
     if (cancelled || !p.in || !this._inside(c)) { c.x = CoinBagUI.CX + (Math.random() - 0.5) * 10; c.y = 26 + c.r; c.vx = 0; c.vy = 0; c.px = c.x; c.py = c.y; }   // out of bounds: back in through the neck
     this._endDrag();
   }
-  _inZone(e) { const r = this.pay.zone.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; }
+  _inZone(q) { const r = this.pay.zone.getBoundingClientRect(); return q.x >= r.left && q.x <= r.right && q.y >= r.top && q.y <= r.bottom; }
   _inside(c) { return c.y >= 22 && c.y <= 165 && Math.abs(c.x - CoinBagUI.CX) <= CoinBagUI.halfWidth(Math.min(c.y, 134)) + 2; }
   _endDrag() { this.drag = null; this.canvas.classList.remove('grabbing'); this._ghostAt(null); }
   /** The coin that follows the pointer once it has left the bag (so it can be seen on its way to the world or the counter): the same pixel coin, a canvas of its own. */
@@ -246,9 +259,9 @@ class CoinBagUI {
     if (!e) { if (this.ghost) { this.ghost.remove(); this.ghost = null; } return; }
     if (!this.ghost || this.ghost.tier !== t || this.ghost.k !== this.S) {
       if (this.ghost) this.ghost.remove();
-      const r = CoinBagUI.radiusOf(t), c = CoinArt.canvas(t, r, this.S, 0.9); c.className = 'coinGhost'; c.tier = t; c.k = this.S;
+      const r = CoinBagUI.radiusOf(t), c = CoinArt.canvas(t, r, this.S, 0.9); c.className = 'coinGhost'; c.tier = t; c.k = this.S; c.style.width = c.width / this.S * (parseFloat(this.canvas.style.width) / CoinBagUI.W) + 'px'; c.style.height = c.height / this.S * (parseFloat(this.canvas.style.width) / CoinBagUI.W) + 'px';
       document.body.appendChild(c); this.ghost = c;
     }
-    const gs = this.ghost.style; gs.left = e.clientX - this.ghost.width / 2 + 'px'; gs.top = e.clientY - this.ghost.height / 2 + 'px';
+    const gs = this.ghost.style; gs.left = e.x - parseFloat(gs.width) / 2 + 'px'; gs.top = e.y - parseFloat(gs.height) / 2 + 'px';
   }
 }
