@@ -12,43 +12,70 @@
 
   /** A voiced sound: an oscillator that glides from `from` through `mid` to `to`, with an optional vibrato and formant filter. Used for calls and murmurs. */
   function voice(ctx, o, a) {
-    const { at = 0, len = 0.3, from = 300, mid = 0, to = 0, type = 'sawtooth', gain = 0.2, formant = 0, q = 2, vib = 0, vibRate = 7, attack = 0.02, hold = 0.5 } = a, g0 = gain * o.vol;
+    const { at = 0, len = 0.3, from = 300, mid = 0, to = 0, type = 'sawtooth', gain = 0.2, formant = 0, q = 2, f2 = 0, q2 = 3, vib = 0, vibRate = 7, am = 0, amRate = 30, attack = 0.02, hold = 0.5 } = a, g0 = gain * o.vol;
     if (g0 < 0.0004) return;
     const t = ctx.currentTime + LEAD + at, osc = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
     osc.type = type; osc.frequency.setValueAtTime(from, t); if (mid) osc.frequency.linearRampToValueAtTime(mid, t + len * 0.45); osc.frequency.linearRampToValueAtTime(to || mid || from, t + len);
     if (vib) { const lfo = ctx.createOscillator(), amt = ctx.createGain(); lfo.frequency.value = vibRate; amt.gain.value = from * vib; lfo.connect(amt); amt.connect(osc.frequency); lfo.start(t); lfo.stop(t + len + 0.05); }
     f.type = formant ? 'bandpass' : 'lowpass'; f.frequency.value = formant || Math.max(400, from * 3); f.Q.value = formant ? q : 0.7;
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(g0, t + attack); g.gain.setValueAtTime(g0, t + Math.max(attack, len * hold)); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    osc.connect(f); f.connect(g); let tail = g;
+    osc.connect(f); let src = f;
+    if (f2) { const fb = ctx.createBiquadFilter(), mix = ctx.createGain(); fb.type = 'bandpass'; fb.frequency.value = f2; fb.Q.value = q2; mix.gain.value = 0.7; osc.connect(fb); fb.connect(mix); mix.connect(g); }   // a second vowel formant: it is what makes "baa" and "meow" sound like mouths
+    if (am) { const amp = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain(); amp.gain.value = 1 - am; depth.gain.value = am; lfo.frequency.value = amRate; lfo.connect(depth); depth.connect(amp.gain); lfo.start(t); lfo.stop(t + len + 0.05); src.connect(amp); src = amp; }   // a flutter in the loudness: the quaver of a bleat, the rattle of a growl
+    src.connect(g); let tail = g;
     if (o.pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = o.pan; g.connect(p); tail = p; }
     tail.connect(bus()); osc.start(t); osc.stop(t + len + 0.05);
   }
   const V = (ctx, o, a) => voice(ctx, o, a);
   const gentle = o => ({ vol: o && o.vol != null ? o.vol : 1, pan: o && o.pan || 0 });
 
-  /* ---- animal calls: each takes (ctx, o) with o = { vol, pan } ---- */
-  const growl = (c, o, deep = 1, len = 0.7) => { V(c, o, { from: 85 / deep, to: 62 / deep, len, gain: 0.22, formant: 320, q: 1, vib: 0.12, vibRate: 30 }); P(c, o, { len: len * 0.9, type: 'lowpass', freq: 600, gain: 0.1, attack: 0.04 }); };
+  /* ---- animal calls: each takes (ctx, o, mood) with o = { vol, pan } and mood 'idle' | 'pet' | 'feed' | 'refuse' ---- */
+  const growl = (c, o, deep = 1, len = 0.7) => { V(c, o, { from: 95 / deep, to: 60 / deep, len, gain: 0.24, formant: 300, q: 1, f2: 800, vib: 0.1, vibRate: 25, am: 0.7, amRate: 28 }); P(c, o, { len: len * 0.9, type: 'lowpass', freq: 600, gain: 0.12, attack: 0.05 }); };
+  const roar = (c, o, deep = 1, len = 1.1) => { V(c, o, { from: 150 / deep, mid: 210 / deep, to: 70 / deep, len, gain: 0.26, formant: 520, q: 1, f2: 1300, vib: 0.05, vibRate: 22, am: 0.5, amRate: 22, attack: 0.05, hold: 0.55 }); P(c, o, { len: len, type: 'lowpass', freq: 900, freq2: 300, gain: 0.16, attack: 0.08 }); };
+  const sparkle = (c, o, at = 0, n = 3, g = 0.05) => { for (let i = 0; i < n; i++) { const f = [1319, 1568, 1760, 2093, 2349][(rnd() * 5) | 0]; T(c, o, { at: at + i * 0.07, len: 0.3, from: f, to: f * 1.01, gain: g, type: 'sine' }); } };
+  const breath = (c, o, at = 0, len = 0.25, g = 0.07) => P(c, o, { at, len, freq: 1400, freq2: 700, q: 0.7, gain: g, attack: len * 0.35 });
+  /* the pony is a real horse with a storybook heart: a horse's nicker, whinny and snort, with a little glittering lilt on the end */
+  const nicker = (c, o, soft = 1) => { for (let i = 0; i < 4; i++) V(c, o, { at: i * 0.13, from: 215 - i * 12, to: 185 - i * 12, len: 0.12, gain: 0.15 * soft, formant: 520, q: 2, f2: 1300, q2: 3, am: 0.4, amRate: 40, attack: 0.02 }); breath(c, o, 0, 0.5, 0.05 * soft); };
+  const whinny = (c, o) => {
+    V(c, o, { from: 520, mid: 1050, to: 1500, len: 0.5, gain: 0.17, formant: 1300, q: 1.5, f2: 2700, q2: 3, vib: 0.03, vibRate: 14, attack: 0.04, hold: 0.7 });                  // the rising squeal
+    [0, 1, 2, 3, 4].forEach(i => V(c, o, { at: 0.5 + i * 0.13, from: 900 - i * 120, to: 700 - i * 130, len: 0.14, gain: 0.15 - i * 0.015, formant: 900, q: 1.8, f2: 1900, am: 0.35, amRate: 38, attack: 0.02 }));   // then the tumbling down
+    breath(c, o, 0.05, 0.4, 0.06); sparkle(c, o, 0.55, 4, 0.045);
+  };
+  const snort = (c, o) => { P(c, o, { len: 0.12, freq: 1600, freq2: 500, q: 0.8, gain: 0.2, attack: 0.01 }); P(c, o, { at: 0.17, len: 0.14, freq: 1400, freq2: 450, q: 0.8, gain: 0.17, attack: 0.01 }); T(c, o, { len: 0.1, from: 160, to: 110, gain: 0.06, type: 'triangle' }); };
   const CALLS = {
-    chicken: (c, o) => [0, 0.11, 0.2].forEach(k => V(c, o, { at: k, from: 720, to: 520, len: 0.07, type: 'triangle', gain: 0.2, formant: 1400, q: 1.5 })),
-    duck: (c, o) => [0, 0.22].forEach(k => V(c, o, { at: k, from: 500, to: 330, len: 0.16, gain: 0.17, formant: 1000, q: 2 })),
-    sheep: (c, o) => V(c, o, { from: 360, mid: 340, to: 290, len: 0.75, gain: 0.2, formant: 900, q: 3, vib: 0.06, vibRate: 22 }),
-    goat: (c, o) => V(c, o, { from: 520, mid: 470, to: 400, len: 0.5, gain: 0.2, formant: 1100, q: 3, vib: 0.08, vibRate: 28 }),
-    pony: (c, o) => { V(c, o, { from: 520, mid: 1000, to: 440, len: 0.95, gain: 0.18, formant: 1400, q: 1.5, vib: 0.03, vibRate: 9, hold: 0.6 }); P(c, o, { at: 0.05, len: 0.5, type: 'highpass', freq: 2500, gain: 0.05, attack: 0.1 }); },
-    dog: (c, o) => [0, 0.22].forEach(k => { V(c, o, { at: k, from: 340, to: 200, len: 0.12, gain: 0.22, formant: 800, q: 2 }); P(c, o, { at: k, len: 0.08, freq: 900, gain: 0.12 }); }),
-    cat: (c, o) => V(c, o, { from: 560, mid: 920, to: 620, len: 0.55, type: 'triangle', gain: 0.17, formant: 1800, q: 2, vib: 0.02, vibRate: 6 }),
-    wolf: (c, o) => V(c, o, { from: 300, mid: 540, to: 380, len: 1.9, gain: 0.14, formant: 700, q: 2, vib: 0.02, vibRate: 5, hold: 0.7 }),
-    lion: (c, o) => growl(c, o, 1, 0.9), panther: (c, o) => growl(c, o, 1, 0.8), bear: (c, o) => growl(c, o, 1.3, 1), manticore: (c, o) => growl(c, o, 1, 1),
-    dragon: (c, o) => growl(c, o, 1.5, 1.2), boar: (c, o) => [0, 0.26].forEach(k => { V(c, o, { at: k, from: 120, to: 85, len: 0.18, gain: 0.22, formant: 400, q: 1.5 }); P(c, o, { at: k, len: 0.12, type: 'lowpass', freq: 700, gain: 0.1 }); }),
-    beastman: (c, o) => [0, 0.2].forEach(k => V(c, o, { at: k, from: 150, to: 100, len: 0.17, gain: 0.2, formant: 500, q: 1.5 })),
-    deer: (c, o) => P(c, o, { len: 0.28, freq: 900, freq2: 600, q: 1, gain: 0.13, attack: 0.04 }),
-    elk: (c, o) => V(c, o, { from: 320, mid: 760, to: 420, len: 1.2, type: 'sine', gain: 0.15, formant: 600, q: 1.5, vib: 0.02, vibRate: 6 }),
-    fox: (c, o) => [0, 0.17].forEach(k => V(c, o, { at: k, from: 800, to: 1100, len: 0.1, gain: 0.17, formant: 1800, q: 2 })),
-    owl: (c, o) => [0, 0.45].forEach(k => V(c, o, { at: k, from: 400, to: 350, len: 0.32, type: 'sine', gain: 0.17, formant: 500, q: 4 })),
+    chicken: (c, o, m) => {                                                                               // bk-bk-bk-BAWK (a contented trickle of clucks when fed or stroked)
+      const n = m === 'idle' ? 3 : 2; for (let i = 0; i < n; i++) V(c, o, { at: i * 0.11, from: 560 - i * 20, to: 400, len: 0.08, type: 'sawtooth', gain: 0.17, formant: 1100, q: 2, f2: 2300, attack: 0.008 });
+      if (m === 'idle' || m === 'feed') V(c, o, { at: n * 0.11 + 0.05, from: 420, mid: 780, to: 460, len: 0.32, gain: 0.18, formant: 1200, q: 1.8, f2: 2400, am: 0.3, amRate: 55, attack: 0.02 });
+    },
+    duck: (c, o, m) => [0, 0.2, 0.38].slice(0, m === 'idle' ? 3 : 2).forEach((k, i) => V(c, o, { at: k, from: 430 - i * 30, to: 300, len: 0.16, gain: 0.2, formant: 900, q: 2, f2: 2000, q2: 2, am: 0.35, amRate: 70, attack: 0.012 })),   // quack, quack
+    sheep: (c, o) => { V(c, o, { from: 330, mid: 390, to: 290, len: 0.9, gain: 0.2, formant: 700, q: 3, f2: 1500, q2: 3, vib: 0.045, vibRate: 24, am: 0.4, amRate: 33, attack: 0.05, hold: 0.55 }); P(c, o, { len: 0.7, freq: 900, q: 1, gain: 0.04, attack: 0.1 }); },       // baaaa
+    goat: (c, o, m) => { V(c, o, { from: 520, mid: 600, to: 400, len: m === 'idle' ? 0.8 : 0.5, gain: 0.2, formant: 1000, q: 3, f2: 2000, q2: 3, vib: 0.1, vibRate: 30, am: 0.55, amRate: 45, attack: 0.04, hold: 0.5 }); },                        // a quavering maaaeh
+    pony: (c, o, m) => { if (m === 'idle') (rnd() < 0.55 ? whinny : snort)(c, o); else if (m === 'refuse') snort(c, o); else { nicker(c, o, m === 'feed' ? 1 : 0.8); sparkle(c, o, 0.5, m === 'feed' ? 3 : 2, 0.04); } },
+    dog: (c, o, m) => {
+      if (m === 'pet' || m === 'refuse') { V(c, o, { from: 700, to: 420, len: 0.4, gain: 0.12, formant: 900, q: 2, f2: 1800, vib: 0.04, vibRate: 7, attack: 0.04 }); return; }      // a happy whine
+      const n = m === 'feed' ? 1 : 2 + (rnd() < 0.4 ? 1 : 0);
+      for (let i = 0; i < n; i++) { V(c, o, { at: i * 0.24, from: 520, mid: 400, to: 230, len: 0.14, gain: 0.26, formant: 650, q: 1.5, f2: 1400, q2: 2, am: 0.25, amRate: 80, attack: 0.008 }); P(c, o, { at: i * 0.24, len: 0.09, freq: 1100, q: 0.8, gain: 0.16, attack: 0.005 }); }           // woof, woof
+    },
+    cat: (c, o, m) => {
+      if (m === 'pet' || m === 'feed') { const n = 7; for (let i = 0; i < n; i++) V(c, o, { at: i * 0.1, from: 28, to: 26, len: 0.11, type: 'sawtooth', gain: 0.5, formant: 120, q: 1, f2: 380, attack: 0.012 }); P(c, o, { len: 0.7, type: 'lowpass', freq: 500, gain: 0.04, attack: 0.15 }); return; }   // a purr
+      V(c, o, { from: 600, mid: 820, to: 560, len: 0.14, type: 'sawtooth', gain: 0.15, formant: 2200, q: 3, f2: 3200, attack: 0.02 });                              // "mee..."
+      V(c, o, { at: 0.12, from: 780, mid: 900, to: 480, len: 0.5, type: 'sawtooth', gain: 0.17, formant: 1000, q: 2.5, f2: 1900, q2: 3, vib: 0.02, vibRate: 6, attack: 0.03, hold: 0.45 });   // "...ow"
+    },
+    rabbit: (c, o, m) => { if (m === 'idle') { T(c, o, { len: 0.08, from: 110, to: 60, gain: 0.25 }); T(c, o, { at: 0.12, len: 0.08, from: 105, to: 58, gain: 0.2 }); } else { V(c, o, { from: 1900, to: 1500, len: 0.1, type: 'sine', gain: 0.06, formant: 1800, q: 2 }); P(c, o, { at: 0.12, len: 0.18, freq: 2600, q: 0.8, gain: 0.04, attack: 0.04 }); } },   // a thump of the back foot, or a tiny squeak and snuffle
+    wolf: (c, o) => { V(c, o, { from: 280, mid: 600, to: 420, len: 2.2, type: 'triangle', gain: 0.16, formant: 600, q: 2, f2: 1200, vib: 0.025, vibRate: 5, attack: 0.3, hold: 0.7 }); V(c, o, { at: 0.2, from: 285, mid: 640, to: 400, len: 2.0, type: 'triangle', gain: 0.08, formant: 700, q: 2, vib: 0.03, vibRate: 5.6, attack: 0.3, hold: 0.7 }); P(c, o, { len: 2, freq: 900, q: 1, gain: 0.025, attack: 0.5 }); },   // a long howl, doubled for the echo in it
+    lion: (c, o) => roar(c, o, 1, 1.2), panther: (c, o) => growl(c, o, 0.9, 0.8), bear: (c, o) => growl(c, o, 1.3, 1), manticore: (c, o) => roar(c, o, 1.1, 1),
+    dragon: (c, o) => roar(c, o, 1.7, 1.4), boar: (c, o) => [0, 0.28].forEach(k => { V(c, o, { at: k, from: 150, to: 95, len: 0.2, gain: 0.24, formant: 380, q: 1.5, f2: 1000, am: 0.5, amRate: 45 }); P(c, o, { at: k, len: 0.14, type: 'lowpass', freq: 800, gain: 0.12 }); }),   // grunt, grunt
+    beastman: (c, o) => [0, 0.22].forEach(k => V(c, o, { at: k, from: 150, to: 100, len: 0.17, gain: 0.2, formant: 500, q: 1.5, f2: 1100 })),
+    deer: (c, o, m) => { if (m === 'idle') { P(c, o, { len: 0.14, freq: 1100, freq2: 600, q: 0.8, gain: 0.16, attack: 0.01 }); P(c, o, { at: 0.2, len: 0.14, freq: 1000, freq2: 600, q: 0.8, gain: 0.12, attack: 0.01 }); } else V(c, o, { from: 560, mid: 520, to: 450, len: 0.35, gain: 0.14, formant: 900, q: 2, f2: 1700, am: 0.4, amRate: 40, attack: 0.03 }); },   // a startled blow, or a soft bleat
+    elk: (c, o) => { V(c, o, { from: 330, mid: 900, to: 450, len: 1.3, type: 'sine', gain: 0.14, formant: 700, q: 1.5, f2: 2000, vib: 0.02, vibRate: 6, attack: 0.08 }); V(c, o, { at: 0.05, from: 335, mid: 910, to: 440, len: 1.2, type: 'triangle', gain: 0.07, formant: 900, q: 2, attack: 0.08 }); },     // the bugle
+    fox: (c, o) => [0, 0.17].forEach(k => V(c, o, { at: k, from: 800, to: 1150, len: 0.1, gain: 0.17, formant: 1700, q: 2, f2: 2800 })),
+    owl: (c, o) => { V(c, o, { from: 420, to: 340, len: 0.3, type: 'sine', gain: 0.18, formant: 450, q: 4, attack: 0.05 }); V(c, o, { at: 0.42, from: 400, to: 330, len: 0.55, type: 'sine', gain: 0.18, formant: 450, q: 4, attack: 0.05 }); },       // hoo... hooooo
     bat: (c, o) => [0, 0.08, 0.16].forEach(k => V(c, o, { at: k, from: 4200, to: 3600, len: 0.05, type: 'sine', gain: 0.08 })),
-    snake: (c, o) => P(c, o, { len: 0.75, type: 'highpass', freq: 3500, gain: 0.1, attack: 0.1 }),
+    snake: (c, o) => P(c, o, { len: 0.9, type: 'highpass', freq: 3500, gain: 0.11, attack: 0.15 }),
     spider: (c, o) => { for (let i = 0; i < 6; i++) P(c, o, { at: i * 0.045, len: 0.02, type: 'highpass', freq: 2600, gain: 0.07 }); },
-    monkey: (c, o) => { for (let i = 0; i < 4; i++) V(c, o, { at: i * 0.09, from: 900, to: 1400, len: 0.08, type: 'triangle', gain: 0.13, formant: 1600, q: 2 }); },
-    toucan: (c, o) => [0, 0.3].forEach(k => V(c, o, { at: k, from: 340, to: 270, len: 0.26, gain: 0.17, formant: 700, q: 2 })),
+    monkey: (c, o) => { for (let i = 0; i < 5; i++) V(c, o, { at: i * 0.09, from: 800 + rnd() * 200, to: 1400, len: 0.08, type: 'triangle', gain: 0.13, formant: 1600, q: 2, f2: 2600 }); },
+    toucan: (c, o) => [0, 0.3].forEach(k => V(c, o, { at: k, from: 340, to: 270, len: 0.26, gain: 0.17, formant: 700, q: 2, f2: 1500, am: 0.3, amRate: 70 })),
+    fly: (c, o) => V(c, o, { from: 190, to: 170, len: 0.4, gain: 0.05, formant: 600, q: 2, am: 0.8, amRate: 110 }),
     slime: (c, o) => Sfx.slime(o.vol, o.pan)
   };
   const ALIAS = { centipede: 'spider', lemur: 'monkey', dragon_whelp: 'dragon', dragon_young: 'dragon', elder_dragon: 'dragon', bear_cub: 'cat', boss_ancient_dragon: 'dragon', boss_broodmother: 'spider', boss_cave_bear: 'bear', boss_centipede_queen: 'spider', boss_drake_matriarch: 'dragon' };
@@ -140,7 +167,8 @@
       P(c, o, { len: splat ? 0.3 : 0.17, freq: 500, freq2: 1300, q: 1.5, gain: splat ? 0.22 : 0.12, attack: 0.03 }); V(c, o, { from: 190, mid: 480, to: 260, len: splat ? 0.3 : 0.2, type: 'sine', gain: splat ? 0.2 : 0.12, formant: 600, q: 3 });
       T(c, o, { at: 0.08, len: 0.07, from: 320 + rnd() * 150, to: 720, gain: 0.07 });
     },
-    call(type, def, v = 1, pan = 0) { const c = ready(), f = callOf(type, def); if (c && f) f(c, { vol: Math.min(1, v * 1.5), pan }); },
+    whinnyCall(v = 1, pan = 0) { const c = ready(); if (c) whinny(c, { vol: Math.min(1, v * 1.5), pan }); },
+    call(type, def, v = 1, pan = 0, mood = 'idle') { const c = ready(), f = callOf(type, def); if (c && f) f(c, { vol: Math.min(1, v * 1.5), pan }, mood); },
     /** The experimental NPC murmur: a string of soft syllables (a voice through two vowel formants), `len` seconds long, `pitch` Hz. */
     murmur(len, pitch, v = 1, pan = 0) {
       const c = ready(); if (!c || v < 0.02) return; const o = { vol: v, pan };
@@ -183,7 +211,10 @@
       on('harvested', e => this._at(e, (v, p) => Sfx.pluck(v, p)));
       on('eat', e => { if (mine(e)) Sfx.eat(1); });
       on('drink', e => { if (mine(e)) Sfx.drink(1); });
-      on('fed', e => { if (mine(e)) this._at(e, (v, p) => setTimeout(() => Sfx.munch(v, p), 150)); });
+      on('fed', e => { if (mine(e)) { this._at(e, (v, p) => setTimeout(() => Sfx.munch(v, p), 150)); this._react(e, 'feed', 700); } });                  // a caught pony eating its apple
+      on('animalReact', e => { if (mine(e)) { if (e.mood === 'feed') this._at(e, (v, p) => setTimeout(() => Sfx.munch(v, p), 100)); this._react(e, e.mood, e.mood === 'feed' ? 550 : 0); } });   // you clicked an animal: stroked, fed or turned away
+      on('gave', e => { if (mine(e)) this._react(e, 'feed', 300); });
+      on('tamed', e => { if (mine(e)) this._react(e, 'idle', 1400, true); });
       on('mounted', e => { if (mine(e)) Sfx.mount(1); });
       on('enteredCave', e => { if (mine(e)) Sfx.cave(1); });
       on('door', e => this._at({ x: e.tx + 0.5, y: e.ty + 0.5 }, (v, p) => Sfx.door(e.open, v, p), 14));
@@ -200,6 +231,14 @@
       if (!p || x === undefined || y === undefined) return fn(1, 0);
       const dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy); if (d > range) return;
       fn(Math.pow(1 - d / range, 1.3), clampv((dx - dy) / 10, -1, 1) * 0.7);
+    }
+
+    /** The animal e.id answers you in its own voice (after `delay` ms). Always loud enough to hear: you are right beside it. `cheer` makes a pony whinny. */
+    _react(e, mood, delay = 0, cheer = false) {
+      const a = this.game.latestAnimals && this.game.latestAnimals()[e.id], type = a ? a.type : e.animal, def = AnimalDefs[type]; if (!def || !callOf(type, def)) return;
+      this.lastCall = this.t;
+      const go = () => this._at(e, (v, p) => { if (cheer && def.pony) Sfx.whinnyCall(Math.max(0.5, v), p); else Sfx.call(type, def, Math.max(0.55, v), p, mood); }, 30);
+      delay ? setTimeout(go, delay) : go();
     }
 
     /** Someone is talking to a villager (the dialogue just opened): a short greeting murmur. */
@@ -243,9 +282,9 @@
         }
         if (!def || !callOf(a.type, def)) continue;
         const hostile = !!(def.hostile || def.boss), eager = hostile && a.state === 'chase';
-        if (this.nextCall[id] === undefined) this.nextCall[id] = this.t + 3 + rnd() * 14;
+        if (this.nextCall[id] === undefined) this.nextCall[id] = this.t + (def.pony ? 60 + rnd() * 240 : 3 + rnd() * 14);
         if (this.t >= this.nextCall[id] && this.t - this.lastCall > 1.2) {
-          this.nextCall[id] = this.t + (eager ? 2.5 + rnd() * 3 : hostile ? 14 + rnd() * 20 : 12 + rnd() * 26); this.lastCall = this.t;
+          this.nextCall[id] = this.t + (eager ? 2.5 + rnd() * 3 : def.pony ? 150 + rnd() * 250 : hostile ? 14 + rnd() * 20 : 12 + rnd() * 26); this.lastCall = this.t;           // (ponies are shy of making noise: one call every few minutes, if that)
           Sfx.call(a.type, def, vol, pan);
         }
         if (!hostile && !moving && a.state === 'idle' && ['sheep', 'goat', 'deer', 'elk', 'rabbit'].includes(a.type) || (def.pony && !moving && a.state === 'idle')) {

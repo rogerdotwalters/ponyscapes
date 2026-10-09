@@ -24,7 +24,9 @@ Object.assign(GameServer.prototype, {
     if (held && Wants.accepts(a, held) && InteractionHandlers.give) { InteractionHandlers.give(this, id, p, { animal: a }); return; }
     if (!canBefriendAnimal(a.type) || a.rider) return;
     const food = held && inventory.has(held, 1) && ItemDefs[held] && ItemDefs[held].food;
-    if (act === 'feed' && food) this._treat(id, p, { animal: a });                 // (a disliked treat says so itself)
+    let mood = 'pet';
+    if (act === 'feed' && food) { const r = this._treat(id, p, { animal: a }); mood = r ? 'feed' : 'refuse'; }                 // (a disliked treat says so itself)
     else this.friendship.act(id, a, 'pet');
+    this.pendingEvents.push({ type: 'animalReact', to: id, id: a.id, x: a.x, y: a.y, mood });       // the animal answers (client: a call that suits it)
   }
 });

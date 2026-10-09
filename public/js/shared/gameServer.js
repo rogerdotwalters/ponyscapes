@@ -719,7 +719,7 @@ class GameServer {
     inventory.remove(p.held, 1); this.inventoryRev[id]++;
     const result = this.animals.feed(animal.id, id, Buildings.appleDiscountAt(this.mapOf(animal), animal.x, animal.y));
     this.progress.award(id, 'horsemanship', 12);
-    this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need });
+    this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need, id: animal.id });
     if (!result.done) return;                                                  // (the client shows "Apple 1/2")
     this._remember(id, animal);
     this._returnLasso(id, animal);                                                                        // (older saves only)
