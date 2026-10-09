@@ -54,19 +54,32 @@ const DungeonState = { opened: new Set(), key: (grid, tx, ty) => `${grid}|${tx}|
 /** One room of a room dungeon, at its own coordinates: tile (x, y) of the room's picture is tile (x, y) here, everything outside it is rock.
  *  Entrance patch (2) = the way back, exit patch (3) = the way on, chests (5) are props; spawn nodes and named enemies are placed by DungeonSystem. */
 class DungeonRoomPlan {
-  constructor(grid, dungeon, index, room) { this.grid = grid; this.dungeon = dungeon; this.index = index; this.room = room; this.ring = dungeon.ring; }
-  tileAt(tx, ty) { return this.room.walkable(tx, ty) ? TILE.CAVE : TILE.CAVE_WALL; }
+  constructor(grid, dungeon, index, room) {
+    this.grid = grid; this.dungeon = dungeon; this.index = index; this.room = room; this.ring = dungeon.ring;
+    this.seed = 7001 + dungeon.rooms.length * 31 + index * 977 + room.w * 13 + room.h;               // (decides where the pools and spires are: the same on every machine)
+    this.pools = new PerlinNoise(this.seed);
+    this.mouths = new Set([room.entrances, room.exits].filter(t => t.length).map(t => { const m = this._middle(t); return m.y * room.w + m.x; }));   // the middle tile of the entrance and the exit patch is a cave mouth: a block of rock with an arch
+    this.clear = new Set();                                                                              // tiles kept free of pools and spires: round every marker, so a chest or a way on is never in water or behind a spire
+    for (const list of [room.entrances, room.exits, room.chests, room.spawns, room.enemies]) for (const t of list) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) this.clear.add((t.y + dy) * room.w + t.x + dx);
+  }
+  /** Is this floor tile under a pool? (blobs of shallow water, never near a marker, never on a code tile) */
+  isPool(tx, ty) {
+    const R = this.room;
+    return R.code(tx, ty) === RoomCode.FLOOR && !this.clear.has(ty * R.w + tx) && this.pools.fractal(tx / 8, ty / 8, 2) > 0.2;
+  }
+  tileAt(tx, ty) { return this.room.walkable(tx, ty) ? (this.isPool(tx, ty) ? TILE.SHALLOW : TILE.CAVE) : TILE.CAVE_WALL; }
   /** Rock you can see is a block: a wall tile touching floor. (The deep rock behind it stays flat dark ground.) A wall on the south / east side of the floor is LOW so you
-   *  can see over it; on the north / west it is tall, like a room's walls. */
+   *  can see over it; on the north / west it is tall, like a room's walls. The entrance and the exit are cave mouths. */
   objAt(tx, ty) {
     const R = this.room;
+    if (this.mouths.has(ty * R.w + tx)) return OBJ.CAVEMOUTH_IN;
     if (R.walkable(tx, ty)) return OBJ.NONE;
     let near = false;
     for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && R.walkable(tx + dx, ty + dy)) { near = true; break; }
     if (!near) return OBJ.NONE;
     return R.walkable(tx, ty - 1) || R.walkable(tx - 1, ty) || R.walkable(tx - 1, ty - 1) ? OBJ.CAVEROCK_LOW : OBJ.CAVEROCK_TALL;
   }
-  solidAt(tx, ty) { return !this.room.walkable(tx, ty); }
+  solidAt(tx, ty) { return !this.room.walkable(tx, ty) || this.mouths.has(ty * this.room.w + tx); }
   get first() { return this.index === 0; }
   get last() { return this.index === this.dungeon.rooms.length - 1; }
   /** The tile of a patch (entrance / exit) nearest its middle. */
@@ -81,7 +94,7 @@ class DungeonRoomPlan {
     for (let r = 1; r <= 6 && !best; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       const x = mid.x + dx, y = mid.y + dy;
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || !R.walkable(x, y) || patch.has(y * R.w + x) || R.code(x, y) !== RoomCode.FLOOR) continue;
-      const d = Math.hypot(dx, dy); if (!best || d < best.d) best = { x, y, d };
+      const d = Math.hypot(dx, dy) - (dy > 0 ? 0.35 : 0); if (!best || d < best.d) best = { x, y, d };
     }
     return best ? { x: best.x + 0.5, y: best.y + 0.5 } : { x: mid.x + 0.5, y: mid.y + 0.5 };
   }
@@ -90,19 +103,21 @@ class DungeonRoomPlan {
   exitPoint() { const m = this._middle(this.room.entrances); return { x: m.x + 0.5, y: m.y + 0.5 }; }
   /** The entrance / exit patches as { x0, y0, x1, y1 } boxes in tiles (to see how near you are). */
   patch(kind) { const t = kind === 'entrance' ? this.room.entrances : this.room.exits; return t.map(p => [p.x, p.y, p.x + 1, p.y + 1]); }
-  /** Glowing portals mark the way back and the way on; a chest stands on every chest tile. */
+  /** A chest stands on every chest tile, and stalagmites (blocking little spires) stand about the floor, more of them by the walls. (The mouths are blocks, not props.) */
   propsIn(cx, cy) {
-    const R = this.room, out = [], here = (x, y) => (x >> CHUNK_SHIFT) === cx && (y >> CHUNK_SHIFT) === cy;
-    for (const tiles of [R.entrances, R.exits]) {
-      const m = this._middle(tiles);
-      if (here(m.x, m.y)) out.push({ tile: [m.x, m.y], prop: { t: 'portal', x: m.x + 0.5, y: m.y + 0.5, r: 0.2, v: this.ring, ring: this.ring } });
+    const R = this.room, out = [], x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
+    for (const c of R.chests) if ((c.x >> CHUNK_SHIFT) === cx && (c.y >> CHUNK_SHIFT) === cy) out.push({ tile: [c.x, c.y], prop: { t: 'dungeon_chest', x: c.x + 0.5, y: c.y + 0.5, r: 0.32 / TILE_SCALE, v: 0, opened: DungeonState.opened.has(DungeonState.key(this.grid, c.x, c.y)) } });
+    for (let ty = y0; ty < y0 + CHUNK_SIZE; ty++) for (let tx = x0; tx < x0 + CHUNK_SIZE; tx++) {
+      if (R.code(tx, ty) !== RoomCode.FLOOR || this.clear.has(ty * R.w + tx) || this.isPool(tx, ty)) continue;
+      const h = hash3(this.seed, tx, ty, 5);
+      if (h >= 0.09) continue;
+      let wall = false; for (let dy = -1; dy <= 1 && !wall; dy++) for (let dx = -1; dx <= 1; dx++) if (!R.walkable(tx + dx, ty + dy)) { wall = true; break; }
+      if (h < (wall ? 0.075 : 0.011)) out.push({ tile: [tx, ty], prop: { t: 'stalagmite', x: tx + 0.5 + (hash3(this.seed, tx, ty, 6) - 0.5) * 0.4, y: ty + 0.5 + (hash3(this.seed, tx, ty, 7) - 0.5) * 0.4, r: 0.28 / TILE_SCALE, v: Math.floor(hash3(this.seed, tx, ty, 8) * 6) } });
     }
-    for (const c of R.chests) if (here(c.x, c.y)) out.push({ tile: [c.x, c.y], prop: { t: 'dungeon_chest', x: c.x + 0.5, y: c.y + 0.5, r: 0.32 / TILE_SCALE, v: 0, opened: DungeonState.opened.has(DungeonState.key(this.grid, c.x, c.y)) } });
     return out;
   }
 }
 
-/** A grid that is not the overworld: its chunks come from its plan (a RoomPlan or a CavePlan). */
 class InstanceWorld extends World {
   constructor(seed, grid, kind, plan) {
     super(seed, { seed: seed | 0, layers: NO_LAYERS, tile: (tx, ty) => plan.tileAt(tx, ty), biomeAt: () => 'normal', hasTree: () => false, appleTreeAt: () => false });

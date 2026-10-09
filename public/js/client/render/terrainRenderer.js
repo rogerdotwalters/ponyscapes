@@ -12,6 +12,7 @@ const TerrainRenderer = (() => {
   /** Ground colours and effects by biome come from the BIOME TABLE (js/data/biomes/): [grass x3, dirt x3]. A biome with ground: null uses the plain meadow colours. */
   const GROUND = Object.fromEntries(Biomes.all().filter(b => b.ground).map(b => [b.id, [b.ground.grass, b.ground.dirt]]));
   const EFFECT = Object.fromEntries(Biomes.all().filter(b => b.effect && BiomeEffects.has(b.effect)).map(b => [b.id, BiomeEffects.get(b.effect)]));
+  const CAVE_POOL = ['#1f4a5e', '#214f64', '#1c4457'];                                    // a cave pool: dark, clear water over the stone
   const CAVE_FLOOR = ['#2b2f3a', '#30343f', '#272b35'], CAVE_WALL = ['#15171e', '#181b22', '#12141a'];
 
   let season = 'spring', today = 0;
@@ -84,13 +85,14 @@ const TerrainRenderer = (() => {
     if (type === TILE.CAVE_WALL) return look('cave', CAVE_WALL, false);
     if (type === TILE.STONE) return look('stone', STONE, false);
     if (type === TILE.WATER) return look('water', WATER, false);
-    if (type === TILE.SHALLOW) return look('shallow', SHALLOW, false);
+    if (type === TILE.SHALLOW) return look('shallow', map.kind === 'dungeon' ? CAVE_POOL : SHALLOW, false);
     return null;
   }
   const scratch = document.createElement('canvas'), tint = document.createElement('canvas');
   scratch.width = tint.width = AutoTile.TW; scratch.height = tint.height = AutoTile.TH;
   const sc = scratch.getContext('2d'), tc = tint.getContext('2d');
   const ART = AutoTile.TW / (2 * TILE_HALF_W);                                        // art pixels per world pixel
+  const CAVE_FOAM = '#5f8fa0';                                                          // a cave pool's edge: wet stone, not surf
   const FOAM = '#eef8fb', SHALLOW_RIM = 'rgba(190,235,245,.7)', WET = 'rgba(30,55,80,.3)';
   const watery = l => !!l && !!AutoTile.WATERY[l.kind];
   /** Paint over a tile the fringes of every neighbouring ground that outranks it. Land running out over water is the SHORE: the outer half of
@@ -114,7 +116,7 @@ const TerrainRenderer = (() => {
         tc.globalCompositeOperation = 'destination-out'; tc.drawImage(thin.fill, 0, 0);
         sc.globalCompositeOperation = 'source-atop'; sc.drawImage(tint, 0, 0);
       }
-      const rim = !watery(here) ? l.dark : watery(l) ? SHALLOW_RIM : FOAM;             // a dark outline on land; on water, foam where the beach meets it
+      const rim = !watery(here) ? l.dark : watery(l) ? SHALLOW_RIM : map.kind === 'dungeon' ? CAVE_FOAM : FOAM;             // a dark outline on land; on water, foam where the beach meets it
       tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = rim; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
       tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.rim, 0, 0);
       sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // and a dark rim where it meets this tile's own ground
@@ -220,7 +222,7 @@ const TerrainRenderer = (() => {
         const here = lookOf(map, tx, ty, type);
         if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, here); }
         ripples(ctx, type === TILE.SHALLOW, tx, ty, cx, cy, t);
-        surf(ctx, map, tx, ty, cx, cy, here, t);                                          // waves washing up the shore
+        if (map.kind !== 'dungeon') surf(ctx, map, tx, ty, cx, cy, here, t);                                          // waves washing up the shore
       }
       else if (type >= INTERIOR_TILE_BASE) { diamondPath(ctx, cx, cy); InteriorSprites.tile(ctx, type, cx, cy, tx, ty); }   // a room's floor (or the dark outside it)
       else {

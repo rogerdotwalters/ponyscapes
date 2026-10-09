@@ -100,18 +100,20 @@ function makeCave({ w, h, seed, fill = 0.47, spawns = 4, chests = 1, enemies = [
   const biggest = sizes.indexOf(Math.max(...sizes.slice(1)));
   for (let i = 0; i < g.length; i++) if (g[i] === F && label[i] !== biggest) g[i] = W;
   const floors = []; for (let i = 0; i < g.length; i++) if (g[i] === F) floors.push(i);
-  let start = floors[0]; for (const i of floors) if (i % w + rng() * 3 < start % w) start = i;                 // entrance: the western end ...
-  if (h > w * 1.2) { start = floors[0]; for (const i of floors) if (Math.floor(i / w) + rng() * 3 < Math.floor(start / w)) start = i; }      // ... or the northern end of a tall cave
+  // the entrance and the exit are cave MOUTHS: a single tile set into a wall (rock to the north, open floor to the south), at the two far ends of the cave
+  const inRange = i => { const x = i % w, y = (i - x) / w; return x >= 3 && x < w - 3 && y >= 2 && y < h - 3; };
+  const spots0 = floors.filter(i => inRange(i) && at(g, i % w, Math.floor(i / w) - 1) === W && at(g, i % w, Math.floor(i / w) + 1) === F);
+  if (!spots0.length) return null;
+  const tall = h > w * 1.2, along = i => (tall ? Math.floor(i / w) : i % w);
+  let start = spots0[0]; for (const i of spots0) if (along(i) + rng() * 3 < along(start)) start = i;                    // entrance: the western end (the northern end of a tall cave) ...
   const fromStart = bfs(start, n => g[n] !== W);
-  let end = start; for (const i of floors) if (fromStart[i] > fromStart[end]) end = i;                           // exit: as far from it as you can walk
-  const patch = (centre, code, r) => {
+  let end = start; for (const i of spots0) if (fromStart[i] > fromStart[end]) end = i;                                  // exit: as far from it as you can walk
+  const mouth = (centre, code) => {
     const cx = centre % w, cy = (centre - cx) / w;
-    for (let dy = -r - 1; dy <= r + 1; dy++) for (let dx = -r - 1; dx <= r + 1; dx++) {
-      const x = cx + dx, y = cy + dy; if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) <= r) g[y * w + x] = code; else if (g[y * w + x] === W) g[y * w + x] = F;       // the patch, and a floor ring round it to land on
-    }
+    for (let dx = -2; dx <= 2; dx++) { const x = cx + dx; if (x < 1 || x >= w - 1) continue; g[cy * w + x] = W; for (let dy = 1; dy <= 2; dy++) if (cy + dy < h - 1) g[(cy + dy) * w + x] = F; if (dx >= -1 && dx <= 1) g[(cy - 1) * w + x] = W; }
+    g[centre] = code;                                                                                                  // (the wall segment is five tiles wide, with the mouth in the middle and a landing in front of it)
   };
-  patch(start, RoomCode.ENTRANCE, 1); patch(end, RoomCode.EXIT, 1);
+  mouth(start, RoomCode.ENTRANCE); mouth(end, RoomCode.EXIT);
   const dist = bfs(start, n => g[n] !== W), far = Math.max(...floors.map(i => dist[i]));
   const spots = (ok, count, spacing, taken) => {                                  // random floor tiles far enough from each other
     const pool = floors.filter(i => g[i] === F && ok(i)), out = [];
@@ -130,7 +132,8 @@ function makeCave({ w, h, seed, fill = 0.47, spawns = 4, chests = 1, enemies = [
     for (const i of got) { g[i] = RoomCode.CHEST; taken.push(i); }
     if (taken.filter(i => g[i] === RoomCode.CHEST).length >= chests) break;
   }
-  return Array.from({ length: h }, (_, y) => Array.from(g.subarray(y * w, (y + 1) * w)));
+  const rows = Array.from({ length: h }, (_, y) => Array.from(g.subarray(y * w, (y + 1) * w)));
+  return CaveRoom.fromRows('t', rows).problems().length ? null : rows;                     // (null: this cave came out unusable, try another seed)
 }
 
 /** Write a room's 2D list as a PNG: the viewable 8-bit palette, or 16-bit if it names an enemy the palette cannot draw. */
@@ -148,7 +151,11 @@ function samples() {
     { id: 'cavern_2', w: 64, h: 64, seed: 22, spawns: 7, chests: 2, enemies: [ids.boar, ids.boar, ids.wolf] },                      // a bigger one with named enemies
     { id: 'cavern_3', w: 100, h: 150, seed: 33, spawns: 14, chests: 3, enemies: [ids.panther, ids.snake, ids.boar, ids.wolf, ids.bear] }   // a deep, tall cavern (100 wide, 150 tall)
   ];
-  for (const m of made) { writePng(m.id, makeCave(m)); console.log(`made ${m.id}.png (${m.w}x${m.h})`); }
+  for (const m of made) {
+    let rows = null, seed = m.seed;
+    while (!(rows = makeCave(Object.assign({}, m, { seed })))) seed++;                                              // the first seed that makes a good cave
+    writePng(m.id, rows); console.log(`made ${m.id}.png (${m.w}x${m.h}, seed ${seed})`);
+  }
   build();
 }
 
