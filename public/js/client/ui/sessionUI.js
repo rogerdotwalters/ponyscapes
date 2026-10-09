@@ -38,7 +38,7 @@ class SessionUI {
 
   render() {
     const info = this.adapter.getSessionInfo(), host = this.isHost, E = LobbyUI.escape;
-    const key = JSON.stringify([host, info.online, info.code, info.persistent, info.worldName, info.hostName, info.you, info.players.map(p => [p.id, p.name, p.slot, p.host, p.cid])]);
+    const key = JSON.stringify([host, info.online, info.code, info.persistent, info.worldName, info.hostName, info.you, info.players.map(p => [p.id, p.name, p.slot, p.host, p.cid]), (info.homes || []).map(h => [h.site, h.owner, h.online])]);
     if (key === this.structure && this.body.firstChild) { this._live(info); return; }      // nothing structural changed: only the ticking text moves
     this.structure = key;
     const players = info.players.map(p => {
@@ -51,13 +51,19 @@ class SessionUI {
       `<div class="shint">${host ? 'Up to 3 friends can join with this code.' : `Playing in ${E(info.hostName || 'the host')}'s game.`}</div>`;
     else html += `<div class="soffline">${host ? 'Offline: friends cannot join right now.' : 'You are disconnected.'}</div>${host ? '<button class="sbig" data-act="online">Invite friends online</button>' : ''}`;
     html += `<div class="sheader">Players (${info.players.length}/${CONFIG.sim.maxPlayers})</div><div class="splayers">${players}</div>`;
+    if (host && info.homes && info.homes.length) {
+      html += '<div class="sheader">Homes</div><div class="splayers">' + info.homes.map(h =>
+        `<div class="splayer"><span class="sn">${E(h.name)}</span><em>${h.owner ? E(h.owner) + (h.online ? '' : ', away') : 'empty'}</em>` +
+        `${h.owner && !h.online ? `<button data-act="clearhome" data-key="${E(h.key)}" data-name="${E(h.owner)}">Clear</button>` : ''}</div>`).join('') +
+        '</div><div class="sdim">Every player is given a home. Clearing the home of someone who is away frees it for a new player (their room is emptied).</div>';
+    }
     if (host) {
       html += `<div class="sheader">${E(info.worldName)}</div><div class="ssave"><div data-live="saved"></div><div class="sdim" data-live="next"></div></div>` +
         `<div class="sdim">Everyone's character is saved to <b>your</b> browser's database: when they leave, on every auto-save, and when you end the session.</div>` +
         (info.persistent ? '' : '<div class="swarn">This browser cannot keep saves after you close the page.</div>') +
         '<div class="srowbtns"><button data-act="save">Save now</button><button class="danger" data-act="end">End session &amp; save</button></div>';
     } else {
-      html += `<div class="sdim"><span data-live="rtt"></span>The host keeps your character: it is saved when you leave, and restored when you come back with this device.</div>` +
+      html += `<div class="sdim"><span data-live="rtt"></span>The host keeps your character, and this device keeps a copy: <span data-live="copy"></span> When you come back with this device the host checks it is the same character.</div>` +
         '<div class="srowbtns"><button class="danger" data-act="leave">Leave game</button></div>';
     }
     this.body.innerHTML = html;
@@ -69,6 +75,7 @@ class SessionUI {
     const set = (name, text) => { const el = this.body.querySelector('[data-live="' + name + '"]'); if (el && el.textContent !== text) el.textContent = text; };
     set('saved', info.saving ? 'Saving...' : info.lastSavedAt ? 'Last saved ' + LobbyUI.ago(info.lastSavedAt) : 'Not saved yet');
     set('next', 'Next auto-save in ' + SessionUI.mmss((info.nextAutoSaveAt || 0) - Date.now()) + ' (every ' + CONFIG.net.autosaveMinutes + ' min)');
+    set('copy', info.copyAt ? (info.copyOk ? 'copy saved ' + LobbyUI.ago(info.copyAt) + '.' : 'could not be kept (no room on this device).') : 'waiting for the first copy.');
     set('rtt', info.rtt != null ? 'Your delay to the host: ' + Math.round(info.rtt) + ' ms. ' : '');
     for (const p of info.players) { const el = this.body.querySelector('[data-ping="' + p.id + '"]'); if (el) { const text = p.rtt != null ? Math.round(p.rtt) + ' ms' : (p.host || p.id === info.you ? '' : '...'); if (el.textContent !== text) el.textContent = text; } }
   }
@@ -79,6 +86,7 @@ class SessionUI {
       const text = act === 'copycode' ? a.getSessionInfo().code : a.shareLink();
       (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => this.toasts.show(act === 'copycode' ? 'Code copied' : 'Invite link copied', 'ok'), () => window.prompt('Copy this:', text));
     } else if (act === 'save') a.saveAll('manual');
+    else if (act === 'clearhome') this.confirm.askCustom({ title: `Clear ${data.name}'s home?`, text: `${data.name} is away. Their home is emptied (chests and bins) and given up. Their character stays saved; they are given a new home if one is free when they come back.`, goLabel: 'Clear home', keepLabel: 'Keep', onGo: () => a.clearHome(data.key).then(ok => this.toasts.show(ok ? 'Home cleared' : 'They are playing right now', ok ? 'ok' : 'bad')) });
     else if (act === 'kick') this.confirm.askCustom({ title: `Remove ${data.name}?`, text: `${data.name} will be disconnected. Their character is saved first, and they can rejoin with the code.`, goLabel: 'Remove', keepLabel: 'Keep', onGo: () => a.kick(data.cid, 'Removed by the host') });
     else if (act === 'online') a.startOnline().then(() => this.render(), e => this.toasts.show(RemoteAdapter.explain(e.reason, e) , 'bad'));
     else if (act === 'end') this.confirm.askCustom({ title: 'End the session?', text: 'Everyone is disconnected. The world and every player\'s character are saved to your browser first.', goLabel: 'End & save', keepLabel: 'Keep playing', onGo: () => this._endHost() });
@@ -89,7 +97,7 @@ class SessionUI {
 
   _onEvent(ev) {
     const T = this.toasts;
-    if (ev.type === 'joined') T.show(ev.name + (ev.restored ? ' rejoined' : ' joined') + ' the game', 'ok');
+    if (ev.type === 'joined') T.show(ev.name + (ev.fresh ? ' started a new character' : ev.restored ? ' rejoined' : ' joined') + ' the game', 'ok');
     else if (ev.type === 'left') T.show(ev.name + (ev.why === 'kicked' ? ' was removed' : ' left') + '. Their character was saved', 'info');
     else if (ev.type === 'saved') { if (ev.reason !== 'created' && ev.reason !== 'background') T.show(ev.reason === 'autosave' ? 'Game auto-saved' : 'Game saved', 'ok', 2200); }
     else if (ev.type === 'saveFailed') T.show('Could not save: ' + ev.error, 'bad', 7000);

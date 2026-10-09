@@ -12,6 +12,9 @@ const LEGACY_ITEMS = Object.freeze({ hide_cap: ['hide', 2], hide_vest: ['hide', 
 
 const SaveData = {
   VERSION: 1,
+  /** A character's id: made once when the character begins and kept in every copy of its save (the host's and the friend's), so they can tell they mean the same one. */
+  newCharacterId() { let id = ''; for (let i = 0; i < 20; i++) id += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]; return id; },
+  validCharacterId: id => typeof id === 'string' && /^[A-Za-z0-9_-]{8,40}$/.test(id),
   MAX_BUILT_TILES: 200000, MAX_STATE_ENTRIES: 200000, MAX_PETS: 24, MAX_MAPS: 8,
 
   /* ---------------------------------- helpers ---------------------------------- */
@@ -208,7 +211,7 @@ const SaveData = {
       .map(a => Object.assign({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, main: a.main || undefined, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }, server._exportPack(a)));
     const xp = server.progress.ensure(id);
     return {
-      v: SaveData.VERSION, savedAt: Date.now(),
+      v: SaveData.VERSION, savedAt: Date.now(), cid: server.charIds[id],
       x: spot.x, y: spot.y, hp: p.hp, hunger: p.hunger, thirst: p.thirst, sel: p.sel,
       inventory: inventory.toJSON(), coins: (inventory.coins || Coins.empty()).slice(), gear: Object.assign({}, p.gear),
       xp: { s: Object.assign({}, xp.s), a: Object.assign({}, xp.a) },
@@ -223,7 +226,7 @@ const SaveData = {
   sanitizeCharacter(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION) return null;
     const N = SaveData._num, I = SaveData._int, S = CONFIG.sim;
-    const out = { v: data.v, x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0),
+    const out = { v: data.v, cid: SaveData.validCharacterId(data.cid) ? data.cid : '', x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0),
       appearance: CharacterLook.sanitize(data.appearance), inventory: [], coins: Array.isArray(data.coins) ? Coins.sanitize(data.coins) : I(data.coins, 0, 999999, 0), gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [], leashed: {} }, pets: [] };
     const source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
     const refund = (id, count) => { const old = LEGACY_ITEMS[id]; if (old) refunds.push({ id: old[0], count: old[1] * count }); else if (ItemDefs[id]) refunds.push({ id, count }); };
@@ -271,6 +274,7 @@ const SaveData = {
   importCharacter(server, id, data) {
     const c = SaveData.sanitizeCharacter(data), p = server.players[id];
     if (!c || !p) return false;
+    if (c.cid) server.charIds[id] = c.cid;                                   // (an older save has none: it keeps the id it was just given and has one from its next save)
     server.inventories[id] = Inventory.fromJSON(c.inventory).openPurse(c.coins); server.inventoryRev[id]++;
     for (const k of Object.keys(p.gear)) delete p.gear[k];
     Object.assign(p.gear, c.gear);
