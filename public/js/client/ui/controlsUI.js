@@ -12,7 +12,10 @@ class ControlsUI {
       const set = { ctlTapMove: 'setTapToMove', ctlFixedStick: 'setFixedJoystick', ctlWalkToAct: 'setWalkToAct' }[e.target.id];
       if (set) { Controls[set](e.target.checked); this.refresh(); }
     });
-    body.addEventListener('input', e => { if (e.target.id === 'ctlWeatherVol') { WeatherAudio.setVolume(e.target.value / 100); e.target.parentNode.querySelector('output').textContent = e.target.value + '%'; } });
+    body.addEventListener('input', e => {
+      const kind = { ctlWeatherVol: 'weather', ctlMusicVol: 'music', ctlSfxVol: 'sfx' }[e.target.id];
+      if (kind) { GameAudio.setVolume(kind, e.target.value / 100); e.target.parentNode.querySelector('output').textContent = e.target.value + '%'; }
+    });
     window.addEventListener('keydown', e => this._onKey(e), true);
   }
 
@@ -68,6 +71,7 @@ class ControlsUI {
   }
 
   _pointer() {
+    const slider = (id, name, hint, kind) => { const pct = Math.round(GameAudio.volume(kind) * 100); return `<label class="admSlide"><span><b>${name}</b><small>${hint}</small></span><input type="range" id="${id}" min="0" max="100" step="5" value="${pct}"><output>${pct}%</output></label>`; };
     const rows = CONTROL_POINTER_HELP.map(([what, does]) => `<div class="ctlHelpRow"><b>${what}</b><span>${does}</span></div>`).join('');
     return '<div class="gtitle">Joystick</div>' +
       `<label class="chk"><input type="checkbox" id="ctlFixedStick"${Controls.fixedJoystick ? ' checked' : ''}><span><b>Fixed joystick</b><small>On: the stick stays put and only moves when you drag it, so taps never move it. Off: it floats to wherever your thumb lands.</small></span></label>` +
@@ -75,7 +79,9 @@ class ControlsUI {
       `<label class="chk"><input type="checkbox" id="ctlWalkToAct"${Controls.walkToAct ? ' checked' : ''}><span><b>Walk to it, then act</b><small>Tap a villager, animal, door, stockpile, crop or shop counter out of reach: walk there and do the action. Off: nothing happens when it is out of reach.</small></span></label>` +
       `<label class="chk"><input type="checkbox" id="ctlTapMove"${Controls.tapToMove ? ' checked' : ''}><span><b>Tap the ground to walk there</b><small>On by default. A tap on bare ground walks there (the joystick and keys still steer). Off: a tap near you uses your tool or interacts instead.</small></span></label>` +
       '<div class="gtitle">Sound</div>' +
-      `<label class="admSlide"><span><b>Weather sounds</b><small>Rain, wind and thunder. 0 is off. Browsers only start sound after you tap or press a key.</small></span><input type="range" id="ctlWeatherVol" min="0" max="100" step="5" value="${Math.round(WeatherAudio.volume * 100)}"><output>${Math.round(WeatherAudio.volume * 100)}%</output></label>` +
+      slider('ctlMusicVol', 'Music', 'The calm country-pony soundtrack. 0 is off.', 'music') +
+      slider('ctlSfxVol', 'Footsteps &amp; bag', 'Your steps, hoofbeats and the bag opening and closing. 0 is off.', 'sfx') +
+      slider('ctlWeatherVol', 'Weather sounds', 'Rain, wind and thunder. 0 is off. Browsers only start sound after you tap or press a key.', 'weather') +
       '<div class="gtitle">What clicks and taps do</div>' + rows;
   }
 }
