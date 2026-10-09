@@ -12,6 +12,9 @@
  *   DANCE   "Rainbow Hoofdance": a cheery, upbeat dance track at 124 bpm: four-on-the-floor kick, offbeat hats and bass, a pumping mix, claps, a plucky
  *           arpeggio and a bright synth-and-flute hook; an intro that builds, a drop, a breakdown, a riser into a second drop a whole step up, and an
  *           outro. It never plays by itself: pick it in the Soundtrack player.
+ *   HARMONY "Harmony Hooves": a bright, bouncy friendship anthem at 120 bpm, in the spirit of a cartoon-pony theme (an original tune): twinkling bell
+ *           runs and harp glissandos, pizzicato verses, a rising pre-chorus and a soaring chorus, a gentle bridge, and a last chorus lifted a whole
+ *           step. It never plays by itself: pick it in the Soundtrack player.
  *   STORM   "Thunder Over Hollowmere": dark and slow, in C minor: a deep cello drone, tremolo strings, tolling low harp, distant drum swells and a lonely flute.
  *           Plays under a heavy downpour or a gale.
  *   BATTLE  "Ironhoof Gallop": fast and driving, in D minor, in a galloping 6/8: an ostinato cello, rapid harp, tremolo strings, war drums and a staccato flute.
@@ -35,6 +38,7 @@ const PonyMusic = (() => {
     tempest: { title: 'Duel at Stormcrown', blurb: 'Build-up, a duel of violins, a cello interlude, the duel again. Thunderstorms.', key: 4, bar: 8, level: 1, fadeIn: 2, fadeOut: 2.5 },                                     // E minor (harmonic); its sections and chords are TEMPEST below
     parade: { title: 'Glitterhoof Parade', blurb: 'A mild-tempo fantasy pony pop song: verse, chorus, bridge and a key change.', key: 0, bar: 8, level: 1, fadeIn: 1.5, fadeOut: 2.5 },
     dance: { title: 'Rainbow Hoofdance', blurb: 'Cheery and upbeat, 124 bpm: a build, two drops and a breakdown.', key: 7, bar: 8, level: 0.65, fadeIn: 1.5, fadeOut: 2.5 },
+    harmony: { title: 'Harmony Hooves', blurb: 'A bright, bouncy friendship anthem: sparkles, pizzicato, a soaring chorus.', key: 5, bar: 8, level: 0.85, fadeIn: 1.5, fadeOut: 2.5 },
     battle: {
       title: 'Ironhoof Gallop', blurb: 'Fast and galloping. Battles and caves.', key: 2, scale: MINOR_PENT, eighth: 0.19, bar: 6, level: 0.9, fadeIn: 0.5, fadeOut: 1.1,                                          // D minor, 6/8 (two dotted-quarter beats a bar)
       prog: [[[0, 'm'], [8, 'M'], [10, 'M'], [0, 'm']], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]],                                     // Dm Bb C Dm, then Dm Gm Am Dm
@@ -120,7 +124,38 @@ const PonyMusic = (() => {
     const total = chords.length, BASE = 60 / 124 / 2;
     return { sections, chords, MELODY, where, bars: total, stepDur: bi => BASE * (bi >= total - 2 ? 1 + 0.2 * (bi - (total - 3)) : 1) };
   })();
-  const FORMS = { tempest: TEMPEST, parade: PARADE, dance: DANCE };
+  /** The harmony anthem: a song with a fixed, original tune (see PARADE for the notation). 120 bpm, so a step (an eighth) is a quarter of a second. */
+  const HARMONY = (() => {
+    const M = (key, deg) => [deg, 'M', key], m = (key, deg) => [deg, 'm', key];
+    const verse = k => [M(k, 0), m(k, 9), M(k, 5), M(k, 7), M(k, 0), m(k, 9), M(k, 5), M(k, 7)];
+    const pre = k => [M(k, 5), M(k, 7), m(k, 9), M(k, 7)];
+    const chorus = k => [M(k, 0), M(k, 5), m(k, 9), M(k, 7), M(k, 0), M(k, 5), M(k, 7), M(k, 0)];
+    const bridge = k => [m(k, 9), M(k, 5), M(k, 0), M(k, 7), m(k, 9), M(k, 5), M(k, 7), M(k, 7)];
+    const sections = [
+      { id: 'intro', bars: 4 }, { id: 'verse', bars: 8, round: 1 }, { id: 'pre', bars: 4, round: 1 }, { id: 'chorus', bars: 8, round: 1 }, { id: 'verse', bars: 8, round: 2 },
+      { id: 'pre', bars: 4, round: 2 }, { id: 'chorus', bars: 8, round: 2 }, { id: 'bridge', bars: 8 }, { id: 'pre', bars: 4, round: 3 }, { id: 'chorus', bars: 8, round: 3 }, { id: 'outro', bars: 4 }
+    ];
+    const chords = [
+      M(5, 0), M(5, 7), m(5, 9), M(5, 5),
+      ...verse(5), ...pre(5), ...chorus(5), ...verse(5), ...pre(5), ...chorus(5), ...bridge(5),
+      ...pre(7), ...chorus(7),                                                                                               // the last chorus, a whole step up
+      M(7, 0), M(7, 5), M(7, 0), M(7, 0)
+    ];
+    const MELODY = {
+      verse: [[[0, 3, 1], [2, 5, 1], [3, 3, 1], [4, 5, 1], [6, 6, 2]], [[0, 6, 1], [2, 5, 1], [3, 3, 1], [4, 1, 1], [6, 3, 2]], [[0, 4, 1], [2, 6, 1], [3, 4, 1], [4, 6, 1], [6, 8, 2]], [[0, 7, 1], [2, 6, 1], [3, 5, 1], [4, 4, 1], [6, 2, 2]],
+        [[0, 3, 1], [2, 5, 1], [3, 3, 1], [4, 5, 1], [6, 8, 2]], [[0, 6, 1], [2, 8, 1], [3, 6, 1], [4, 5, 1], [6, 3, 2]], [[0, 4, 1], [2, 6, 1], [3, 8, 1], [4, 9, 1], [6, 8, 2]], [[0, 7, 2], [2, 5, 2], [4, 2, 1], [5, 4, 1], [6, 7, 2]]],
+      pre: [[[0, 6, 2], [2, 6, 1], [3, 6, 1], [4, 8, 4]], [[0, 7, 2], [2, 7, 1], [3, 7, 1], [4, 9, 4]], [[0, 8, 2], [2, 8, 1], [3, 8, 1], [4, 10, 4]], [[0, 9, 1], [1, 8, 1], [2, 7, 1], [3, 6, 1], [4, 5, 4]]],
+      chorus: [[[0, 8, 2], [2, 8, 1], [3, 9, 1], [4, 8, 2], [6, 5, 2]], [[0, 6, 2], [2, 6, 1], [3, 8, 1], [4, 6, 2], [6, 4, 2]], [[0, 6, 2], [2, 6, 1], [3, 8, 1], [4, 9, 2], [6, 8, 2]], [[0, 7, 6], [6, 5, 1], [7, 7, 1]],
+        [[0, 8, 2], [2, 8, 1], [3, 9, 1], [4, 10, 2], [6, 9, 2]], [[0, 8, 2], [2, 6, 1], [3, 8, 1], [4, 6, 2], [6, 4, 2]], [[0, 5, 2], [2, 7, 1], [3, 8, 1], [4, 9, 2], [6, 7, 2]], [[0, 8, 6]]],
+      bridge: [[[0, 5, 4], [4, 6, 4]], [[0, 6, 4], [4, 8, 4]], [[0, 8, 4], [4, 7, 4]], [[0, 6, 8]], [[0, 5, 4], [4, 6, 4]], [[0, 8, 4], [4, 9, 4]], [[0, 9, 4], [4, 8, 4]], [[0, 7, 8]]],
+      outro: [[[0, 8, 2], [2, 6, 2], [4, 5, 4]], [[0, 6, 2], [2, 4, 2], [4, 6, 4]], [[0, 5, 2], [2, 3, 2], [4, 5, 4]], [[0, 8, 8]]],
+      intro: [[], [], [], [[0, 8, 2], [2, 8, 1], [3, 9, 1]]]
+    };
+    const where = bi => { let idx = bi, first = 0; for (const sec of sections) { if (idx < sec.bars) return { sec, idx, first }; idx -= sec.bars; first += sec.bars; } return null; };
+    const total = chords.length, BASE = 60 / 120 / 2;
+    return { sections, chords, MELODY, where, bars: total, stepDur: bi => BASE * (bi >= total - 2 ? 1 + 0.2 * (bi - (total - 3)) : 1) };
+  })();
+  const FORMS = { tempest: TEMPEST, parade: PARADE, dance: DANCE, harmony: HARMONY };
   /** A scale position (0 = E4, seven to the octave) as a MIDI note. */
   const posNote = p => 64 + 12 * Math.floor(p / 7) + HARMONIC[((p % 7) + 7) % 7];
   const HOSTILE_RANGE = 11, HOLD_BATTLE = 7, HOLD_STORM = 5, HOLD_TEMPEST = 8;                           // tiles; seconds the mood lingers after the cause is gone
@@ -351,6 +386,17 @@ const PonyMusic = (() => {
     }
     /** Duck the whole mix as a kick lands and let it swell back (the "pump" of a dance mix). */
     _pump(t, depth) { const g = this.pumps[this.theme].gain; g.cancelScheduledValues(t); g.setValueAtTime(1 - depth, t); g.linearRampToValueAtTime(1, t + 0.2); }
+    /** A pizzicato string: a short, round pluck. */
+    _pizz(t, note, vel) {
+      const ctx = this.ctx, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = midi(note); f.type = 'lowpass'; f.frequency.setValueAtTime(2200, t); f.frequency.exponentialRampToValueAtTime(450, t + 0.09); f.Q.value = 0.6;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.1 * vel, t + 0.004); g.gain.setTargetAtTime(0.0001, t + 0.008, 0.05);
+      o.connect(f); f.connect(g); g.connect(this.bus); o.start(t); o.stop(t + 0.4);
+    }
+    /** A harp glissando: a run up the scale of `key`, two octaves, each string a hair after the last. */
+    _gliss(t, key, vel) { const MAJ = [0, 2, 4, 5, 7, 9, 11]; for (let i = 0; i < 12; i++) this._harp(t + i * 0.04, 60 + key + 12 * Math.floor(i / 7) + MAJ[i % 7], vel * (0.45 + i / 24), 0.6); }
+    /** A twinkle: six bells, quick, climbing the chord of `key`. */
+    _sparkle(t, key, vel) { [0, 4, 7, 12, 16, 19].forEach((d, i) => this._bell(t + i * 0.055, 72 + key + d, vel * (0.5 + i / 12))); }
     /** A cymbal crash: a long wash of bright noise. */
     _crash(t, vel) {
       const ctx = this.ctx, n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
@@ -597,12 +643,70 @@ const PonyMusic = (() => {
       }
     }
 
+    /** The harmony anthem, step by step. See HARMONY for the song. */
+    _scheduleHarmony() {
+      const ctx = this.ctx, total = HARMONY.bars, MAJ = [0, 2, 4, 5, 7, 9, 11];
+      const lead = (deg, key) => 60 + key + 12 * Math.floor((deg - 1) / 7) + MAJ[(((deg - 1) % 7) + 7) % 7];
+      while (this.nextTime < ctx.currentTime + 0.6) {
+        const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = HARMONY.where(bi), dur = HARMONY.stepDur(bi), id = sec.id;
+        const chord = HARMONY.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
+        const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
+        const pc = root % 12, low = 36 + pc + (pc < 5 ? 12 : 0), r = sec.round || 1;
+        const V = id === 'intro' ? 1 : id === 'verse' ? 1.2 : id === 'pre' ? 1.1 + 0.3 * idx / 4 : id === 'chorus' ? [1, 1.05, 1.15][r - 1] : id === 'bridge' ? 0.95 + 0.4 * idx / 8 : 1.2 - 0.6 * idx / 4;
+        const hits = ((HARMONY.MELODY[id] || [])[idx] || []).filter(n => n[0] === s), lastBar = idx === sec.bars - 1;
+        if (s === 0) { this.marks.push({ t, bar: bi }); if (this.marks.length > 16) this.marks.shift(); }
+        // the bed: a string pad every bar, a bouncing pizzicato in the verses and bridge-less parts
+        if (s === 0) this._pad(t, chordTones, dur * 8, (id === 'chorus' ? 0.7 : id === 'bridge' ? 0.8 : 0.5) * V + 0.15, { cutoff: id === 'chorus' ? 2200 : 1300, tremolo: id === 'pre' ? 6 + 2 * idx : 4.5, depth: 0.2, attack: id === 'bridge' ? 0.5 : 0.15 });
+        if (id === 'verse') {
+          if (s === 0) this._pizz(t, low + 12, 1.1 * V); else if (s === 4) this._pizz(t, low + 19, 0.9 * V);                                   // boom
+          if (s === 2 || s === 6) chordTones.forEach((n, i) => this._pizz(t + i * 0.015, n + 12, 0.6 * V));                                  // chick
+          if (s === 0) this._drum(t, 0.4 * V, 1.2); else if (s === 4) this._drum(t, 0.3 * V, 1.2);
+          this._hat(t, (s % 2 ? 0.2 : 0.3) * V);
+          if (s === 0) this._harp(t, T[2], 0.4 * V, 0.8);
+        } else if (id === 'chorus') {
+          if (s === 0) { this._drum(t, 0.9 * V, 1); if (idx % 4 === 0) { this._crash(t, idx === 0 ? 0.9 : 0.4); this._drum(t, 0.7, 1.6); this._sparkle(t, key, 0.6 * V); } } else if (s === 4) this._drum(t, 0.75 * V, 1); else if (s === 3) this._drum(t, 0.4 * V, 1);
+          if (s === 2 || s === 6) this._snare(t, 0.7 * V);
+          this._hat(t, (s % 2 ? 0.35 : 0.2) * V, s % 2 === 1);                                                                           // a tambourine's shimmer
+          if (s === 0) this._bass(t, low, dur * 3, 0.9 * V); else if (s === 3) this._bass(t, low, dur * 0.9, 0.6 * V); else if (s === 4) this._bass(t, low + 7, dur * 2, 0.7 * V); else if (s === 6) this._bass(t, low + 12, dur * 1.6, 0.6 * V);
+          this._harp(t, T[[0, 1, 2, 3, 4, 3, 2, 1][s]], 0.4 * V + 0.1, 0.6);
+        } else if (id === 'pre') {
+          if (s % 2 === 0) this._snare(t, (0.15 + 0.5 * (idx + s / 8) / 4) * V); if (idx >= 2) this._snare(t + dur / 2, (0.2 + 0.4 * (idx + s / 8) / 4) * V);
+          if (s === 0) this._drum(t, 0.5 * V, 1.2); this._harp(t, T[s], 0.35 * V + 0.2, 0.6);
+          if (s === 0 && idx === 0) this._riser(t, dur * 32, 0.7);
+        } else if (id === 'bridge') {
+          if (s % 2 === 0) this._harp(t, T[[0, 1, 2, 3][s / 2]], 0.45 * V + 0.1, 1);
+          if (s === 0 && idx % 2 === 0) this._bell(t, root + 72, 0.5 * V);
+        } else {
+          this._harp(t, T[[0, 1, 2, 3, 4, 3, 2, 1][s]], (id === 'intro' ? 0.45 : 0.4) * V + 0.1, 0.8);
+          if (id === 'intro' && s === 0 && idx === 0) { this._gliss(t, key, 0.9); this._sparkle(t + 0.6, key, 0.7); }
+          if (id === 'intro' && idx === 3 && s === 0) this._sparkle(t, key, 0.8);
+          if (id === 'outro' && s === 0 && idx === 3) { this._gliss(t, key, 0.7); this._sparkle(t + 0.4, key, 0.8); }
+          if (id === 'intro' && s === 0 && idx >= 2) this._bass(t, low, dur * 7, 0.5 * V);
+        }
+        // the tune: flute in the verses, flute and synth in the pre-chorus, synth, flute and bells in the chorus, flute and strings in the bridge
+        for (const [, deg, len] of hits) {
+          const n = lead(deg, key), L = dur * len;
+          if (id === 'chorus') {
+            this._synth(t, n, L * 0.92, 0.9 * V); this._flute(t, n + 12, L * 0.9, 0.3 * V); this._bell(t, n + 12, (len >= 2 ? 0.6 : 0.3) * V);
+            if (r === 3) this._violin(t, n - 12, L, 0.4 * V, -0.4, true);
+          } else if (id === 'pre') { this._flute(t, n, L * 0.95, 0.6 * V); this._synth(t, n, L * 0.9, 0.5 * V); }
+          else if (id === 'bridge') { this._flute(t, n, L * 0.97, 0.55 * V); this._violin(t, n - 12, L * 0.95, 0.35 * V, 0.3, true); this._bell(t, n + 12, 0.45 * V); }
+          else if (id === 'verse') { this._flute(t, n, L * 0.8 + 0.04, 0.65 * V + 0.1, 0.8); if (len >= 2) this._bell(t, n + 12, 0.35 * V); }
+          else { this._flute(t, n, L * 0.9, 0.5 * V + 0.1); this._bell(t, n + 12, 0.4 * V); }
+        }
+        if (lastBar && s >= 4 && id !== 'outro') this._harp(t, T[s - 2], 0.5, 0.8);                                                       // a harp run into the next part
+        if (lastBar && s === 6 && (id === 'chorus' && r < 3 || id === 'bridge')) this._sparkle(t, key, 0.6);
+        this.nextTime += dur; this.step++;
+      }
+    }
+
     _schedule() {
       const ctx = this.ctx; if (!ctx || ctx.state !== 'running') { if (ctx) this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.2); return; }
       if (this.paused) { this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.3); return; }
       if (this.theme === 'tempest') return this._scheduleTempest();
       if (this.theme === 'parade') return this._scheduleParade();
       if (this.theme === 'dance') return this._scheduleDance();
+      if (this.theme === 'harmony') return this._scheduleHarmony();
       const theme = THEMES[this.theme], name = this.theme, B = theme.bar, quiet = this.mood.cave && name !== 'battle' ? 0.6 : 1;
       while (this.nextTime < ctx.currentTime + 0.6) {
         const eighth = theme.eighth, s = this.step % B, chord = theme.prog[Math.floor(this.bar / 4) % theme.prog.length][this.bar % 4], root = theme.key + chord[0], minor = chord[1] === 'm';
@@ -643,7 +747,7 @@ const PonyMusic = (() => {
       }
     }
   }
-  Music.TRACKS = ['calm', 'storm', 'tempest', 'battle', 'parade', 'dance'].map(id => ({ id, title: THEMES[id].title, blurb: THEMES[id].blurb }));
+  Music.TRACKS = ['calm', 'storm', 'tempest', 'battle', 'parade', 'dance', 'harmony'].map(id => ({ id, title: THEMES[id].title, blurb: THEMES[id].blurb }));
   Music.TITLES = Object.fromEntries(Object.entries(THEMES).map(([id, t]) => [id, t.title]));
   return Music;
 })();
