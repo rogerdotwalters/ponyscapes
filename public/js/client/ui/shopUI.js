@@ -77,10 +77,9 @@ class ShopUI {
     const g = this.game, site = BuildingSites.list[this.site], purse = Coins.format(g.inventory.coins || Coins.empty(), true);
     if (this.paying) {                                                                  // the counter: what the shop asks for, and where the coins go
       const id = this.paying.item, def = ItemDefs[id];
-      this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'}</div>` +
-        `<div class="recipe"><div class="out"><img alt="" src="${ItemIcons.url(id)}"></div><div class="info"><div class="name">${def.name}</div><small class="gwho">${ShopUI.what(id, g.gear)}</small></div></div>` +
-        `<div class="shopPay"><div>The shop asks for:</div><div class="askRow" id="shopAsk"></div><div id="shopCounter"></div><div class="paidRow" id="shopPaid"></div>` +
-        `<div class="gempty">Hold a coin in your coin bag and drag it over the counter. A bigger coin is worth more, and the shop gives change.</div><button class="tbig alt" data-cancel>Cancel</button></div>`;
+      this.body.innerHTML = `<div class="payTitle"><img alt="" src="${ItemIcons.url(id)}"><span>${def.name}</span><small>${site ? site.def.name : 'Shop'}</small></div>` +
+        `<div class="shopPay"><div class="askLine"><span>The shop asks for:</span><span class="askRow" id="shopAsk"></span></div><div id="shopCounter"></div><div class="paidRow" id="shopPaid"></div>` +
+        `<div class="gempty">Hold a coin in your coin bag and drag it over the counter. A bigger coin is worth more, and the shop gives change.</div><div class="payBtns"><button class="tbig alt" data-cancel>Cancel</button></div></div>`;
       this._drawPay(); return;
     }
     const rows = this.items.map(id => {

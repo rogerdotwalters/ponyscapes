@@ -77,10 +77,12 @@ class SettingsUI {
       '<div class="gtitle">Act 1</div>' +
       '<label class="chk"><input type="checkbox" data-setting="botPlayer"><span><b>Bot player</b><small>A second player joins you (checked) or leaves (unchecked). It follows you into caves, fights, and picks you up when you are down, to try party play alone.</small></span></label>' +
       '<label class="chk"><input type="checkbox" data-setting="bearDefeated"><span><b>Cave Bear defeated</b><small>Checked: the Cave Bear counts as beaten, so the rubble clears from the Slime Warren (the second cave in the hills). Unchecked: the bear is back.</small></span></label>' +
-      '<label class="chk"><input type="checkbox" data-setting="castleRestored"><span><b>Castle restored</b><small>Checked: the old castle on the hill is restored for everyone (roofed towers, banners, lamps lit, fresh rugs in every room). Unchecked: it is abandoned again. Anyone inside is walked out to the gate.</small></span></label>' +
+      '<div class="admRow" style="gap:8px;align-items:center;margin-top:6px"><button data-castle tabindex="-1">Restore the castle</button><small data-castle-state style="color:#a9b6c4"></small></div>' +
       '<div class="admRow" style="flex-wrap:wrap;gap:6px;margin-top:6px"><button data-tp="warren" tabindex="-1">Slime Warren: level 1</button>' +
       warren.map((r, i) => (i ? `<button data-tp="warren:${i}" tabindex="-1">${i === warren.length - 1 ? 'Slime King' : 'Level ' + (i + 1)}</button>` : '')).join('') + '</div>';
-    el.addEventListener('click', e => { const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp === 'warren' ? 'warren:0' : b.dataset.tp); });
+    el.addEventListener('click', e => {
+      if (e.target.closest('button[data-castle]')) { this.game.setSetting('castleRestored', !(this.game.settings && this.game.settings.castleRestored)); return; }   // (restores the castle for everyone, or lets it fall to ruin again)
+      const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp === 'warren' ? 'warren:0' : b.dataset.tp); });
     for (const box of el.querySelectorAll('input')) box.addEventListener('change', () => this.game.setSetting(box.dataset.setting, box.checked));
     this.body.appendChild(el); this.act1Box = el;
   }
@@ -415,6 +417,11 @@ class SettingsUI {
       if (who) who.innerHTML = `<i style="background:${CONFIG.sim.slotColors[slot]}"></i>${LobbyUI.escape(this.game.playerName('p' + (slot + 1)))}${slot === 0 ? ' (you, host)' : ''}`;
     }
     for (const box of [...(this.testBox ? this.testBox.querySelectorAll('input') : []), ...(this.act1Box ? this.act1Box.querySelectorAll('input') : [])]) box.checked = !!(this.game.settings && this.game.settings[box.dataset.setting]);
+    if (this.act1Box && this.game.settings) {                                  // the castle button says what it will do
+      const on = !!this.game.settings.castleRestored, b = this.act1Box.querySelector('button[data-castle]'), t = this.act1Box.querySelector('[data-castle-state]');
+      if (b) b.textContent = on ? 'Ruin the castle again' : 'Restore the castle';
+      if (t) t.textContent = on ? 'Castle: restored' : 'Castle: abandoned';
+    }
     if (this.difficulty && this.game.settings) this.difficulty.value = Downed.mode(this.game.settings.difficulty);
     for (const { id, vital, select } of this.selects) {
       const p = players[id];

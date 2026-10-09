@@ -718,7 +718,6 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 .coinGhost{position:fixed;z-index:30;pointer-events:none;image-rendering:pixelated;filter:drop-shadow(0 5px 3px rgba(0,0,0,.4))}
 
 /* while paying at a shop the bag sits to the right of the shop window, the counter tray inside the window is where coins go */
-#coinPanel.pay{align-items:flex-end !important;padding:48px min(40px,3vw) 100px 0 !important}
 #coinPanel.pay #coinHint,#coinPanel.pay #coinButtons{display:none}
 .shopPay{margin:6px 0;padding:8px;border:2px dashed #8a5f32;border-radius:2px;background:rgba(20,10,4,.45)}
 .shopPay .askRow,.shopPay .paidRow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0;font:700 13px var(--font-title,Georgia,serif)}
@@ -772,3 +771,24 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 .pouch.empty .pouchCount{color:#ffb0a0}
 @media (max-width:900px){#gardenPouches{position:static;flex-flow:row wrap;justify-content:center}.pouch canvas{width:140px;height:auto}}
 @media (max-width:640px){#gardenMain{flex-direction:column}#gardenSeeds{width:auto}#gardenSeedList{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x}.seedPack{min-width:118px}}
+
+/* phones: while the coin bag is open the thumb controls and the tool belt step out of the way; paying turns the shop window into a slim card */
+body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsOpen #healthBar,body.coinsOpen #hungerBar,body.coinsOpen #thirstBar,body.coinsOpen #btnEmote,body.coinsOpen #hint{visibility:hidden}
+#coinPanel.small #coinTotal{font-size:15px}
+#coinPanel.small #coinBreakdown{font-size:11px}
+#coinPanel.small #coinHint{display:none}
+#shopPanel.paying{left:8px !important;top:8px !important;width:min(372px,calc(100vw - 16px)) !important;max-height:calc(100vh - 16px);overflow-y:auto;touch-action:pan-y}
+#shopPanel.paying header{display:none}
+#shopPanel.paying .shophead{display:none}
+.payTitle{display:flex;align-items:center;gap:8px;font:700 14px var(--font-title,Georgia,serif);color:var(--brass,#f2cf7a);margin-bottom:4px}
+.payTitle img{width:30px;height:30px;image-rendering:pixelated}
+.payTitle small{margin-left:auto;font:italic 11px var(--font-title,Georgia,serif);color:#c9b58a}
+.shopPay .askLine{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font:700 13px var(--font-title,Georgia,serif)}
+.shopPay .askLine .askRow{margin:0}
+.shopPay .payBtns{display:flex;justify-content:flex-end;margin-top:6px}
+.shopPay .payBtns .tbig{display:inline-block;width:auto;margin:0;padding:6px 16px}
+@media (max-height:520px),(max-width:600px){
+  .shopPay{padding:6px;margin:4px 0}.shopPay .gempty{display:none}
+  #shopCounter{min-height:50px;padding:4px}
+  .coinChip{font-size:12px}.coinChip img{width:20px;height:20px}
+}

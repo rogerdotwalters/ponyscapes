@@ -59,7 +59,7 @@ class WantSystem {
     inventory.remove(item, 1); s.inventoryRev[id]++;
     if (w.every) a.wantUntil = s.tick + secondsToTicks(w.every);
     if (a.befriendable) s.friendship.reward(id, a, CONFIG.sim.friendship.gains.giftLoved);
-    s.pendingEvents.push({ type: 'gave', to: id, x: a.x, y: a.y, item, name: def.name });
+    s.pendingEvents.push({ type: 'gave', to: id, x: a.x, y: a.y, item, name: def.name, id: a.id });
     if (w.unlocks === 'pickup') {
       a.fed = true; a.state = 'idle'; a.vx = a.vy = 0;
       s._notice(id, `The ${def.name.toLowerCase()} gobbles it up and trusts you now: pick it up (F) and take it home`);
