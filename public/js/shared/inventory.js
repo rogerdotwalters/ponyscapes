@@ -36,7 +36,7 @@ class Inventory {
     const arr = Array.isArray(coins) ? Coins.sanitize(coins) : Coins.empty();
     if (!Array.isArray(coins)) arr[Coins.GOLD] = Math.max(0, Math.floor(coins) || 0);
     for (let i = 0; i < this.slots.length; i++) if (this.slots[i] && this.slots[i].id === COIN_ITEM) { arr[Coins.GOLD] += this.slots[i].count; this.slots[i] = null; }
-    if (!Array.isArray(coins)) Coins.merge(arr);
+    Coins.merge(arr);                                                                  // (a purse is always merged up when it opens)
     this._coins = arr;
     return this;
   }
@@ -72,7 +72,7 @@ class Inventory {
   /** Removes items, preferring the backpack end so hotbar stacks stay put. Returns false if there aren't enough. */
   remove(itemId, amount) {
     if (!this.has(itemId, amount)) return false;
-    if (this._isCoin(itemId)) return Coins.pay(this._coins, amount * Coins.value(itemId));                   // (paid in the purse's own coins, with change)
+    if (this._isCoin(itemId)) { const ok = Coins.pay(this._coins, amount * Coins.value(itemId)); if (ok) Coins.merge(this._coins); return ok; }   // (paid in the purse's own coins, with change, then merged up)
     let left = amount;
     for (let i = this.slots.length - 1; i >= 0 && left > 0; i--) {
       const s = this.slots[i];
@@ -93,7 +93,7 @@ class Inventory {
 
   /** Adds items (top up stacks first, then empty slots). Returns how many did NOT fit. */
   add(itemId, amount) {
-    if (this._isCoin(itemId)) { const room = Math.max(0, Math.min(amount, Math.floor((Coins.MAX_TOTAL - this.purse) / Coins.value(itemId)))); Coins.add(this._coins, Coins.tierOf(itemId), room); return amount - room; }   // (that kind of coin is added, and merges up: 10 silver -> 1 gold)
+    if (this._isCoin(itemId)) { const room = Math.max(0, Math.min(amount, Math.floor((Coins.MAX_TOTAL - this.purse) / Coins.value(itemId)))); Coins.add(this._coins, Coins.tierOf(itemId), room); Coins.merge(this._coins); return amount - room; }   // (that kind of coin is added, and the whole purse merges up: 10 silver -> 1 gold)
     const max = ItemDB.maxStack(itemId);
     let left = amount;
     for (let i = 0; i < this.slots.length; i++) {

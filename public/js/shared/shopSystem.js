@@ -57,6 +57,7 @@ Object.assign(GameServer.prototype, {
       for (let t = 0; t < Coins.N; t++) trialInv._coins[t] -= paid[t];                          // the coins on the counter go to the shop ...
       const change = Coins.fromTotal(paidTotal - coinPrice);
       for (let t = 0; t < Coins.N; t++) if (change[t]) Coins.add(trialInv._coins, t, change[t]);   // ... and the change comes back
+      Coins.merge(trialInv._coins);                                                               // (and the purse merges up again)
     }
     let left = trialInv.add(itemId, 1);
     if (left && trialPack) left = trialPack.add(itemId, left);

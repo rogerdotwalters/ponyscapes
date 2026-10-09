@@ -2,8 +2,8 @@
 /* SHARED - the coin system. Ten kinds of coin: copper, silver, gold, platinum and titanium (each worth TEN of the one below), then the gem coins
  * (ruby, sapphire, emerald, amethyst, diamond), each worth FIVE of the one below. Gold is the unit everything in the game is priced in, so a gold
  * coin is worth 100 copper. The purse (Inventory.purse) holds real coins, a count of each kind: an Inventory keeps `coins` (an array of counts, one per
- * kind, copper first) and `purse` is their total in COPPER. Gaining coins adds that kind and merges any kind that reaches its ratio up into the next
- * (10 silver become 1 gold); paying works out change; "break" and "merge" are the player's own exchange (the coin bag, coinBagUI.js). */
+ * kind, copper first) and `purse` is their total in COPPER. Whenever coins are gained or paid the whole purse MERGES UP (every kind that reaches its ratio
+ * becomes 1 of the next: 10 silver become 1 gold), so it is always as few coins as possible, except right after the player BREAKS a coin to make change; paying works out change; "break" and "merge" are the player's own exchange (the coin bag, coinBagUI.js). */
 const Coins = (() => {
   const TIERS = [
     { id: 'copper_coin',   name: 'Copper',   letter: 'C', ratio: 1,  face: ['#f0a872', '#c97a3c', '#8a4f22'], edge: ['#a85f2c', '#6f3d18'] },
