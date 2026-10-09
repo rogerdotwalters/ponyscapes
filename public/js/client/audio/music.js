@@ -2,8 +2,11 @@
 /* CLIENT - the soundtrack: three tunes for three moods, each made live from oscillators and filtered noise (no files), played by a small chamber
  * ensemble in a stone hall. None ever repeats exactly: every four bars the flute sings a fresh phrase.
  *   CALM    "Meadowlight Reverie": flute melody, rolling harp arpeggios and a bowed cello, in a bright major key (D) at a slow 70 bpm. At night the harp and flute thin out.
+ *   TEMPEST "Duel at Stormcrown": for the fiercest storms (thunderstorms): a long, suspenseful build-up in E minor that tightens bar by bar
+ *           (heartbeat drums, a drone, trembling strings, a rising violin) and breaks into a very fast chorus where two violins duel, one in
+ *           each ear, trading racing phrases over war drums, a galloping cello and a running harp, then join together. It loops while the storm lasts.
  *   STORM   "Thunder Over Hollowmere": dark and slow, in C minor: a deep cello drone, tremolo strings, tolling low harp, distant drum swells and a lonely flute.
- *           Plays under a thunderstorm, a downpour or a gale.
+ *           Plays under a heavy downpour or a gale.
  *   BATTLE  "Ironhoof Gallop": fast and driving, in D minor, in a galloping 6/8: an ostinato cello, rapid harp, tremolo strings, war drums and a staccato flute.
  *           Plays when something hostile is near (or just was), when you are hurt, and in any cave or dungeon.
  * Changing mood crossfades: the old tune fades out while the new one begins on its first bar. In a room the music is muffled.
@@ -22,13 +25,25 @@ const PonyMusic = (() => {
       prog: [[[0, 'm'], [8, 'M'], [3, 'M'], [10, 'M']], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]],                                     // Cm Ab Eb Bb, then Cm Fm Gm Cm
       rhythms: [[0, 5], [0, 4], [2, 6], [0], [0, 3, 6]]
     },
+    tempest: { title: 'Duel at Stormcrown', key: 4, bar: 8, level: 1, fadeIn: 2, fadeOut: 2.5 },                                     // E minor (harmonic); its sections and chords are TEMPEST below
     battle: {
       title: 'Ironhoof Gallop', key: 2, scale: MINOR_PENT, eighth: 0.19, bar: 6, level: 0.9, fadeIn: 0.5, fadeOut: 1.1,                                          // D minor, 6/8 (two dotted-quarter beats a bar)
       prog: [[[0, 'm'], [8, 'M'], [10, 'M'], [0, 'm']], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]],                                     // Dm Bb C Dm, then Dm Gm Am Dm
       rhythms: [[0, 1, 3, 4], [0, 2, 3, 5], [0, 3, 4, 5], [0, 1, 2, 4], [0, 2, 3, 4, 5]]
     }
   };
-  const HOSTILE_RANGE = 11, HOLD_BATTLE = 7, HOLD_STORM = 5;                           // tiles; seconds the mood lingers after the cause is gone
+  /** The tempest, section by section: a hush, a rise and a surge of suspense (each faster than the last), then the duel. dur = seconds per step (8 a bar). */
+  const HARMONIC = [0, 2, 3, 5, 7, 8, 11];                                                     // E harmonic minor (E F# G A B C D#), from the key
+  const TEMPEST = (() => {
+    const E = [0, 'm'], C = [8, 'M'], A = [5, 'm'], B = [7, 'M'];                              // Em C Am B (B major: the D# is the "leading tone" that makes it ache)
+    return {
+      sections: [{ id: 'hush', bars: 8, dur: 0.45 }, { id: 'rise', bars: 8, dur: 0.33 }, { id: 'surge', bars: 8, dur: 0.22 }, { id: 'duel', bars: 16, dur: 0.115 }],
+      chords: [E, E, E, E, C, E, A, B,   E, A, E, B, E, C, A, B,   E, E, A, A, C, C, B, B,   E, C, A, B, A, C, B, E, E, C, A, B, A, C, B, E]
+    };
+  })();
+  /** A scale position (0 = E4, seven to the octave) as a MIDI note. */
+  const posNote = p => 64 + 12 * Math.floor(p / 7) + HARMONIC[((p % 7) + 7) % 7];
+  const HOSTILE_RANGE = 11, HOLD_BATTLE = 7, HOLD_STORM = 5, HOLD_TEMPEST = 8;                           // tiles; seconds the mood lingers after the cause is gone
 
   let flute = null, harp = null, hall = null;
   const wave = (ctx, partials) => { const re = new Float32Array(partials.length + 1), im = new Float32Array(partials.length + 1); partials.forEach((a, i) => { im[i + 1] = a; }); return ctx.createPeriodicWave(re, im); };
@@ -45,7 +60,7 @@ const PonyMusic = (() => {
   class Music {
     constructor() {
       this.ctx = null; this.timer = 0; this.nextTime = 0; this.step = 0; this.bar = 0; this.phrase = []; this.lead = 4;     // lead: the flute's last scale position (it walks, rather than leaps)
-      this.theme = 'calm'; this.mood = { night: 0, indoors: 0, cave: 0 }; this.hurtT = 0; this.lastHp = null; this.battleT = 0; this.stormT = 0; this.last = 0;
+      this.theme = 'calm'; this.mood = { night: 0, indoors: 0, cave: 0 }; this.hurtT = 0; this.lastHp = null; this.battleT = 0; this.stormT = 0; this.tempestT = 0; this.lines = { a: [], b: [] }; this.vpos = { a: 12, b: 9 }; this.last = 0;
       GameAudio.onReady(ctx => { this.ctx = ctx; this._build(); });
     }
 
@@ -77,8 +92,10 @@ const PonyMusic = (() => {
       this.battleT = Math.max(0, this.battleT - dt); this.hurtT = Math.max(0, this.hurtT - dt);
       const stormy = weather.lightning > 0.25 || weather.rain > 0.85 || weather.wind > 0.8;
       this.stormT = stormy ? HOLD_STORM : Math.max(0, this.stormT - dt);
+      const fierce = weather.lightning > 0.5 || (weather.rain > 0.8 && weather.wind > 0.6);                          // a thunderstorm
+      this.tempestT = fierce ? HOLD_TEMPEST : Math.max(0, this.tempestT - dt);
       if (kind === 'cave' || kind === 'dungeon' || this.battleT > 0 || this.hurtT > 0) return 'battle';
-      return this.stormT > 0 ? 'storm' : 'calm';
+      return this.tempestT > 0 ? 'tempest' : this.stormT > 0 ? 'storm' : 'calm';
     }
 
     /** The title of the tune playing now. */
@@ -151,6 +168,24 @@ const PonyMusic = (() => {
       trem.gain.value = 1 - depth / 2; lfo.frequency.value = tremolo; lg.gain.value = depth / 2; lfo.connect(lg); lg.connect(trem.gain); lfo.start(t); lfo.stop(end);
       f.connect(env); env.connect(trem); trem.connect(this.bus);
     }
+    /** A violin: two slightly detuned sawtooths behind a low-pass, bowed (slow attack) or spiccato (short), panned to one side; `dark` is the lower, huskier one. */
+    _violin(t, note, len, vel, pan = 0, dark = false) {
+      const ctx = this.ctx, hz = midi(note), f = ctx.createBiquadFilter(), g = ctx.createGain(), end = t + len + 0.4, oscs = [], short = len < 0.35;
+      for (const detune of [-8, 8]) { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz; o.detune.value = detune; o.connect(f); o.start(t); o.stop(end); oscs.push(o); }
+      f.type = 'lowpass'; f.frequency.setValueAtTime(dark ? 2300 : 3600, t); f.Q.value = 0.9;
+      const peak = 0.05 * vel, attack = short ? 0.012 : 0.18;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + attack); g.gain.setValueAtTime(peak, t + Math.max(attack, len - 0.05)); g.gain.setTargetAtTime(0.0001, t + len, short ? 0.03 : 0.12);
+      f.connect(g); let tail = g;
+      if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); tail = p; }
+      tail.connect(this.bus); if (!short) this._vibrato(t, oscs.map(o => o.frequency), hz, 0.006, 6.1, 0.2, end);
+    }
+    /** A cymbal crash: a long wash of bright noise. */
+    _crash(t, vel) {
+      const ctx = this.ctx, n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
+      n.buffer = GameAudio.noise(); nf.type = 'highpass'; nf.frequency.value = 4200;
+      ng.gain.setValueAtTime(0.0001, t); ng.gain.linearRampToValueAtTime(0.1 * vel, t + 0.005); ng.gain.setTargetAtTime(0.0001, t + 0.02, 0.35);
+      n.connect(nf); nf.connect(ng); ng.connect(this.bus); n.start(t, Math.random() * 0.5, 1.8);
+    }
     /** A war drum: a pitched thump that falls, with a puff of skin. */
     _drum(t, vel, deep = 1) {
       const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain(), n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
@@ -192,8 +227,78 @@ const PonyMusic = (() => {
       return slots;
     }
 
+    /** One bar (8 racing sixteenths) for a duelling violin, as scale positions (null = a breath), walking up and down inside lo..hi and landing
+     *  on a chord tone on each beat. Remembers where the voice ended so the next bar carries on from there. */
+    _duelLine(voice, pcs, lo, hi, ending) {
+      const rnd = Math.random, out = []; let p = this.vpos[voice], dir = rnd() < 0.5 ? 1 : -1;
+      for (let i = 0; i < 8; i++) {
+        if (rnd() < 0.18) dir = -dir;
+        p += dir * (rnd() < 0.72 ? 1 : 2);
+        if (p > hi) { p = hi; dir = -1; } else if (p < lo) { p = lo; dir = 1; }
+        if (i % 4 === 0) for (const d of [0, 1, -1, 2, -2]) if (pcs.includes(posNote(p + d) % 12) && p + d >= lo && p + d <= hi) { p += d; break; }             // (a chord tone on the beat)
+        out.push(i % 2 === 1 && rnd() < 0.08 ? null : p);
+      }
+      if (ending) out[7] = null;
+      this.vpos[voice] = p; return out;
+    }
+
+    /** The tempest, step by step. See TEMPEST: hush, rise and surge build (heartbeat, drone, tremolo strings, a violin climbing) and the duel breaks. */
+    _scheduleTempest() {
+      const ctx = this.ctx, KEY = THEMES.tempest.key, total = TEMPEST.chords.length;
+      while (this.nextTime < ctx.currentTime + 0.6) {
+        const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime;
+        let sec = null, idx = bi, first = 0;
+        for (const x of TEMPEST.sections) { if (idx < x.bars) { sec = x; break; } idx -= x.bars; first += x.bars; }
+        const dur = sec.dur, chord = TEMPEST.chords[bi], root = KEY + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
+        const pcs = [root % 12, third % 12, fifth % 12], e = bi < 24 ? (bi + s / 8) / 24 : 1;                                   // e: how far the build-up has climbed, 0..1
+        if (sec.id === 'hush') {
+          if (s === 0) {
+            this._cello(t, 36 + root, dur * 8, 0.6 + 0.4 * e);                                                              // the drone
+            if (idx % 2 === 0) this._pad(t, [root + 48, fifth + 48], dur * 16, 0.7, { cutoff: 650, tremolo: 4.5, depth: 0.4, attack: 2.2 });
+            this._drum(t, 0.4 + 0.4 * e, 1.8); this._drum(t + 0.27, 0.28 + 0.3 * e, 2);                                      // a heartbeat
+            if (idx % 2 === 1) this._harp(t, root + 48, 0.5, 1.6);
+            if (idx === 2 || idx === 6) this._violin(t, posNote(idx === 2 ? 11 : 12), dur * 8, 0.45, -0.3, true);            // one long, aching note, then a half-step higher
+          }
+        } else if (sec.id === 'rise') {
+          if (s === 0) this._pad(t, [root + 48, third + 48, fifth + 48], dur * 8, 0.8, { cutoff: 1100, tremolo: 7, depth: 0.5, attack: 1.4 });
+          if (s % 2 === 0) this._drum(t, 0.35 + 0.35 * e, 1.4);
+          this._cello(t, 36 + root, dur * 0.8, 0.45 + 0.4 * e);                                                              // a pulse in the dark
+          if (s === 0 || s === 4) this._harp(t, [root + 48, fifth + 48][s / 4], 0.5, 0.9);
+          this._violin(t, posNote(9 + idx), dur * 0.9, 0.2 + 0.25 * e, 0.3, true);                                           // a violin trembling higher with every bar
+        } else if (sec.id === 'surge') {
+          if (bi === 23 && s >= 4) { this.nextTime += dur; this.step++; continue; }                                         // a held breath before the storm breaks
+          if (s === 0) this._pad(t, [root + 48, third + 48, fifth + 48], bi === 23 ? dur * 4 : dur * 8, 1, { cutoff: 1500, tremolo: 8.5, depth: 0.5, attack: 0.5 });
+          this._drum(t, 0.3 + 0.6 * e, 1.1);
+          if (idx >= 6) this._snare(t, 0.35 + 0.45 * (s / 8)); else if (s % 4 === 2) this._snare(t, 0.4 + 0.3 * e);        // a snare roll into the drop
+          this._cello(t, 36 + root + (s % 2 ? 12 : 0), dur * 0.85, 0.6 + 0.5 * e);
+          this._harp(t, [root + 48, third + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72][s], 0.45 + 0.3 * e, 0.5);
+          this._violin(t, posNote(10 + idx), dur * 0.9, 0.25 + 0.4 * e, -0.4);
+          if (idx >= 4) this._violin(t, posNote(8 + idx), dur * 0.9, 0.2 + 0.3 * e, 0.4, true);                              // a second joins, answering from the other side
+        } else {                                                                                                             // the duel
+          const cb = bi - first;
+          if (cb === 0 && s === 0) { this._crash(t, 1); this._drum(t, 1.3, 1.6); }
+          if (s === 0 || s === 4) this._drum(t, s === 0 ? 1 : 0.8, 1); else if (s === 6 && cb % 2) this._drum(t, 0.5, 1);
+          if (s === 2 || s === 6) this._snare(t, 0.8);
+          if (cb % 4 === 0 && s === 0) this._drum(t, 0.9, 2.2);                                                              // thunder under the phrase
+          if (s % 2 === 0) this._cello(t, 36 + root + (s % 4 === 2 ? 12 : 0), dur * 1.7, 1);
+          if (s === 0) this._pad(t, [root + 48, third + 48, fifth + 48], dur * 8, 1, { cutoff: 2000, tremolo: 10, depth: 0.5, attack: 0.05 });
+          this._harp(t, [root + 60, fifth + 60, root + 72, third + 72, fifth + 72, third + 72, root + 72, fifth + 60][s], 0.42, 0.35);
+          if (s === 0) {                                                                                                     // who plays this bar? they trade 2 bars each, then bar by bar, then join
+            const a = cb < 8 ? cb % 4 < 2 : cb < 12 ? cb % 2 === 0 : true, b = cb < 8 ? cb % 4 >= 2 : cb < 12 ? cb % 2 === 1 : true;
+            this.lines.a = a ? this._duelLine('a', pcs, 7, 16, cb === 15) : [];
+            this.lines.b = b ? (cb >= 12 ? this.lines.a.map(p => p === null ? null : p - 2) : this._duelLine('b', pcs, 3, 12, false)) : [];                      // (at the end B shadows A a third below)
+          }
+          const pa = this.lines.a[s], pb = this.lines.b[s];
+          if (pa != null) this._violin(t, posNote(pa), dur * 0.95, 0.95, -0.5);
+          if (pb != null) this._violin(t, posNote(pb), dur * 0.95, 0.85, 0.5, true);
+        }
+        this.nextTime += dur; this.step++;
+      }
+    }
+
     _schedule() {
       const ctx = this.ctx; if (!ctx || ctx.state !== 'running') { if (ctx) this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.2); return; }
+      if (this.theme === 'tempest') return this._scheduleTempest();
       const theme = THEMES[this.theme], name = this.theme, B = theme.bar, quiet = this.mood.cave && name !== 'battle' ? 0.6 : 1;
       while (this.nextTime < ctx.currentTime + 0.6) {
         const eighth = theme.eighth, s = this.step % B, chord = theme.prog[Math.floor(this.bar / 4) % theme.prog.length][this.bar % 4], root = theme.key + chord[0], minor = chord[1] === 'm';
