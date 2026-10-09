@@ -34,7 +34,7 @@ const PonyMusic = (() => {
     },
     tempest: { title: 'Duel at Stormcrown', blurb: 'Build-up, a duel of violins, a cello interlude, the duel again. Thunderstorms.', key: 4, bar: 8, level: 1, fadeIn: 2, fadeOut: 2.5 },                                     // E minor (harmonic); its sections and chords are TEMPEST below
     parade: { title: 'Glitterhoof Parade', blurb: 'A mild-tempo fantasy pony pop song: verse, chorus, bridge and a key change.', key: 0, bar: 8, level: 1, fadeIn: 1.5, fadeOut: 2.5 },
-    dance: { title: 'Rainbow Hoofdance', blurb: 'Cheery and upbeat, 124 bpm: a build, two drops and a breakdown.', key: 7, bar: 8, level: 1, fadeIn: 1.5, fadeOut: 2.5 },
+    dance: { title: 'Rainbow Hoofdance', blurb: 'Cheery and upbeat, 124 bpm: a build, two drops and a breakdown.', key: 7, bar: 8, level: 0.65, fadeIn: 1.5, fadeOut: 2.5 },
     battle: {
       title: 'Ironhoof Gallop', blurb: 'Fast and galloping. Battles and caves.', key: 2, scale: MINOR_PENT, eighth: 0.19, bar: 6, level: 0.9, fadeIn: 0.5, fadeOut: 1.1,                                          // D minor, 6/8 (two dotted-quarter beats a bar)
       prog: [[[0, 'm'], [8, 'M'], [10, 'M'], [0, 'm']], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]],                                     // Dm Bb C Dm, then Dm Gm Am Dm
@@ -562,7 +562,7 @@ const PonyMusic = (() => {
         const chord = DANCE.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
         const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
         const pc = root % 12, low = 36 + pc + (pc < 5 ? 12 : 0);
-        const V = id === 'intro' ? 0.5 + 0.35 * idx / 8 : id === 'drop' ? 0.95 + 0.15 * (sec.round - 1) : id === 'breakdown' ? 0.55 : id === 'build' ? 0.6 + 0.35 * idx / 8 : 0.9 - 0.5 * idx / 8;
+        const V = id === 'intro' ? 0.5 + 0.35 * idx / 8 : id === 'drop' ? 0.95 + 0.15 * (sec.round - 1) : id === 'breakdown' ? 1.1 : id === 'build' ? 0.6 + 0.35 * idx / 8 : 0.9 - 0.5 * idx / 8;
         const hits = ((DANCE.MELODY[id] || [])[id === 'drop' ? idx % 8 : idx] || []).filter(n => n[0] === s) || [];
         const lastBar = idx === sec.bars - 1, kickOn = id === 'drop' || (id === 'intro' && idx >= 4) || (id === 'build' && idx < 6) || (id === 'outro' && idx < 5);
         if (s === 0) { this.marks.push({ t, bar: bi }); if (this.marks.length > 16) this.marks.shift(); }
