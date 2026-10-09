@@ -1,6 +1,5 @@
 'use strict';
-/* SERVER-SIDE - wild ponies come and go with the mornings. Ponies have no animal home (see animalSystem.js: nodes): each BIOME REGION (one stretch of
- * one biome: BiomeLayer.regionKey) may hold at most `perBiome` wild ponies (a biome's own `ponyMax` overrides it), and they are not all there from the start.
+/* SERVER-SIDE - wild ponies come and go with the mornings. Ponies have no animal home (see animalSystem.js: nodes): each REGION (a square cell of one zone, BiomeLayer.regionKey: 40 tiles a side) may hold at most `perBiome` wild ponies (a biome's own `ponyMax` overrides it), and they are not all there from the start.
  * Every morning (CONFIG.sim.wildPonies.morningHour) the game rolls, for each region a player is near: every wild pony there may leave (only once nobody can
  * see it go), and every free place may be taken by a newcomer, who walks into view near a player rather than appearing in front of them.
  * Ponies somebody caught or owns are not wild any more: they never leave and free their place. */

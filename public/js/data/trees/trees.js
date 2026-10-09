@@ -12,12 +12,12 @@
  *            biome grows that species, and only in a season it takes in. Omit it and the species never spreads by itself. */
 const TreeSpecies = new Registry('tree species', { required: ['name', 'look', 'days', 'seasons'] });
 TreeSpecies.registerAll([
-  { id: 'oak',   name: 'Oak',        look: 'leafy', days: 6,  seasons: ['spring', 'autumn'], saplings: [1, 2], color: '#5f9c4a', spread: { chance: 0.04, range: 2, crowd: 5 } },
-  { id: 'pine',  name: 'Pine',       look: 'pine',  days: 9,  seasons: ['autumn', 'winter'], saplings: [1, 2], color: '#2f6b4b', spread: { chance: 0.035, range: 2, crowd: 5 } },
-  { id: 'apple', name: 'Apple Tree', look: 'leafy', days: 12, seasons: ['spring'],           saplings: [1, 1], color: '#7cc142', fruit: true, spread: { chance: 0.08, range: 2, crowd: 4 } },
-  { id: 'spruce', name: 'Spruce',    look: 'pine',  days: 10, seasons: ['autumn', 'winter'], saplings: [1, 2], color: '#2a5a66', tint: 'rgba(30,80,120,.24)', spread: { chance: 0.06, range: 2, crowd: 6 } },
-  { id: 'hard_pine', name: 'Hard Pine', look: 'pine', days: 14, seasons: ['autumn', 'winter', 'spring'], saplings: [1, 2], color: '#4a5a2a', tint: 'rgba(70,80,10,.26)', spread: { chance: 0.05, range: 2, crowd: 6 } },
-  { id: 'ash',   name: 'Ash',        look: 'leafy', days: 8,  seasons: ['spring', 'summer'], saplings: [1, 2], color: '#9fb85a', tint: 'rgba(225,235,130,.2)', spread: { chance: 0.05, range: 2, crowd: 5 } }
+  { id: 'oak',   name: 'Oak',        look: 'leafy', days: 6,  seasons: ['spring', 'autumn'], saplings: [1, 2], color: '#5f9c4a', spread: { chance: 0.04, range: 2, crowd: 3 } },
+  { id: 'pine',  name: 'Pine',       look: 'pine',  days: 9,  seasons: ['autumn', 'winter'], saplings: [1, 2], color: '#2f6b4b', spread: { chance: 0.035, range: 2, crowd: 3 } },
+  { id: 'apple', name: 'Apple Tree', look: 'leafy', days: 12, seasons: ['spring'],           saplings: [1, 1], color: '#7cc142', fruit: true, spread: { chance: 0.08, range: 2, crowd: 2 } },
+  { id: 'spruce', name: 'Spruce',    look: 'pine',  days: 10, seasons: ['autumn', 'winter'], saplings: [1, 2], color: '#2a5a66', tint: 'rgba(30,80,120,.24)', spread: { chance: 0.06, range: 2, crowd: 3 } },
+  { id: 'hard_pine', name: 'Hard Pine', look: 'pine', days: 14, seasons: ['autumn', 'winter', 'spring'], saplings: [1, 2], color: '#4a5a2a', tint: 'rgba(70,80,10,.26)', spread: { chance: 0.05, range: 2, crowd: 3 } },
+  { id: 'ash',   name: 'Ash',        look: 'leafy', days: 8,  seasons: ['spring', 'summer'], saplings: [1, 2], color: '#9fb85a', tint: 'rgba(225,235,130,.2)', spread: { chance: 0.05, range: 2, crowd: 3 } }
 ]);
 /** Which species a tree prop is: planted and generated ones say so (`sp`); older ones are told apart by their look (and apples). */
 TreeSpecies.of = prop => (prop && prop.sp) || (prop && prop.forage === 'apple_tree' ? 'apple' : prop && prop.v % 2 === 1 ? 'pine' : 'oak');

@@ -6,6 +6,7 @@
  *   bushes     [[berryItemId, weight]]     what a berry bush here bears (how many bushes: the biome's `bush` chance)
  *   mushrooms  [[mushroomItemId, weight]]  (optional) mushrooms that grow on the ground here, picked like berries
  *   mushroomChance                         (optional) chance that a free tile holds a mushroom patch
+ *   treeScale                              (optional) times the trees' density here (default 1; 0.5 = half as many trees)
  *   spreadBoost                            (optional) times the trees' own spread chance here (default 1: 0 stops trees spreading)
  * The id is the biome's id. */
 const Flora = new Registry('flora', {
