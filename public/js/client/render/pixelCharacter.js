@@ -770,5 +770,7 @@ const PixelCharacter = (() => {
 
   /** Shared with the other pixel-art sprites (pixelPony.js). */
   const util = { hex, css, shade, light, mix, tones, outline };
-  return { draw, riderLegs, armLook, W, H, PX, util, pack };
+  /** Where draw() will put the figure's top, head and torso for this foot position, without drawing (so a tool can be painted first, behind it). */
+  function layout(sy, crouch) { const top = sy - H * PX + (crouch || 0); return { top, headY: top + (TOP + 9) * PX, torsoTop: top + (TOP + 17) * PX }; }
+  return { draw, layout, riderLegs, armLook, W, H, PX, util, pack };
 })();
