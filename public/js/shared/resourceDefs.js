@@ -35,6 +35,8 @@ const BiomeEdgeApples = Object.freeze(Object.fromEntries(Biomes.all().filter(b =
 const BiomeApples = Object.freeze(Object.fromEntries(Biomes.all().map(b => [b.id, b.apples && b.apples.length ? b.apples : [['apple', 1]]])));   // which apples its trees bear
 const BushChance = fromBiomes('bush'), StoneChance = fromBiomes('stone'), FlaxChance = fromBiomes('flax');
 const AppleTreeChance = fromBiomes('appleTrees'), TreeBoost = fromBiomes('treeBoost');
+/** No biome's plant list may put mushrooms on more than this share of the ground (the cheap first test). */
+const MAX_MUSHROOM_CHANCE = 0.08;
 const MAX_BUSH_CHANCE = Math.max(...Object.values(BushChance)), MAX_FLAX_CHANCE = Math.max(...Object.values(FlaxChance));
 const ROCKY_STONE_CHANCE = 0.07, MAX_STONE_CHANCE = 0.07;
 /** Chance that a clay-flat tile holds a diggable deposit. */

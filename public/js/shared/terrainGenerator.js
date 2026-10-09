@@ -113,10 +113,24 @@ class TerrainGenerator {
     if (h >= MAX_BUSH_CHANCE || Village.blocksTrees(tx, ty)) return null;
     const biome = this.biomeAt(tx, ty, tileType);
     if (h >= BushChance[biome]) return null;
-    const table = BiomeBerries[biome], total = table.reduce((n, [, w]) => n + w, 0);
+    const table = Flora.bushesIn(biome) || BiomeBerries[biome], total = table.reduce((n, [, w]) => n + w, 0);       // (the biome's plant list: js/data/flora/)
     let roll = hash3(this.seed, tx, ty, 12) * total;
     for (const [berry, weight] of table) { if ((roll -= weight) < 0) return { biome, berry }; }
     return { biome, berry: table[0][0] };
+  }
+
+  /** The species of the tree that grows on this tile, from its biome's plant list (js/data/flora/), or null for a biome without one (the older apple / oak / pine rules decide). */
+  treeSpeciesAt(tx, ty) {
+    const list = Flora.treesIn(this.layers.biomes.at(tx, ty));
+    return list ? Flora.pick(list, hash3(this.seed, tx, ty, 97)) : null;
+  }
+  /** A patch of mushrooms on this tile? Returns the mushroom's item id or null. Only biomes whose plant list has mushrooms grow them. */
+  mushroomAt(tx, ty, tileType) {
+    if (tileType !== TILE.GRASS && tileType !== TILE.DIRT) return null;
+    const h = hash3(this.seed, tx, ty, 98);
+    if (h >= MAX_MUSHROOM_CHANCE || Village.blocksTrees(tx, ty)) return null;
+    const flora = Flora.get(this.layers.biomes.at(tx, ty));
+    return flora && flora.mushrooms && h < flora.mushroomChance ? Flora.pick(flora.mushrooms, hash3(this.seed, tx, ty, 99)) : null;
   }
 
   /** A loose stone on this tile? Rocky ground is full of them. Returns true / false. */

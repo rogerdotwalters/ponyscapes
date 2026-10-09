@@ -52,8 +52,11 @@ round it, from the world seed.
 * the whole map floats in open sea, behind an **invisible barrier** (boats and flying ponies cannot leave)
 * a gateway can be **shut**: `locked: true` in the zone's data, opened by a guardian (`unlockedBy`) or by hand with `worldProgress.setGate(zoneIndex, true | false)`. A shut gate is a solid, shimmering barrier for now (visuals for story beats come later)
 * the Cave Bear's lair is the last layer of the Old Cavern, in the Meadows' hills
+* **plants**: each biome has a plant list (`public/js/data/flora/`, one file per biome): which trees, berry bushes and mushrooms grow there. Meadow: apple trees and some pine, raspberries. Orchard: oak and apple trees (many kinds of apple), no pine. Forest: hard pine and spruce, blackberries. Mushroom Kingdom: ash trees and five kinds of mushroom. Tree species (look, growing days, seasons, colour wash and how they **spread**) are in `data/trees/trees.js`. Once a day a tree near a player may seed a sapling of its own kind beside it (`shared/floraSystem.js`): only species its biome lists, only in a season it takes in, never on walls, gateways, paths or fields, never crowded, a dozen a day at most
 
 **Going down in a dungeon** (`shared/downed.js`, rules in `CONFIG.sim.difficulty`): at 0 health inside a dungeon room or lair you drop to your knees and the view darkens instead of waking in the village. After 7 seconds you get up with half health; snacks (Use with food in hand) shorten the wait and add health, and a teammate pressing Interact beside you lifts you at once. There are easy / medium / hard modes (host: Settings > Difficulty); only easy is written, so all three use its rules for now. Check it with `npm run test:downed`.
+
+To see what the generator makes, open **`/map-preview.html`**: a Regenerate button (new random seed), a seed box, Previous, an auto-regenerate timer and an "open all gateways" switch. `?seed=123` opens one seed. It uses the game's own world code and never touches saved worlds.
 
 The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
 

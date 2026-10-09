@@ -462,6 +462,15 @@ const ItemIcons = (() => {
       else { ctx.fillStyle = o.nose; ctx.beginPath(); ctx.ellipse(24, 31, 2.4, 1.8, 0, 0, Math.PI * 2); ctx.fill(); }
     };
   }
+  /** A mushroom: a domed cap with a few spots on a short pale stem, in the item's own colour. */
+  function mushroomPainter(color) {
+    return ctx => {
+      ctx.fillStyle = '#e9e0c6'; ctx.fillRect(21, 26, 6, 14); ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(25, 26, 2, 14);
+      ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(24, 26, 16, 12, 0, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(24, 26, 16, 5, 0, 0, Math.PI); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.75)'; for (const [x, y, r] of [[17, 21, 2.2], [26, 17, 2.6], [31, 24, 1.8], [22, 24, 1.4]]) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+    };
+  }
   /** A small cluster of berries on a leaf, in the item's own colour. */
   function berryPainter(color) {
     return ctx => {
@@ -546,6 +555,7 @@ const ItemIcons = (() => {
     else if (resource === 'stone') for (const [x, y, r] of [[14, 29, 6], [26, 30, 7], [36, 29, 5.5], [20, 21, 6], [31, 21, 6], [25, 13, 5]]) { ctx.fillStyle = '#8d8d93'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#b4b4ba'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 2, r * 0.45, r * 0.3, 0, 0, Math.PI * 2); ctx.fill(); }
     else for (const [x, y] of [[14, 29], [26, 29], [36, 29], [20, 21], [31, 21], [25, 13]]) { ctx.fillStyle = '#b8643c'; ctx.beginPath(); ctx.ellipse(x, y, 6, 4.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d98a5c'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 1.5, 2.6, 1.6, 0, 0, Math.PI * 2); ctx.fill(); }
   }
+  for (const f of Foods.all()) if (f.category === 'mushroom') painters[f.id] = mushroomPainter(f.color);
   painters.stockpile_wood = ctx => stockpileIcon(ctx, 'wood');
   painters.stockpile_stone = ctx => stockpileIcon(ctx, 'stone');
   painters.stockpile_clay = ctx => stockpileIcon(ctx, 'clay');
