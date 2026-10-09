@@ -218,7 +218,7 @@ class DungeonSystem {
 
   /** What a chest holds: the dungeon's `loot` table, rolled from the chest's place (every player who opens a fresh chest would see the same pile, but a chest opens once). */
   rollLoot(def, tx, ty) {
-    const table = def.loot && def.loot.length ? def.loot : [{ item: 'gold_coin', min: 10, max: 30 }], seed = this.server.map.terrain.seed, out = [];
+    const table = LootTables.chestOf(def), seed = this.server.map.terrain.seed, out = [];
     table.forEach((e, i) => {
       if (!ItemDefs[e.item] || hash3(seed, tx, ty, 40 + i) >= (e.chance === undefined ? 1 : e.chance)) return;
       out.push({ item: e.item, count: (e.min || 1) + Math.floor(hash3(seed, tx, ty, 60 + i) * ((e.max || e.min || 1) - (e.min || 1) + 1)) });

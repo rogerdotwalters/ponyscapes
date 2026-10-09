@@ -396,7 +396,7 @@ class AnimalSystem {
     if (home) this._vacate(a);                                                         // an animal of a home comes back to that home
     else if (!def.boss && !gridOf(a)) this.respawns.push({ type: a.type, cx: Math.floor(a.x) >> CHUNK_SHIFT, cy: Math.floor(a.y) >> CHUNK_SHIFT, atTick: this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS) });
     const drops = [];
-    for (const d of def.drops) {
+    for (const d of LootTables.dropsOf(def)) {                                       // (the editor's loot tables, else the creature's own: lootTables.js)
       if (d.chance !== undefined && this.rng() >= d.chance) continue;
       drops.push({ item: d.item, count: d.min + Math.floor(this.rng() * (d.max - d.min + 1)) });
     }

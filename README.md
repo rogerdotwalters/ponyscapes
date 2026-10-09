@@ -60,6 +60,8 @@ To see what the generator makes, open **`/map-preview.html`**: a Regenerate butt
 
 **The Slime Warren** (Act 1, `data/dungeons/slime_warren.js`): once the Cave Bear is beaten a second cave in the hills clears its rubble. Five levels of about 50 x 50 tiles (made by code, `shared/slimeRooms.js`), each filling with green slimes in waves: the dungeon data sets, per level, the most slimes alive at once, the seconds between new ones, their level and how many come in all. Beat every one and the way on opens. The last room is the Slime King, who leaps at you and slams the ground (`shared/behaviors/slimeking.js`). Menu > Dev settings > **Act 1** has a *Bot player* checkbox (a second player that follows, fights and picks you up), a *Cave Bear defeated* checkbox and teleports into each level. Check it with `npm run test:warren`. Caves are dark: bring a torch.
 
+**Main menu, editor and loot tables.** The game opens on a menu: **Play** (character, then solo / host / join) or **Editor** (`editor.html`, behind the same developer code as Dev settings; `shared/devLock.js`). The menu's theme is the soundtrack's last tune, *Harmony Hooves*. The editor's **Loot** tab edits what every creature drops and what each dungeon's chests hold (`shared/lootTables.js`): changes save at once in that phone's or computer's browser storage, and *Download lootTables.js* / *Import* move them between devices (put the file at `public/js/content/lootTables.js` to make it the game's own). The host's device decides what drops in a game with friends. Check it with `npm run test:loot`.
+
 The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
 
 ## How saving works

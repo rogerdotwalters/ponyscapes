@@ -16,6 +16,15 @@
   <div class="lobbyCard scrollable">
     <h1>Ponyscapes</h1>
     <div class="lobbySub">A small fantasy world, for up to four friends</div>
+    <section id="lobbyHome" class="lobbyPane">
+      <button id="lobbyPlay" class="big">Play</button>
+      <button id="lobbyEditor" class="big alt">Editor</button>
+      <div id="lobbyEditorLock" hidden>
+        <div class="lobbyNote">The editor needs the developer code.</div>
+        <div class="lockRow"><input id="lobbyEditorCode" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Code"><button id="lobbyEditorGo" type="button">Unlock</button></div>
+      </div>
+      <div id="lobbySound" class="lobbyNote">Tap anywhere to start the music.</div>
+    </section>
     <label class="lobbyField" id="nameField">Character name<input id="lobbyName" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Player"></label>
     <div id="lobbyError" hidden role="alert"></div>
     <section id="lobbyMain" class="lobbyPane">
@@ -23,6 +32,7 @@
       <button id="lobbySolo" class="big">Play solo</button>
       <button id="lobbyHost" class="big">Host a game</button>
       <button id="lobbyJoin" class="big">Join a game</button>
+      <button id="lobbyMenu" type="button" class="textBtn">← Main menu</button>
       <div class="lobbyNote">Hosting keeps the world and every player's character in <b>your</b> browser's database.</div>
     </section>
     <section id="lobbyCreator" class="lobbyPane" hidden>
@@ -300,10 +310,12 @@
 <script src="js/data/furniture/basic.js" defer></script>
 <script src="js/data/interiors/tiles.js" defer></script>
 <script src="js/shared/itemDefs.js" defer></script>
+<script src="js/content/lootTables.js" defer></script>
 <script src="js/shared/recipeDefs.js" defer></script>
 <script src="js/shared/resourceDefs.js" defer></script>
 <script src="js/shared/ponyDefs.js" defer></script>
 <script src="js/shared/animalDefs.js" defer></script>
+<script src="js/shared/lootTables.js" defer></script>
 <script src="js/shared/animalLevels.js" defer></script>
 <script src="js/shared/enemyCodes.js" defer></script>
 <script src="js/shared/ponyProgress.js" defer></script>
@@ -360,6 +372,7 @@
 <script src="js/shared/interiorSystem.js" defer></script>
 <script src="js/shared/sleepSystem.js" defer></script>
 <script src="js/shared/downed.js" defer></script>
+<script src="js/shared/devLock.js" defer></script>
 <script src="js/shared/botSystem.js" defer></script>
 <script src="js/shared/wildPonies.js" defer></script>
 <script src="js/shared/wantSystem.js" defer></script>

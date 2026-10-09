@@ -93,3 +93,24 @@ dialog menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; ma
   .actions { margin-left: 0; }
 }
 canvas.curve { max-width: 100%; height: auto; border-radius: 6px; margin-top: 8px; display: block; }
+
+/* the lock in front of the editor (js/editor/lockGate.js) */
+.devLocked body > :not(#devGate) { display: none !important; }
+#devGate { margin: auto; padding: 24px; max-width: 360px; text-align: center; }
+#devGate h1 { color: var(--gold); margin: 0 0 6px; }
+#devGate .gateRow { display: flex; gap: 6px; }
+#devGate .gateRow input { flex: 1; padding: 8px; }
+#devGate .error { color: var(--bad); min-height: 20px; margin: 6px 0; }
+
+/* the Loot tab (js/editor/lootEditor.js): rows that wrap, so they fit a phone */
+.lootTools { display: flex; gap: 6px; flex-wrap: wrap; padding: 2px 2px 8px; }
+.lootGroup { margin: 8px 4px 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.lootRows { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.lootRow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.lootField { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); }
+.lootField select { min-width: 150px; font-size: 14px; padding: 6px; }
+.lootField input { width: 78px; font-size: 14px; padding: 6px; }
+.lootRow button { padding: 8px 12px; }
+.lootButtons { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.lootSample { font-size: 13px; margin: 6px 0; line-height: 1.6; }
+.lootNote { color: var(--good); font-size: 12px; min-height: 18px; }

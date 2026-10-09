@@ -9,8 +9,6 @@
  *   Trees        per biome: how many (% of normal) and the most there can be (% of grass tiles); used from the next world start
  *   Export       the values as JSON for js/content/gameSettings.js (download, copy, or paste some back in)
  * Changes are kept in this browser (GameSettings) until they are exported into the game folder. */
-const ADMIN_CODE = 'pnkpi', ADMIN_UNLOCK_KEY = 'ponyscapes.adminUnlocked';
-
 class SettingsUI {
   constructor({ panel, list, closeButton, game }) {
     this.panel = panel; this.list = list; this.game = game; this.selects = []; this.sendTimer = null; this.pending = {};
@@ -40,8 +38,8 @@ class SettingsUI {
   close() { this.panel.hidden = true; }
 
   /* ---- the lock ---- */
-  get unlocked() { try { return sessionStorage.getItem(ADMIN_UNLOCK_KEY) === '1'; } catch (e) { return !!this._unlocked; } }
-  set unlocked(on) { this._unlocked = on; try { if (on) sessionStorage.setItem(ADMIN_UNLOCK_KEY, '1'); else sessionStorage.removeItem(ADMIN_UNLOCK_KEY); } catch (e) { /* remembered in memory only */ } }
+  get unlocked() { return DevLock.unlocked; }                                    // (the same code and the same unlock as the Editor: devLock.js)
+  set unlocked(on) { DevLock.unlocked = on; }
   _createLock() {
     const el = document.createElement('div'); el.className = 'adminLock';
     el.innerHTML = '<div class="gtitle">Dev settings</div><p>Enter the code to change testing tools and game settings.</p>' +
@@ -49,7 +47,7 @@ class SettingsUI {
     this.list.appendChild(el); this.lockBox = el;
     const input = el.querySelector('#adminCode'), err = el.querySelector('#adminErr');
     const tryCode = () => {
-      if (input.value.trim().toLowerCase() === ADMIN_CODE) { this.unlocked = true; input.value = ''; err.textContent = ''; this._showLocked(); this.refresh(); }
+      if (DevLock.check(input.value)) { this.unlocked = true; input.value = ''; err.textContent = ''; this._showLocked(); this.refresh(); }
       else { err.textContent = 'That is not the code.'; input.select(); }
     };
     el.querySelector('#adminUnlock').addEventListener('click', tryCode);
