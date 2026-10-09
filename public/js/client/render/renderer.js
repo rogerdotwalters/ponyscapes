@@ -32,7 +32,7 @@ class Renderer {
       if (o >= INTERIOR_OBJ_BASE && plan && plan.wallIsLow) {                           // a room's wall: low at the front, a window on the side facing in
         Object.assign(item, { low: plan.wallIsLow(tx, ty), windowS: plan.isFloor(tx, ty + 1), windowE: plan.isFloor(tx + 1, ty) });
       }
-      if (isCliffObj(o)) item.look = this.game.map.biome(tx, ty);                          // a cliff is the colour of its zone's biome
+      if (isCliffObj(o) || o === OBJ.CAVEMOUTH) item.look = this.game.map.biome(tx, ty);                          // a cliff is the colour of its zone's biome
       items.push(item);
     }
     for (const prop of chunk.props) {

@@ -15,6 +15,13 @@ class WorldProgress {
     this.rev++;
     return true;
   }
+  /** Take a guardian back off the list of the fallen (a testing aid): what it guarded shuts again. Returns true if it was down. */
+  undefeatBoss(ring) {
+    if (!this.defeated.delete(ring)) return false;
+    this._apply();
+    this.rev++;
+    return true;
+  }
   /** Open (true) or shut (false) the gateway into a zone, whatever its guardian rule says. */
   setGate(zone, open) {
     if (!this.rings.def(zone) || zone === 0) return false;

@@ -407,6 +407,7 @@ class AnimalSystem {
       if (humans.some(h => sameGrid(h, a) && Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_SYNC_RADIUS)) {
         out[id] = { id, type: a.type, level: a.level, x: a.x, y: a.y, vx: a.vx, vy: a.vy, facing: a.facing, hp: a.hp, state: a.state, look: a.look, owner: a.owner, captor: a.captor, leashed: a.leashed, rider: a.rider };
         if (a.grid) out[id].grid = a.grid;
+        if (a.jumpLift) out[id].lift = Math.round(a.jumpLift * 100) / 100;                     // the Slime King mid-leap: how high (0..1; drawn like a flying pony's lift)
         if (a.main) out[id].main = true;
         if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)

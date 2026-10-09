@@ -18,6 +18,7 @@ class SettingsUI {
     this._createLock();
     this.body = document.createElement('div'); this.body.className = 'adminBody'; list.appendChild(this.body);
     this._createTesting();
+    this._createAct1();
     if (CONFIG.sim.vitals) { this.body.insertAdjacentHTML('beforeend', '<div class="gtitle">Players</div>'); for (let slot = 0; slot < CONFIG.sim.maxPlayers; slot++) this._createRow(slot); }
     this._createWorld();
     this._createNightLook();
@@ -68,6 +69,21 @@ class SettingsUI {
     this.difficulty = el.querySelector('[data-difficulty]'); this.difficulty.addEventListener('change', () => this.game.setDifficulty(this.difficulty.value));
     el.querySelector('.admLock').addEventListener('click', () => { this.unlocked = false; this._showLocked(); });
     this.body.appendChild(el); this.testBox = el;
+  }
+
+  /** Act 1 (the Old Cavern, the Cave Bear and the Slime Warren): tests for the story so far. */
+  _createAct1() {
+    const el = document.createElement('div'); el.className = 'testBox';
+    const warren = Dungeons.all()[1] ? Dungeons.all()[1].rooms : [];
+    el.innerHTML =
+      '<div class="gtitle">Act 1</div>' +
+      '<label class="chk"><input type="checkbox" data-setting="botPlayer"><span><b>Bot player</b><small>A second player joins you (checked) or leaves (unchecked). It follows you into caves, fights, and picks you up when you are down, to try party play alone.</small></span></label>' +
+      '<label class="chk"><input type="checkbox" data-setting="bearDefeated"><span><b>Cave Bear defeated</b><small>Checked: the Cave Bear counts as beaten, so the rubble clears from the Slime Warren (the second cave in the hills). Unchecked: the bear is back.</small></span></label>' +
+      '<div class="admRow" style="flex-wrap:wrap;gap:6px;margin-top:6px"><button data-tp="warren" tabindex="-1">Slime Warren: level 1</button>' +
+      warren.map((r, i) => (i ? `<button data-tp="warren:${i}" tabindex="-1">${i === warren.length - 1 ? 'Slime King' : 'Level ' + (i + 1)}</button>` : '')).join('') + '</div>';
+    el.addEventListener('click', e => { const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp === 'warren' ? 'warren:0' : b.dataset.tp); });
+    for (const box of el.querySelectorAll('input')) box.addEventListener('change', () => this.game.setSetting(box.dataset.setting, box.checked));
+    this.body.appendChild(el); this.act1Box = el;
   }
 
   _createRow(slot) {
@@ -399,7 +415,7 @@ class SettingsUI {
       const slot = Number(row.dataset.slot), who = row.querySelector('.who');
       if (who) who.innerHTML = `<i style="background:${CONFIG.sim.slotColors[slot]}"></i>${LobbyUI.escape(this.game.playerName('p' + (slot + 1)))}${slot === 0 ? ' (you, host)' : ''}`;
     }
-    for (const box of (this.testBox ? this.testBox.querySelectorAll('input') : [])) box.checked = !!(this.game.settings && this.game.settings[box.dataset.setting]);
+    for (const box of [...(this.testBox ? this.testBox.querySelectorAll('input') : []), ...(this.act1Box ? this.act1Box.querySelectorAll('input') : [])]) box.checked = !!(this.game.settings && this.game.settings[box.dataset.setting]);
     if (this.difficulty && this.game.settings) this.difficulty.value = Downed.mode(this.game.settings.difficulty);
     for (const { id, vital, select } of this.selects) {
       const p = players[id];
