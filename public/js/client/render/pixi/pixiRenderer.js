@@ -220,7 +220,7 @@ class PixiRenderer extends Renderer {
     const px = bx + e.ix, py = by + e.iy, sprite = this.itemPool.place(e.tex, px / s, py / s, e.w / s, e.h / s);
     if (hole && this._hidesPlayer(item, hole)) {                                                          // cut it away round you
       const l = ox + px, t = oy + py, dx = Math.max(l - hole.x, 0, hole.x - (l + e.w)), dy = Math.max(t - hole.y, 0, hole.y - (t + e.h)) / hole.squash;
-      if (Math.hypot(dx, dy) < hole.outer) sprite.filters = [this.seeThrough.filter];
+      if (Math.hypot(dx, dy) < hole.outer) { sprite.filters = [this.seeThrough.filter]; this._footprint(item); }
     }
   }
 
@@ -231,6 +231,16 @@ class PixiRenderer extends Renderer {
     if (item.kind !== 'built') return false;
     const def = StructureDefs[item.structure];
     return !(def && def.fence) && item.depth > hole.depth && hole.wx < item.box[2] && hole.wy < item.box[3];
+  }
+
+  /** A building tile that is cut away shows its footprint as black void on the ground (under the items), so you can see where you cannot walk. */
+  _footprint(item) {
+    if (item.kind !== 'structure' || item.o === OBJ.DOOR) return;
+    const ctx = this.groundCtx, { tx, ty } = item;
+    ctx.save(); this.camera.applyTransform(ctx);
+    ctx.fillStyle = '#000'; ctx.beginPath();
+    ctx.moveTo(isoX(tx, ty), isoY(tx, ty)); ctx.lineTo(isoX(tx + 1, ty), isoY(tx + 1, ty)); ctx.lineTo(isoX(tx + 1, ty + 1), isoY(tx + 1, ty + 1)); ctx.lineTo(isoX(tx, ty + 1), isoY(tx, ty + 1));
+    ctx.closePath(); ctx.fill(); ctx.restore();
   }
 
   /** A pony or character in marker colours (see paletteFilter.js), as one sprite with the palette swap on it. */
