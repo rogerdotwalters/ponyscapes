@@ -46,11 +46,11 @@ const PixelCharacter = (() => {
   /* ---- a tiny pixel painter with a movable origin (for the bob of the upper body) ---- */
   /** `cap`: null to paint into `ctx`; or a function (layer name) -> a 2D context, to paint each LAYER onto a canvas of its own (the art pack's export:
    *  SlotArt in artPack.js, and the layers in front() / back() / side() and the prince's). Painting live, layer() just runs its function. */
-  function painter(ctx, cap) {
+  function painter(ctx, cap, skip) {
     let ox = 0, oy = 0;
     const P = {
       cap: !!cap,
-      layer(name, fn) { if (!cap) { fn(); return; } const prev = ctx; ctx = cap(name); fn(); ctx = prev; },
+      layer(name, fn) { if (skip && skip.has(name)) return; if (!cap) { fn(); return; } const prev = ctx; ctx = cap(name); fn(); ctx = prev; },
       at(dx, dy, fn) { const sx = ox, sy = oy; ox += dx; oy += dy; fn(); ox = sx; oy = sy; },
       px(x, y, c) { if (c) { ctx.fillStyle = c; ctx.fillRect(x + ox, y + oy, 1, 1); } },
       rect(x, y, w, h, c) { if (c && w > 0 && h > 0) { ctx.fillStyle = c; ctx.fillRect(x + ox, y + oy, w, h); } },
@@ -157,14 +157,14 @@ const PixelCharacter = (() => {
     P.sym(23, 4, C.style === 'plain' ? C.apron.l : C.trim.b);                          // the waistband / sash
     shirtMarks(P, C, 19, 22, -5, 4);
     // sleeves and hands, swinging with the step
-    for (const [x, d, dark] of [[CX - 7, F.al, false], [CX + 5, F.ar, true]]) {
+    for (const [x, d, dark] of [[CX - 7, F.al, false], [CX + 5, F.ar, true]]) P.layer(x < CX ? 'armL' : 'armR', () => {   // (each arm is a layer of its own: a hand holding a tool has the game's coded arm instead)
       const len = sun ? 2 : 6;
       P.rect(x, 17, 2, len, dark ? b.d : b.b); P.px(x, 17, b.l);
       if (sun || gown) P.rect(x, 16, 2, 2, b.l);                                       // puffed sleeves
       if (sun) P.rect(x, 19, 2, 4 + d, C.skin.b);                                     // bare arms
       else P.rect(x, 23, 2, 1 + Math.max(0, d), C.style === 'plain' ? C.lace.b : C.trim.b);   // the cuff
       P.rect(x, 24 + d, 2, 2, C.skin.b); P.px(x + (dark ? 1 : 0), 25 + d, C.skin.d);
-    }
+    });
     if (C.style === 'plain') {                                                         // the lace collar, scalloped
       P.sym(16, 3, C.lace.b); P.sym(17, 4, C.lace.b); for (let x = -4; x < 4; x += 2) P.px(CX + x, 17, C.lace.d); P.px(CX - 1, 18, C.lace.d); P.px(CX, 18, C.lace.d);
     } else if (sun) { P.px(CX - 1, 18, C.trim.b); P.px(CX, 18, C.trim.d); P.px(CX - 2, 17, C.trim.b); P.px(CX + 1, 17, C.trim.b); }     // a bow
@@ -200,7 +200,7 @@ const PixelCharacter = (() => {
       P.at(0, F.bob, () => {
         const b = C.blouse;
         P.sym(16, 3, b.b); for (let y = 17; y <= 22; y++) P.shaded(y, 5, b);
-        for (const [x, d] of [[CX - 7, F.ar], [CX + 5, F.al]]) { P.rect(x, 17, 2, sun ? 2 : 6, b.d); if (sun) P.rect(x, 19, 2, 4, C.skin.b); P.rect(x, 24 + d, 2, 2, C.skin.d); }
+        for (const [x, d] of [[CX - 7, F.ar], [CX + 5, F.al]]) P.layer(x < CX ? 'armL' : 'armR', () => { P.rect(x, 17, 2, sun ? 2 : 6, b.d); if (sun) P.rect(x, 19, 2, 4, C.skin.b); P.rect(x, 24 + d, 2, 2, C.skin.d); });
         P.sym(23, 4, C.style === 'plain' ? C.apron.l : C.trim.b);
         shirtMarks(P, C, 19, 22, -5, 4);
         if (C.style === 'plain') {                                                     // the apron's bow at the back
@@ -249,11 +249,13 @@ const PixelCharacter = (() => {
       if (C.style === 'plain') { P.row(16, CX - 2, CX + 1, C.lace.b); P.px(CX - 3, 17, C.lace.b); P.px(CX - 2, 17, C.lace.d); }
       else if (!sun) P.row(16, CX - 3, CX + 1, C.trim.b);
       // the near arm, swinging
-      const ax = CX - 1 + Math.round(S.arm / 2), hand = CX - 1 + S.arm;
-      P.rect(ax, 17, 2, sun ? 2 : 5, b.l); P.px(ax + 1, 18, b.b);
-      if (sun) P.rect(Math.round((ax + hand) / 2), 19, 2, 4, C.skin.b);
-      else { P.rect(Math.round((ax + hand) / 2), 21, 2, 2, b.b); P.rect(Math.round((ax + hand) / 2), 23, 2, 1, C.style === 'plain' ? C.lace.b : C.trim.b); }
-      P.rect(hand, 24, 2, 2, C.skin.b);
+      P.layer('armS', () => {
+        const ax = CX - 1 + Math.round(S.arm / 2), hand = CX - 1 + S.arm;
+        P.rect(ax, 17, 2, sun ? 2 : 5, b.l); P.px(ax + 1, 18, b.b);
+        if (sun) P.rect(Math.round((ax + hand) / 2), 19, 2, 4, C.skin.b);
+        else { P.rect(Math.round((ax + hand) / 2), 21, 2, 2, b.b); P.rect(Math.round((ax + hand) / 2), 23, 2, 1, C.style === 'plain' ? C.lace.b : C.trim.b); }
+        P.rect(hand, 24, 2, 2, C.skin.b);
+      });
     });
     });
     P.at(0, F.bob, () => {
@@ -302,12 +304,12 @@ const PixelCharacter = (() => {
   function princeTorso(P, C, F, back) {
     const t = C.tunic, S = C.style;
     P.sym(16, 4, t.b); for (let y = 17; y <= 23; y++) P.shaded(y, 5, t);
-    for (const [x, d, dark] of back ? [[CX - 7, F.ar, true], [CX + 5, F.al, true]] : [[CX - 7, F.al, false], [CX + 5, F.ar, true]]) {
+    for (const [x, d, dark] of back ? [[CX - 7, F.ar, true], [CX + 5, F.al, true]] : [[CX - 7, F.al, false], [CX + 5, F.ar, true]]) P.layer(x < CX ? 'armL' : 'armR', () => {
       P.rect(x, 17, 2, 7, dark ? t.d : t.b); P.px(x, 17, t.l);
       P.rect(x, 23 + Math.max(0, d), 2, 1, S === 'plain' ? t.d : C.trim.b);                                   // the cuff
       P.rect(x, 24 + d, 2, 2, back ? C.skin.d : C.skin.b); if (!back) P.px(x + (dark ? 1 : 0), 25 + d, C.skin.d);
-    }
-    if (S === 'doublet') { P.rect(CX - 7, 16, 3, 2, C.trim.b); P.rect(CX + 4, 16, 3, 2, C.trim.b); P.px(CX - 7, 16, C.trim.l); }   // epaulettes
+      if (S === 'doublet') { P.rect(x < CX ? CX - 7 : CX + 4, 16, 3, 2, C.trim.b); if (x < CX) P.px(CX - 7, 16, C.trim.l); }   // epaulettes
+    });
     if (!back) {
       if (S === 'doublet') { for (const y of [18, 20, 22]) P.px(CX - 1, y, C.trim.b); for (let y = 17; y <= 23; y++) P.px(CX, y, t.d); }
       else if (S === 'hunter') { for (let k = 0; k < 7; k++) { P.px(CX - 4 + k + (k > 3 ? 1 : 0), 17 + k, C.trim.b); } for (let y = 17; y <= 21; y += 2) { P.px(CX - 1, y, t.l); P.px(CX, y + 1, t.l); } }   // a strap across, lacing
@@ -371,9 +373,11 @@ const PixelCharacter = (() => {
       if (C.style === 'tunic') P.row(16, CX - 3, CX - 1, C.trim.b);
       shirtMarks(P, C, 17, 22, -4, 3, true);
       P.row(24, CX - 4, CX + 3, C.belt.b); if (C.style !== 'doublet') P.px(CX - 4, 24, '#f2c14e');
-      const ax = CX - 1 + Math.round(S.arm / 2), hand = CX - 1 + S.arm;                                     // the near arm, swinging
-      P.rect(ax, 17, 2, 5, t.l); P.px(ax + 1, 18, t.b); P.rect(Math.round((ax + hand) / 2), 21, 2, 2, t.b);
-      P.rect(Math.round((ax + hand) / 2), 23, 2, 1, C.style === 'plain' ? t.d : C.trim.b); P.rect(hand, 24, 2, 2, C.skin.b);
+      P.layer('armS', () => {
+        const ax = CX - 1 + Math.round(S.arm / 2), hand = CX - 1 + S.arm;                                     // the near arm, swinging
+        P.rect(ax, 17, 2, 5, t.l); P.px(ax + 1, 18, t.b); P.rect(Math.round((ax + hand) / 2), 21, 2, 2, t.b);
+        P.rect(Math.round((ax + hand) / 2), 23, 2, 1, C.style === 'plain' ? t.d : C.trim.b); P.rect(hand, 24, 2, 2, C.skin.b);
+      });
     });
     });
     P.at(0, F.bob, () => {
@@ -583,9 +587,9 @@ const PixelCharacter = (() => {
   const paintFigure = (P, C, dir, F, blink) => P.at(0, TOP, () => { if (C.prince) { if (dir === 'up') backPrince(P, C, F); else if (dir === 'down') frontPrince(P, C, F, blink); else sidePrince(P, C, F); } else if (dir === 'up') back(P, C, F); else if (dir === 'down') front(P, C, F, blink); else side(P, C, F); });
 
   /* ---- one frame, painted live ---- */
-  function renderLive(C, dir, F, blink, hurt) {
+  function renderLive(C, dir, F, blink, hurt, skip) {
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d'), P = painter(ctx);
+    const ctx = canvas.getContext('2d'), P = painter(ctx, null, skip);
     paintFigure(P, C, dir, F, blink);
     outline(ctx, C.outline);
     return hurt ? hurtWash(canvas) : canvas;
@@ -594,7 +598,7 @@ const PixelCharacter = (() => {
   /* ---- the ART PACK's characters (artPack.js, SlotArt): the shapes are saved once as marker-coloured LAYERS, in the order the painters draw them; a
    *      character's own colours are applied when it is built. Each layer depends only on what its key says (checked by the exporter). ---- */
   const POSES = { w0: WALK[0], w1: WALK[1], w2: WALK[2], w3: WALK[3], i0: IDLE[0], i1: IDLE[1] };
-  const SEQ = { down: ['capeB', 'hairB', 'body', 'capeF', 'head', 'hairF', 'crown'], up: ['body', 'capeO', 'head', 'hairB', 'crown'], left: ['capeB', 'hairB', 'body', 'head', 'hairF', 'crown'] };
+  const SEQ = { down: ['capeB', 'hairB', 'body', 'armL', 'armR', 'capeF', 'head', 'hairF', 'crown'], up: ['body', 'armL', 'armR', 'capeO', 'head', 'hairB', 'crown'], left: ['capeB', 'hairB', 'body', 'armS', 'head', 'hairF', 'crown'] };
   const SLOTS = [];
   for (const t of ['tunic', 'trousers', 'boot', 'belt', 'hair', 'blouse', 'lace', 'apron', 'skirt', 'trim', 'shoe', 'crown', 'cape', 'cape.trim']) for (const k of ['b', 'd', 'l']) SLOTS.push(t + '.' + k);
   SLOTS.push('skin.b', 'skin.d', 'skin.blush', 'eye', 'eyeShine', 'mouth', 'crown.gem');
@@ -609,10 +613,11 @@ const PixelCharacter = (() => {
     return [name, body, looks, view, pose].join('|');                                                     // body
   }
   /** A frame built from the pack in this character's colours, or null when the pack lacks a layer of it. */
-  function renderPacked(C, view, F, blink, hurt, pose) {
+  function renderPacked(C, view, F, blink, hurt, pose, skip) {
     if (!ArtPack.loaded) return null;
     const layers = [];
     for (const name of SEQ[view]) {
+      if (skip && skip.has(name)) continue;
       const key = layerKey(C, name, view, pose, blink);
       if (key === null) continue;
       const px = ArtPack.sprite('char', key);
@@ -671,12 +676,13 @@ const PixelCharacter = (() => {
   const IDENT = () => identity || (identity = Uint32Array.from({ length: 256 }, (_, i) => SlotArt.markerPixel(i)));
   const figPal = new LruCache(300);                                                                 // figureKey -> palette
   /** { frame: { key, make() }, lut: { key, make() } }, or null when the pack lacks a layer of this figure. `cut`: art rows hidden from the bottom (riding). */
-  function markerFigure(L, wardrobe, view, pose, blink, cut) {
+  function markerFigure(L, wardrobe, view, pose, blink, cut, skip) {
     if (!ArtPack.loaded) return null;
     const fk = figureKey(L, wardrobe); let C = figPal.get(fk);
     if (!C) { C = palette(L, wardrobe); figPal.set(fk, C); }
     const layers = [], keys = [];
     for (const name of SEQ[view]) {
+      if (skip && skip.has(name)) continue;
       const key = layerKey(C, name, view, pose, blink);
       if (key === null) continue;
       const px = ArtPack.sprite('char', key);
@@ -695,9 +701,10 @@ const PixelCharacter = (() => {
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 650 + anim.seed) % 2);
     const blink = !anim.moving && ((anim.now + anim.seed * 977) % 3600) < 130;
     const view = dir === 'right' ? 'left' : dir, hurt = !!anim.hurt;
-    const pose = (anim.moving ? 'w' : 'i') + frame, key = `${figureKey(L, wardrobe)}|${view}|${pose}|${blink ? 1 : 0}|${hurt ? 1 : 0}`;
+    const hide = anim.hideArm | 0, skip = hide ? new Set([view === 'left' ? 'armS' : hide < 0 ? 'armL' : 'armR']) : null;   // (a hand holding a tool: the game's own arm is drawn instead, see playerSprite.js)
+    const pose = (anim.moving ? 'w' : 'i') + frame, key = `${figureKey(L, wardrobe)}|${view}|${pose}|${blink ? 1 : 0}|${hurt ? 1 : 0}|${hide}`;
     if (typeof ctx.figureOk === 'function' && ctx.figureOk()) {                                    // (the Pixi backend: the frame is drawn by a shader, see above)
-      const cut = Math.max(0, anim.cut | 0), fig = markerFigure(L, wardrobe, view, pose, blink, cut);
+      const cut = Math.max(0, anim.cut | 0), fig = markerFigure(L, wardrobe, view, pose, blink, cut, skip);
       if (fig) {
         const w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
         ctx.figure({ frame: fig.frame, lut: fig.lut, wash: hurt ? 1 : 0, mirror: dir === 'right', dx: sx - w / 2, dy: top, dw: w, dh: h });
@@ -707,8 +714,8 @@ const PixelCharacter = (() => {
     let canvas = cache.get(key);
     if (!canvas) {                                                                                // (the palette is only worked out for a picture not made yet)
       const C = palette(L, wardrobe), F = anim.moving ? WALK[frame] : IDLE[frame];
-      canvas = renderPacked(C, view, F, blink, hurt, pose);                                       // from the art pack, in this character's colours ...
-      if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink, hurt); ArtPack.stats.painted++; }   // ... or painted
+      canvas = renderPacked(C, view, F, blink, hurt, pose, skip);                                       // from the art pack, in this character's colours ...
+      if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink, hurt, skip); ArtPack.stats.painted++; }   // ... or painted
       cache.set(key, canvas);
     }
     const cut = Math.max(0, anim.cut | 0), w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
@@ -755,7 +762,13 @@ const PixelCharacter = (() => {
     return null;
   }
 
+  /** The colours the game's coded arm (toolPose.js) is drawn in, matching this character's sleeve, cuff and skin. */
+  function armLook(L, W8) {
+    const C = palette(L, W8), sleeve = C.prince ? C.tunic : C.blouse;
+    return { sleeve, cuff: C.prince ? (C.style === 'plain' ? sleeve.d : C.trim.b) : (C.style === 'plain' ? C.lace.b : C.trim.b), skin: C.skin, outline: C.outline, bare: C.style === 'sundress' };
+  }
+
   /** Shared with the other pixel-art sprites (pixelPony.js). */
   const util = { hex, css, shade, light, mix, tones, outline };
-  return { draw, riderLegs, W, H, PX, util, pack };
+  return { draw, riderLegs, armLook, W, H, PX, util, pack };
 })();

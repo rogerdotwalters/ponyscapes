@@ -64,7 +64,7 @@ window.__art = (() => {
       const PC = PixelCharacter.pack, put = layers => { for (const [key, canvas] of Object.entries(layers)) { checkLayer(canvas, PC.SLOTS.length); ArtPack.record('char', key, canvas); } };
       const each = fn => { for (const view of ['down', 'up', 'left']) for (const pose of Object.keys(PC.POSES)) for (const blink of pose[0] === 'i' ? [0, 1] : [0]) fn(view, pose, blink); };
       for (const b of BODIES) for (const style of wardrobeStyles('outfit', b.name)) for (const hairKind of b.kinds)
-        each((view, pose, blink) => put(PC.layersOf({ prince: b.prince, style, hairKind, crown: null, cape: null }, view, pose, blink, ['body', 'hairB', 'hairF', 'head'])));
+        each((view, pose, blink) => put(PC.layersOf({ prince: b.prince, style, hairKind, crown: null, cape: null }, view, pose, blink, ['body', 'armL', 'armR', 'armS', 'hairB', 'hairF', 'head'])));
       for (const cape of wardrobeStyles('cape')) each((view, pose, blink) => put(PC.layersOf({ prince: false, style: 'plain', hairKind: 'bob', crown: null, cape }, view, pose, blink, ['capeB', 'capeF', 'capeO'])));
       for (const crown of wardrobeStyles('crown')) each((view, pose, blink) => put(PC.layersOf({ prince: false, style: 'plain', hairKind: 'bob', crown, cape: null }, view, pose, blink, ['crown'])));
     },
