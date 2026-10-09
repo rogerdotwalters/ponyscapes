@@ -9,6 +9,9 @@
  *   PARADE  "Glitterhoof Parade": a mild-tempo (104 bpm) fantasy-pony pop song with a real song form: intro, verse, chorus (the hook), verse,
  *           chorus, a soft bridge that builds, and a last chorus lifted a whole step. A synth lead and a flute sing the tune over harp arpeggios,
  *           a pop beat, a round bass, bells and strings. It never plays by itself: pick it in the Soundtrack player.
+ *   DANCE   "Rainbow Hoofdance": a cheery, upbeat dance track at 124 bpm: four-on-the-floor kick, offbeat hats and bass, a pumping mix, claps, a plucky
+ *           arpeggio and a bright synth-and-flute hook; an intro that builds, a drop, a breakdown, a riser into a second drop a whole step up, and an
+ *           outro. It never plays by itself: pick it in the Soundtrack player.
  *   STORM   "Thunder Over Hollowmere": dark and slow, in C minor: a deep cello drone, tremolo strings, tolling low harp, distant drum swells and a lonely flute.
  *           Plays under a heavy downpour or a gale.
  *   BATTLE  "Ironhoof Gallop": fast and driving, in D minor, in a galloping 6/8: an ostinato cello, rapid harp, tremolo strings, war drums and a staccato flute.
@@ -31,6 +34,7 @@ const PonyMusic = (() => {
     },
     tempest: { title: 'Duel at Stormcrown', blurb: 'Build-up, a duel of violins, a cello interlude, the duel again. Thunderstorms.', key: 4, bar: 8, level: 1, fadeIn: 2, fadeOut: 2.5 },                                     // E minor (harmonic); its sections and chords are TEMPEST below
     parade: { title: 'Glitterhoof Parade', blurb: 'A mild-tempo fantasy pony pop song: verse, chorus, bridge and a key change.', key: 0, bar: 8, level: 1, fadeIn: 1.5, fadeOut: 2.5 },
+    dance: { title: 'Rainbow Hoofdance', blurb: 'Cheery and upbeat, 124 bpm: a build, two drops and a breakdown.', key: 7, bar: 8, level: 1, fadeIn: 1.5, fadeOut: 2.5 },
     battle: {
       title: 'Ironhoof Gallop', blurb: 'Fast and galloping. Battles and caves.', key: 2, scale: MINOR_PENT, eighth: 0.19, bar: 6, level: 0.9, fadeIn: 0.5, fadeOut: 1.1,                                          // D minor, 6/8 (two dotted-quarter beats a bar)
       prog: [[[0, 'm'], [8, 'M'], [10, 'M'], [0, 'm']], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]],                                     // Dm Bb C Dm, then Dm Gm Am Dm
@@ -90,7 +94,33 @@ const PonyMusic = (() => {
     const total = chords.length, BASE = 60 / 104 / 2;                                                                      // a mild 104 bpm; the step is an eighth note
     return { sections, chords, MELODY, where, bars: total, stepDur: bi => BASE * (bi >= total - 2 ? 1 + 0.25 * (bi - (total - 3)) : 1) };       // (the last two bars ease off)
   })();
-  const FORMS = { tempest: TEMPEST, parade: PARADE };
+  /** The dance track: like the parade, the tune is fixed (see PARADE). 124 bpm; the step is an eighth, so the beat is every second step. */
+  const DANCE = (() => {
+    const M = (key, deg) => [deg, 'M', key], m = (key, deg) => [deg, 'm', key];
+    const loop = k => [m(k, 9), M(k, 5), M(k, 0), M(k, 7)];                                                                  // vi IV I V
+    const sections = [{ id: 'intro', bars: 8 }, { id: 'drop', bars: 16, round: 1 }, { id: 'breakdown', bars: 8 }, { id: 'build', bars: 8 }, { id: 'drop', bars: 16, round: 2 }, { id: 'outro', bars: 8 }];
+    const chords = [
+      M(7, 0), M(7, 7), m(7, 9), M(7, 5), M(7, 0), M(7, 7), m(7, 9), M(7, 5),
+      ...loop(7), ...loop(7), ...loop(7), ...loop(7),
+      ...loop(7), ...loop(7),
+      ...loop(7), m(7, 9), M(7, 5), M(7, 7), M(7, 7),
+      ...loop(9), ...loop(9), ...loop(9), ...loop(9),                                                                        // the second drop, a whole step up
+      M(9, 0), M(9, 7), m(9, 9), M(9, 5), M(9, 0), M(9, 5), M(9, 7), M(9, 0)
+    ];
+    const HOOK = [[[0, 5, 1], [1, 5, 1], [3, 5, 1], [4, 6, 2], [6, 5, 1], [7, 3, 1]], [[0, 3, 1], [1, 3, 1], [3, 3, 1], [4, 5, 2], [6, 4, 1], [7, 3, 1]],
+      [[0, 1, 1], [1, 1, 1], [3, 1, 1], [4, 3, 2], [6, 2, 1], [7, 1, 1]], [[0, 2, 2], [2, 3, 1], [3, 5, 1], [4, 6, 2], [6, 5, 2]],
+      [[0, 8, 1], [1, 8, 1], [3, 8, 1], [4, 7, 2], [6, 6, 1], [7, 5, 1]], [[0, 6, 1], [1, 6, 1], [3, 6, 1], [4, 5, 2], [6, 4, 1], [7, 5, 1]],
+      [[0, 3, 1], [1, 5, 1], [3, 8, 2], [5, 7, 1], [6, 5, 2]], [[0, 5, 2], [2, 6, 1], [3, 7, 1], [4, 8, 4]]];
+    const MELODY = {
+      drop: HOOK, intro: [[], [], [], [], [], [], [], HOOK[3]], outro: [[[0, 5, 1], [1, 5, 1], [3, 5, 1], [4, 6, 4]], [[0, 3, 1], [1, 3, 1], [3, 3, 1], [4, 5, 4]], [[0, 1, 1], [1, 1, 1], [3, 1, 1], [4, 3, 4]], [[0, 2, 8]], [[0, 1, 8]], [], [], []],
+      breakdown: [[[0, 5, 4], [4, 6, 4]], [[0, 5, 4], [4, 3, 4]], [[0, 3, 4], [4, 5, 4]], [[0, 6, 8]], [[0, 8, 4], [4, 7, 4]], [[0, 6, 4], [4, 5, 4]], [[0, 5, 4], [4, 8, 4]], [[0, 5, 8]]],
+      build: [[[0, 5, 1], [2, 5, 1], [4, 6, 2]], [[0, 3, 1], [2, 3, 1], [4, 5, 2]], [[0, 1, 1], [2, 1, 1], [4, 3, 2]], [[0, 2, 2], [4, 5, 2]], [[0, 5, 1], [1, 5, 1], [2, 5, 1], [3, 5, 1], [4, 6, 1], [5, 6, 1], [6, 6, 1], [7, 6, 1]], [], [], []]
+    };
+    const where = bi => { let idx = bi, first = 0; for (const sec of sections) { if (idx < sec.bars) return { sec, idx, first }; idx -= sec.bars; first += sec.bars; } return null; };
+    const total = chords.length, BASE = 60 / 124 / 2;
+    return { sections, chords, MELODY, where, bars: total, stepDur: bi => BASE * (bi >= total - 2 ? 1 + 0.2 * (bi - (total - 3)) : 1) };
+  })();
+  const FORMS = { tempest: TEMPEST, parade: PARADE, dance: DANCE };
   /** A scale position (0 = E4, seven to the octave) as a MIDI note. */
   const posNote = p => 64 + 12 * Math.floor(p / 7) + HARMONIC[((p % 7) + 7) % 7];
   const HOSTILE_RANGE = 11, HOLD_BATTLE = 7, HOLD_STORM = 5, HOLD_TEMPEST = 8;                           // tiles; seconds the mood lingers after the cause is gone
@@ -121,8 +151,8 @@ const PonyMusic = (() => {
       this.gate = g(1); this.fade = g(0); this.room.connect(this.gate); this.gate.connect(this.fade); this.fade.connect(GameAudio.buses.music);            // (the gate is the player's pause)
       this.fade.gain.setTargetAtTime(0.45, ctx.currentTime + 1.5, 2.5);                                                   // (the music drifts in)
       const verb = ctx.createConvolver(); verb.buffer = hallResponse(ctx); const wet = g(0.55); verb.connect(wet); wet.connect(this.room);
-      this.buses = {};                                                                                                    // one bus per tune, so a tune can fade while the next begins
-      for (const name in THEMES) { const b = g(name === this.theme ? THEMES[name].level : 0); b.connect(this.room); b.connect(verb); this.buses[name] = b; }
+      this.buses = {}; this.pumps = {};                                                                                   // one bus per tune, so a tune can fade while the next begins (and a pump after it, for the dance track's ducking)
+      for (const name in THEMES) { const b = g(name === this.theme ? THEMES[name].level : 0), pump = g(1); b.connect(pump); pump.connect(this.room); pump.connect(verb); this.buses[name] = b; this.pumps[name] = pump; }
       this.bus = this.buses[this.theme];
       this.nextTime = ctx.currentTime + 2; this.step = 0; this.bar = 0;
       this.timer = setInterval(() => this._schedule(), 120);
@@ -205,7 +235,7 @@ const PonyMusic = (() => {
 
     _switchTo(name, now) {
       const from = THEMES[this.theme], to = THEMES[name];
-      this.buses[this.theme].gain.setTargetAtTime(0, now, from.fadeOut / 3);
+      this.buses[this.theme].gain.setTargetAtTime(0, now, from.fadeOut / 3); this.pumps[this.theme].gain.cancelScheduledValues(now); this.pumps[this.theme].gain.setValueAtTime(1, now);
       this.buses[name].gain.setTargetAtTime(to.level, now + 0.05, to.fadeIn / 3);
       this.theme = name; this.bus = this.buses[name];
       this.step = 0; this.bar = 0; this.phrase = []; this.lead = 4; this.marks = []; this.pausePos = 0; this.nextTime = Math.max(this.nextTime, now + 0.2);      // (the new tune starts on its first bar)
@@ -299,6 +329,28 @@ const PonyMusic = (() => {
       g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.01); g.gain.setTargetAtTime(peak * 0.6, t + 0.02, 0.14); g.gain.setTargetAtTime(0.0001, t + len, 0.07);
       f.connect(g); g.connect(this.bus); if (len > 0.5) this._vibrato(t, oscs.map(o => o.frequency), hz, 0.004, 5.4, 0.25, end);
     }
+    /** A dance kick: a sine that falls fast, with a click. */
+    _kick(t, vel) {
+      const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(46, t + 0.11);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.42 * vel, t + 0.004); g.gain.setTargetAtTime(0.0001, t + 0.05, 0.07);
+      o.connect(g); g.connect(this.bus); o.start(t); o.stop(t + 0.45);
+    }
+    /** A clap: three quick bursts of mid noise. */
+    _clap(t, vel) {
+      const ctx = this.ctx, f = ctx.createBiquadFilter(), g = ctx.createGain(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 0.8;
+      for (const at of [0, 0.011, 0.023]) { const n = ctx.createBufferSource(), a = ctx.createGain(); n.buffer = GameAudio.noise(); a.gain.setValueAtTime(0.0001, t + at); a.gain.linearRampToValueAtTime(0.1 * vel, t + at + 0.002); a.gain.setTargetAtTime(0.0001, t + at + 0.004, at > 0.02 ? 0.04 : 0.012); n.connect(a); a.connect(f); n.start(t + at, Math.random() * 1.5, 0.3); }
+      f.connect(g); g.gain.value = 1; g.connect(this.bus);
+    }
+    /** A riser: a wash of noise whose brightness and loudness climb over `len` seconds. */
+    _riser(t, len, vel) {
+      const ctx = this.ctx, n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      n.buffer = GameAudio.noise(); n.loop = true; f.type = 'highpass'; f.Q.value = 2; f.frequency.setValueAtTime(400, t); f.frequency.exponentialRampToValueAtTime(9000, t + len);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.09 * vel, t + len); g.gain.setValueAtTime(0.0001, t + len + 0.02);
+      n.connect(f); f.connect(g); g.connect(this.bus); n.start(t, 0); n.stop(t + len + 0.05);
+    }
+    /** Duck the whole mix as a kick lands and let it swell back (the "pump" of a dance mix). */
+    _pump(t, depth) { const g = this.pumps[this.theme].gain; g.cancelScheduledValues(t); g.setValueAtTime(1 - depth, t); g.linearRampToValueAtTime(1, t + 0.2); }
     /** A cymbal crash: a long wash of bright noise. */
     _crash(t, vel) {
       const ctx = this.ctx, n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
@@ -501,11 +553,56 @@ const PonyMusic = (() => {
       }
     }
 
+    /** The dance track, step by step. See DANCE for the form. */
+    _scheduleDance() {
+      const ctx = this.ctx, total = DANCE.bars, MAJ = [0, 2, 4, 5, 7, 9, 11];
+      const lead = (deg, key) => 60 + key + 12 * Math.floor((deg - 1) / 7) + MAJ[(((deg - 1) % 7) + 7) % 7];
+      while (this.nextTime < ctx.currentTime + 0.6) {
+        const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = DANCE.where(bi), dur = DANCE.stepDur(bi), id = sec.id, odd = s % 2 === 1;
+        const chord = DANCE.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
+        const chordTones = [root + 48, third + 48, fifth + 48], T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
+        const pc = root % 12, low = 36 + pc + (pc < 5 ? 12 : 0);
+        const V = id === 'intro' ? 0.5 + 0.35 * idx / 8 : id === 'drop' ? 0.95 + 0.15 * (sec.round - 1) : id === 'breakdown' ? 0.55 : id === 'build' ? 0.6 + 0.35 * idx / 8 : 0.9 - 0.5 * idx / 8;
+        const hits = ((DANCE.MELODY[id] || [])[id === 'drop' ? idx % 8 : idx] || []).filter(n => n[0] === s) || [];
+        const lastBar = idx === sec.bars - 1, kickOn = id === 'drop' || (id === 'intro' && idx >= 4) || (id === 'build' && idx < 6) || (id === 'outro' && idx < 5);
+        if (s === 0) { this.marks.push({ t, bar: bi }); if (this.marks.length > 16) this.marks.shift(); }
+        // the bed
+        if (s === 0) this._pad(t, chordTones, dur * 8, (id === 'breakdown' ? 0.9 : 0.55) * V + 0.15, { cutoff: id === 'drop' ? 2200 : 1300, tremolo: 5, depth: 0.2, attack: id === 'breakdown' ? 0.6 : 0.2 });
+        // the beat: kick on every beat, clap on 2 and 4, an open hat on every offbeat
+        if (kickOn && s % 2 === 0) { this._kick(t, (id === 'intro' ? 0.5 + 0.1 * (idx - 4) : id === 'build' ? 0.6 + 0.05 * idx : 0.95) * Math.min(V, 1) + 0.1); this._pump(t, id === 'drop' ? 0.5 : 0.3); }
+        if ((id === 'drop' || id === 'outro' && idx < 4 || id === 'build' && idx >= 2 || id === 'intro' && idx >= 6) && (s === 2 || s === 6)) this._clap(t, 0.8 * V);
+        if (odd && (id === 'drop' || id === 'outro' && idx < 6 || id === 'intro' && idx >= 2 || id === 'build')) this._hat(t, 0.55 * V, true);
+        if (id === 'drop' || id === 'outro' && idx < 4) { if (odd) this._bass(t, low, dur * 0.8, 0.9 * V); }                      // the offbeat bass
+        else if ((id === 'intro' && idx >= 4) || (id === 'build' && idx < 6)) { if (odd) this._bass(t, low, dur * 0.8, 0.7 * V); }
+        // the plucky arpeggio and the harp
+        if (id === 'drop' || (id === 'build' && idx >= 2) || (id === 'intro' && idx >= 6)) this._synth(t, T[[0, 1, 2, 3, 2, 1, 3, 2][s]], dur * 0.6, 0.32 * V);
+        if (id === 'intro' || id === 'breakdown' || id === 'outro') this._harp(t, T[[0, 1, 2, 3, 4, 3, 2, 1][s]], (id === 'breakdown' ? 0.5 : 0.4) * V + 0.1, 0.7);
+        if (id === 'breakdown' && s % 4 === 0) this._violin(t, chordTones[s / 4 % 3] + 12, dur * 4, 0.3 * V, s ? 0.3 : -0.3, true);
+        // the build: a riser, a snare roll that doubles in the last two bars
+        if (id === 'build') {
+          if (idx === 0 && s === 0) this._riser(t, dur * 64, 1);
+          if (s % 2 === 0 && idx >= 4) this._snare(t, (0.2 + 0.6 * (idx - 4) / 4) * V);
+          if (idx >= 6) { this._snare(t, (0.4 + 0.6 * (idx - 6 + s / 8) / 2) * V); this._snare(t + dur / 2, (0.4 + 0.6 * (idx - 6 + s / 8) / 2) * V); }
+        } else if (id === 'intro' && idx === 7) { this._snare(t, 0.3 + 0.5 * s / 8); if (s >= 4) this._snare(t + dur / 2, 0.4 + 0.5 * s / 8); }
+        // the tune
+        for (const [, deg, len] of hits) {
+          const n = lead(deg, key), L = dur * len;
+          if (id === 'drop') { this._synth(t, n, L * 0.9, 0.95 * V); this._flute(t, n + 12, L * 0.9, 0.35 * V); if (len >= 2) this._bell(t, n + 12, 0.6 * V); else this._bell(t, n + 24 <= 96 ? n + 24 : n + 12, 0.25 * V); }
+          else if (id === 'breakdown') { this._flute(t, n + 12, L * 0.95, 0.6 * V); this._bell(t, n + 12, 0.5 * V); }
+          else if (id === 'build') this._synth(t, n, L * 0.8, 0.5 * V);
+          else this._flute(t, n + 12, L * 0.9, 0.5 * V + 0.1);
+        }
+        if (lastBar && s >= 4 && (id === 'drop' || id === 'breakdown') && sec.round !== 2) this._harp(t, T[s - 2], 0.5, 0.8);       // a harp run into the next part
+        this.nextTime += dur; this.step++;
+      }
+    }
+
     _schedule() {
       const ctx = this.ctx; if (!ctx || ctx.state !== 'running') { if (ctx) this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.2); return; }
       if (this.paused) { this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.3); return; }
       if (this.theme === 'tempest') return this._scheduleTempest();
       if (this.theme === 'parade') return this._scheduleParade();
+      if (this.theme === 'dance') return this._scheduleDance();
       const theme = THEMES[this.theme], name = this.theme, B = theme.bar, quiet = this.mood.cave && name !== 'battle' ? 0.6 : 1;
       while (this.nextTime < ctx.currentTime + 0.6) {
         const eighth = theme.eighth, s = this.step % B, chord = theme.prog[Math.floor(this.bar / 4) % theme.prog.length][this.bar % 4], root = theme.key + chord[0], minor = chord[1] === 'm';
@@ -546,7 +643,7 @@ const PonyMusic = (() => {
       }
     }
   }
-  Music.TRACKS = ['calm', 'storm', 'tempest', 'battle', 'parade'].map(id => ({ id, title: THEMES[id].title, blurb: THEMES[id].blurb }));
+  Music.TRACKS = ['calm', 'storm', 'tempest', 'battle', 'parade', 'dance'].map(id => ({ id, title: THEMES[id].title, blurb: THEMES[id].blurb }));
   Music.TITLES = Object.fromEntries(Object.entries(THEMES).map(([id, t]) => [id, t.title]));
   return Music;
 })();
