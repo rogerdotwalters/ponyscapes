@@ -71,6 +71,10 @@ The older five-ring world is kept in `legacy/ring-world/` (see the README there)
   friend's ponies wait where they left them, nobody else can ride or lasso them, and they come back when that friend rejoins, even after the host
   restarts) and the items lying on the ground.
 * Saved: every **15 minutes** (`CONFIG.net.autosaveMinutes`), whenever **someone leaves** (their character first), when the host's tab goes to the **background**, on **Save now**, and when the host presses **End session & save**.
+* **Solo saves too**: it is a hosted world that stays offline (one per browser, remembered by `ponyscapes.soloWorld`), so the character and the world carry on next time, and you can open it to friends later from the Session panel.
+* **Characters have an id** (`cid`, kept in every copy of the save) and **a friend keeps their own copy** (`net/clientSaves.js`, localStorage, newest 12 worlds): the host sends it on joining, on every save and when the friend is removed or the session ends.
+* **The handshake** (`HostAdapter._onHello`): on joining, the friend lists the worlds and character ids it holds; the host compares the one for *this* world with its own record. Same character, or nothing on either side: carry on. Different, or one side lost its copy: nothing is guessed. The friend is asked, and **starting a new character clears their old home** and character on the host. The friend's copy is a backup and the identity check; it is never loaded into the host's world on the friend's say-so (a hand-edited copy would be a cheat).
+* **Homes** (`shared/interiorSystem.js`, buildings with `home: true`): the starter home goes to the host and the three "Neighbour's Homes" to friends, in order, kept by player key and saved with the world. Only the owner can go in. When all four are taken, a newcomer waits until the host clears the home of someone who is away (Session panel > Homes).
 * Hosts continue a world from the lobby. Saves live in that browser: clearing site data deletes them, and they do not follow the host to another device.
 
 ## Limits worth knowing

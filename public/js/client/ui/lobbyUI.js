@@ -1,7 +1,7 @@
 'use strict';
 /* CLIENT - the title screen: Play solo, Host a game, or Join a game.
  *
- *  Solo     the old single-player game, nothing saved.
+ *  Solo     the single-player game. It is saved in this browser, in a world of its own (the same database a host uses), and carries on next time.
  *  Host     your browser runs the game and keeps it in ITS OWN database. Pick a saved world to continue, or start a new one.
  *           "Invite friends online" opens a room on the relay and gives you a code (and a link) for up to 3 friends.
  *  Join     type the host's code. Your character is kept by the host: come back with the same device and you get it back.
@@ -18,7 +18,7 @@ class LobbyUI {
       this.$('#lobbyName').value = this._load('ponyscapes.name') || LobbyUI.suggestName();      // never an empty box: a first-timer can just press Done
       this.$('#lobbyRelay').value = this._load('ponyscapes.relay') || this.query.get('relay') || '';
       this.look = this._loadLook();
-      this.$('#lobbySolo').onclick = () => this._finish({ adapter: new LocalAdapter({ name: this._name(), appearance: this._look() }) });
+      this.$('#lobbySolo').onclick = () => this._startSolo();
       this.$('#lobbyHost').onclick = () => this._showHost();
       this.$('#lobbyJoin').onclick = () => this._showJoin(this.query.get('join') || '');
       this.root.querySelectorAll('[data-back]').forEach(b => { b.onclick = () => this._pane('lobbyMain'); });
@@ -169,6 +169,28 @@ class LobbyUI {
   _finish(result) { if (this.music) { this.music.stop(); this.music = null; } this.root.hidden = true; const r = this.resolve; this.resolve = null; r(result); }
   static ago(ms) { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago'; }
 
+  /* ---------------------------- solo ---------------------------- */
+  /** Solo is a hosted game that stays offline: its world and character are kept like any host's. The world is remembered by id; a browser that cannot keep saves plays unsaved, as before. */
+  async _startSolo() {
+    const name = this._name(), key = this._key();
+    this._busy('Loading your world...');
+    let store = null;
+    try { store = this.store = this.store || await SaveStore.create(); } catch (e) { store = null; }
+    if (!store) { this._finish({ adapter: new LocalAdapter({ name, appearance: this._look() }) }); return; }
+    let world = null;
+    try {
+      const id = this._load('ponyscapes.soloWorld'), rec = id ? await store.getWorld(id) : null;
+      if (rec) world = Object.assign({}, rec.meta, { data: rec.data });
+    } catch (e) { world = null; }
+    if (!world) {
+      world = { id: 'w-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name: LobbyUI.cleanWorldName(name + "'s world") || 'My world', seed: 1 + Math.floor(Math.random() * 2147483646), createdAt: Date.now() };
+      this._save('ponyscapes.soloWorld', world.id);
+    }
+    const adapter = new HostAdapter({ store, world, key, name, online: false, appearance: this._look() });
+    try { const welcome = await adapter.connect(); this._finish({ adapter, welcome }); }
+    catch (e) { adapter.disconnect(); this._pane('lobbyMain'); this._error(e.message); }
+  }
+
   /* ---------------------------- host ---------------------------- */
   async _showHost() {
     this._busy('Opening your saved games...');
@@ -209,14 +231,27 @@ class LobbyUI {
     this.$('#joinCode').oninput = e => { e.target.value = RelayProtocol.normalizeCode(e.target.value).slice(0, RelayProtocol.CODE_LENGTH); };
     this._pane('lobbyJoinPane');
   }
-  async _startJoin() {
+  async _startJoin(fresh = false) {
     const code = RelayProtocol.normalizeCode(this.$('#joinCode').value);
     if (!RelayProtocol.isCode(code)) { this._error('Enter the 5-character code the host gave you.'); return; }
     const name = this._name(), key = this._key(), base = this._relay();
     this._busy('Joining ' + code + '...');
-    const adapter = new RemoteAdapter({ base, code, name, key, appearance: this._look() });
+    const adapter = new RemoteAdapter({ base, code, name, key, appearance: this._look(), fresh });
     try { const welcome = await adapter.connect(); this._finish({ adapter, welcome }); }
-    catch (e) { adapter.disconnect(); this._showJoin(code); this._error(e.message); }
+    catch (e) {
+      adapter.disconnect(); this._showJoin(code);
+      if (!fresh && (e.reason === 'character_mismatch' || e.reason === 'character_missing')) { this._error(e.message); this._askNewCharacter(e); return; }
+      this._error(e.message);
+    }
+  }
+
+  /** The host and this device disagree about who this character is. Nothing is guessed: starting a NEW character clears the old one's home on the host (so it can be given again). */
+  _askNewCharacter(e) {
+    const d = e.detail || {}, when = t => (t ? LobbyUI.ago(t) : 'a while ago');
+    const text = e.reason === 'character_mismatch'
+      ? `The host has a character called "${d.host && d.host.name || 'you'}" (saved ${when(d.host && d.host.savedAt)}) but this device remembers a different one (saved ${when(d.yours && d.yours.savedAt)}).`
+      : `This device remembers a character in that world (saved ${when(d.yours && d.yours.savedAt)}) but the host no longer has it.`;
+    if (confirm(text + '\n\nStart a NEW character in this world? Your old home there is cleared for it, and the old character is gone from the host.')) this._startJoin(true);
   }
 
   /** World names may contain apostrophes (they are always escaped when shown); markup and control characters are removed. */

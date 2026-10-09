@@ -187,5 +187,5 @@ Object.assign(GameServer.prototype, {
 /* ---- locked buildings ---- */
 InteractionHandlers.locked_building = (server, id, p, action) => {
   const site = BuildingSites.list[action.site];
-  server._notice(id, site && site.def.id === 'vacant_home' ? 'This home stands empty for now: it is waiting for a new neighbour' : site && site.def.resident ? `${site.def.name} is locked: ${Npcs.get(site.def.resident).name} lives here` : `The ${site ? site.def.name : 'door'} is locked`);
+  server._notice(id, site && site.def.home ? (o => o ? `This is ${o.name || 'a neighbour'}'s home` : 'This home is empty: it is kept for a new neighbour')(server.interiors.owners[site.index]) : site && site.def.resident ? `${site.def.name} is locked: ${Npcs.get(site.def.resident).name} lives here` : `The ${site ? site.def.name : 'door'} is locked`);
 };

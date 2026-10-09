@@ -180,7 +180,7 @@ class HostAdapter extends LocalAdapter {
   async _onHello(r, msg) {
     if (r.state !== 'joining') return;
     r.state = 'hello';
-    const deny = (reason, text) => { this._sendJson(r.cid, { t: 'denied', reason, text }); delete this.remotes[r.cid]; setTimeout(() => { if (this.conn) this.conn.send(JSON.stringify({ t: 'kick', cid: r.cid, reason: text })); }, 200); };
+    const deny = (reason, text, extra) => { this._sendJson(r.cid, Object.assign({ t: 'denied', reason, text }, extra)); delete this.remotes[r.cid]; setTimeout(() => { if (this.conn) this.conn.send(JSON.stringify({ t: 'kick', cid: r.cid, reason: text })); }, 200); };
     if (msg.v !== RelayProtocol.VERSION) return deny('version', 'This game version does not match the host. Reload the page and try again.');
     if (!/^[A-Za-z0-9_-]{8,64}$/.test(String(msg.key))) return deny('bad_key', 'Invalid player key.');
     if (Object.values(this.keys).includes(msg.key)) return deny('duplicate', 'You are already in this game (another tab or device).');
@@ -188,6 +188,20 @@ class HostAdapter extends LocalAdapter {
     let record = null; try { record = await this.store.getCharacter(this.world.id, msg.key); } catch (e) { record = null; }
     if (!this.remotes[r.cid] || this.ended) return;                    // they left while we were reading the database
     if (Object.values(this.keys).includes(msg.key)) return deny('duplicate', 'You are already in this game (another tab or device).');
+    /* THE HANDSHAKE. The friend says which characters they hold and for which worlds (claims); the host compares the one for THIS world with its own record
+     * (both carry the character's id). Same id, or nothing on either side: carry on. Different, or one side lost its copy: nothing is guessed. The friend is asked,
+     * and a "new character" (fresh) clears their old home and character here so the home can be given again. */
+    const claim = (Array.isArray(msg.claims) ? msg.claims.slice(0, 24) : []).find(c => c && c.world === this.world.id && SaveData.validCharacterId(c.cid)) || null;
+    const hostCid = record && record.data && SaveData.validCharacterId(record.data.cid) ? record.data.cid : '';
+    const fresh = msg.fresh === true && !!(record || claim || this.server.interiors.homeOf(msg.key) >= 0);
+    if (!fresh) {
+      const mine = claim ? { cid: claim.cid, savedAt: Number(claim.savedAt) || 0 } : undefined;
+      if (record && claim && hostCid && claim.cid !== hostCid) return deny('character_mismatch', `The character saved on this device is not the one ${this.o.name || 'the host'} has saved for you in this world.`, { host: { name: record.name, savedAt: record.savedAt }, yours: mine });
+      if (!record && claim) return deny('character_missing', `${this.o.name || 'The host'} has no character saved for you in this world any more (the save may have been deleted or replaced).`, { yours: mine });
+    } else await this._forgetCharacter(msg.key, record);
+    if (!this.remotes[r.cid] || this.ended) return;
+    if (fresh) record = null;
+    if (!this.server.interiors.canHome(msg.key)) return deny('no_home', 'Every home in this world already belongs to someone. Ask the host to clear one (Session panel), then join again.');
     const id = this.server.joinHuman(null, name, null, msg.key);
     if (!id) return deny('full', 'The game is full.');
     if (record && !SaveData.importCharacter(this.server, id, record.data)) {   // never silently replace somebody's saved character with a blank one
@@ -200,10 +214,25 @@ class HostAdapter extends LocalAdapter {
     r.animalEnc.prime(welcome.animals); r.npcEnc.encode(DeltaCodec.quantize(welcome.npcs));      // (the villagers in the welcome count as already sent)
     r.gates = { trees: new ChangeGate(), forage: new ChangeGate(), pets: new ChangeGate(), book: new ChangeGate(), varieties: new ChangeGate(), boats: new ChangeGate(), drops: new ChangeGate() };
     r.gates.trees.prime(welcome.trees); r.gates.forage.prime(welcome.forage); r.gates.boats.prime(DeltaCodec.quantize(welcome.boats)); r.gates.drops.prime(welcome.drops);
-    Object.assign(welcome, { t: 'welcome', you: { name, restored: !!record }, session: this._sessionPublic() });
+    Object.assign(welcome, { t: 'welcome', you: { name, restored: !!record }, session: this._sessionPublic(), character: { cid: this.server.charIds[id], world: this.world.id, worldName: this.world.name, home: this.server.players[id].home, restored: !!record, fresh } });
     this._sendJson(r.cid, welcome);
-    this._emit({ type: 'joined', name, restored: !!record });
+    this._sendCharacter(r, SaveData.exportCharacter(this.server, id));                 // their own copy, from the very first moment
+    this._emit({ type: 'joined', name, restored: !!record, fresh });
     this._broadcastRoster();
+  }
+
+  /** A friend starts over in this world: their old character (and the ponies it left behind) is let go, and their home is cleared so it can be lived in again. */
+  async _forgetCharacter(key, record) {
+    const s = this.server, token = s.keyTokens[key];
+    if (token) for (const a of Object.values(s.animals.animals)) if (a.owner === token) delete s.animals.animals[a.id];
+    s.interiors.clearHome(key);
+    try { if (record) await this.store.deleteCharacter(this.world.id, key); } catch (e) { this._emit({ type: 'saveFailed', reason: 'new character', error: String(e && e.message || e) }); }
+  }
+
+  /** Send a friend the copy of their character that their own device keeps (clientSaves.js). `data` is what was just saved on the host. */
+  _sendCharacter(r, data) {
+    if (!r.ready || !data) return;
+    this._sendJson(r.cid, { t: 'charsave', world: this.world.id, worldName: this.world.name, hostName: this.o.name, cid: data.cid, name: r.name, savedAt: data.savedAt, data });
   }
 
   /** Somebody left (or was removed): their character is written to the database FIRST, then their seat is free again. */
@@ -222,6 +251,8 @@ class HostAdapter extends LocalAdapter {
   }
 
   kick(cid, reason = 'Removed by the host') {
+    const r = this.remotes[cid];
+    if (r && r.ready) this._sendCharacter(r, SaveData.exportCharacter(this.server, r.id));
     if (this.conn) this.conn.send(JSON.stringify({ t: 'kick', cid, reason }));
     return this._dropRemote(cid, 'kicked');
   }
@@ -260,6 +291,7 @@ class HostAdapter extends LocalAdapter {
         const meta = { id: this.world.id, name: this.world.name, seed: this.world.seed, createdAt: this.world.createdAt, savedAt: now, players: Math.max(this.known.size, characters.length) };
         await this.store.putAll(meta, worldData, characters);
         this.lastSavedAt = now; this.world.data = worldData;
+        for (const r of Object.values(this.remotes)) if (r.ready) this._sendCharacter(r, (characters.find(c => c.key === r.key) || {}).data);       // each friend's device keeps a copy of what the host just saved
         this._emit({ type: 'saved', reason, at: now, characters: characters.length });
       } catch (e) { this._emit({ type: 'saveFailed', reason, error: String(e && e.message || e) }); }
       finally { this.saving = null; }
@@ -296,9 +328,18 @@ class HostAdapter extends LocalAdapter {
     const base = this.o.relayBase || RelayConnection.baseUrl(), own = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
     return location.origin + location.pathname + '?join=' + this.code + (base !== own ? '&relay=' + encodeURIComponent(base) : '');
   }
+  /** Host: let a home go from somebody who is not playing right now (their character stays; they get a new room if they come back). */
+  async clearHome(key) {
+    if (Object.values(this.keys).includes(key)) return false;
+    this.server.interiors.clearHome(key);
+    await this.saveAll('home cleared');
+    this._emit({ type: 'roster' });
+    return true;
+  }
   getSessionInfo() {
     const server = this.server;
     return {
+      homes: server.interiors.listHomes(),
       role: 'host', online: this.online, code: this.code, link: this.shareLink(), worldName: this.world.name, persistent: this.store.persistent !== false,
       lastSavedAt: this.lastSavedAt, nextAutoSaveAt: this.nextAutoAt, saving: !!this.saving,
       players: server.humanIds().map(id => { const r = Object.values(this.remotes).find(x => x.id === id); return { id, name: server.players[id].name || id, slot: server.players[id].slot, host: id === this.id, rtt: r ? r.rtt : null, cid: r ? r.cid : null }; })

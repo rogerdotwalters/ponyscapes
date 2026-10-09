@@ -34,6 +34,7 @@ class GameServer {
     this.inventories = {}; this.coinsSent = {}; this.inventoryRev = {}; this.inventorySentRev = {}; this.packSent = {}; this.packCheck = {};
     this.builtRev = 1; this.builtSentRev = {}; this.floorsRev = 1; this.floorsSentRev = {};
     this.stockRev = 1; this.stockSentRev = {}; this.carryNoticeAt = {};
+    this.charIds = {};                                   // seat id -> that character's id (SaveData: how a host and a friend know they mean the same character)
     this.playerKeys = {}; this.keyTokens = {}; this.tokenKeys = {}; this.tokenSeq = 0; this.petsClaimed = {};   // who owns what across seats (serverOwned.js): seat id -> player key, key <-> away token
     this.drops = {}; this.nextDropId = 1; this.dropsRev = 1; this.later = [];            // (later: things that happen a moment from now, such as a felled tree breaking into logs)                            // items lying on the ground      // the town's stockpiles + building levels (stockpiles.js), and when each player was last told they carry too much
     this.progress = new Progression({ emit: e => this.pendingEvents.push(e), onLevels: (id, lv) => this._applyLevels(id, lv) });
@@ -208,6 +209,8 @@ class GameServer {
     this.inventoryRev[id] = 1; this.inventorySentRev[id] = 0; this.builtSentRev[id] = 0; this.floorsSentRev[id] = 0; this.stockSentRev[id] = 0;
     this._updateCompanions();
     this.inputQueues[id] = [];
+    this.charIds[id] = SaveData.newCharacterId();
+    this.players[id].home = this.interiors.claimHome('seat:' + id);      // (a keyed player gives this seat home back and takes their own: joinHuman)
     return id;
   }
   removePlayer(id) {
@@ -215,7 +218,7 @@ class GameServer {
     this._parkPets(id);                                                  // their ponies stay in the world, waiting for them (serverOwned.js)
     this.friendship.forget(id); this.quests.forget(id);                                          // the next person to sit here must not inherit these friendships
     this.trade.cancel(id, 'Trade cancelled: player left');
-    delete this.playerKeys[id]; delete this.petsClaimed[id];
+    this.interiors.leave_(id); this.interiors.releaseSeat(id); delete this.playerKeys[id]; delete this.petsClaimed[id]; delete this.charIds[id];
     const boat = this.boats[this.players[id] && this.players[id].boat];
     if (boat) boat.occupant = '';
     [this.players, this.inputQueues, this.inventories, this.coinsSent, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
@@ -234,7 +237,7 @@ class GameServer {
     const id = this.addPlayer();
     if (!id) return null;
     this.players[id].name = name;
-    if (key) { this.playerKeys[id] = key; this.petsClaimed[id] = this._claimPets(id, key); }
+    if (key) { this.interiors.releaseSeat(id); this.playerKeys[id] = key; this.players[id].home = this.interiors.claimHome(key, name); this.petsClaimed[id] = this._claimPets(id, key); }
     if (character) SaveData.importCharacter(this, id, character);
     const look = CharacterLook.sanitize(appearance);                    // what they chose on the character screen wins over what was saved
     if (look) { this.players[id].appearance = look; this.fitWardrobe(id); }

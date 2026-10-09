@@ -79,6 +79,7 @@ class IndexedDbSaveStore {
   }
   getCharacter(worldId, key) { return this._tx(['characters'], 'readonly', tx => this._req(tx.objectStore('characters').get(worldId + '|' + key))).then(r => r || null); }
   putCharacter(worldId, key, name, data) { return this._tx(['characters'], 'readwrite', tx => { tx.objectStore('characters').put({ id: worldId + '|' + key, worldId, key, name, savedAt: Date.now(), data }); }); }
+  deleteCharacter(worldId, key) { return this._tx(['characters'], 'readwrite', tx => { tx.objectStore('characters').delete(worldId + '|' + key); }); }
   listCharacters(worldId) { return this._tx(['characters'], 'readonly', tx => this._req(tx.objectStore('characters').index('worldId').getAll(worldId))); }
 
   /** Save everything in one transaction: the world and every character, together. */
@@ -105,6 +106,7 @@ class MemorySaveStore {
   async deleteWorld(id) { this.worlds.delete(id); this.data.delete(id); for (const k of [...this.chars.keys()]) if (k.startsWith(id + '|')) this.chars.delete(k); }
   async getCharacter(worldId, key) { const c = this.chars.get(worldId + '|' + key); return c ? JSON.parse(JSON.stringify(c)) : null; }
   async putCharacter(worldId, key, name, data) { this.chars.set(worldId + '|' + key, JSON.parse(JSON.stringify({ id: worldId + '|' + key, worldId, key, name, savedAt: Date.now(), data }))); }
+  async deleteCharacter(worldId, key) { this.chars.delete(worldId + '|' + key); }
   async listCharacters(worldId) { return [...this.chars.values()].filter(c => c.worldId === worldId).map(c => JSON.parse(JSON.stringify(c))); }
   async putAll(meta, worldData, characters) { await this.putWorld(meta, worldData); for (const c of characters) await this.putCharacter(meta.id, c.key, c.name, c.data); }
   async exportAll() { const worlds = []; for (const meta of await this.listWorlds()) worlds.push({ meta, data: (await this.getWorld(meta.id)).data, characters: await this.listCharacters(meta.id) }); return { v: 1, exportedAt: Date.now(), worlds }; }
