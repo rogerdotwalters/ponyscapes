@@ -435,6 +435,7 @@ const PixelCraftIcons = (() => {
 
 /* ---- CROPS: a growing crop in a farm plot, by its look (root, bush, stalk, vine) and stage (0 sprout, 1 young, 2 grown / in flower, 3 ripe,
  *      'dead' withered). Painted once per crop and stage, outlined, drawn with hard edges standing on its plot. ---- */
+const FIELD_CROP_SCALE = 0.7;                                                                   // (nine plots to a tile: a crop is smaller than the plot it grew in before)
 const PixelCrops = (() => {
   const { outline, shade, light } = PixelCharacter.util;
   const PX = 1.25, cache = new PackedCache(1000, 'crop');
@@ -485,9 +486,9 @@ const PixelCrops = (() => {
     cache.set(key, out); return out;
   }
   /** A crop standing on its plot at (sx, sy) (the plot's centre on screen). */
-  function draw(ctx, sx, sy, plot) {
+  function draw(ctx, sx, sy, plot, k = 1) {
     const crop = Crops.get(plot.c); if (!crop) return;
-    const a = art(crop, Farming.stage(plot)), u = PX;
+    const a = art(crop, Farming.stage(plot)), u = PX * k;
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(a.c, sx - a.X * u, sy - (a.G + 1) * u + 2, a.W * u, a.H * u); ctx.restore();
   }
   return { draw, art };

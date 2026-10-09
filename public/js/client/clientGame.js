@@ -120,6 +120,9 @@ class ClientGame {
   /** The coin bag's exchange: break a coin into the kind below, or merge everything up. */
   coinChange(mode, item) { this.net.sendCommand({ type: 'coinChange', mode, item }); }
   /** Buy at the shop counter. `pay`: the coins you put on the counter, a count of each kind (coins.js); the shop gives change. */
+  /** One job on one plot of a field (the garden window): op = till | dig | water | plant | cover | clear | harvest. The server checks it all (farming.js). */
+  fieldOp(op, tx, ty, i, item) { this.net.sendCommand({ type: 'field', op, tx, ty, i, item }); }
+  fieldAt(tx, ty) { return Farming.fieldAt(this.map, tx, ty); }
   buy(item, pay) { this.net.sendCommand({ type: 'buy', item, pay }); }
   _applyPack(wire) {
     this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;

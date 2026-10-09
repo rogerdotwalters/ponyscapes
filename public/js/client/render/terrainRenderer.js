@@ -19,16 +19,44 @@ const TerrainRenderer = (() => {
   /** The renderer tells us the season (it colours the grass) and the day (watered soil is dark for the rest of it). */
   function setDate(seasonId, day) { season = seasonId; today = day; }
 
-  /** The ground as 2 x 2 half-tile cells of pixel texture (pixelGround.js); a tilled cell is drawn as soil. */
+  /** The ground as 2 x 2 half-tile cells of pixel texture (pixelGround.js); a tilled tile is drawn as soil with its 3 x 3 plots on top. */
   function cells(ctx, kind, pal, tx, ty, farm, seasonal) {
+    const field = farm && farm['f' + tx + ',' + ty], wet = !!field && field.cells.filter(p => p.w === today).length * 2 > field.cells.length;
     for (let sy = 0; sy < 2; sy++) for (let sx = 0; sx < 2; sx++) {
-      const cx = tx * 2 + sx, cy = ty * 2 + sy, wx = tx + 0.25 + sx * 0.5, wy = ty + 0.25 + sy * 0.5, plot = farm && farm[cx + ',' + cy];
+      const cx = tx * 2 + sx, cy = ty * 2 + sy, wx = tx + 0.25 + sx * 0.5, wy = ty + 0.25 + sy * 0.5;
       const v = Math.floor(PixelTerrain.hash(cx, cy, 1) * 997);
-      const c = plot ? PixelTerrain.cell('soil', SOIL, v, season, plot.w === today) : PixelTerrain.cell(kind, pal, v, seasonal ? season : '');
+      const c = field ? PixelTerrain.cell('soil', SOIL, v, season, wet) : PixelTerrain.cell(kind, pal, v, seasonal ? season : '');
       PixelTerrain.draw(ctx, c, (wx - wy) * TILE_HALF_W, (wx + wy) * TILE_HALF_H);
     }
+    if (field) plots(ctx, tx, ty, field);
   }
   const SOIL = ['#7a5233', '#83593a', '#704b2e'];
+  /** A one-pixel-thick line of hard pixels (no antialiasing, like the rest of the ground). */
+  function pxLine(ctx, x0, y0, x1, y1) {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) | 0;
+    for (let i = 0; i <= n; i++) ctx.fillRect(Math.round(x0 + (x1 - x0) * i / (n || 1)), Math.round(y0 + (y1 - y0) * i / (n || 1)), 1, 1);
+  }
+  /** A filled ellipse in rows of hard pixels. */
+  function pxOval(ctx, x, y, rx, ry) {
+    for (let dy = -ry; dy <= ry; dy++) { const w = Math.round(rx * Math.sqrt(1 - (dy * dy) / ((ry + 0.5) * (ry + 0.5)))); ctx.fillRect(Math.round(x) - w, Math.round(y) + dy, w * 2 + 1, 1); }
+  }
+  /** The nine plots of a field: an inked, furrowed diamond each (dark when watered, pale when packed hard), with a hole, a seed or a mound of earth on it. */
+  function plots(ctx, tx, ty, field) {
+    const hw = Math.round(TILE_HALF_W / 3 * 0.9), hh = Math.round(TILE_HALF_H / 3 * 0.9);
+    for (let i = 0; i < 9; i++) {
+      const plot = field.cells[i], wx = tx + (i % 3 + 0.5) / 3, wy = ty + (Math.floor(i / 3) + 0.5) / 3, x = Math.round((wx - wy) * TILE_HALF_W), y = Math.round((wx + wy) * TILE_HALF_H);
+      ctx.fillStyle = plot.u ? 'rgba(205,175,125,.4)' : plot.w === today ? 'rgba(28,14,6,.42)' : 'rgba(40,22,10,.12)';             // the bed's soil, row by row
+      for (let dy = -hh; dy <= hh; dy++) { const w = Math.round(hw * (1 - Math.abs(dy) / (hh + 0.5))); ctx.fillRect(x - w, y + dy, w * 2 + 1, 1); }
+      ctx.fillStyle = 'rgba(29,18,10,.7)';                                                                                              // the ink edge
+      pxLine(ctx, x - hw, y, x, y - hh); pxLine(ctx, x, y - hh, x + hw, y); pxLine(ctx, x + hw, y, x, y + hh); pxLine(ctx, x, y + hh, x - hw, y);
+      if (plot.h && !plot.v) {                                                                                                          // a dug hole (with a seed in it, if planted)
+        ctx.fillStyle = '#1d120a'; pxOval(ctx, x, y + 1, 5, 3); ctx.fillStyle = '#2a170b'; pxOval(ctx, x, y + 1, 4, 2);
+        if (plot.c) { const c = Crops.get(plot.c); ctx.fillStyle = '#1d120a'; ctx.fillRect(x - 2, y, 4, 3); ctx.fillStyle = c ? c.colors.crop : '#e8d9a0'; ctx.fillRect(x - 1, y + 1, 2, 1); }
+      } else if (plot.v) {                                                                                                              // a mound the crop grows from
+        ctx.fillStyle = '#1d120a'; pxOval(ctx, x, y + 2, 6, 3); ctx.fillStyle = plot.w === today ? '#4a2f1b' : '#8a6340'; pxOval(ctx, x, y + 2, 5, 2); ctx.fillStyle = plot.w === today ? '#5e3b24' : '#a47a50'; ctx.fillRect(x - 2, y + 1, 4, 1);
+      }
+    }
+  }
 
   /* ---- the ground in BLOCKS: the overworld's still ground (grass, dirt, sand, clay, stone) is painted once into screen-aligned blocks (canvases)
    * and drawn as a few pictures instead of four cells per tile, every frame. Blocks load around what the camera sees (and a margin), one or two
@@ -248,7 +276,7 @@ const TerrainRenderer = (() => {
       else if (type >= INTERIOR_TILE_BASE) { diamondPath(ctx, cx, cy); InteriorSprites.tile(ctx, type, cx, cy, tx, ty); }   // a room's floor (or the dark outside it)
       else {
         if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, lookOf(map, tx, ty, type)); }
-        if (farm && (type === TILE.GRASS || type === TILE.DIRT) && (farm[tx * 2 + ',' + ty * 2] || farm[(tx * 2 + 1) + ',' + ty * 2] || farm[tx * 2 + ',' + (ty * 2 + 1)] || farm[(tx * 2 + 1) + ',' + (ty * 2 + 1)])) {
+        if (farm && (type === TILE.GRASS || type === TILE.DIRT) && farm['f' + tx + ',' + ty]) {
           const p = GROUND[map.biome(tx, ty)];                                                  // tilled soil: live (it darkens when watered)
           cells(ctx, type === TILE.GRASS ? 'grass' : 'dirt', p ? p[type === TILE.GRASS ? 0 : 1] : (type === TILE.GRASS ? GRASS : DIRT), tx, ty, farm, type === TILE.GRASS && !p);
         }

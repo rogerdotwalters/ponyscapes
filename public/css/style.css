@@ -608,17 +608,17 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 :root{--oak:#3a281a;--oak2:#4a3322;--deep:#1d120a;--gold:#d9a441;--brass:#f2cf7a;--parch:#f1e0b4;--ink:#2a170c;--wine:#7a2a2a;--moss:#4f7a3a;
   --font-title:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif}
 /* stepped (pixel-cut) corners, a gold rule inside an iron frame, and a hard drop shadow */
-#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,.lobbyCard{
+#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#gardenWin,.lobbyCard{
   border:3px solid var(--deep);border-radius:3px;color:var(--parch);
   background:
     repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 2px,transparent 2px 22px),
     linear-gradient(180deg,#46311f 0%,var(--oak) 60%,#2f2014 100%);
   box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px var(--deep),inset 0 0 0 5px rgba(242,207,122,.35),0 5px 0 rgba(0,0,0,.45),0 0 0 2px #000;
   }
-#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header{
+#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#gardenWin header{
   font:700 17px var(--font-title);letter-spacing:2px;text-transform:uppercase;color:var(--brass);text-shadow:2px 2px 0 var(--deep);
   padding:0 0 5px;border-bottom:2px solid var(--gold);box-shadow:0 2px 0 var(--deep)}
-#invClose,#craftClose,#settingsClose,#gearClose,#tradeClose,#puzzleClose,#dialogueClose,#journalClose,#menuClose,#mapClose{
+#invClose,#craftClose,#settingsClose,#gearClose,#gardenClose,#tradeClose,#puzzleClose,#dialogueClose,#journalClose,#menuClose,#mapClose{
   width:28px;height:28px;border-radius:2px;border:2px solid var(--deep);background:var(--wine);color:#ffe8d0;font:700 14px var(--font-title);padding:0;
   box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.35)}
 #invClose:active,#craftClose:active,#settingsClose:active,#gearClose:active,#tradeClose:active,#journalClose:active,#menuClose:active,#mapClose:active{transform:translateY(1px)}
@@ -731,3 +731,44 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 #shopCounter .coinChip{cursor:pointer}
 #shopPanel.paying{left:min(16px,2vw) !important}
 .need img,.shophead img{image-rendering:pixelated}
+
+/* ---------- the garden window: the game's oak panel, nine pixel-art plots, wooden buttons; seed pouches float beside it like the coin bag ---------- */
+#gardenPanel{position:fixed !important;left:0 !important;top:0 !important;right:0;bottom:0;width:auto !important;z-index:6;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;
+  padding:56px 8px 110px !important;background:rgba(8,4,0,.45) !important;border:0 !important;box-shadow:none !important;overflow:auto;color:var(--parch)}
+#gardenWin{position:relative;display:flex;flex-direction:column;gap:8px;padding:12px 14px 10px;max-width:100%}
+#gardenWin header{display:flex;justify-content:space-between;align-items:center}
+#gardenMain{display:flex;gap:12px;align-items:stretch}
+#gardenSeeds{display:flex;flex-direction:column;width:128px;flex:none;background:rgba(20,10,4,.5);border:2px solid var(--deep);box-shadow:inset 0 0 0 1px rgba(217,164,65,.35);padding:6px 5px}
+.gardenLabel{font:700 11px var(--font-title);color:var(--brass);text-align:center;margin-bottom:5px;padding-bottom:4px;border-bottom:2px solid var(--gold);text-transform:uppercase;letter-spacing:2px;text-shadow:1px 1px 0 var(--deep)}
+#gardenSeedList{flex:1 1 0;min-height:0;max-height:352px;overflow-y:auto;touch-action:pan-y;display:flex;flex-direction:column;gap:5px;padding:0 2px 2px 0;scrollbar-color:var(--gold) var(--deep);scrollbar-width:thin}
+.seedPack{position:relative;display:grid;grid-template-columns:36px 1fr;column-gap:6px;align-items:center;text-align:left;padding:4px 6px 4px 4px;border:2px solid var(--deep);border-radius:2px;background:#8a5f32;color:var(--parch);
+  font:700 12px var(--font-title);letter-spacing:.5px;text-shadow:1px 1px 0 var(--deep);box-shadow:inset 0 2px 0 #b98a50,inset 0 -3px 0 #5a3a1e;cursor:pointer}
+.seedPack img{grid-row:1 / 3;width:36px;height:36px;image-rendering:pixelated}
+.seedPack small{font:italic 10px Georgia,serif;color:#e8d4a0;text-shadow:1px 1px 0 var(--deep)}
+.seedPack .seedCount{position:absolute;right:5px;top:3px;font-size:12px;color:var(--brass)}
+.seedPack:active{transform:translateY(1px)}
+.seedPack.open{background:var(--moss);box-shadow:inset 0 2px 0 #7aab5a,inset 0 -3px 0 #2f4d22}
+.seedPack.off{filter:saturate(.5) brightness(.85)}
+.seedPack.off small{color:#f0b0a0}
+.gardenNone{margin:4px;font:italic 11px Georgia,serif;color:#e8d9b0;text-shadow:1px 1px 0 var(--deep)}
+#gardenBed{display:flex;flex-direction:column;gap:8px;align-items:center}
+#gardenCanvas{image-rendering:pixelated;touch-action:none;cursor:pointer;filter:drop-shadow(0 4px 0 rgba(0,0,0,.45))}
+#gardenTools{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+#gardenTools button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 5px 2px;min-width:64px;border:2px solid var(--deep);border-radius:2px;background:#8a5f32;color:var(--parch);
+  font:700 10px var(--font-title);letter-spacing:.5px;text-shadow:1px 1px 0 var(--deep);box-shadow:inset 0 2px 0 #b98a50,inset 0 -3px 0 #5a3a1e;cursor:pointer}
+#gardenTools button img{width:32px;height:32px;image-rendering:pixelated}
+#gardenTools button:active{transform:translateY(1px)}
+#gardenTools button.on{background:var(--gold);color:var(--ink);text-shadow:none;box-shadow:inset 0 2px 0 #f6d98c,inset 0 -3px 0 #98691f}
+#gardenTools button:disabled{opacity:.45;filter:grayscale(.6);cursor:not-allowed}
+#gardenHint{font:italic 12px Georgia,serif;color:#f1e0b4;text-align:center;max-width:500px;min-height:30px;text-shadow:1px 1px 0 var(--deep);border-top:2px solid rgba(217,164,65,.5);padding-top:6px}
+#gardenPouches{position:fixed;right:8px;top:56px;bottom:110px;display:flex;flex-flow:column wrap-reverse;gap:6px;align-content:flex-start;pointer-events:none}
+#gardenPouches>*{pointer-events:auto}
+.pouch{display:flex;flex-direction:column;align-items:center;gap:2px}
+.pouch header{display:flex;gap:8px;align-items:center;font:700 14px var(--font-title);letter-spacing:1px;color:var(--brass);text-shadow:2px 2px 0 var(--deep),0 0 8px rgba(0,0,0,.6)}
+.pouch .pouchClose{width:20px;height:20px;border:2px solid var(--deep);border-radius:2px;background:var(--wine);color:#ffe8d0;font:700 10px var(--font-title);padding:0;cursor:pointer;box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.35)}
+.pouch canvas{display:block;image-rendering:pixelated;touch-action:none;cursor:grab;filter:drop-shadow(0 8px 6px rgba(0,0,0,.45))}
+.pouch canvas.grabbing{cursor:grabbing}
+.pouch .pouchCount{font:700 14px var(--font-title);color:#fff3d0;text-shadow:2px 2px 0 var(--deep),0 0 6px rgba(0,0,0,.7)}
+.pouch.empty .pouchCount{color:#ffb0a0}
+@media (max-width:900px){#gardenPouches{position:static;flex-flow:row wrap;justify-content:center}.pouch canvas{width:140px;height:auto}}
+@media (max-width:640px){#gardenMain{flex-direction:column}#gardenSeeds{width:auto}#gardenSeedList{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x}.seedPack{min-width:118px}}

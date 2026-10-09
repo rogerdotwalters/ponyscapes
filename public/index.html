@@ -117,6 +117,17 @@
   <div id="coinButtons"><button id="coinMerge" tabindex="-1" title="Merge coins up: 10 copper make a silver, 10 silver a gold, and so on (gem coins: 5 of the one below)">Merge coins</button></div>
   <div id="coinHint">Drag a coin out of the bag onto the world to drop it (anyone who steps close picks it up). Double-tap a coin to break it into smaller ones. Tap outside to close.</div>
 </div>
+<div id="gardenPanel" hidden>
+  <div id="gardenWin">
+    <header><span id="gardenTitle">Garden plot</span><button id="gardenClose" tabindex="-1">&#x2715;</button></header>
+    <div id="gardenMain">
+      <div id="gardenSeeds"><div class="gardenLabel">Seed packs</div><div id="gardenSeedList" class="scrollable"></div></div>
+      <div id="gardenBed"><canvas id="gardenCanvas"></canvas><div id="gardenTools"></div></div>
+    </div>
+    <div id="gardenHint"></div>
+  </div>
+  <div id="gardenPouches"></div>
+</div>
 <div id="craftPanel" hidden>
   <header><span>Crafting</span><button id="craftClose" tabindex="-1">&#x2715;</button></header>
   <div id="craftList" class="scrollable"></div>
@@ -477,6 +488,8 @@
 <script src="js/client/ui/toolbarUI.js" defer></script>
 <script src="js/client/ui/inventoryUI.js" defer></script>
 <script src="js/client/ui/coinBagUI.js" defer></script>
+<script src="js/client/ui/seedPouchUI.js" defer></script>
+<script src="js/client/ui/gardenUI.js" defer></script>
 <script src="js/client/ui/craftingUI.js" defer></script>
 <script src="js/client/ui/settingsUI.js" defer></script>
 <script src="js/client/ui/controlsUI.js" defer></script>
