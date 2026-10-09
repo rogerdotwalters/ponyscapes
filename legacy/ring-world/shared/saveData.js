@@ -84,7 +84,7 @@ const SaveData = {
     for (const [k, st] of Object.entries(SaveData._plain(data.forageStates) ? data.forageStates : {})) if (keyOk(k) && ++n <= SaveData.MAX_STATE_ENTRIES) out.forageStates[k] = SaveData._plain(st) && st.cut ? { ripe: false, cut: 1 } : { ripe: false };
     const queue = (list, into) => { if (!Array.isArray(list)) return; for (const r of list.slice(0, SaveData.MAX_STATE_ENTRIES)) if (SaveData._plain(r) && Number.isInteger(r.tx) && Number.isInteger(r.ty) && Number.isInteger(r.atTick)) into.push({ tx: r.tx, ty: r.ty, atTick: r.atTick }); };
     out.hostilesOff = data.hostilesOff === true;
-    if (Array.isArray(data.bossesDefeated)) out.bossesDefeated = [...new Set(data.bossesDefeated.filter(r => Number.isInteger(r) && r >= 0 && r < Zones.size))];
+    if (Array.isArray(data.bossesDefeated)) out.bossesDefeated = [...new Set(data.bossesDefeated.filter(r => Number.isInteger(r) && r >= 0 && r < Rings.size))];
     queue(data.treeRespawns, out.treeRespawns); queue(data.forageRegrows, out.forageRegrows);
     const stock = SaveData._plain(data.stockpiles) ? data.stockpiles : {};                         // (older saves have none)
     for (const [k, pile] of Object.entries(SaveData._plain(stock.piles) ? stock.piles : {})) {
@@ -233,7 +233,7 @@ const SaveData = {
       const defs = kind === 's' ? SkillDefs : AttributeDefs, src = SaveData._plain(data.xp) && SaveData._plain(data.xp[kind]) ? data.xp[kind] : {};
       for (const name of Object.keys(defs)) out.xp[kind][name] = N(src[name], 0, XP_TABLE[MAX_LEVEL] * 4, 0);
     }
-    if (Array.isArray(data.maps)) for (const m of data.maps.slice(0, SaveData.MAX_MAPS)) if (SaveData._plain(m) && Number.isInteger(m.tx) && Number.isInteger(m.ty)) out.maps.push(m.kind === 'dungeon' && Number.isInteger(m.ring) && m.ring >= 0 && m.ring < Zones.size ? { key: 'cave' + m.ring, tx: m.tx, ty: m.ty, kind: 'dungeon', ring: m.ring } : { key: tileKey(m.tx, m.ty), tx: m.tx, ty: m.ty });
+    if (Array.isArray(data.maps)) for (const m of data.maps.slice(0, SaveData.MAX_MAPS)) if (SaveData._plain(m) && Number.isInteger(m.tx) && Number.isInteger(m.ty)) out.maps.push(m.kind === 'dungeon' && Number.isInteger(m.ring) && m.ring >= 0 && m.ring < Rings.size ? { key: 'cave' + m.ring, tx: m.tx, ty: m.ty, kind: 'dungeon', ring: m.ring } : { key: tileKey(m.tx, m.ty), tx: m.tx, ty: m.ty });
     if (SaveData._plain(data.book)) {
       for (const t of Array.isArray(data.book.types) ? data.book.types : []) if (AnimalDefs[t] && AnimalDefs[t].pony) out.book.types.push(t);
       if (SaveData._plain(data.book.leashed)) for (const t in data.book.leashed) if (AnimalDefs[t] && Number.isFinite(data.book.leashed[t])) out.book.leashed[t] = clamp(Math.floor(data.book.leashed[t]), 0, 1e6);

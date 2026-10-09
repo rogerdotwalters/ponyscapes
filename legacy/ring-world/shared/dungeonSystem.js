@@ -1,16 +1,20 @@
 'use strict';
-/* SHARED - the dungeons. The cave mouth in the cliffs takes you (and your mount, and any pet on a rope) through the dungeon's rooms. A dungeon with a `lair` ends in
- * its zone's guardian lair, the LAST layer: its own GRID ('cave:<zone>'), where the guardian waits in the arena, always the TOP level of its area; defeating it
- * opens the next zone for everyone. Also: the hint when you touch the wall at the edge of the world. */
+/* SHARED - the caves. Entering takes you (and your mount, and any pet on a rope) to that ring's dungeon: its own GRID ('cave:<ring>'); its guardian waits in the
+ * arena and is always the TOP level of its area; defeating it opens the next ring for everyone. Also: the hint when you touch a sealed barrier. */
 
 /** Pure (client + server): is there a cave mouth to enter, or a way out, within reach? */
 function findCaveInteraction(map, p) {
   if (map.kind === 'dungeon') return findDungeonInteraction(map, p);
   if (map.kind === 'cave') {                                                                // inside a cave: the way out
     const exit = map.exitPoint(), d = Math.hypot(p.x - exit.x, p.y - exit.y);
-    return d <= 2.4 ? { kind: 'leave_cave', label: 'Back up the cave', dist: d, ring: map.plan.ring } : null;
+    return d <= 2.4 ? { kind: 'leave_cave', label: 'Leave cave', dist: d, ring: map.plan.ring } : null;
   }
   if (map.grid) return null;                                                                // (no caves inside rooms)
+  const rings = map.layers.rings;
+  for (let ring = 0; ring < rings.count; ring++) {
+    const site = map.layers.dungeons.site(ring), d = Math.hypot(p.x - site.x, p.y - site.y);
+    if (d <= CAVE_REACH && rings.isUnlocked(ring)) return { kind: 'enter_cave', label: 'Enter cave', dist: d, ring };
+  }
   const mouths = map.terrain.caveSites ? map.terrain.caveSites.caves() : [];                // the room dungeons' mouths, in their cliffs
   for (const c of mouths) { const d = Math.hypot(p.x - c.x, p.y - c.y); if (d <= CAVE_REACH) return { kind: 'enter_dungeon', label: 'Enter cave', dist: d, dungeon: c.index }; }
   return null;
@@ -23,7 +27,7 @@ function findDungeonInteraction(map, p) {
   let best = null;
   const offer = (action) => { if (action.dist <= action.reach && (!best || action.dist < best.dist)) best = action; };
   for (const box of plan.patch('entrance')) offer({ kind: 'dungeon_back', label: plan.first ? 'Leave cave' : 'Back to the last room', dist: away(box), reach: DUNGEON_REACH });
-  for (const box of plan.patch('exit')) offer({ kind: 'dungeon_next', label: plan.dungeon.lair ? 'Down to the lair' : plan.last ? 'Leave cave' : 'On to the next room', dist: away(box), reach: DUNGEON_REACH });
+  for (const box of plan.patch('exit')) offer({ kind: 'dungeon_next', label: plan.last ? 'Leave cave' : 'On to the next room', dist: away(box), reach: DUNGEON_REACH });
   for (const c of plan.room.chests) {
     const prop = map.peekPropAt(c.x, c.y);
     if (prop && prop.t === 'dungeon_chest' && !prop.opened) offer({ kind: 'dungeon_chest', label: 'Open chest', dist: Math.max(0, Math.hypot(p.x - prop.x, p.y - prop.y) - prop.r), reach: CHEST_REACH, tx: c.x, ty: c.y });
@@ -31,6 +35,7 @@ function findDungeonInteraction(map, p) {
   return best;
 }
 Interactions.extra.push(findCaveInteraction);                                                // the interact key now knows about caves
+InteractionHandlers.enter_cave = (server, id, p, action) => server.dungeons.enter(id, p, action.ring);
 InteractionHandlers.leave_cave = (server, id, p) => server.dungeons.leave(id, p);
 InteractionHandlers.enter_dungeon = (server, id, p, action) => server.dungeons.enterDungeon(id, p, action.dungeon);
 InteractionHandlers.dungeon_back = (server, id, p) => server.dungeons.stepRoom(id, p, -1);
@@ -43,11 +48,11 @@ class DungeonSystem {
   /** A short pause after every crossing, so a held key (or a double tap) cannot bounce you straight back through. */
   _cooling(id) { if ((this.portalAt[id] || -999) > this.server.tick - 20) return true; this.portalAt[id] = this.server.tick; return false; }
 
-  /** Down into the guardian's lair, the last layer of the dungeon: from the last room's exit. */
-  enterLair(id, p, ring) {
+  enter(id, p, ring) {
     const s = this.server, rings = s.map.layers.rings;
-    if (!rings.isUnlocked(ring)) return;                                                    // (stepRoom has already paused the crossing)
-    const entry = DungeonSpace.entry(), def = Fauna.bossOf(ring);
+    if (!rings.isUnlocked(ring) || this._cooling(id)) return;
+    const site = s.map.layers.dungeons.site(ring), entry = DungeonSpace.entry(), def = Fauna.bossOf(ring);
+    p.returnTo = { x: site.x, y: site.y + 1.6 };
     s._moveToGrid(id, p, Grids.cave(ring), entry.x, entry.y);
     this.ensureBoss(ring);
     const down = s.worldProgress.isDefeated(ring);
@@ -79,14 +84,13 @@ class DungeonSystem {
     const s = this.server, g = Grids.parse(gridOf(p)), def = g && g.kind === 'dungeon' && Dungeons.all()[g.dungeon];
     if (!def || this._cooling(id)) return;
     const next = g.room + dir;
-    if (next >= def.rooms.length && def.lair !== undefined && dir > 0) { this.enterLair(id, p, def.ring); return; }          // past the last room: the guardian's lair
     if (next < 0 || next >= def.rooms.length) { this.leaveDungeon(id, p, g.dungeon); return; }
     const world = s.grids.get(Grids.dungeon(g.dungeon, next));
     if (world.kind !== 'dungeon') { s._notice(id, 'The way is blocked by fallen rock'); return; }
     const at = dir > 0 ? world.plan.entryPoint() : world.plan.arrivalFromNext();
     s._moveToGrid(id, p, world.grid, at.x, at.y);
     this.populate(world);
-    s._notice(id, `${def.name}: room ${next + 1} of ${def.rooms.length}${def.lair !== undefined ? ' (and the lair)' : ''}`);
+    s._notice(id, `${def.name}: room ${next + 1} of ${def.rooms.length}`);
   }
 
   /** Testing aid (the host, Dev settings): 'village', 'cave' (the first dungeon's mouth) or 'room:<n>' (inside its room n, as if you had walked in). */
@@ -160,16 +164,10 @@ class DungeonSystem {
     s.pendingEvents.push({ type: 'dungeonChest', tx, ty });                                  // (everyone in the room sees it open)
   }
 
-  /** Up out of the lair: back into the last room of the dungeon it ends (or, for a lair no dungeon owns, outside). */
   leave(id, p) {
     if (this._cooling(id)) return;
     const s = this.server, g = Grids.parse(gridOf(p)), ring = g && g.kind === 'cave' ? g.ring : 0;
-    const d = Dungeons.all().findIndex(def => def.lair !== undefined && def.ring === ring), def = Dungeons.all()[d];
-    if (def) {
-      const world = s.grids.get(Grids.dungeon(d, def.rooms.length - 1));
-      if (world.kind === 'dungeon') { const at = world.plan.arrivalFromNext(); s._moveToGrid(id, p, world.grid, at.x, at.y); this.populate(world); return; }
-    }
-    const site = s.map.layers.dungeons.site(ring), back = p.returnTo || { x: site.x, y: site.y + 1.6 };
+    const back = p.returnTo || (() => { const site = s.map.layers.dungeons.site(ring); return { x: site.x, y: site.y + 1.6 }; })();
     s._moveToGrid(id, p, '', back.x, back.y);
     p.returnTo = null;
     s.pendingEvents.push({ type: 'leftCave', to: id });
@@ -215,7 +213,6 @@ class DungeonSystem {
     if (ring < 0 || (this.hintAt[id] || -999) > this.server.tick - 300) return;
     this.hintAt[id] = this.server.tick;
     const guard = rings.def(ring - 1);
-    if (!rings.def(ring)) this.server._notice(id, `A shimmering barrier marks the edge of ${guard.name}. Nothing lies beyond it, yet`);          // (the wall round the world)
-    else this.server._notice(id, `A shimmering barrier seals ${rings.def(ring).name}. Defeat the ${guard.bossName} in the lair at the bottom of the cave in ${guard.name} to open it`);
+    this.server._notice(id, `A shimmering barrier seals ${rings.def(ring).name}. Defeat the ${guard.bossName} in the cave hidden in ${guard.name} to open it`);
   }
 }

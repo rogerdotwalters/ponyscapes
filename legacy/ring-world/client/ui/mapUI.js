@@ -143,7 +143,7 @@ class MapUI {
     if (far) {
       ctx.font = 'bold 10px Georgia'; ctx.textAlign = 'left';
       const rings = g.worldMap.layers.rings;
-      for (const def of Zones.all()) {                                                                         // name each ring where it is in view
+      for (const def of Rings.all()) {                                                                         // name each ring where it is in view
         const mid = (def.index + 0.5) * rings.width, locked = !rings.isUnlocked(def.index), txt = `${locked ? '\u{1F512} ' : ''}${def.name}  Lv ${def.levelMin}-${def.levelMax}`;
         for (let k = 0; k < 36; k++) {
           const a = -Math.PI / 4 + k * Math.PI / 18, [lx, ly] = toMap(O.x + Math.cos(a) * (def.index ? mid : 120), O.y + Math.sin(a) * (def.index ? mid : 120));

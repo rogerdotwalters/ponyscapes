@@ -1,8 +1,8 @@
 'use strict';
-/* LAYER - the shape of a guardian's lair: the LAST layer of its zone's dungeon. Each lair is its own GRID (js/shared/grids.js: 'cave:<zone>'), so these are local coordinates from (0, 0):
+/* LAYER - the shape of a cave. Each ring's cave is its own GRID (js/shared/grids.js: 'cave:<ring>'), so these are local coordinates from (0, 0):
  * a pure function of (cave number, tile): an entry hall, a winding corridor, and a round boss arena. Everything outside is rock. */
 const DungeonSpace = {
-  SIZE: 64, COUNT: 1,
+  SIZE: 64, COUNT: 5,
   entry() { return { x: 8.5, y: 31.5 }; },      // where you arrive
   exit() { return { x: 5.5, y: 31.5 }; },       // the way back out (a glowing portal)
   arena() { return { x: 42.5, y: 32.5 }; },     // where the boss waits

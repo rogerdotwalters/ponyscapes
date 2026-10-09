@@ -11,7 +11,7 @@
  * tile(tx, ty) is a PURE function of the seed and the coordinates, which is what lets chunks be generated in any
  * order, discarded, and regenerated identically on the client and the server. */
 const TERRAIN = Object.freeze({
-  continentScale: 1 / 85, hillScale: 1 / 28, detailScale: 1 / 15,           // (half the old scales: a half-size map keeps the same mix of lakes, coasts and hills)
+  continentScale: 1 / 170, hillScale: 1 / 55, detailScale: 1 / 15,
   weight: Object.freeze({ continent: 0.58, hills: 0.28, detail: 0.14 }),
   contrast: 1.9,                  // stretches the layered noise so coasts and highlands have real range
   landBias: 0.0,                  // pushes the world toward land (seaLevel is calibrated against it)
@@ -34,7 +34,7 @@ class TerrainGenerator {
     this.patchNoise = new PerlinNoise(this.seed + 606);
     this.rockNoise = new PerlinNoise(this.seed + 707);
     this.clayNoise = new PerlinNoise(this.seed + 808);
-    this.layers = new WorldLayers(this, this.seed);                         // zones, biomes, dungeons: each its own class
+    this.layers = new WorldLayers(this, this.seed);                         // rings, biomes, (zones), dungeons: each its own class
     this.caveSites = new CaveSites(this, this.layers.rings);                // hand-made cliffs and cave mouths, stamped on top of the land (layers/caveSites.js)
   }
 
@@ -45,12 +45,12 @@ class TerrainGenerator {
     const hills = this.hills.fractal(tx * T.hillScale, ty * T.hillScale, 3);
     const detail = this.detail.fractal(tx * T.detailScale, ty * T.detailScale, 2);
     const layered = w.continent * continent + w.hills * hills + w.detail * detail;
-    return T.contrast * layered + T.landBias - this.layers.zones.edgeSink(tx, ty);       // the zone ends in a beach and open sea
+    return T.contrast * layered + T.landBias;
   }
 
   // the everyday biomes (meadow / forest / wetland / dry) sweep across much larger areas than the first version
-  moisture(tx, ty) { return this.moistureNoise.fractal(tx / 110, ty / 110, 3); }
-  forestiness(tx, ty) { return this.forestNoise.fractal(tx / 50, ty / 50, 2); }
+  moisture(tx, ty) { return this.moistureNoise.fractal(tx / 220, ty / 220, 3); }
+  forestiness(tx, ty) { return this.forestNoise.fractal(tx / 80, ty / 80, 2); }
 
   /** Final ground type of a tile: the land, with the cliff / cave stamps laid over it. */
   tile(tx, ty) {
@@ -160,7 +160,7 @@ class TerrainGenerator {
   clayAt(tx, ty, tileType) { return tileType === TILE.CLAY && hash3(this.seed, tx, ty, 24) < CLAY_DEPOSIT_CHANCE; }
 
   /** The animal home in this chunk, or null: { node: { type, tx, ty, x, y, count, biome, variant }, members: [{ type, x, y, gene, variant, level, biome }] }.
-   *  Deterministic, so a chunk always holds the same home. WHAT lives here is decided by the ZONE (each creature's own data says which ring it belongs to and
+   *  Deterministic, so a chunk always holds the same home. WHAT lives here is decided by the RING (each creature's own data says which ring it belongs to and
    *  how common it is). Wild ponies have no home: they come and go with the mornings (wildPonies.js), so a pony roll gives no group here.
    *  `free(tx, ty)` (optional) says whether a tile may hold the home's marker (no tree or bush on it). */
   animalGroup(cx, cy, tileOf, free) {

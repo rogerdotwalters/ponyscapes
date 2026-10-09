@@ -129,7 +129,7 @@
   }
   const rarityOptions = () => RarityOrder.map(r => [r, RarityDefs[r].name]);
   const biomeOptions = () => BIOMES.map(b => [b, Biomes.get(b).name]);
-  const ringOptions = () => Zones.all().sort((a, b) => a.index - b.index).map(r => [String(r.index), `${r.index}: ${r.name} (Lv ${r.levelMin}-${r.levelMax})`]);
+  const ringOptions = () => Rings.all().sort((a, b) => a.index - b.index).map(r => [String(r.index), `${r.index}: ${r.name} (Lv ${r.levelMin}-${r.levelMax})`]);
   /** Which looks the game can draw for a wardrobe slot (taken from the built-in wardrobe). */
   const styleOptions = slot => [...new Set(WardrobeItems.where(w => w.slot === slot).map(w => w.look.style))].map(s => [s, s]);
 

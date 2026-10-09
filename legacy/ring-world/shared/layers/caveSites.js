@@ -1,6 +1,6 @@
 'use strict';
 /* LAYER - cliffs, hills and the cave mouths of the room dungeons. These are HAND-MADE shapes (the STAMPS below, drawn as text) that are dropped, after the
- * land has been generated, at random places in the first zone. Where a stamp lands it overrides the generated ground; everything outside is untouched.
+ * land has been generated, at random places in the centre ring. Where a stamp lands it overrides the generated ground; everything outside is untouched.
  * Like the rest of the terrain it is a pure function of the world seed: client and server place exactly the same cliffs.
  *
  *   stamp characters   1 2 3   a cliff you cannot walk through, that high (1 = a low rise, 3 = a tall bluff); drawn as stacked rock
@@ -64,10 +64,10 @@ for (const [id, s] of Object.entries(CLIFF_STAMPS)) {                           
 }
 
 class CaveSites {
-  /** @param terrain a TerrainGenerator (its baseTile() is the land before any stamp)  @param rings the zone layer */
+  /** @param terrain a TerrainGenerator (its baseTile() is the land before any stamp)  @param rings the ring layer */
   constructor(terrain, rings) {
     this.id = 'caveSites'; this.terrain = terrain; this.rings = rings; this.placed = null; this.mouths = null;
-    this.COUNT = { ridge: 2, knoll: 3, crag: 2 };                       // how many of each cliff-only stamp the first zone gets (half the old map, half the cliffs)
+    this.COUNT = { ridge: 4, knoll: 6, crag: 4 };                       // how many of each cliff-only stamp the centre ring gets
     this.reach2 = Infinity; this.bounds = [];
   }
 
@@ -99,9 +99,9 @@ class CaveSites {
       return false;
     };
     const dungeons = Math.max(1, typeof Dungeons !== 'undefined' ? Dungeons.size : 1);
-    for (let d = 0; d < dungeons; d++) place('cave_hill', 100 + d, 70, 130, 400);               // the dungeons' mouths first, so nothing else takes their ground
+    for (let d = 0; d < dungeons; d++) place('cave_hill', 100 + d, 75, 190, 400);               // the dungeons' mouths first, so nothing else takes their ground
     let key = 0;
-    for (const id of Object.keys(this.COUNT)) for (let i = 0; i < this.COUNT[id]; i++) place(id, key++, 50, 150, 60);
+    for (const id of Object.keys(this.COUNT)) for (let i = 0; i < this.COUNT[id]; i++) place(id, key++, 50, 280, 60);
     this.placed = out;
     this.bounds = out.map(p => ({ p, x1: p.x0 + p.w, y1: p.y0 + p.h }));
     const far = out.reduce((m, p) => Math.max(m, Math.hypot(p.x0 + p.w / 2 - o.x, p.y0 + p.h / 2 - o.y) + Math.max(p.w, p.h)), 0);
