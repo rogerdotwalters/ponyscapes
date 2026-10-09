@@ -36,7 +36,12 @@ class Renderer {
       items.push(item);
     }
     for (const prop of chunk.props) {
-      items.push({ kind: 'prop', depth: prop.x + prop.y, prop, key: tileKey(Math.floor(prop.x), Math.floor(prop.y)), gx: isoX(prop.x, prop.y), gy: isoY(prop.x, prop.y) });
+      let depth = prop.x + prop.y;
+      if (prop.t === 'furniture') {                                                      // a rug lies flat: it sorts by its back corner, so it is never drawn over someone standing on its near half
+        const def = FurnitureDefs.get(prop.id);
+        if (def && !def.height && !def.solid) depth -= (prop.w + prop.h) / 2 + 0.01;
+      }
+      items.push({ kind: 'prop', depth, prop, key: tileKey(Math.floor(prop.x), Math.floor(prop.y)), gx: isoX(prop.x, prop.y), gy: isoY(prop.x, prop.y) });
     }
     items.sort((a, b) => a.depth - b.depth);                                          // (sorted once here: the frame only merges sorted lists)
     return (chunk.renderItems = items);

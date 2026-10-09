@@ -36,8 +36,14 @@ class PlayerSprite {
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
     if (!p.boat && !(p.down > 0) && this._holding(p)) pose.hideArm = pose.ux >= 0 ? 1 : -1;                  // the hand holding a tool is the game's coded arm (toolPose.js): the baked one is left out
     if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
+    const holds = !p.boat && !(p.down > 0), behind = holds && pose.dir === 'up' && !opts.procedural && PIXEL_BODIES[this._look(p.appearance).princess ? 'princess' : 'prince'];
+    if (behind) {                                                                                         // facing away, the arm and tool reach out in front of the character: they go behind the body
+      const at = PixelCharacter.layout(sy, riding ? pose.crouch : pose.crouch * 0.5);
+      pose.headY = at.headY; pose.torsoTop = at.torsoTop; pose.figTop = at.top; pose.pixelBody = true;
+      this._drawHeldItem(p, sx, pose, now);
+    }
     this._drawBody(p, sx, sy, pose, riding, now, opts);
-    if (!p.boat && !(p.down > 0)) this._drawHeldItem(p, sx, pose, now);                                  // the rider swings the lasso / spear from the saddle too (nobody holds anything while down)
+    if (holds && !behind) this._drawHeldItem(p, sx, pose, now);                                  // the rider swings the lasso / spear from the saddle too (nobody holds anything while down)
     if (wading) { this.g.ellipse(sx, sy - 2, 12, 5.5, 'rgba(110,185,215,.55)'); }     // the water line over the lower legs
     this._drawNameTag(p, isMe, sx, pose);
     this._drawEmote(p, sx, pose);

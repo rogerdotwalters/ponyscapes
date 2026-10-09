@@ -141,7 +141,7 @@ class PixiRenderer extends Renderer {
     let hole = null;                                                                                  // the see-through effect: the player's place on screen
     if (this.seeThroughOn && me && !me.boat) {
       const lift = (me.lift || 0) * FLY_HEIGHT, reach = 78 * s;
-      hole = { depth: me.x + me.y + (me.lift || 0) * 4, x: ox + isoX(me.x, me.y) * s, y: oy + (isoY(me.x, me.y) - 20 - lift) * s, inner: 34 * s, outer: reach, squash: 1.35 };
+      hole = { depth: me.x + me.y + (me.lift || 0) * 4, wx: me.x, wy: me.y, x: ox + isoX(me.x, me.y) * s, y: oy + (isoY(me.x, me.y) - 20 - lift) * s, inner: 34 * s, outer: reach, squash: 1.35 };
       this.seeThrough.set(hole.x, hole.y, hole.inner, hole.outer);
     }
     const view = cam.bounds();
@@ -218,10 +218,19 @@ class PixiRenderer extends Renderer {
     const s = this.camera.scale, e = this.stamps.stamp(r, ax, ay, pool, still);
     if (!e) return;
     const px = bx + e.ix, py = by + e.iy, sprite = this.itemPool.place(e.tex, px / s, py / s, e.w / s, e.h / s);
-    if (hole && (item.kind === 'structure' || item.kind === 'built') && item.depth > hole.depth) {          // cut it away round you
+    if (hole && this._hidesPlayer(item, hole)) {                                                          // cut it away round you
       const l = ox + px, t = oy + py, dx = Math.max(l - hole.x, 0, hole.x - (l + e.w)), dy = Math.max(t - hole.y, 0, hole.y - (t + e.h)) / hole.squash;
       if (Math.hypot(dx, dy) < hole.outer) sprite.filters = [this.seeThrough.filter];
     }
+  }
+
+  /** Does this wall / building stand in front of the player with the player entirely behind it (not just off to one side)? Fences, gates and
+   *  props (trees...) never count: you can see through them already. */
+  _hidesPlayer(item, hole) {
+    if (item.kind === 'structure') return item.depth > hole.depth && hole.wx < item.tx + 1 && hole.wy < item.ty + 1;
+    if (item.kind !== 'built') return false;
+    const def = StructureDefs[item.structure];
+    return !(def && def.fence) && item.depth > hole.depth && hole.wx < item.box[2] && hole.wy < item.box[3];
   }
 
   /** A pony or character in marker colours (see paletteFilter.js), as one sprite with the palette swap on it. */
