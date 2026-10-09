@@ -7,7 +7,7 @@ const ENEMY_CODE_TABLE = Object.freeze({
   rabbit: 1000, deer: 1001, sheep: 1002, elk: 1003, bat: 1004, spider: 1005, bear: 1006, centipede: 1007, lion: 1008, manticore: 1009, beastman: 1010,
   dragon_whelp: 1011, dragon_young: 1012, dragon: 1013, elder_dragon: 1014,
   chicken: 1015, duck: 1016, goat: 1017, cat: 1018, dog: 1019, fox: 1020, owl: 1021, boar: 1022, wolf: 1023, bear_cub: 1024,
-  panther: 1025, monkey: 1026, lemur: 1027, snake: 1028, toucan: 1029,
+  panther: 1025, monkey: 1026, lemur: 1027, snake: 1028, toucan: 1029, slime: 1030,
   boss_cave_bear: 1100, boss_drake_matriarch: 1101, boss_broodmother: 1102, boss_centipede_queen: 1103, boss_ancient_dragon: 1104
 });
 

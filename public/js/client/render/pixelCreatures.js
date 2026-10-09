@@ -659,4 +659,19 @@ const PixelCreatures = (() => {
       if (F.t % 4 < 2 || F.hunting) { P.px(hx + 5, hy + 1, '#d93a2f'); P.px(hx + 6, hy + 1, '#d93a2f'); P.px(hx + 7, hy, '#d93a2f'); P.px(hx + 7, hy + 2, '#d93a2f'); }   // the tongue
     },
   });
+
+  /* ---- SLIME: a glossy jelly blob that squashes and stretches as it oozes, with a shine, two eyes and a few bubbles inside ---- */
+  PixelCreatures.register({
+    id: 'slime', W: 30, H: 22, ground: 19, anchor: 15, shadow: [10, 2.2], tick: F => (F.moving ? 150 : 340), ticks: 4,
+    palette: s => { const c = s.color || '#5fbf6a'; return { body: tones(c), deep: shade(c, 0.5), shine: light(c, 0.65), outline: shade(c, 0.32) }; },
+    paint(P, C, F) {
+      const phase = [0, 1, 0, -1][F.t], squash = F.moving || F.hunting ? phase * 1.6 : phase * 0.7;                  // wider and flatter, then taller and narrower
+      const rx = 10 + squash, ry = 8 - squash * 0.9, cx = 15, base = 19;
+      P.shape([[cx, base - ry + 1, rx, ry], [cx, base - 2, rx + 1.4, 2.4]], C.body, { texture: false, belly: C.deep, lit: 2 });   // the body, and a spreading puddle edge
+      P.rect(cx - 6, base - ry * 1.5 + 1, 4, 1, C.shine); P.rect(cx - 7, base - ry * 1.5 + 2, 2, 2, C.shine); P.px(cx - 4, base - ry * 1.5 + 4, C.shine);   // the glossy shine
+      P.px(cx + 5, base - 6, C.deep); P.px(cx + 6, base - 5, C.body[3]); P.px(cx - 2, base - 3, C.deep); P.px(cx + 3, base - 4, C.body[3]);        // bubbles inside
+      P.eye(cx - 3, base - ry * 0.9 + 1, F, '#1a2a1c', true); P.eye(cx + 3, base - ry * 0.9 + 1, F, '#1a2a1c', true);
+      if (F.hunting) P.row(base - ry * 0.9 + 4, cx - 2, cx + 2, '#1a2a1c');                                         // a snarl
+    },
+  });
 })();

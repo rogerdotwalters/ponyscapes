@@ -41,9 +41,9 @@ const AutoTile = (() => {
 
   /** { fill, rim }: canvases of the fringe for these edges / corners (variant: one of a few jag patterns; scale: its depth, 1 = a full fringe,
    *  true = half; the surf uses a few steps in between). */
-  function mask(edges, corners, variant, scale = 1) {
+  function mask(edges, corners, variant, scale = 1, soft = false) {
     if (scale === true) scale = 0.5;
-    const step = Math.round(scale * 20), key = edges * 16 + corners + 256 * (variant + 1) + 2048 * step, f = FRINGE * step / 20;
+    const step = Math.round(scale * 20), key = edges * 16 + corners + 256 * (variant + 1) + 2048 * step + (soft ? 1 << 20 : 0), f = FRINGE * step / 20;
     let m = masks.get(key);
     if (m) return m;
     const inFringe = (u, v) => {
@@ -52,7 +52,15 @@ const AutoTile = (() => {
       if ((edges & E) && u > 1 - depth(v, 1, variant, f)) return true;
       if ((edges & S) && v > 1 - depth(u, 2, variant, f)) return true;
       if ((edges & W) && u < depth(v, 3, variant, f)) return true;
-      const r = f * 1.05;                                                     // corners: a stepped quarter round, as deep as an edge's end
+      if (soft) {                                                             // SOFT (a pool's edge): where two edges meet, the water's corner is cut as a big quarter circle
+        const rc = 0.5 * step / 20;
+        const round = (cu, cv, inCorner) => inCorner && (u - cu) * (u - cu) + (v - cv) * (v - cv) > rc * rc;
+        if ((edges & N) && (edges & E) && round(1 - rc, rc, u > 1 - rc && v < rc)) return true;
+        if ((edges & E) && (edges & S) && round(1 - rc, 1 - rc, u > 1 - rc && v > 1 - rc)) return true;
+        if ((edges & S) && (edges & W) && round(rc, 1 - rc, u < rc && v > 1 - rc)) return true;
+        if ((edges & W) && (edges & N) && round(rc, rc, u < rc && v < rc)) return true;
+      }
+      const r = f * (soft ? 1.5 : 1.05);                                      // corners: a stepped quarter round, as deep as an edge's end (a pool's: much rounder)
       if ((corners & NE) && (1 - u) * (1 - u) + v * v < r * r) return true;
       if ((corners & SE) && (1 - u) * (1 - u) + (1 - v) * (1 - v) < r * r) return true;
       if ((corners & SW) && u * u + (1 - v) * (1 - v) < r * r) return true;

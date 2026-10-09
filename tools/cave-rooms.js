@@ -145,11 +145,11 @@ function writePng(id, rows) {
 }
 
 function samples() {
-  const ids = (() => { const { run } = require('./headless')(); return Object.fromEntries(['boar', 'wolf', 'snake', 'panther', 'bear'].map(n => [n, run(`EnemyCodes.codeOf('${n}')`)])); })();
+  const ids = (() => { const { run } = require('./headless')(); return Object.fromEntries(['slime', 'wolf'].map(n => [n, run(`EnemyCodes.codeOf('${n}')`)])); })();
   const made = [
     { id: 'cavern_1', w: 48, h: 36, seed: 11, spawns: 4, chests: 1 },                                                              // a small first cave
-    { id: 'cavern_2', w: 64, h: 64, seed: 22, spawns: 7, chests: 2, enemies: [ids.boar, ids.boar, ids.wolf] },                      // a bigger one with named enemies
-    { id: 'cavern_3', w: 100, h: 150, seed: 33, spawns: 14, chests: 3, enemies: [ids.panther, ids.snake, ids.boar, ids.wolf, ids.bear] }   // a deep, tall cavern (100 wide, 150 tall)
+    { id: 'cavern_2', w: 64, h: 64, seed: 22, spawns: 7, chests: 2, enemies: [ids.slime, ids.slime, ids.slime] },                      // a bigger one with named enemies
+    { id: 'cavern_3', w: 100, h: 150, seed: 33, spawns: 14, chests: 3, enemies: [ids.slime, ids.slime, ids.slime, ids.slime, ids.wolf] }   // a deep, tall cavern (100 wide, 150 tall)
   ];
   for (const m of made) {
     let rows = null, seed = m.seed;

@@ -161,6 +161,18 @@ test('cave mouths, pools and stalagmites: mouths are solid blocks, pools wadeabl
   assert.strictEqual(r.bad.length, 0, r.bad.slice(0, 5).join(' | ')); assert(r.mouths === 6 && r.pools > 30 && r.spires > 30, JSON.stringify(r));
 });
 
+test('the Old Cavern is mostly slimes with the odd wolf (weighted spawn nodes)', () => {
+  const r = run(`(() => { const s = new GameServer(4242), tally = {}; let nodes = 0;
+    for (let n = 0; n < 3; n++) { const w = s.grids.get('dungeon:0:' + n); s.dungeons.populate(w); nodes += w.plan.room.spawns.length + w.plan.room.enemies.length; }
+    for (const a of Object.values(s.animals.animals)) if (a.grid && AnimalDefs[a.type] && !AnimalDefs[a.type].pony) tally[a.type] = (tally[a.type] || 0) + 1;
+    const pool = s.dungeons.enemyPool(Dungeons.all()[0]), rolls = []; for (let i = 0; i < 1000; i++) rolls.push(s.dungeons.pick(pool, i / 1000));
+    return { tally, nodes, wolfShare: rolls.filter(x => x === 'wolf').length / 1000, def: AnimalDefs.slime && AnimalDefs.slime.hostile, code: EnemyCodes.codeOf('slime') }; })()`);
+  assert.strictEqual(r.def, true); assert.strictEqual(r.code, 1030);
+  assert.strictEqual(Object.values(r.tally).reduce((a, b) => a + b, 0), r.nodes);
+  assert(r.tally.slime > r.nodes * 0.7, JSON.stringify(r)); assert(!r.tally.wolf || r.tally.wolf < r.nodes * 0.25, JSON.stringify(r));
+  assert(Math.abs(r.wolfShare - 0.1) < 0.01, JSON.stringify(r));
+});
+
 test('debug teleport: village, cave mouth and each dungeon room (host only)', () => {
   const r = run(`(() => { const s = new GameServer(4242), id = s.addPlayer(), p = s.players[id], out = [], mouth = s.map.terrain.caveSites.caves()[0];
     for (const to of ['cave', 'room:2', 'room:0', 'village', 'room:9']) { s.receiveCommand(id, { type: 'debugTeleport', to }); out.push(p.grid + '@' + Math.round(p.x) + ',' + Math.round(p.y)); }
