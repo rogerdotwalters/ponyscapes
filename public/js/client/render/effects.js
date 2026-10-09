@@ -29,6 +29,10 @@ class Effects {
     game.events.on('fish', e => { this._burst(e.x, e.y, 10, SPLASH_COLORS, 6); this._float(e, 'Caught a fish!'); });
     game.events.on('hurt', e => this._float(e, `-${e.amount} hp`));
     game.events.on('died', e => this._float(e, 'Knocked out! Back at the village'));
+    game.events.on('downed', e => this._float(e, 'Down! Eat a snack to get up sooner'));
+    game.events.on('snack', e => this._float(e, `Yum! -${e.seconds}s  +${e.hp} hp`));
+    game.events.on('revived', e => this._float(e, e.by ? 'Picked up!' : 'Back on your feet'));
+    game.events.on('lifted', e => this._float(e, 'Picked them up!'));
     game.events.on('loot', e => this._float(e, 'Chest opened!'));
     game.events.on('tradeDone', e => this._float(e, 'Trade complete'));
     game.events.on('bite', e => this._burst(e.x, e.y, 8, ['#4a3a5a', '#2b2233', '#a24a4a'], 12));

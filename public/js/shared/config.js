@@ -33,6 +33,18 @@ const CONFIG = {
       xpPerPoint: 1.5, minXp: 2                                 // skill XP for a friendly act (it trains the skill even when you are at the cap)
     },          // a cape's DEF: each point soaks 2% of damage, never more than half
     health: { max: 100, regenPerSecond: 0.35, respawnFraction: 0.5 },
+    /** Difficulty: easy / medium / hard. `downed` is what happens when health hits 0 inside a dungeon (and its lair): you drop to your knees, the view darkens, and
+     *  you get back up after `seconds` with `reviveFraction` of your health; snacks shorten the wait (`snackSeconds` per point of the food's hunger) and add health
+     *  (`snackHp` per point) for when you rise; a teammate pressing Interact within `reach` lifts you at once, in any mode; `graceSeconds` after getting up nothing can
+     *  hurt you. Only easy is written so far, so every mode uses it (medium / hard point at the same rules until they get their own). Outside dungeons you still wake in the village. */
+    difficulty: {
+      default: 'easy',
+      modes: {
+        easy:   { label: 'Easy',   downed: { seconds: 7, reviveFraction: 0.5, snackSeconds: 0.15, snackHp: 0.6, reach: 1.6, graceSeconds: 2 } },
+        medium: { label: 'Medium', like: 'easy' },
+        hard:   { label: 'Hard',   like: 'easy' }
+      }
+    },
     /** Bulk resources (see stockpiles.js): stacks of EACH you may carry = base + Constitution level + perPony for every pony with you
      *  (ridden or leashed, up to maxPonyBonus) + Pack Pony buffs. Everything else is delivered to stockpiles. */
     carry: { limited: ['wood', 'stone', 'clay'], base: 0, perPony: 1, maxPonyBonus: 3, noticeSeconds: 4 },

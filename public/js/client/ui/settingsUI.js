@@ -62,8 +62,10 @@ class SettingsUI {
     el.innerHTML =
       '<div class="admHead"><div class="gtitle">Testing</div><button class="admLock">Lock</button></div>' +
       '<label class="chk"><input type="checkbox" data-setting="testPony"><span><b>Flying test pony</b><small>A level 12 pegasus appears beside you. Ride it with no Horsemanship needed, then press B (or tap Fly).</small></span></label>' +
+      `<label class="admSlide"><span><b>Difficulty</b><small>When health runs out in a dungeon you drop to your knees: wait 7 seconds, eat snacks to hurry, or be picked up (Interact) by a teammate. Medium and hard use the easy rules for now.</small></span><select data-difficulty>${Object.entries(CONFIG.sim.difficulty.modes).map(([k, m]) => `<option value="${k}">${m.label}</option>`).join('')}</select></label>` +
       '<label class="chk"><input type="checkbox" data-setting="hostilesOff"><span><b>Hostile mobs off</b><small>Monsters and guardians stop attacking. They still wander around.</small></span></label>';
     for (const box of el.querySelectorAll('input')) box.addEventListener('change', () => this.game.setSetting(box.dataset.setting, box.checked));
+    this.difficulty = el.querySelector('[data-difficulty]'); this.difficulty.addEventListener('change', () => this.game.setDifficulty(this.difficulty.value));
     el.querySelector('.admLock').addEventListener('click', () => { this.unlocked = false; this._showLocked(); });
     this.body.appendChild(el); this.testBox = el;
   }
@@ -398,6 +400,7 @@ class SettingsUI {
       if (who) who.innerHTML = `<i style="background:${CONFIG.sim.slotColors[slot]}"></i>${LobbyUI.escape(this.game.playerName('p' + (slot + 1)))}${slot === 0 ? ' (you, host)' : ''}`;
     }
     for (const box of (this.testBox ? this.testBox.querySelectorAll('input') : [])) box.checked = !!(this.game.settings && this.game.settings[box.dataset.setting]);
+    if (this.difficulty && this.game.settings) this.difficulty.value = Downed.mode(this.game.settings.difficulty);
     for (const { id, vital, select } of this.selects) {
       const p = players[id];
       select.value = p ? p[vital + 'Mode'] : 'normal';

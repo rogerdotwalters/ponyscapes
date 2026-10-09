@@ -53,6 +53,8 @@ round it, from the world seed.
 * a gateway can be **shut**: `locked: true` in the zone's data, opened by a guardian (`unlockedBy`) or by hand with `worldProgress.setGate(zoneIndex, true | false)`. A shut gate is a solid, shimmering barrier for now (visuals for story beats come later)
 * the Cave Bear's lair is the last layer of the Old Cavern, in the Meadows' hills
 
+**Going down in a dungeon** (`shared/downed.js`, rules in `CONFIG.sim.difficulty`): at 0 health inside a dungeon room or lair you drop to your knees and the view darkens instead of waking in the village. After 7 seconds you get up with half health; snacks (Use with food in hand) shorten the wait and add health, and a teammate pressing Interact beside you lifts you at once. There are easy / medium / hard modes (host: Settings > Difficulty); only easy is written, so all three use its rules for now. Check it with `npm run test:downed`.
+
 The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
 
 ## How saving works

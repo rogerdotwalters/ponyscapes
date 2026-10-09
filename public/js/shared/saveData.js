@@ -53,7 +53,7 @@ const SaveData = {
       wants: server.wants.exportState(),                                       // bosses being appeased (lost cubs brought home)
       pets: server._exportOwnedPets(),                                         // every player's ponies and pets, by owner key (they wait in the world for them)
       drops: Object.values(server.drops).map(d => ({ item: d.item, count: d.count, x: d.x, y: d.y, grid: d.grid || undefined })),
-      bossesDefeated: [...server.worldProgress.defeated], gates: Object.assign({}, server.worldProgress.manual), hostilesOff: !!server.settings.hostilesOff,
+      bossesDefeated: [...server.worldProgress.defeated], gates: Object.assign({}, server.worldProgress.manual), hostilesOff: !!server.settings.hostilesOff, difficulty: server.downed.mode,
       treeRespawns: server.trees.respawns.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick })),
       forageRegrows: server.forage.regrows.map(r => ({ tx: r.tx, ty: r.ty, atTick: r.atTick }))
     };
@@ -84,6 +84,7 @@ const SaveData = {
     for (const [k, st] of Object.entries(SaveData._plain(data.forageStates) ? data.forageStates : {})) if (keyOk(k) && ++n <= SaveData.MAX_STATE_ENTRIES) out.forageStates[k] = SaveData._plain(st) && st.cut ? { ripe: false, cut: 1 } : { ripe: false };
     const queue = (list, into) => { if (!Array.isArray(list)) return; for (const r of list.slice(0, SaveData.MAX_STATE_ENTRIES)) if (SaveData._plain(r) && Number.isInteger(r.tx) && Number.isInteger(r.ty) && Number.isInteger(r.atTick)) into.push({ tx: r.tx, ty: r.ty, atTick: r.atTick }); };
     out.hostilesOff = data.hostilesOff === true;
+    out.difficulty = Downed.mode(data.difficulty);
     if (Array.isArray(data.bossesDefeated)) out.bossesDefeated = [...new Set(data.bossesDefeated.filter(r => Number.isInteger(r) && r >= 0 && r < Zones.size))];
     out.gates = {};                                                                                // (gateways opened or shut by hand: zone index -> open)
     if (SaveData._plain(data.gates)) for (const [k, v] of Object.entries(data.gates)) if (/^\d{1,2}$/.test(k) && Number(k) > 0 && Number(k) < Zones.size && typeof v === 'boolean') out.gates[k] = v;
@@ -178,7 +179,7 @@ const SaveData = {
     if (world.weather) server.weather.restore(world.weather);
     server.trees.respawns = world.treeRespawns.map(r => Object.assign({}, r));
     server.forage.regrows = world.forageRegrows.map(r => Object.assign({}, r));
-    server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;
+    server.downed.setMode(world.difficulty); server.settings.hostilesOff = !!world.hostilesOff; server.animals.hostilesOff = !!world.hostilesOff;
     server.worldProgress.restore(world.bossesDefeated || [], world.gates);                      // the guardians that are down, and the gateways that opened
     server.builtRev++; server.floorsRev++; server.stockRev++;
   },

@@ -54,7 +54,7 @@ class ClientGame {
     this._applyQuestLog(welcome.questLog);
     if (welcome.pack !== undefined && welcome.pack !== null) this._applyPack(welcome.pack);
     this.isHost = !!welcome.host;
-    this.settings = welcome.settings || { hostilesOff: false, testPony: false };            // the host's testing aids (Settings); only the host is ever told
+    this.settings = welcome.settings || { hostilesOff: false, testPony: false, difficulty: CONFIG.sim.difficulty.default };            // the host's testing aids (Settings); only the host is ever told
     if (welcome.progress) this.progress = welcome.progress;
     if (welcome.treasure) this.treasureMaps = welcome.treasure;
     if (welcome.built) BuildSystem.replaceAll(this.worldMap, welcome.built);
@@ -178,6 +178,8 @@ class ClientGame {
   abilityState() { const L = this.local; return L && L.mount ? (L.abilities || []).map((id, i) => ({ ability: AbilityDefs[id], cooldown: L.abilityCd[i] || 0 })).filter(a => a.ability) : []; }
 
   /** Host only: change how hunger / thirst work for one player slot ('p2'...). Either mode may be omitted. */
+  /** Host only: easy / medium / hard (what happens when health runs out in a dungeon). */
+  setDifficulty(mode) { this.net.sendCommand({ type: 'setDifficulty', mode }); }
   setVitalModes(target, hungerMode, thirstMode) { this.net.sendCommand({ type: 'setVitals', target, hunger: hungerMode, thirst: thirstMode }); }
   latestAnimals() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.animals) || this.welcomeAnimals || {}; }
   latestPlayers() { const last = this.snapshots[this.snapshots.length - 1]; return last ? last.players : {}; }
@@ -190,6 +192,9 @@ class ClientGame {
   interactHint() {
     if (!this.local) return null;
     if (this.local.boat) return 'Exit';
+    if (Downed.isDown(this.local)) return null;                                       // on your knees: only snacks
+    const ally = Downed.findAlly(this.latestPlayers(), this.local, this.myId);          // a teammate down beside you
+    if (ally) return ally.label;
     const action = Interactions.find(this.map, this.latestBoats(), this.local, this.heldItemId(), this.latestAnimals(), this.myId, this.npcs, this.latestDrops());
     return action ? action.label : null;
   }
