@@ -71,7 +71,7 @@ function launch(choice, query) {
     /* view */
     const effects = new Effects(bus, game);
     effects.weather = new WeatherFx(game); effects.weather.audio = new WeatherAudio();                // the sky: clouds, rain, snow, lightning and their sound
-    const footsteps = new Sfx.Footsteps(game), music = new PonyMusic();                             // your footfalls, and the soundtrack
+    const footsteps = new Sfx.Footsteps(game, () => effects.weather.cur.rain), worldSfx = new WorldSfx(game), music = new PonyMusic();                             // your footfalls, and the soundtrack
     let tapToMove = null;
     const renderer = RenderBackend.create(backend, { canvas: $('game'), game, effects, getTapMarker: now => tapToMove.currentMarker(now) });
     tapToMove = new TapActions({ bus, game, camera: renderer.camera, input });
@@ -109,7 +109,7 @@ function launch(choice, query) {
     let sessionUI = null;
     if (game.session) sessionUI = new SessionUI({ panel: $('sessionPanel'), body: $('sessionBody'), closeButton: $('sessionClose'), badge: $('sessionBadge'), endOverlay: $('endOverlay'), adapter, toasts, confirm: confirmUI });
     const dialogueUI = new DialogueUI({ panel: $('dialoguePanel'), title: $('dialogueTitle'), body: $('dialogueBody'), closeButton: $('dialogueClose'), game, requestOpen: () => panels.open('dialogue') });
-    bus.on('talkTo', npc => dialogueUI.talk(npc));
+    bus.on('talkTo', npc => { dialogueUI.talk(npc); worldSfx.talk(npc); });
     const puzzleUI = new PuzzleUI({ panel: $('puzzlePanel'), title: $('puzzleTitle'), body: $('puzzleBody'), closeButton: $('puzzleClose'), game, requestOpen: () => panels.open('puzzle') });
     const emoteUI = new EmoteWheelUI({ root: $('emoteWheel'), button: $('btnEmote'), game, onTrade: () => { const t = game.nearestTrader(); if (t) game.requestTrade(t); else game.events.emit('notice', { to: game.myId, text: 'Nobody within reach to trade with' }); panels.open('trade'); } });
     game.events.on('openWardrobe', () => panels.open('gear')); game.events.on('openChest', () => panels.open('inventory'));       // (the wardrobe and the worn chest in your home)
@@ -193,7 +193,7 @@ function launch(choice, query) {
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
         tapToMove.tick();
-        footsteps.update(); music.update(game, effects.weather.cur);
+        footsteps.update(); worldSfx.update(frameMs / 1000); music.update(game, effects.weather.cur);
         game.advanceRemoteClock(frameMs);
         game.streamWorld();
         renderer.render(game.getRenderState(alpha), frameMs, now);

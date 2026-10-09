@@ -9,6 +9,7 @@ class ControlsUI {
     closeButton.addEventListener('click', () => this.close());
     body.addEventListener('click', e => this._click(e));
     body.addEventListener('change', e => {
+      if (e.target.id === 'ctlMurmur') { WorldSfx.setMurmur(e.target.checked); return; }
       if (e.target.id === 'trackScrub') { const m = PonyMusic.current; if (m) m.seek(Number(e.target.value)); this.scrubbing = false; return; }
       const set = { ctlTapMove: 'setTapToMove', ctlFixedStick: 'setFixedJoystick', ctlWalkToAct: 'setWalkToAct' }[e.target.id];
       if (set) { Controls[set](e.target.checked); this.refresh(); }
@@ -129,7 +130,8 @@ class ControlsUI {
       `<label class="chk"><input type="checkbox" id="ctlTapMove"${Controls.tapToMove ? ' checked' : ''}><span><b>Tap the ground to walk there</b><small>On by default. A tap on bare ground walks there (the joystick and keys still steer). Off: a tap near you uses your tool or interacts instead.</small></span></label>` +
       '<div class="gtitle">Sound</div>' +
       slider('ctlMusicVol', 'Music', `Flute, harp and cello: ${PonyMusic.TITLES.calm} by day, ${PonyMusic.TITLES.storm} in storms, ${PonyMusic.TITLES.battle} in battle and caves. 0 is off.`, 'music') +
-      slider('ctlSfxVol', 'Footsteps &amp; bag', 'Your steps, hoofbeats and the bag opening and closing. 0 is off.', 'sfx') +
+      slider('ctlSfxVol', 'Sound effects', 'Footsteps, doors, tools, hits, picking, animals, slimes, eating and the bag. 0 is off.', 'sfx') +
+      `<label class="chk"><input type="checkbox" id="ctlMurmur"${WorldSfx.murmurOn ? ' checked' : ''}><span><b>Villager murmur (experimental)</b><small>Villagers babble softly when they speak or when you walk among them.</small></span></label>` +
       slider('ctlWeatherVol', 'Weather sounds', 'Rain, wind and thunder. 0 is off. Browsers only start sound after you tap or press a key.', 'weather') +
       '<div class="gtitle">What clicks and taps do</div>' + rows;
   }
