@@ -40,7 +40,7 @@ module.exports = {
   home: { query: 'solo=1&hour=12&enter=player_home', setup: (page, fake) => settle(page, fake, 1500) },
   stable: { query: 'solo=1&hour=12', setup: async (page, fake) => {          // the paddock's stable, a barn beside it, and a stretch of fence
     await ev(page, () => { const s = ponyscapes.adapter.server, me = s.players[ponyscapes.game.myId], P = Village.paddock; const put = (x, y, t, slot) => BuildSystem.place(s.map, x, y, t, slot);
-      put(P.x0 - 6, P.y1 + 3, 'barn', 'c'); put(P.x0 - 11, P.y1 + 3, 'stable', 'c'); for (let i = 0; i < 6; i++) put(P.x0 - 12 + i, P.y1 + 9, 'wood_fence', 's'); put(P.x0 - 10, P.y1 + 9, 'wood_gate', 's');
+      put(P.x0 - 6, P.y1 + 3, 'barn', 'c'); put(P.x0 - 11, P.y1 + 3, 'stable', 'c'); for (let i = 0; i < 6; i++) put(P.x0 - 12 + i, P.y1 + 9, 'wood_fence', 's'); put(P.x0 - 10, P.y1 + 9, 'wood_gate', 's'); put(P.x0 - 8, P.y1 + 9, 'wood_gate', 's');
       s.builtRev++; me.x = P.x0 - 8; me.y = P.y1 + 8; });
     await stepServer(page, fake, 30);
   } },
