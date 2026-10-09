@@ -52,15 +52,15 @@ const AutoTile = (() => {
       if ((edges & E) && u > 1 - depth(v, 1, variant, f)) return true;
       if ((edges & S) && v > 1 - depth(u, 2, variant, f)) return true;
       if ((edges & W) && u < depth(v, 3, variant, f)) return true;
-      if (soft) {                                                             // SOFT (a pool's edge): where two edges meet, the water's corner is cut as a big quarter circle
-        const rc = 0.5 * step / 20;
-        const round = (cu, cv, inCorner) => inCorner && (u - cu) * (u - cu) + (v - cv) * (v - cv) > rc * rc;
-        if ((edges & N) && (edges & E) && round(1 - rc, rc, u > 1 - rc && v < rc)) return true;
-        if ((edges & E) && (edges & S) && round(1 - rc, 1 - rc, u > 1 - rc && v > 1 - rc)) return true;
-        if ((edges & S) && (edges & W) && round(rc, 1 - rc, u < rc && v > 1 - rc)) return true;
-        if ((edges & W) && (edges & N) && round(rc, rc, u < rc && v < rc)) return true;
+      if (soft) {                                                             // SOFT (a pool's edge): where two edges meet, the WATER's corner is rounded off, a fillet that starts at the inner edge of the fringe
+        const R = 0.34 * step / 20, o = f + R, lo = o, hi = 1 - o;
+        const round = (cu, cv, inCorner) => inCorner && (u - cu) * (u - cu) + (v - cv) * (v - cv) > R * R;
+        if ((edges & N) && (edges & E) && round(hi, lo, u > hi && v < lo)) return true;
+        if ((edges & E) && (edges & S) && round(hi, hi, u > hi && v > hi)) return true;
+        if ((edges & S) && (edges & W) && round(lo, hi, u < lo && v > hi)) return true;
+        if ((edges & W) && (edges & N) && round(lo, lo, u < lo && v < lo)) return true;
       }
-      const r = f * (soft ? 1.5 : 1.05);                                      // corners: a stepped quarter round, as deep as an edge's end (a pool's: much rounder)
+      const r = f * 1.05;                                                     // corners: a stepped quarter round, as deep as an edge's end
       if ((corners & NE) && (1 - u) * (1 - u) + v * v < r * r) return true;
       if ((corners & SE) && (1 - u) * (1 - u) + (1 - v) * (1 - v) < r * r) return true;
       if ((corners & SW) && u * u + (1 - v) * (1 - v) < r * r) return true;
