@@ -4,33 +4,14 @@
  * depth follow how far away the strike was. Indoors everything is muffled and quieter; in a cave only the deepest thunder gets through.
  * Browsers keep sound off until the person has touched the page, so the audio starts on the first tap, click or key. The volume (Menu > Controls >
  * Mouse & touch) is kept in this browser; 0 switches it off. */
-const WEATHER_VOLUME_KEY = 'ponyscapes.weatherVolume';
-
 class WeatherAudio {
-  static get volume() {
-    try { const v = parseFloat(localStorage.getItem(WEATHER_VOLUME_KEY)); if (v >= 0 && v <= 1) return v; } catch (e) { /* private window */ }
-    return 0.7;
-  }
-  static setVolume(v) {
-    const value = clamp(Number(v) || 0, 0, 1);
-    try { localStorage.setItem(WEATHER_VOLUME_KEY, String(value)); } catch (e) { /* lasts this session */ }
-    if (WeatherAudio.current) WeatherAudio.current.volumeChanged();
-  }
+  static get volume() { return GameAudio.volume('weather'); }
+  static setVolume(v) { GameAudio.setVolume('weather', v); }
 
   constructor() {
-    this.ctx = null; this.ok = typeof window !== 'undefined' && !!(window.AudioContext || window.webkitAudioContext); this.nodes = null; this.muffle = 0;
+    this.ctx = null; this.nodes = null;
     WeatherAudio.current = this;
-    if (!this.ok) return;
-    const wake = () => { this._start(); if (this.ctx && this.ctx.state === 'running') for (const t of ['pointerdown', 'keydown', 'touchstart']) window.removeEventListener(t, wake, true); };
-    for (const t of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(t, wake, true);
-  }
-
-  _start() {
-    if (!this.ok) return;
-    try {
-      if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); this._build(); }
-      if (this.ctx.state === 'suspended') this.ctx.resume();
-    } catch (e) { this.ok = false; }
+    GameAudio.onReady(ctx => { this.ctx = ctx; this._build(); });
   }
 
   /** A looping buffer of noise: white, or 'brown' (deep, for wind and rumble). */
@@ -48,17 +29,15 @@ class WeatherAudio {
 
   _build() {
     const ctx = this.ctx, filter = (type, freq, q = 0.7) => { const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; return f; }, gain = v => { const g = ctx.createGain(); g.gain.value = v; return g; };
-    const master = gain(WeatherAudio.volume), room = filter('lowpass', 20000);                       // room: the muffling indoors
-    room.connect(master); master.connect(ctx.destination);
+    const master = gain(1), room = filter('lowpass', 20000);                       // room: the muffling indoors (the volume itself lives on GameAudio's weather bus)
+    room.connect(master); master.connect(GameAudio.buses.weather);
     const white = this._noise(3, false), brown = this._noise(4, true);
-    const patterG = gain(0), patter = this._loop(white, [filter('bandpass', 1400, 0.6), patterG]); patterG.connect(room);          // the body of the rain
+    const patterG = gain(0), patter = this._loop(white, [filter('lowpass', 1500, 0.5), filter('bandpass', 1000, 0.5), patterG]); patterG.connect(room);          // the body of the rain
     const hissG = gain(0); this._loop(white, [filter('highpass', 5200), hissG]); hissG.connect(room);                                 // the sparkle of the drops
     const windG = gain(0), windF = filter('lowpass', 300, 1.2); this._loop(brown, [windF, windG]); windG.connect(room);              // the wind
     const howlG = gain(0), howlF = filter('bandpass', 520, 4); this._loop(white, [howlF, howlG]); howlG.connect(room);                // the whistle of a gale
     this.nodes = { master, room, patterG, hissG, windG, windF, howlG, howlF, white, brown };
   }
-
-  volumeChanged() { if (this.nodes) this.nodes.master.gain.setTargetAtTime(WeatherAudio.volume, this.ctx.currentTime, 0.1); }
 
   /** Called every frame with the weather layers being drawn. indoors: 0 outside, 0.7 in a room, 1 in a cave. */
   update(w, indoors, gust, dt) {
@@ -66,10 +45,10 @@ class WeatherAudio {
     const n = this.nodes, now = this.ctx.currentTime, to = (param, v, tc = 0.25) => param.setTargetAtTime(v, now, tc);
     const quiet = 1 - indoors * 0.8, snowHush = 1 - w.snow * 0.5;                              // (a cave is nearly silent; snow deadens the world)
     to(n.room.frequency, indoors > 0 ? 1100 - indoors * 700 : 20000, 0.4);
-    to(n.patterG.gain, w.rain * w.rain * 0.55 * quiet);
-    to(n.hissG.gain, Math.max(0, w.rain - 0.2) * 0.22 * quiet * (1 - indoors));
+    to(n.patterG.gain, w.rain * w.rain * 0.16 * quiet);
+    to(n.hissG.gain, Math.max(0, w.rain - 0.3) * 0.05 * quiet * (1 - indoors));
     const windPower = Math.max(w.wind, w.snow * 0.35) * gust;
-    to(n.windG.gain, windPower * windPower * 0.9 * quiet * snowHush);
+    to(n.windG.gain, windPower * windPower * 0.6 * quiet * snowHush);
     to(n.windF.frequency, 180 + windPower * 700, 0.3);
     to(n.howlG.gain, Math.max(0, w.wind - 0.55) * 0.25 * quiet * gust * gust);
     to(n.howlF.frequency, 380 + w.wind * 520 + (gust - 1) * 400, 0.3);

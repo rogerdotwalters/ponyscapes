@@ -33,8 +33,8 @@ class InventoryUI {
 
   get isOpen() { return !this.panel.hidden; }
   toggle() { this.isOpen ? this.close() : this.open(); }
-  open() { this.panel.hidden = false; this.refresh(); }
-  close() { this.panel.hidden = true; this.picked = null; this.refresh(); }
+  open() { const was = this.isOpen; this.panel.hidden = false; this.refresh(); if (!was) Sfx.bag(true); }                       // (the bag rustles open and shut; panels.closeAll() also calls close() on a closed bag: silent)
+  close() { const was = this.isOpen; this.panel.hidden = true; this.picked = null; this.refresh(); if (was) Sfx.bag(false); }
 
   _inv(sec) { return sec === 'chest' ? (this.game.chest ? this.game.chest.inventory : null) : sec === 'pack' ? (this.game.pack ? this.game.pack.inventory : null) : this.game.inventory; }
   _slot(ref) { const inv = ref && this._inv(ref.sec); return inv ? inv.getSlot(ref.i) : null; }

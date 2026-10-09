@@ -71,6 +71,7 @@ function launch(choice, query) {
     /* view */
     const effects = new Effects(bus, game);
     effects.weather = new WeatherFx(game); effects.weather.audio = new WeatherAudio();                // the sky: clouds, rain, snow, lightning and their sound
+    const footsteps = new Sfx.Footsteps(game), music = new PonyMusic();                             // your footfalls, and the soundtrack
     let tapToMove = null;
     const renderer = RenderBackend.create(backend, { canvas: $('game'), game, effects, getTapMarker: now => tapToMove.currentMarker(now) });
     tapToMove = new TapActions({ bus, game, camera: renderer.camera, input });
@@ -191,6 +192,7 @@ function launch(choice, query) {
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
         tapToMove.tick();
+        footsteps.update(); music.update(game.hour(), game.map.kind, effects.weather.cur.rain);
         game.advanceRemoteClock(frameMs);
         game.streamWorld();
         renderer.render(game.getRenderState(alpha), frameMs, now);
