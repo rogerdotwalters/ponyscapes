@@ -9,6 +9,7 @@
  *              stone, glass, sign } and its make-up: infill 'plaster' | 'stone' | 'planks', chimney (default yes), dormer (default: 5 wide or more),
  *              boarded (windows boarded up), props ['lantern', 'firewood', 'barrels', 'crates', 'flowers', 'hay'] beside its door
  *   hours      [open, close] of a shop (a villager who `works` there is inside, behind its keeper furniture, between them)    keeper  the furniture id they stand beside
+ *   home       true: a home that belongs to ONE player (the host's game gives each person one, js/shared/interiorSystem.js); locked to everyone else
  *   resident   the villager who lives here (a home: they sleep inside, shared/npcSystem.js)
  *   glyph      the picture on its hanging sign
  *   sprites    { exterior }: a picture of the whole building (optional; bottom centre at the front corner) */

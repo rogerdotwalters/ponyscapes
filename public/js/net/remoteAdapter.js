@@ -20,6 +20,7 @@ class RemoteAdapter extends NetAdapter {
       room_full: 'That game is full (4 players).', no_host: 'No game is being hosted with that code. Check the code, and that the host is still online.', room_taken: 'That room code is already in use.',
       unreachable: 'Could not reach the relay server. Check your connection (and the relay address in the lobby).', timeout: 'The host did not answer in time.',
       host_left: 'The host left the game.', kicked: detail.text || 'You were removed by the host.', ended: 'The host ended the session.', host_ended: 'The host ended the session. Your character was saved.',
+      character_mismatch: 'The character on this device is not the one the host has saved for you.', character_missing: 'The host has no character saved for you in this world.', no_home: 'Every home in this world is taken.',
       closed: 'The connection was lost.', local: 'You left the game.', version: 'This game version does not match the host. Reload the page and try again.', bad_request: 'Could not join that game.'
     })[reason] || detail.text || 'Could not join the game.';
   }
@@ -33,7 +34,7 @@ class RemoteAdapter extends NetAdapter {
       this.conn = new RelayConnection({
         url: RelayConnection.urlFor(base, { room: this.code, role: 'client', name: this.o.name }),
         onFrame: raw => this._onFrame(raw),
-        onRelay: msg => { if (msg.ev === 'joined') this._sendJson({ t: 'hello', v: RelayProtocol.VERSION, name: this.o.name, key: this.o.key, appearance: this.o.appearance }); },
+        onRelay: msg => { if (msg.ev === 'joined') this._sendJson({ t: 'hello', v: RelayProtocol.VERSION, name: this.o.name, key: this.o.key, appearance: this.o.appearance, claims: ClientSaves.claims(), fresh: this.o.fresh === true }); },
         onEnd: (reason, detail) => {
           if (this.pending) fail(reason === 'error' ? { reason: detail.code, text: detail.text } : reason);
           else this._finish(reason, detail);
@@ -56,8 +57,9 @@ class RemoteAdapter extends NetAdapter {
     if (msg.t === 'part') { const whole = this.parts.push(msg); if (!whole) return; try { msg = JSON.parse(whole); } catch (e) { return; } }
     switch (msg.t) {
       case 'welcome': this._onWelcome(msg); break;
-      case 'denied': if (this.pending) { const p = this.pending; this.pending = null; const err = new Error(msg.text || RemoteAdapter.explain(msg.reason)); err.reason = msg.reason; p.reject(err); this.conn.close(); } break;
+      case 'denied': if (this.pending) { const p = this.pending; this.pending = null; const err = new Error(msg.text || RemoteAdapter.explain(msg.reason)); err.reason = msg.reason; err.detail = msg; p.reject(err); this.conn.close(); } break;
       case 'snapshot': this._onSnapshot(msg); break;
+      case 'charsave': this._onCharacterSave(msg); break;
       case 'roster': this.roster = msg.players; this._emit({ type: 'roster' }); break;
       case 'ping': this._sendJson({ t: 'pong', ts: msg.ts }); break;
       case 'pong': if (typeof msg.ts === 'number') this.rtt = Math.max(0, Date.now() - msg.ts); break;
@@ -67,12 +69,19 @@ class RemoteAdapter extends NetAdapter {
 
   _onWelcome(msg) {
     if (!this.pending || this.welcomed) return;
-    this.welcomed = true; this.id = msg.id; this.roster = (msg.session && msg.session.players) || []; this.hostName = (this.roster.find(p => p.host) || {}).name || 'Host';
+    this.welcomed = true; this.character = msg.character || null; this.id = msg.id; this.roster = (msg.session && msg.session.players) || []; this.hostName = (this.roster.find(p => p.host) || {}).name || 'Host';
     this.npcDecoder.players = JSON.parse(JSON.stringify(msg.npcs || {}));
     this.decoder.reset(msg.animals); this.trees = msg.trees || {}; this.forage = msg.forage || {}; this.boats = msg.boats || {}; this.drops = msg.drops || {};
     this.flushTimer = setInterval(() => this._flush(), 66);
     this.pingTimer = setInterval(() => this._sendJson({ t: 'ping', ts: Date.now() }), CONFIG.net.hostPingMs);
     const p = this.pending; this.pending = null; delete msg.t; p.resolve(msg);
+  }
+
+  /** The host just saved my character: keep my own copy on this device (clientSaves.js). */
+  _onCharacterSave(msg) {
+    if (!this.welcomed || typeof msg.world !== 'string' || !SaveData.sanitizeCharacter(msg.data)) return;
+    this.saved = ClientSaves.put({ world: msg.world, worldName: msg.worldName, hostName: msg.hostName, cid: msg.cid, name: msg.name, savedAt: msg.savedAt, data: msg.data });
+    this.copyAt = Date.now(); this._emit({ type: 'copySaved', ok: this.saved });
   }
 
   _onSnapshot(msg) {
@@ -103,5 +112,5 @@ class RemoteAdapter extends NetAdapter {
 
   onSession(cb) { this.listeners.push(cb); }
   _emit(event) { for (const cb of this.listeners) { try { cb(event); } catch (e) { console.warn(e); } } }
-  getSessionInfo() { return { role: 'client', online: !this.ended, code: this.code, players: this.roster.map(p => Object.assign({ rtt: p.id === this.id ? this.rtt : null }, p)), you: this.id, rtt: this.rtt, hostName: this.hostName }; }
+  getSessionInfo() { return { role: 'client', online: !this.ended, code: this.code, players: this.roster.map(p => Object.assign({ rtt: p.id === this.id ? this.rtt : null }, p)), you: this.id, rtt: this.rtt, hostName: this.hostName, copyAt: this.copyAt || 0, copyOk: this.saved !== false, character: this.character }; }
 }
