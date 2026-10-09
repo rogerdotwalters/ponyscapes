@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ponyscapes Map Preview</title>
+<style>
+  :root { --bg: #14181f; --panel: #1d2430; --ink: #e8edf4; --dim: #9aa7b8; --line: #34415a; --accent: #f2c14e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 4px; } p.sub { margin: 0 0 12px; color: var(--dim); }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+  button { background: var(--accent); color: #1a1405; border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 700; cursor: pointer; }
+  button.alt { background: #2b3750; color: var(--ink); font-weight: 500; }
+  input[type=number] { width: 120px; background: #10141b; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+  label { color: var(--dim); display: inline-flex; gap: 6px; align-items: center; }
+  .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; }
+  @media (max-width: 800px) { .wrap { grid-template-columns: 1fr; } }
+  canvas { width: 100%; height: auto; background: #0e3a5c; border: 1px solid var(--line); border-radius: 8px; image-rendering: pixelated; display: block; }
+  .side { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+  .side h2 { font-size: 13px; margin: 0 0 6px; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
+  .key { display: flex; align-items: center; gap: 8px; margin: 3px 0; } .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0006; flex: none; }
+  #info { color: var(--dim); font-size: 12.5px; white-space: pre-wrap; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Map preview</h1>
+  <p class="sub">Generates the zone map from a seed with the game's own code. Nothing here touches your saved worlds.</p>
+  <div class="bar">
+    <button id="regen">Regenerate</button>
+    <button id="back" class="alt">&larr; Previous</button>
+    <label>Seed <input id="seed" type="number" step="1"></label>
+    <button id="go" class="alt">Go</button>
+    <label><input id="auto" type="checkbox"> Auto-regenerate every <input id="secs" type="number" min="1" max="60" value="4" style="width:60px"> s</label>
+    <label><input id="gates" type="checkbox"> Open all gateways</label>
+  </div>
+  <div class="wrap">
+    <canvas id="map" width="900" height="900"></canvas>
+    <div class="side">
+      <h2>Key</h2><div id="key"></div>
+      <h2 style="margin-top:12px">This map</h2><div id="info"></div>
+    </div>
+  </div>
+</main>
+<!-- the game's own world code (data, shared logic, content): the same list index.html loads, minus the network and client scripts -->
+<script src="js/shared/config.js"></script>
+<script src="js/shared/mathUtils.js"></script>
+<script src="js/content/gameSettings.js"></script>
+<script src="js/shared/gameSettings.js"></script>
+<script src="js/shared/time.js"></script>
+<script src="js/shared/seasons.js"></script>
+<script src="js/shared/tileTypes.js"></script>
+<script src="js/shared/skills.js"></script>
+<script src="js/shared/characterDefs.js"></script>
+<script src="js/shared/noise.js"></script>
+<script src="js/content/customContent.js"></script>
+<script src="js/content/interiors.js"></script>
+<script src="js/content/caveRooms.js"></script>
+<script src="js/shared/roomCodes.js"></script>
+<script src="js/shared/contentPack.js"></script>
+<script src="js/shared/rarity.js"></script>
+<script src="js/core/registry.js"></script>
+<script src="js/data/items/materials.js"></script>
+<script src="js/data/items/foods.js"></script>
+<script src="js/data/items/tools.js"></script>
+<script src="js/data/items/weapons.js"></script>
+<script src="js/data/items/wardrobe.js"></script>
+<script src="js/data/items/placeables.js"></script>
+<script src="js/data/items/bags.js"></script>
+<script src="js/data/items/specials.js"></script>
+<script src="js/data/crops/crops.js"></script>
+<script src="js/data/trees/trees.js"></script>
+<script src="js/data/biomes/registry.js"></script>
+<script src="js/data/biomes/normal.js"></script>
+<script src="js/data/biomes/forest.js"></script>
+<script src="js/data/biomes/jungle.js"></script>
+<script src="js/data/biomes/apple.js"></script>
+<script src="js/data/biomes/ice.js"></script>
+<script src="js/data/biomes/fire.js"></script>
+<script src="js/data/biomes/crystal.js"></script>
+<script src="js/data/biomes/rainbow.js"></script>
+<script src="js/data/biomes/candy.js"></script>
+<script src="js/data/biomes/magic.js"></script>
+<script src="js/data/biomes/beach.js"></script>
+<script src="js/data/biomes/clay.js"></script>
+<script src="js/data/biomes/mushroom.js"></script>
+<script src="js/data/friendship/levels.js"></script>
+<script src="js/data/zones/registry.js"></script>
+<script src="js/data/zones/zone1.js"></script>
+<script src="js/data/zones/forest.js"></script>
+<script src="js/data/zones/orchard.js"></script>
+<script src="js/data/zones/mushroom.js"></script>
+<script src="js/data/dungeons/registry.js"></script>
+<script src="js/data/dungeons/cavern.js"></script>
+<script src="js/data/ponies/registry.js"></script>
+<script src="js/data/ponies/variants.js"></script>
+<script src="js/data/ponies/abilities.js"></script>
+<script src="js/data/ponies/kinds.js"></script>
+<script src="js/data/creatures/registry.js"></script>
+<script src="js/data/creatures/rabbit.js"></script>
+<script src="js/data/creatures/deer.js"></script>
+<script src="js/data/creatures/sheep.js"></script>
+<script src="js/data/creatures/elk.js"></script>
+<script src="js/data/creatures/bat.js"></script>
+<script src="js/data/creatures/spider.js"></script>
+<script src="js/data/creatures/bear.js"></script>
+<script src="js/data/creatures/centipede.js"></script>
+<script src="js/data/creatures/lion.js"></script>
+<script src="js/data/creatures/manticore.js"></script>
+<script src="js/data/creatures/beastman.js"></script>
+<script src="js/data/creatures/dragons.js"></script>
+<script src="js/data/creatures/bosses.js"></script>
+<script src="js/data/creatures/chicken.js"></script>
+<script src="js/data/creatures/duck.js"></script>
+<script src="js/data/creatures/goat.js"></script>
+<script src="js/data/creatures/cat.js"></script>
+<script src="js/data/creatures/dog.js"></script>
+<script src="js/data/creatures/fox.js"></script>
+<script src="js/data/creatures/owl.js"></script>
+<script src="js/data/creatures/boar.js"></script>
+<script src="js/data/creatures/wolf.js"></script>
+<script src="js/data/creatures/bear_cub.js"></script>
+<script src="js/data/creatures/jungle.js"></script>
+<script src="js/data/creatures/slime.js"></script>
+<script src="js/data/npcs/registry.js"></script>
+<script src="js/data/npcs/baker.js"></script>
+<script src="js/data/npcs/blacksmith.js"></script>
+<script src="js/data/npcs/farmer.js"></script>
+<script src="js/data/npcs/fisher.js"></script>
+<script src="js/data/npcs/merchant.js"></script>
+<script src="js/data/npcs/elder.js"></script>
+<script src="js/data/npcs/child.js"></script>
+<script src="js/data/npcs/guard.js"></script>
+<script src="js/data/npcs/carpenter.js"></script>
+<script src="js/data/npcs/veterinarian.js"></script>
+<script src="js/data/puzzles/registry.js"></script>
+<script src="js/data/puzzles/rune_stone.js"></script>
+<script src="js/data/puzzles/pond_dial.js"></script>
+<script src="js/data/puzzles/broken_tablet.js"></script>
+<script src="js/data/quests/registry.js"></script>
+<script src="js/data/quests/elder_stone.js"></script>
+<script src="js/data/quests/baker_eggs.js"></script>
+<script src="js/data/quests/elder_dial.js"></script>
+<script src="js/data/quests/guard_tablet.js"></script>
+<script src="js/data/buildings/registry.js"></script>
+<script src="js/data/buildings/carpenter.js"></script>
+<script src="js/data/buildings/veterinary.js"></script>
+<script src="js/data/buildings/general_store.js"></script>
+<script src="js/data/buildings/player_home.js"></script>
+<script src="js/data/buildings/storehouse.js"></script>
+<script src="js/data/buildings/vacant_home.js"></script>
+<script src="js/data/buildings/npc_homes.js"></script>
+<script src="js/data/furniture/registry.js"></script>
+<script src="js/data/furniture/basic.js"></script>
+<script src="js/data/interiors/tiles.js"></script>
+<script src="js/shared/itemDefs.js"></script>
+<script src="js/shared/recipeDefs.js"></script>
+<script src="js/shared/resourceDefs.js"></script>
+<script src="js/shared/ponyDefs.js"></script>
+<script src="js/shared/animalDefs.js"></script>
+<script src="js/shared/animalLevels.js"></script>
+<script src="js/shared/enemyCodes.js"></script>
+<script src="js/shared/ponyProgress.js"></script>
+<script src="js/shared/friendship.js"></script>
+<script src="js/shared/being.js"></script>
+<script src="js/shared/animal.js"></script>
+<script src="js/shared/npc.js"></script>
+<script src="js/shared/npcSystem.js"></script>
+<script src="js/shared/friendshipSystem.js"></script>
+<script src="js/shared/ponyAbilities.js"></script>
+<script src="js/shared/inventory.js"></script>
+<script src="js/shared/layers/buildingSites.js"></script>
+<script src="js/shared/layers/interiorSpace.js"></script>
+<script src="js/shared/village.js"></script>
+<script src="js/shared/layers/biomeLayer.js"></script>
+<script src="js/shared/layers/zoneLayer.js"></script>
+<script src="js/shared/layers/dungeonSpace.js"></script>
+<script src="js/shared/layers/dungeonLayer.js"></script>
+<script src="js/shared/layers/caveSites.js"></script>
+<script src="js/shared/layers/worldLayers.js"></script>
+<script src="js/shared/terrainGenerator.js"></script>
+<script src="js/shared/world.js"></script>
+<script src="js/shared/grids.js"></script>
+<script src="js/shared/collision.js"></script>
+<script src="js/shared/boat.js"></script>
+<script src="js/shared/buildSystem.js"></script>
+<script src="js/shared/stockpiles.js"></script>
+<script src="js/shared/pathfinding.js"></script>
+<script src="js/shared/playerMovement.js"></script>
+<script src="js/shared/treeSystem.js"></script>
+<script src="js/shared/forageSystem.js"></script>
+<script src="js/shared/interaction.js"></script>
+<script src="js/shared/vitalsSystem.js"></script>
+<script src="js/shared/equipment.js"></script>
+<script src="js/shared/lightSources.js"></script>
+<script src="js/shared/emoteDefs.js"></script>
+<script src="js/shared/tradeSystem.js"></script>
+<script src="js/shared/penSystem.js"></script>
+<script src="js/shared/behaviors/registry.js"></script>
+<script src="js/shared/behaviors/timid.js"></script>
+<script src="js/shared/behaviors/nocturnal.js"></script>
+<script src="js/shared/behaviors/predator.js"></script>
+<script src="js/shared/behaviors/territorial.js"></script>
+<script src="js/shared/animalSystem.js"></script>
+<script src="js/shared/craftingSystem.js"></script>
+<script src="js/shared/toolHandlers.js"></script>
+<script src="js/shared/toolSystem.js"></script>
+<script src="js/shared/treasure.js"></script>
+<script src="js/shared/saveData.js"></script>
+<script src="js/shared/worldProgress.js"></script>
+<script src="js/shared/dungeonSystem.js"></script>
+<script src="js/shared/interiorSystem.js"></script>
+<script src="js/shared/sleepSystem.js"></script>
+<script src="js/shared/downed.js"></script>
+<script src="js/shared/wildPonies.js"></script>
+<script src="js/shared/wantSystem.js"></script>
+<script src="js/shared/puzzles.js"></script>
+<script src="js/shared/questSystem.js"></script>
+<script src="js/shared/gameServer.js"></script>
+<script src="js/shared/serverOwned.js"></script>
+<script src="js/shared/tapActions.js"></script>
+<script src="js/shared/packSystem.js"></script>
+<script src="js/shared/shopSystem.js"></script>
+<script src="js/shared/homeCrafts.js"></script>
+<script src="js/shared/farming.js"></script>
+<script src="js/shared/weather.js"></script>
+<script src="js/shared/groves.js"></script>
+<script src="js/shared/hedges.js"></script>
+<script src="js/shared/grass.js"></script>
+<script src="js/shared/snapshotBuilder.js"></script>
+<script src="js/shared/deltaCodec.js"></script>
+<script src="js/shared/relayProtocol.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id), canvas = $('map'), ctx = canvas.getContext('2d');
+const STEP = 3, hist = [], off = document.createElement('canvas'), octx = off.getContext('2d'); let job = 0, timer = null, current = null;
+const rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const COLORS = { water: [20, 74, 118], shallow: [58, 128, 168], sand: [226, 208, 150], stone: [128, 124, 116], wall: [58, 54, 60], far: [14, 58, 92], gateOpen: [90, 220, 120], gateShut: [170, 90, 230], dirt: [150, 120, 84] };
+
+function draw(seed) {
+  const id = ++job, T = new TerrainGenerator(seed), Z = T.layers.zones, o = CONFIG.sim.levels.origin;
+  if ($('gates').checked) for (const z of Zones.all()) Z.unlock(z.index);
+  const R = Math.ceil(Z.edge) + 6, N = Math.ceil(2 * R / STEP), img = ctx.createImageData(N, N), px = img.data;
+  off.width = off.height = N; const S = Math.max(1, Math.floor(900 / N)); canvas.width = canvas.height = N * S;
+  const mapColor = {}; for (const b of Biomes.all()) mapColor[b.id] = rgb(b.mapColor);
+  let row = 0;
+  const slice = () => {
+    if (id !== job) return;                                           // (a newer map was asked for)
+    const end = Math.min(N, row + 12);
+    for (; row < end; row++) for (let col = 0; col < N; col++) {
+      const tx = Math.floor(o.x - R + col * STEP), ty = Math.floor(o.y - R + row * STEP), k = Z.kindAt(tx, ty);
+      let c;
+      if (k === ZONE_KIND.FAR) c = COLORS.far;
+      else if (k === ZONE_KIND.GATE) c = Z.gateAt(tx, ty) >= 0 ? COLORS.gateShut : COLORS.gateOpen;
+      else if (k === ZONE_KIND.WALL) c = COLORS.wall;
+      else {
+        const t = T.tile(tx, ty);
+        c = t === TILE.WATER ? COLORS.water : t === TILE.SHALLOW ? COLORS.shallow : t === TILE.SAND ? COLORS.sand : t === TILE.STONE ? COLORS.stone : mapColor[T.biomeAt(tx, ty, t)] || [90, 160, 90];
+      }
+      const i = (row * N + col) * 4; px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(off, 0, 0, N * S, N * S);
+    if (row < N) { requestAnimationFrame(slice); return; }
+    marks(T, Z, R, o, S);
+  };
+  describe(T, Z, seed);
+  slice();
+}
+function marks(T, Z, R, o, S) {                                              // the village, the cave mouth, the zone names
+  const at = (x, y) => [(x - (o.x - R)) / STEP * S, (y - (o.y - R)) / STEP * S];
+  const dot = (x, y, fill) => { const [px, py] = at(x, y); ctx.beginPath(); ctx.arc(px, py, 5, 0, 7); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = '#000'; ctx.stroke(); };
+  ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center';
+  for (const n of Z.layout()) { const [px, py] = at(n.x, n.y + (n.def.index ? 0 : 55)); ctx.fillStyle = '#000a'; ctx.fillText(n.def.name, px + 1, py + 1); ctx.fillStyle = '#fff'; ctx.fillText(n.def.name, px, py); }
+  dot(o.x, o.y, '#ffe9a8');
+  for (const c of T.caveSites.caves()) dot(c.x, c.y, '#ff6a3d');
+}
+function describe(T, Z, seed) {
+  const lines = ['Seed ' + seed, ''];
+  for (const n of Z.layout()) lines.push(`${n.def.name}\n  biome ${n.def.biome}, radius ${Math.round(n.r)}${n.parent ? ', off ' + n.parent.def.name + ' at ' + Math.round(n.angle * 180 / Math.PI) + ' deg' : ' (the village)'}${n.def.locked ? ', gate shut' : ''}`);
+  const caves = T.caveSites.caves(); lines.push('', 'Cave mouth: ' + (caves.length ? Math.round(caves[0].x - CONFIG.sim.levels.origin.x) + ', ' + Math.round(caves[0].y - CONFIG.sim.levels.origin.y) + ' from the village' : 'none'));
+  $('info').textContent = lines.join('\n');
+}
+function show(seed, remember = true) {
+  if (remember && current !== null) hist.push(current);
+  current = seed | 0; $('seed').value = current; draw(current);
+}
+const randomSeed = () => (Math.random() * 2147483647) | 0;
+$('regen').onclick = () => show(randomSeed());
+$('back').onclick = () => { if (hist.length) show(hist.pop(), false); };
+$('go').onclick = () => show(+$('seed').value || 0);
+$('gates').onchange = () => draw(current);
+const tick = () => { clearInterval(timer); timer = $('auto').checked ? setInterval(() => show(randomSeed()), Math.max(1, +$('secs').value || 4) * 1000) : null; };
+$('auto').onchange = tick; $('secs').onchange = tick;
+const key = $('key');
+for (const [n, c] of [['Sea / deep water', COLORS.water], ['Shallows', COLORS.shallow], ['Beach', COLORS.sand], ['Rock', COLORS.stone], ['Cliff wall', COLORS.wall], ['Open gateway', COLORS.gateOpen], ['Shut gateway', COLORS.gateShut], ['Beyond the map (invisible barrier)', COLORS.far]]) key.insertAdjacentHTML('beforeend', `<div class="key"><span class="sw" style="background:rgb(${c})"></span>${n}</div>`);
+for (const z of Zones.all()) { const b = Biomes.get(z.biome); key.insertAdjacentHTML('beforeend', `<div class="key"><span class="sw" style="background:${b.mapColor}"></span>${z.name} (${b.name})</div>`); }
+key.insertAdjacentHTML('beforeend', '<div class="key"><span class="sw" style="background:#ffe9a8"></span>Village</div><div class="key"><span class="sw" style="background:#ff6a3d"></span>Cave mouth</div>');
+const fromUrl = new URLSearchParams(location.search).get('seed');
+show(fromUrl !== null && fromUrl !== '' ? +fromUrl : randomSeed(), false);
+</script>
+</body>
+</html>
