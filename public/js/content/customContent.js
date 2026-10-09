@@ -34,7 +34,17 @@ window.PONYSCAPES_CONTENT = {
     stone_hammer: { sprites: { icon: 'assets/items/stone_hammer_icon.png', held: 'assets/items/stone_hammer_held.png' } },
     knife: { sprites: { icon: 'assets/items/knife_icon.png', held: 'assets/items/knife_held.png' } },
     shovel: { sprites: { icon: 'assets/items/shovel_icon.png', held: 'assets/items/shovel_held.png' } },
-    fishing_rod: { sprites: { icon: 'assets/items/fishing_rod_icon.png', held: 'assets/items/fishing_rod_held.png' } }
+    fishing_rod: { sprites: { icon: 'assets/items/fishing_rod_icon.png', held: 'assets/items/fishing_rod_held.png' } },
+    hoe: { sprites: { icon: 'assets/items/hoe_icon.png', held: 'assets/items/hoe_held.png' } },
+    sickle: { sprites: { icon: 'assets/items/sickle_icon.png', held: 'assets/items/sickle_held.png' } },
+    hedge_cutter: { sprites: { icon: 'assets/items/hedge_cutter_icon.png', held: 'assets/items/hedge_cutter_held.png' } },
+    wooden_sword: { sprites: { icon: 'assets/items/wooden_sword_icon.png', held: 'assets/items/wooden_sword_held.png' } },
+    stone_sword: { sprites: { icon: 'assets/items/stone_sword_icon.png', held: 'assets/items/stone_sword_held.png' } },
+    shears: { sprites: { icon: 'assets/items/shears_icon.png' } },
+    watering_can: { sprites: { icon: 'assets/items/watering_can_icon.png' } },
+    brush: { sprites: { icon: 'assets/items/brush_icon.png' } },
+    soft_brush: { sprites: { icon: 'assets/items/soft_brush_icon.png' } },
+    bow: { sprites: { icon: 'assets/items/bow_icon.png' } }
   },
   creatures: {},
   characters: {},

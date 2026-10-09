@@ -13,7 +13,7 @@ const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnMap', w: 46 }, { id:
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
 const INV_ACTIONS_H = 22 + 36;                      // what you picked, and the Wear / To pony / Drop / Destroy row
-const INV_COLS = 5, INV_ROWS = 7;                    // the bag panel: rows of five (the tool belt, your bag, your pony's pack), scrolling past seven rows
+const INV_COLS = 5, INV_ROWS = 8;                    // the bag panel: rows of five (the tool belt, your bag, your pony's pack), scrolling past seven rows
 const makeRect = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 const rectsOverlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const unionRect = rects => {

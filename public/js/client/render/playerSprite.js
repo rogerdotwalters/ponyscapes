@@ -71,10 +71,14 @@ class PlayerSprite {
 
   /** The retro pixel-art body (pixelCharacter.js): it walks with the stride, breathes and blinks when idle, and sits lower when riding. */
   _drawPixel(p, sx, sy, pose, riding, now, L) {
-    const moving = p.state !== 'idle' && !riding;
-    const at = PixelCharacter.draw(this.g.ctx, L, this._wardrobe(p, pose.gear), pose.dir, sx, sy, {
+    const moving = p.state !== 'idle' && !riding, W8 = this._wardrobe(p, pose.gear), ctx = this.g.ctx;
+    const hip = sy - PixelCharacter.H * PixelCharacter.PX + pose.crouch + 25 * PixelCharacter.PX;                // where the hips are (row 25 of the art)
+    const legs = !!p.mount;                                                                                         // astride a pony: seated legs, one behind the other
+    if (legs) PixelCharacter.riderLegs(ctx, L, W8, pose.dir, sx, hip, 'far', { moving: p.state !== 'idle', now });
+    const at = PixelCharacter.draw(ctx, L, W8, pose.dir, sx, sy, {
       moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0,
       crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: riding ? 11 : pose.crouch ? 2 : 0 });
+    if (legs) PixelCharacter.riderLegs(ctx, L, W8, pose.dir, sx, hip, 'near', { moving: p.state !== 'idle', now });
     pose.headY = at.headY; pose.torsoTop = at.torsoTop;
   }
 
@@ -94,7 +98,7 @@ class PlayerSprite {
     walk.lastX = p.x; walk.lastY = p.y;
 
     const moving = p.state !== 'idle', run = p.state === 'run';
-    const crouch = riding ? 12 : 0;                                                  // seated in the boat
+    const crouch = p.boat ? 12 : p.mount ? 8 : 0;                                                  // seated in the boat
     const bob = riding ? 0 : moving ? Math.abs(Math.sin(walk.phase)) * (run ? 3 : 1.8) : Math.sin(now / 500 + p.slot) * 0.6;
     const legSwing = riding ? Math.sin(rowPhase) * 5 : moving ? Math.sin(walk.phase) * (run ? 5 : 3.5) : 0;   // arms follow the oars
     const fx = Math.cos(p.facing), fy = Math.sin(p.facing);

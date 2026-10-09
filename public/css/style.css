@@ -584,3 +584,105 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .transport .autoBtn.on{border-color:#e3c27a;background:rgba(227,194,122,.22)}
 .transport .ambBtn{flex:1.4;font:700 13px Georgia,serif}
 .transport .ambBtn.on{border-color:#e3c27a;background:rgba(227,194,122,.22)}
+
+/* =====================================================================================================================================
+   RETRO MEDIEVAL THEME - dark oak panels with iron-and-gold stepped borders, parchment text, carved slots and stout wooden buttons.
+   Everything above stays as the layout; this block only re-skins it (later rules win). Palette: oak #3a281a, deep oak #1d120a, gold #d9a441,
+   brass #f2cf7a, parchment #f1e0b4, ink #2a170c, wine #7a2a2a.
+   ===================================================================================================================================== */
+:root{--oak:#3a281a;--oak2:#4a3322;--deep:#1d120a;--gold:#d9a441;--brass:#f2cf7a;--parch:#f1e0b4;--ink:#2a170c;--wine:#7a2a2a;--moss:#4f7a3a;
+  --font-title:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif}
+/* stepped (pixel-cut) corners, a gold rule inside an iron frame, and a hard drop shadow */
+#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,.lobbyCard{
+  border:3px solid var(--deep);border-radius:3px;color:var(--parch);
+  background:
+    repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 2px,transparent 2px 22px),
+    linear-gradient(180deg,#46311f 0%,var(--oak) 60%,#2f2014 100%);
+  box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px var(--deep),inset 0 0 0 5px rgba(242,207,122,.35),0 5px 0 rgba(0,0,0,.45),0 0 0 2px #000;
+  }
+#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header{
+  font:700 17px var(--font-title);letter-spacing:2px;text-transform:uppercase;color:var(--brass);text-shadow:2px 2px 0 var(--deep);
+  padding:0 0 5px;border-bottom:2px solid var(--gold);box-shadow:0 2px 0 var(--deep)}
+#invClose,#craftClose,#settingsClose,#gearClose,#tradeClose,#puzzleClose,#dialogueClose,#journalClose,#menuClose,#mapClose{
+  width:28px;height:28px;border-radius:2px;border:2px solid var(--deep);background:var(--wine);color:#ffe8d0;font:700 14px var(--font-title);padding:0;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.35)}
+#invClose:active,#craftClose:active,#settingsClose:active,#gearClose:active,#tradeClose:active,#journalClose:active,#menuClose:active,#mapClose:active{transform:translateY(1px)}
+#panelBackdrop{background:rgba(8,4,0,.45)}
+
+/* wooden buttons: a lit top edge, a shaded underside, ink outline; gold for the main action */
+.craftBtn,.shopbuy,.tbig,.grow button,.trow button,.mapnav button,#invMainPony,#invActions button,.invpurse button,#journalTabs button,.prelease,#confirmBtns button,.lobbyCard button{
+  border:2px solid var(--deep);border-radius:2px;background:#8a5f32;color:var(--parch);font-family:var(--font-title);font-weight:700;letter-spacing:.5px;
+  box-shadow:inset 0 2px 0 #b98a50,inset 0 -3px 0 #5a3a1e;text-shadow:1px 1px 0 var(--deep)}
+.craftBtn,.shopbuy,.tbig,.grow button,.trow button,.mapnav button,#invMainPony{background:var(--gold);color:var(--ink);text-shadow:none;box-shadow:inset 0 2px 0 #f6d98c,inset 0 -3px 0 #98691f}
+.craftBtn:active,.shopbuy:active,.tbig:active,.grow button:active,.trow button:active,#invActions button:active,#journalTabs button:active{transform:translateY(1px);box-shadow:inset 0 2px 0 rgba(0,0,0,.25)}
+.craftBtn:disabled,.shopbuy:disabled,#invActions button:disabled{opacity:.45;filter:grayscale(.6)}
+.tbig.alt{background:#6a4a2a;color:var(--parch)}.tbig.on{background:var(--moss);border-color:var(--deep);color:#fff}
+#journalTabs button{background:#5a3f26}#journalTabs button.on{background:var(--gold);color:var(--ink);text-shadow:none}
+#invActions button.danger,.prelease,#confirmGo{background:var(--wine);color:#ffe0d6}
+#invActions button.armed{background:#b02a1a}
+#invUse{background:var(--moss) !important;color:#fff !important}
+#confirmKeep{background:var(--moss);color:#fff}
+
+/* list rows and cards: parchment-dark inlays */
+.recipe,.playerRow,.pcard,.grow,.trow,.pkind,.menugrid button{background:rgba(20,10,4,.5);border:2px solid #1d120a;border-radius:2px;box-shadow:inset 0 0 0 1px rgba(217,164,65,.35)}
+.menugrid button{color:var(--parch)}.menugrid button:active{background:rgba(217,164,65,.35)}
+.menugrid .mt i,.gnone,.tnone,.tmsg,.gempty,.menunote,.lobbySub,.lobbyNote{color:#c9b58a}
+.gtitle,.jhead,.invsec,.pname,.ptype{color:var(--brass);font-family:var(--font-title)}
+.recipe .name{font-family:var(--font-title)}
+.lobbyCard h1,.lobbyCard h2{font-family:var(--font-title);color:var(--brass);text-shadow:2px 2px 0 var(--deep)}
+.lobbyField input,#lobbyRelay,.wnew{border:2px solid var(--deep);border-radius:2px;background:rgba(0,0,0,.35);color:var(--parch)}
+select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid var(--deep);border-radius:2px}
+.bar{border-radius:0;background:rgba(0,0,0,.45);box-shadow:inset 0 0 0 1px var(--deep)}.bar i{background:linear-gradient(#9bd36a,#5f9a3a)}
+
+/* slots: carved sockets in the wood; belt slots are leather-edged; the pony's pack slots are tinted green */
+.slot{border-radius:2px;border:2px solid var(--deep);background:linear-gradient(180deg,#1f130a,#33220f);
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.55),inset 0 -1px 0 rgba(217,164,65,.28),0 1px 0 rgba(217,164,65,.22)}
+.slot img{image-rendering:pixelated}
+.slot.belt{background:linear-gradient(180deg,#2a1a0c,#4a2f16);box-shadow:inset 0 2px 0 rgba(0,0,0,.5),inset 0 0 0 1px #8a5f32,0 1px 0 rgba(217,164,65,.3)}
+.slot.ponyslot{background:linear-gradient(180deg,#14240f,#233a17);box-shadow:inset 0 2px 0 rgba(0,0,0,.5),inset 0 0 0 1px #5d8a3e,0 1px 0 rgba(150,210,100,.25)}
+.slot.selected{border-color:var(--brass);box-shadow:0 0 0 2px var(--gold),inset 0 0 12px rgba(242,207,122,.35)}
+.slot.picked{outline:2px dashed #7fd1ff;outline-offset:1px}
+.slot.dropover{border-color:#7fd1ff}
+.slot .num{font-family:var(--font-title);color:var(--brass);text-shadow:1px 1px 0 #000}
+.slot .qty{font-family:var(--font-title);text-shadow:1px 1px 0 #000,-1px 1px 0 #000}
+.gslot{border-radius:2px;border:2px solid var(--deep);background:linear-gradient(180deg,#1f130a,#33220f);box-shadow:inset 0 2px 0 rgba(0,0,0,.5)}
+.gslot.filled{border-color:var(--gold)}
+
+/* the inventory: top bar of actions, then ONE grid. Section labels span the full row. */
+#invPicked{margin:0 0 4px;height:18px;font:600 12px var(--font-title);color:var(--brass);opacity:1;text-shadow:1px 1px 0 var(--deep)}
+#invActions{display:flex;justify-content:flex-start;margin:0 0 6px;padding-bottom:6px;border-bottom:2px solid rgba(217,164,65,.4)}
+.invgrid{margin-bottom:0;align-content:start}
+.invgrid>.invsec,.invgrid>.invbags,.invgrid>.invnote{grid-column:1/-1}
+.invsec{margin:8px 0 2px;padding:2px 6px;background:linear-gradient(90deg,rgba(0,0,0,.4),transparent);border-left:3px solid var(--gold);font:700 12px var(--font-title);letter-spacing:.5px}
+.invsec.pony{border-left-color:#7bb35a}
+.invsec small{font:400 10px var(--font-title);color:#c9b58a;opacity:1}
+.invsec button{margin-left:auto}.invsec button+small{margin-left:6px}
+.invgrid>.invsec:first-child{margin-top:0}
+.invbag{border:2px dashed #6b8a4a;border-radius:2px;background:rgba(20,36,15,.5);color:var(--parch);font-family:var(--font-title)}
+.invbag.filled{border-style:solid;border-color:#7bb35a}
+.invpurse{padding:3px 6px;background:rgba(0,0,0,.35);border:2px solid var(--deep);border-radius:2px;box-shadow:inset 0 0 0 1px rgba(217,164,65,.35);font-family:var(--font-title)}
+.invpurse b{color:var(--parch)}.invpurse span{color:var(--brass)}
+.invnote{font:italic 11px var(--font-title);color:#c9b58a;opacity:1;padding:4px 2px}
+#invMainPony{height:20px;font-size:11px}
+
+/* the HUD: carved plaques instead of glass pills */
+#toolbar,.vital,#clock,.tbtn,#hint,#portraitHint,#seasonBar,.ubtn,.pbtn{border:2px solid var(--deep);border-radius:2px;color:var(--parch);
+  background:linear-gradient(180deg,#46311f,#33220f);box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45)}
+#toolbar{padding:calc(var(--pad,5px) + 1px)}
+.ubtn,.pbtn{border-radius:50%}
+.tbtn.on,.pbtn.on,.pbtn.down{background:linear-gradient(180deg,#e8bb55,#c08a2a);color:var(--ink)}
+.tbtn{font-family:var(--font-title)}
+.pbtn,.ubtn{font-family:var(--font-title)}
+.pbtn.danger{background:linear-gradient(180deg,#8a3030,#5e1c1c);color:#ffe0d6}
+#hint,#portraitHint{font-family:var(--font-title);background:rgba(29,18,10,.82)}
+.vital .fill{background:linear-gradient(#8bd05c,#4f9a2c)}
+.vital.water .fill{background:linear-gradient(#7fc0f0,#3d86c8)}
+.vital.health .fill{background:linear-gradient(#e86a6a,#b02a2a)}
+.vital.low .fill{background:linear-gradient(#f0b84a,#c8882a)}
+.vlabel{font-family:var(--font-title);text-shadow:1px 1px 0 #000}
+#clock{font-family:var(--font-title)}
+.ebubble{border:3px solid var(--deep);border-radius:50%;box-shadow:inset 0 0 0 2px var(--gold),0 3px 0 rgba(0,0,0,.5);background:#f1e0b4}
+#joyBase{border:3px solid var(--deep);background:rgba(58,40,26,.4);box-shadow:inset 0 0 0 2px rgba(217,164,65,.6)}
+#joyKnob{background:linear-gradient(180deg,#e8bb55,#b8801f);border:3px solid var(--deep)}
+#sleepOverlay .slZ{font-family:"Courier New",monospace;text-shadow:3px 3px 0 var(--deep)}
+.invGhost{image-rendering:pixelated}

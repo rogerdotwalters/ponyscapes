@@ -32,6 +32,10 @@ const BuildingUpgrades = Object.freeze({
     { linkRange: 10 }, { linkRange: 20, cost: [upgradeCost('plank', 30), upgradeCost('rope', 4), upgradeCost('stone', 10)] },
     { linkRange: 40, cost: [upgradeCost('plank', 60), upgradeCost('brick', 20), upgradeCost('rope', 6)] }
   ]),
+  barn: Object.freeze([
+    { appleDiscount: 1 }, { appleDiscount: 2, cost: [upgradeCost('plank', 40), upgradeCost('rope', 6)] },
+    { appleDiscount: 3, cost: [upgradeCost('plank', 80), upgradeCost('brick', 24), upgradeCost('rope', 8)] }
+  ]),
   stable: Object.freeze([
     { appleDiscount: 0 }, { appleDiscount: 1, cost: [upgradeCost('plank', 30), upgradeCost('rope', 4)] },
     { appleDiscount: 2, cost: [upgradeCost('plank', 60), upgradeCost('brick', 16), upgradeCost('rope', 6)] }
@@ -224,6 +228,6 @@ const Buildings = {
   /** A stable's apple discount for a pony standing at (x, y). */
   appleDiscountAt(map, x, y) {
     const stable = Shelter.stableNear(map, x, y);
-    return stable ? Buildings.levelDef(map, tileKey(stable.tx, stable.ty), 'stable').appleDiscount || 0 : 0;
+    return stable ? Buildings.levelDef(map, tileKey(stable.tx, stable.ty), stable.type).appleDiscount || 0 : 0;
   }
 };

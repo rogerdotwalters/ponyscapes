@@ -718,7 +718,44 @@ const PixelCharacter = (() => {
     return { top, headY: top + (TOP + 9) * PX, torsoTop: top + (TOP + 17) * PX };
   }
 
+
+  /* ---- a rider's legs: seated astride the pony, one leg behind the other. The painter cuts the standing legs off when riding (`cut`), so these are
+   *  drawn live from the character's own trousers and boots. part 'far' goes BEFORE the body (the leg on the far side, a shade darker), 'near' after it. ---- */
+  /** The rows (art pixels, from the hip) of one leg: { y, x, w } each, and the boot { x, y, w, h }. `out`: which way it points (-1 left / +1 right of the body, or the facing for a side view). */
+  function legShape(kind, out, lift) {
+    const rows = [];
+    if (kind === 'side') {                                                                     // thigh forward over the pony's flank, knee bent, calf hanging down
+      for (let y = 0; y <= 3; y++) rows.push({ y: y - lift, x: Math.round(out * y * 1.3) - 2, w: 4 });
+      for (let y = 4; y <= 8; y++) rows.push({ y: y - lift, x: Math.round(out * (4 - (y - 3) * 0.25)) - 1, w: 3 });
+      const bx = Math.round(out * 3) - 1;
+      return { rows, boot: { x: bx + (out < 0 ? -1 : 0), y: 9 - lift, w: 4, h: 3 }, toe: out };
+    }
+    for (let y = 0; y <= 3; y++) rows.push({ y: y - lift, x: Math.round(out * (2.5 + y)) - 2, w: 4 });          // thighs spread either side of the pony's barrel
+    for (let y = 4; y <= 8; y++) rows.push({ y: y - lift, x: Math.round(out * (6.5 + (y - 3) * 0.25)) - 1, w: 3 });
+    return { rows, boot: { x: Math.round(out * 7.2) - 2, y: 9 - lift, w: 4, h: 3 }, toe: out };
+  }
+  function riderLegs(ctx, L, wardrobe, dir, sx, hipY, part, anim) {
+    const C = palette(L, wardrobe), tr = C.trousers, bt = C.boot, ol = C.outline, swing = anim && anim.moving ? Math.sin(anim.now / 140) * 0.8 : 0;
+    const R = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(sx + x * PX), Math.round(hipY + y * PX), Math.max(1, Math.round(w * PX)), Math.max(1, Math.round(h * PX))); };
+    const side = dir === 'left' || dir === 'right', f = dir === 'right' ? 1 : -1, back = dir === 'up';
+    const leg = (shape, dark) => {
+      const T = dark ? tr.d : tr.b, B = dark ? bt.d : bt.b;
+      for (const r of shape.rows) R(r.x - 1, r.y - 1, r.w + 2, 3, ol);
+      const b = shape.boot; R(b.x - 1, b.y - 1, b.w + 2, b.h + 2, ol);
+      for (const r of shape.rows) { R(r.x, r.y, r.w, 1, T); if (!dark) R(r.x, r.y, 1, 1, tr.l); else R(r.x + r.w - 1, r.y, 1, 1, tr.d); }
+      if (C.pantsStyle === 2) { const r = shape.rows[shape.rows.length - 2]; R(r.x, r.y, r.w, 2, C.trim.b); }                // turned-up cuffs
+      R(b.x, b.y, b.w, b.h, B); if (!dark) R(b.x, b.y, b.w, 1, bt.l); R(b.x, b.y + b.h, b.w + 1 * (shape.toe > 0 ? 1 : 0), 1, bt.d);   // the boot and its sole
+    };
+    const sw = swing;
+    if (side) {
+      if (part === 'far') { const s = legShape('side', f, 1); for (const r of s.rows) r.x += f * 2; s.boot.x += f * 2; leg(s, true); }   // the far leg: a little ahead and higher, in shadow
+      else leg(legShape('side', f, 0), false);
+    } else if (part === 'far') leg(legShape('front', 1, 1.2 + sw * 0.4), true);                                                // the leg on the right is the one behind
+    else leg(legShape('front', -1, -sw * 0.4), false);
+    return null;
+  }
+
   /** Shared with the other pixel-art sprites (pixelPony.js). */
   const util = { hex, css, shade, light, mix, tones, outline };
-  return { draw, W, H, PX, util, pack };
+  return { draw, riderLegs, W, H, PX, util, pack };
 })();

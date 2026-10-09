@@ -21,6 +21,7 @@ const StructureDefs = Object.freeze({
   wood_floor:     defineStructure('floor',   { name: 'Wood Floor', refundItemId: 'wood_floor', blocks: false }),
   crafting_table: defineStructure('station', { name: 'Crafting Table', refundItemId: 'crafting_table' }),
   clay_furnace:   defineStructure('station', { name: 'Clay Furnace', refundItemId: 'clay_furnace' }),
+  barn:           defineStructure('station', { name: 'Barn', refundItemId: 'barn' }),                                              // a big barn: shelters ponies like a stable, with a larger reach and a better apple discount
   stable:         defineStructure('station', { name: 'Stable', refundItemId: 'stable' }),                                          // a roofed stall: a wild pony you lead here will take apples and settle
   campfire:       defineStructure('station', { name: 'Campfire', refundItemId: 'campfire', light: true }),
   stockpile_wood:  defineStructure('station', { name: 'Wood Stockpile', refundItemId: 'stockpile_wood', stockpile: 'wood' }),      // town storage: see stockpiles.js

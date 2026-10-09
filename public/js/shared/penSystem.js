@@ -29,9 +29,9 @@ const Shelter = {
     let best = null;
     for (let ty = py - span; ty <= py + span; ty++) for (let tx = px - span; tx <= px + span; tx++) {
       const tile = map.built[tileKey(tx, ty)];
-      if (!tile || tile.c !== 'stable') continue;
-      const dist = Math.hypot(tx + 0.5 - x, ty + 0.5 - y);
-      if (dist <= range && (!best || dist < best.dist) && Shelter._reaches(map, x, y, tx, ty)) best = { tx, ty, dist };
+      if (!tile || (tile.c !== 'stable' && tile.c !== 'barn')) continue;
+      const dist = Math.hypot(tx + 0.5 - x, ty + 0.5 - y), reach = tile.c === 'barn' ? range + 1.2 : range;     // a barn reaches a little farther
+      if (dist <= reach && (!best || dist < best.dist) && Shelter._reaches(map, x, y, tx, ty)) best = { tx, ty, dist, type: tile.c };
     }
     return best;
   },

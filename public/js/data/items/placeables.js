@@ -11,6 +11,7 @@ Placeables.registerAll([
   { id: 'wood_floor', name: 'Wood Floor', maxStack: 40 },
   { id: 'crafting_table', name: 'Crafting Table', maxStack: 5 },
   { id: 'stable', name: 'Stable', maxStack: 3 },
+  { id: 'barn', name: 'Barn', maxStack: 2 },
   { id: 'clay_furnace', name: 'Clay Furnace', maxStack: 5 },
   { id: 'stockpile_wood', name: 'Wood Stockpile', maxStack: 3 },          // town storage (stockpiles.js)
   { id: 'stockpile_stone', name: 'Stone Stockpile', maxStack: 3 },

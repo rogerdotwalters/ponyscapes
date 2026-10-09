@@ -172,11 +172,23 @@ const StructureSprites = (() => {
     return (slot === 'n' || slot === 's') ? (atEnd ? [x1 - w, y0, x1, y1] : [x0, y0, x0 + w, y1]) : (atEnd ? [x0, y1 - w, x1, y1] : [x0, y0, x1, y0 + w]);
   };
 
+  /** A box with a dark ink outline round its silhouette (the retro look of the buildings). */
+  function drawInkBox(g, box, height, c, lift = 0, lineW = 1.2) {
+    const p = drawWorldBox(g, box, height, c.top, c.left, c.right, lift), ctx = g.ctx, h = height;
+    ctx.strokeStyle = '#2a170c'; ctx.lineWidth = lineW; ctx.lineJoin = 'round'; ctx.beginPath();
+    ctx.moveTo(p.dx, p.dy); ctx.lineTo(p.cx, p.cy); ctx.lineTo(p.bx, p.by); ctx.lineTo(p.bx, p.by - h); ctx.lineTo(p.ax, p.ay - h); ctx.lineTo(p.dx, p.dy - h); ctx.closePath();
+    ctx.moveTo(p.cx, p.cy); ctx.lineTo(p.cx, p.cy - h); ctx.moveTo(p.dx, p.dy - h); ctx.lineTo(p.cx, p.cy - h); ctx.lineTo(p.bx, p.by - h); ctx.stroke();
+    return p;
+  }
+  const FENCE_RAIL = { top: '#d6ab6c', left: '#b98a50', right: '#936539' }, FENCE_POST = { top: '#e0b878', left: '#c79858', right: '#9c6c3c' }, FENCE_CAP = { top: '#f0cf94', left: '#d8a966', right: '#a8773f' };
   function drawFenceFrame(g, chunk) {
-    drawWorldBox(g, chunk.box, 5, FENCE_WOOD.top, FENCE_WOOD.left, FENCE_WOOD.right, 8);
-    drawWorldBox(g, chunk.box, 5, FENCE_WOOD.top, FENCE_WOOD.left, FENCE_WOOD.right, 20);
-    if (chunk.index === 0) drawWorldBox(g, postBox(chunk.box, chunk.slot, false), FENCE_HEIGHT, '#d1a566', '#b07c46', '#8d6234');   // one post at each end of a tile's fence, rails between
-    if (chunk.index === WALL_CHUNK_COUNT - 1) drawWorldBox(g, postBox(chunk.box, chunk.slot, true), FENCE_HEIGHT, '#d1a566', '#b07c46', '#8d6234');
+    drawInkBox(g, chunk.box, 5, FENCE_RAIL, 8);                                                       // two chunky outlined rails ...
+    drawInkBox(g, chunk.box, 5, FENCE_RAIL, 20);
+    for (const end of [0, WALL_CHUNK_COUNT - 1]) if (chunk.index === end) {                          // ... between a post at each end of a tile's fence, each with a cap
+      const post = postBox(chunk.box, chunk.slot, end !== 0), [x0, y0, x1, y1] = post, mid = [(x0 + x1) / 2, (y0 + y1) / 2], w = 0.045;
+      drawInkBox(g, post, FENCE_HEIGHT, FENCE_POST);
+      drawInkBox(g, [mid[0] - w, mid[1] - w, mid[0] + w, mid[1] + w], 3, FENCE_CAP, FENCE_HEIGHT);
+    }
   }
 
   function drawGateChunk(g, chunk) {                              // closed gate: the fence frame plus a braced panel in the middle
@@ -185,8 +197,9 @@ const StructureSprites = (() => {
     const [x0, y0, x1, y1] = chunk.box, alongX = chunk.slot === 'n' || chunk.slot === 's';
     const [px, py, qx, qy] = alongX ? [...project(x0, y1), ...project(x1, y1)] : [...project(x1, y0), ...project(x1, y1)];
     const quad = [px, py - 5, qx, qy - 5, qx, qy - 25, px, py - 25], ctx = g.ctx;
-    g.polygon(quad, 'rgba(150,100,55,.92)');
-    ctx.strokeStyle = '#5a3f2a'; ctx.lineWidth = 1.6; ctx.beginPath();
+    g.polygon(quad, '#a8763f');
+    ctx.strokeStyle = '#2a170c'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(quad[0], quad[1]); ctx.lineTo(quad[2], quad[3]); ctx.lineTo(quad[4], quad[5]); ctx.lineTo(quad[6], quad[7]); ctx.closePath(); ctx.stroke();
+    ctx.strokeStyle = '#5a3a1e'; ctx.lineWidth = 2; ctx.beginPath();
     ctx.moveTo(quad[0], quad[1]); ctx.lineTo(quad[4], quad[5]); ctx.moveTo(quad[2], quad[3]); ctx.lineTo(quad[6], quad[7]);
     ctx.stroke();
   }
@@ -235,23 +248,90 @@ const StructureSprites = (() => {
     drawWorldBox(g, [tx + 0.62, ty + 0.2, tx + 0.8, ty + 0.38], 56, '#a85f33', '#8f4f2b', '#74401f');            // chimney
   }
 
-  /** A roofed stall: three plank walls, a pitched roof, hay and a water trough at the open front. */
+  /* ---- the stable and the barn: real gabled buildings in chunky outlined retro pixels (dark ink edges, plank walls, shingled roofs) ---- */
+  const INK = '#2a170c';
+  /** A closed, outlined polygon from world points [x, y, height]. */
+  function inked(g, pts, fill, lineW = 1.5) {
+    const flat = []; for (const [x, y, h] of pts) { const [sx, sy] = project(x, y); flat.push(sx, sy - h); }
+    g.polygon(flat, fill);
+    const ctx = g.ctx; ctx.strokeStyle = INK; ctx.lineWidth = lineW; ctx.lineJoin = 'round'; ctx.beginPath();
+    for (let i = 0; i < flat.length; i += 2) i ? ctx.lineTo(flat[i], flat[i + 1]) : ctx.moveTo(flat[i], flat[i + 1]);
+    ctx.closePath(); ctx.stroke();
+  }
+  function seg(g, a, b, color, w = 1) {                                                          // a line between two world points [x, y, h]
+    const [ax, ay] = project(a[0], a[1]), [bx, by] = project(b[0], b[1]), ctx = g.ctx;
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(ax, ay - a[2]); ctx.lineTo(bx, by - b[2]); ctx.stroke();
+  }
+  /** One gabled outbuilding standing on a tile. cfg: wallH, rise, wall { s, e, plank }, roof { a, b }, trim, base. Returns the geometry for the doors. */
+  function drawGabled(g, tx, ty, cfg) {
+    const x0 = tx + 0.04, x1 = tx + 0.96, y0 = ty + 0.04, y1 = ty + 0.96, yM = (y0 + y1) / 2, H = cfg.wallH, R = cfg.rise, ctx = g.ctx;
+    const [gx, gy] = project(tx + 0.5, ty + 0.5);
+    g.ellipse(gx + 4, gy + 6, 44, 20, 'rgba(20,12,4,.28)');                                     // the shadow on the ground
+    inked(g, [[x1, y1, 0], [x1, y0, 0], [x1, y0, H], [x1, yM, H + R], [x1, y1, H]], cfg.wall.e);   // the east wall with its gable
+    inked(g, [[x0, y1, 0], [x1, y1, 0], [x1, y1, H], [x0, y1, H]], cfg.wall.s);                   // the south wall (the front)
+    const at = (u, h, side = 's') => side === 's' ? [x0 + u * (x1 - x0), y1, h] : [x1, y1 - u * (y1 - y0), h];
+    for (let i = 1; i < 10; i++) { seg(g, at(i / 10, 5), at(i / 10, H), cfg.wall.plank, 1); if (i < 10) seg(g, at(i / 10, 5, 'e'), at(i / 10, i / 10 > 0.5 ? H + (1 - i / 10) * 2 * R : H + i / 10 * 2 * R, 'e'), cfg.wall.plank, 1); }
+    inked(g, [[x0, y1, 0], [x1, y1, 0], [x1, y1, 5], [x0, y1, 5]], cfg.base);                       // a fieldstone footing
+    inked(g, [[x1, y1, 0], [x1, y0, 0], [x1, y0, 5], [x1, y1, 5]], shadeHex(cfg.base, 0.8));
+    for (let i = 1; i < 6; i++) { seg(g, at(i / 6, 0), at(i / 6, 5), INK, 1); seg(g, at(i / 6, 0, 'e'), at(i / 6, 5, 'e'), INK, 1); }
+    seg(g, [x1, y1, 0], [x1, y1, H], cfg.trim, 3);                                                // corner post
+    seg(g, [x0, y1, 0], [x0, y1, H], cfg.trim, 3);
+    return { x0, x1, y0, y1, yM, H, R, at, cfg, roof() {
+      const ox = 0.05, oy = 0.07;                                                                // the south roof slope with its overhang, shingled
+      inked(g, [[x0 - ox, y1 + oy, H - 2], [x1 + ox, y1 + oy, H - 2], [x1 + ox, yM, H + R + 1], [x0 - ox, yM, H + R + 1]], cfg.roof.a, 2);
+      for (let k = 1; k < 6; k++) {
+        const t = k / 6, y = y1 + oy + (yM - y1 - oy) * t, h = H - 2 + (R + 3) * t;
+        seg(g, [x0 - ox, y, h], [x1 + ox, y, h], cfg.roof.b, 1.5);
+        for (let i = 0; i < 9; i++) { const x = x0 - ox + ((i + (k % 2 ? 0.5 : 0)) / 9) * (x1 - x0 + 2 * ox); seg(g, [x, y, h], [x, y + (yM - y1 - oy) / 6, h + (R + 3) / 6], cfg.roof.b, 1); }
+      }
+      seg(g, [x0 - ox, y1 + oy, H - 2], [x1 + ox, y1 + oy, H - 2], cfg.trim, 2.5);                  // fascia board
+      seg(g, [x1 + ox, y1 + oy, H - 2], [x1 + ox, yM, H + R + 1], cfg.trim, 3);                    // the gable rake boards
+      seg(g, [x1 + ox, yM, H + R + 1], [x1 + ox, y0 - oy, H - 2], cfg.trim, 3);
+      seg(g, [x0 - ox, yM, H + R + 1], [x1 + ox, yM, H + R + 1], INK, 2.5);                         // the ridge
+    } };
+  }
+  const faceQuadAt = (B, u0, u1, h0, h1) => [B.at(u0, h0), B.at(u1, h0), B.at(u1, h1), B.at(u0, h1)];
+
+  /** A stable: warm timber, two stalls with dutch doors and hay, terracotta shingles, a lantern and a water trough in front. */
   function drawStable(g, tx, ty) {
-    const ctx = g.ctx, [cx, cy] = tileCentre(tx, ty);
-    drawWorldBox(g, [tx + 0.08, ty + 0.08, tx + 0.92, ty + 0.92], 6, '#b98e55', '#a97a45', '#8a5f32');                // plank floor / base
-    drawWorldBox(g, [tx + 0.1, ty + 0.1, tx + 0.9, ty + 0.2], 40, '#a97a45', '#8a5f32', '#8a5f32');                  // back wall
-    drawWorldBox(g, [tx + 0.1, ty + 0.1, tx + 0.2, ty + 0.9], 40, '#a97a45', '#8a5f32', '#6f4a28');                  // side wall
-    for (let i = 0; i < 4; i++) {                                                                                      // plank lines on the back wall
-      const [x, y] = project(tx + 0.18 + i * 0.2, ty + 0.2); ctx.strokeStyle = 'rgba(60,35,15,.45)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y - 40); ctx.stroke();
+    const B = drawGabled(g, tx, ty, { wallH: 34, rise: 18, wall: { s: '#b88a52', e: '#94683a', plank: 'rgba(60,32,12,.5)' }, roof: { a: '#b8553a', b: '#8f3c27' }, trim: '#5a3a1e', base: '#9a9a9e' });
+    for (const [u0, u1] of [[0.1, 0.44], [0.56, 0.9]]) {
+      inked(g, faceQuadAt(B, u0, u1, 5, 28), '#1f130a');                                          // the open stall
+      inked(g, faceQuadAt(B, u0, u1, 5, 15), '#a97a45');                                          // the shut lower half of the dutch door
+      seg(g, B.at(u0, 5), B.at(u1, 15), 'rgba(40,20,8,.6)', 1.5); seg(g, B.at(u0, 15), B.at(u1, 5), 'rgba(40,20,8,.6)', 1.5);
+      seg(g, B.at(u0, 28), B.at(u1, 28), B.cfg.trim, 2.5);
     }
-    ctx.save(); ctx.translate(0, -42);
-    drawWorldBox(g, [tx + 0.02, ty + 0.02, tx + 0.98, ty + 0.98], 6, '#c75b3c', '#a84a30', '#8a3c26');
-    ctx.restore();
-    const [hx, hy] = project(tx + 0.62, ty + 0.62);                                                                    // hay in the stall
-    g.ellipse(hx, hy - 8, 13, 6, '#d9b64a'); g.ellipse(hx - 3, hy - 11, 8, 4, '#e8cc6a');
-    ctx.strokeStyle = '#b8932f'; ctx.lineWidth = 1; ctx.beginPath(); for (let i = -2; i <= 2; i++) { ctx.moveTo(hx + i * 4, hy - 9); ctx.lineTo(hx + i * 4 + 2, hy - 14); } ctx.stroke();
-    const [tx2, ty2] = project(tx + 0.62, ty + 0.9);                                                                   // trough
-    g.ellipse(tx2, ty2 - 4, 12, 5, '#6f4a28'); g.ellipse(tx2, ty2 - 5, 9, 3.4, '#4d86b0');
+    inked(g, [[B.x1, B.y1 - 0.3, 14], [B.x1, B.y1 - 0.62, 14], [B.x1, B.y1 - 0.62, 26], [B.x1, B.y1 - 0.3, 26]], '#7fb4d6');   // a window in the east wall
+    seg(g, [B.x1, B.y1 - 0.46, 14], [B.x1, B.y1 - 0.46, 26], INK, 1.5); seg(g, [B.x1, B.y1 - 0.3, 20], [B.x1, B.y1 - 0.62, 20], INK, 1.5);
+    B.roof();
+    const ctx = g.ctx, [lx, ly] = project(B.x0 + 0.08 * 0.9, B.y1 + 0.02);                           // a hanging lantern by the left door
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx + 3, ly - 33); ctx.lineTo(lx + 3, ly - 27); ctx.stroke();
+    g.polygon([lx, ly - 27, lx + 6, ly - 27, lx + 6, ly - 20, lx, ly - 20], '#ffcf5a');
+    const [tx2, ty2] = project(B.x0 + 0.7 * (B.x1 - B.x0), B.y1 + 0.2);                              // a water trough in front
+    inked(g, [[B.x0 + 0.5, B.y1 + 0.14, 0], [B.x0 + 0.9, B.y1 + 0.14, 0], [B.x0 + 0.9, B.y1 + 0.14, 7], [B.x0 + 0.5, B.y1 + 0.14, 7]], '#7a5230');
+    inked(g, [[B.x0 + 0.5, B.y1 + 0.14, 7], [B.x0 + 0.9, B.y1 + 0.14, 7], [B.x0 + 0.9, B.y1 + 0.24, 7], [B.x0 + 0.5, B.y1 + 0.24, 7]], '#4d86b0');
+    const [hx, hy] = project(B.x0 + 0.18, B.y1 + 0.2);                                               // a hay bale
+    inked(g, [[B.x0 + 0.1, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 8], [B.x0 + 0.1, B.y1 + 0.12, 8]], '#d9b64a');
+    inked(g, [[B.x0 + 0.1, B.y1 + 0.12, 8], [B.x0 + 0.3, B.y1 + 0.12, 8], [B.x0 + 0.3, B.y1 + 0.24, 8], [B.x0 + 0.1, B.y1 + 0.24, 8]], '#ecd27a');
+    seg(g, [B.x0 + 0.2, B.y1 + 0.12, 0], [B.x0 + 0.2, B.y1 + 0.12, 8], '#a8842a', 1);
+  }
+
+  /** A barn: tall red walls with white trim, big double doors with white crosses, a hayloft hatch with hay and a beam, a dark shingled roof. */
+  function drawBarn(g, tx, ty) {
+    const B = drawGabled(g, tx, ty, { wallH: 46, rise: 24, wall: { s: '#b4382c', e: '#8c2b22', plank: 'rgba(60,10,6,.45)' }, roof: { a: '#6d5d58', b: '#4c3f3b' }, trim: '#f1e8d6', base: '#8d8d93' });
+    inked(g, faceQuadAt(B, 0.2, 0.8, 5, 32), '#f1e8d6');                                             // the big doors, framed in white
+    inked(g, faceQuadAt(B, 0.24, 0.5, 7, 30), '#8c2b22'); inked(g, faceQuadAt(B, 0.5, 0.76, 7, 30), '#8c2b22');
+    for (const [u0, u1] of [[0.24, 0.5], [0.5, 0.76]]) { seg(g, B.at(u0, 7), B.at(u1, 30), '#f1e8d6', 2); seg(g, B.at(u0, 30), B.at(u1, 7), '#f1e8d6', 2); }
+    inked(g, faceQuadAt(B, 0.38, 0.62, 35, 44), '#f1e8d6');                                          // the hayloft hatch
+    inked(g, faceQuadAt(B, 0.41, 0.59, 36.5, 43), '#2a170c');
+    const hy = B.at(0.5, 38); const [hx0, hy0] = project(hy[0], hy[1]);
+    g.ellipse(hx0, hy0 - 38 + 3, 7, 3, '#e8cc6a'); g.ellipse(hx0 - 2, hy0 - 38 + 1, 4, 2, '#d9b64a');   // hay spilling out
+    inked(g, [[B.x1, B.y1 - 0.3, 16], [B.x1, B.y1 - 0.7, 16], [B.x1, B.y1 - 0.7, 34], [B.x1, B.y1 - 0.3, 34]], '#8c2b22');   // a loft door on the east wall, crossed
+    seg(g, [B.x1, B.y1 - 0.3, 16], [B.x1, B.y1 - 0.7, 34], '#f1e8d6', 1.5); seg(g, [B.x1, B.y1 - 0.3, 34], [B.x1, B.y1 - 0.7, 16], '#f1e8d6', 1.5);
+    B.roof();
+    seg(g, [B.x0 + 0.5 * (B.x1 - B.x0), B.y1 + 0.07, B.H - 2], [B.x0 + 0.5 * (B.x1 - B.x0), B.y1 + 0.2, B.H - 5], INK, 2);   // the hoist beam
+    inked(g, [[B.x0 + 0.05, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 9], [B.x0 + 0.05, B.y1 + 0.12, 9]], '#d9b64a');   // a hay bale
+    inked(g, [[B.x0 + 0.05, B.y1 + 0.12, 9], [B.x0 + 0.3, B.y1 + 0.12, 9], [B.x0 + 0.3, B.y1 + 0.25, 9], [B.x0 + 0.05, B.y1 + 0.25, 9]], '#ecd27a');
   }
 
   /** A ring of stones, crossed logs and a flickering flame. */
@@ -285,6 +365,7 @@ const StructureSprites = (() => {
     else if (type === 'crafting_table') drawCraftingTable(g, tx, ty);
     else if (type === 'campfire') drawCampfire(g, tx, ty);
     else if (type === 'stable') drawStable(g, tx, ty);
+    else if (type === 'barn') drawBarn(g, tx, ty);
     else drawClayFurnace(g, tx, ty);
   }
 

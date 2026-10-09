@@ -309,20 +309,33 @@ class Renderer {
     else PropSprites.drawWell(g, item.gx, item.gy);
   }
 
-  /** Someone asleep in bed: a head on the pillow under the blanket (in their colour), and a few Zs drifting up. */
+  /** Someone asleep in bed: the character themself, lying on the pillow in their own skin, hair and outfit colours under a blanket, drawn in
+   *  the same chunky outlined pixels as the rest of the characters, with pixel Zs drifting up. */
   _drawSleeper(g, sx, sy, p, now) {
-    const ctx = g.ctx, lift = 14;
-    sy -= lift;
-    g.ellipse(sx + 2, sy + 2, 17, 7, 'rgba(0,0,0,.18)');
-    g.ellipse(sx + 4, sy - 3, 15, 7, p.color || '#5b7fb5'); g.ellipse(sx + 4, sy - 6, 12, 4.4, 'rgba(255,255,255,.22)');       // the blanket
-    g.ellipse(sx - 10, sy - 6, 6.5, 5.5, '#f3eee2');                                                                          // the pillow
-    g.ellipse(sx - 10, sy - 7, 4.8, 4.4, '#f0c9a0'); g.ellipse(sx - 11, sy - 9.6, 5, 2.6, '#5a3d2a');                        // the head, hair on top
-    ctx.strokeStyle = '#3b2a1c'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx - 12.5, sy - 6.2); ctx.lineTo(sx - 10.5, sy - 6.2); ctx.stroke();   // a closed eye
+    const ctx = g.ctx, L = this.playerSprite._look(p.appearance), U = PixelCharacter.util, u = 2, O = '#24170f';
+    const breathe = Math.round(Math.sin(now / 700 + (p.slot | 0)) * 0.6);
+    sy -= 14;
+    const R = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(sx + x * u), Math.round(sy + y * u), w * u, h * u); };
+    const box = (x, y, w, h, c) => { R(x - 1, y - 1, w + 2, h + 2, O); R(x, y, w, h, c); };          // an outlined block
+    const hair = L.hair, skin = L.skin, blanket = p.color || L.outfit || '#5b7fb5', trim = L.trim || '#f2c14e';
+    g.ellipse(sx, sy + 3, 20, 7, 'rgba(0,0,0,.2)');
+    box(-15, -3, 11, 6, '#f3eee2'); R(-15, -3, 11, 1, '#fffaf0');                                    // the pillow
+    box(-13, -9, 8, 8, skin);                                                                         // the head (outlined as a whole)
+    R(-13, -9, 8, 3, hair); R(-13, -9, 8, 1, U.light(hair, 0.22)); R(-13, -6, 2, 4, U.shade(hair, 0.9));   // hair over the top and down the back of the head
+    if (L.princess || L.hairKind === 'medium' || L.hairKind === 'afro') R(-13, -2, 3, 3, hair);       // long hair spilling onto the pillow
+    R(-10, -4, 2, 1, U.shade(skin, 0.45)); R(-7, -4, 2, 1, U.shade(skin, 0.45));                      // closed eyes
+    R(-10, -2, 1, 1, U.mix(skin, '#e26a6a', 0.45)); R(-6, -2, 1, 1, U.mix(skin, '#e26a6a', 0.45));    // rosy cheeks
+    R(-9, -1, 2, 1, U.shade(skin, 0.65));                                                             // a sleeping mouth
+    box(-6, -3 + breathe * 0.5, 17, 7, blanket); R(-6, -3 + breathe * 0.5, 17, 1, U.light(blanket, 0.28)); R(-6, 1, 17, 1, U.shade(blanket, 0.8));
+    R(-6, -1, 2, 5, trim);                                                                            // the folded-over trim
+    for (let i = 0; i < 4; i++) R(-1 + i * 3, 0, 1, 3, U.shade(blanket, 0.88));                       // blanket folds
+    box(11, 0, 3, 3, U.shade(L.shoe || '#6b4428', 1));                                                // a boot poking out at the foot
     ctx.fillStyle = '#e8eeff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    for (let i = 0; i < 3; i++) {                                                                                             // Z, z, z rising and fading
-      const t = ((now / 1800) + i / 3) % 1;
-      ctx.globalAlpha = Math.sin(t * Math.PI); ctx.font = `bold ${10 + i * 3}px Georgia, serif`;
-      ctx.fillText('z', sx - 6 + t * 16 + i * 2, sy - 16 - t * 24);
+    for (let i = 0; i < 3; i++) {                                                                     // Z, z, z rising and fading, chunky like pixel text
+      const t = ((now / 1800) + i / 3) % 1, z = 7 + i * 3;
+      ctx.globalAlpha = Math.sin(t * Math.PI); ctx.font = `bold ${z + 4}px "Courier New", monospace`;
+      const x = sx - 4 + t * 16 + i * 2, y = sy - 16 - t * 24;
+      ctx.fillStyle = '#24170f'; ctx.fillText('z', x + 1, y + 1); ctx.fillStyle = '#e8eeff'; ctx.fillText('z', x, y);
     }
     ctx.globalAlpha = 1;
   }
