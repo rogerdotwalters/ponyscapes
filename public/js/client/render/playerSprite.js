@@ -15,7 +15,7 @@ const LASSO_LOOKS = {
   lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
 };
 const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
-const SADDLE_HEIGHT = 15;                        // how far above the pony's footprint a rider sits
+const SADDLE_HEIGHT = 15, FACING_LIFT = 14;                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
   constructor(g) { this.g = g; this.walkPhase = {}; this.looks = new LruCache(100); }
@@ -30,7 +30,7 @@ class PlayerSprite {
 
   draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false, opts = {}) {
     const mounted = !!p.mount, riding = !!p.boat || mounted;
-    if (mounted) { sy -= SADDLE_HEIGHT; rowPhase = now / 140; }                       // up in the saddle, arms swinging with the gait
+    if (mounted) { sy -= SADDLE_HEIGHT + (SpriteRegistry.dirOf(p.facing) === 'down' ? FACING_LIFT : 0); rowPhase = now / 140; }   // (facing the camera the pony is drawn over its rider, who sits up behind its head)                       // up in the saddle, arms swinging with the gait
     if (wading) this._drawRipples(sx, sy, now);
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
     if (!riding) this._drawGroundMarkers(p, sx, sy, pose);

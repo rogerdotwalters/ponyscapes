@@ -21,8 +21,10 @@ const StructureDefs = Object.freeze({
   wood_floor:     defineStructure('floor',   { name: 'Wood Floor', refundItemId: 'wood_floor', blocks: false }),
   crafting_table: defineStructure('station', { name: 'Crafting Table', refundItemId: 'crafting_table' }),
   clay_furnace:   defineStructure('station', { name: 'Clay Furnace', refundItemId: 'clay_furnace' }),
-  barn:           defineStructure('station', { name: 'Barn', refundItemId: 'barn' }),                                              // a big barn: shelters ponies like a stable, with a larger reach and a better apple discount
-  stable:         defineStructure('station', { name: 'Stable', refundItemId: 'stable' }),                                          // a roofed stall: a wild pony you lead here will take apples and settle
+  barn:           defineStructure('station', { name: 'Barn', refundItemId: 'barn', size: [5, 4], door: 2 }),                       // a barn the size of the General Store: shelters ponies like a stable, with a larger reach and a better apple discount
+  barn_part:      defineStructure('station', { name: 'Barn', refundItemId: 'barn', partOf: 'barn' }),                              // (the other tiles of its footprint: the anchor is the north-west corner)                                              // a big barn: shelters ponies like a stable, with a larger reach and a better apple discount
+  stable:         defineStructure('station', { name: 'Stable', refundItemId: 'stable', size: [3, 2], door: 1 }),                  // a timber stable with stalls, the size of a small home: a wild pony you lead here will take apples and settle
+  stable_part:    defineStructure('station', { name: 'Stable', refundItemId: 'stable', partOf: 'stable' }),                                          // a roofed stall: a wild pony you lead here will take apples and settle
   campfire:       defineStructure('station', { name: 'Campfire', refundItemId: 'campfire', light: true }),
   stockpile_wood:  defineStructure('station', { name: 'Wood Stockpile', refundItemId: 'stockpile_wood', stockpile: 'wood' }),      // town storage: see stockpiles.js
   stockpile_stone: defineStructure('station', { name: 'Stone Stockpile', refundItemId: 'stockpile_stone', stockpile: 'stone' }),
@@ -50,6 +52,26 @@ function slabBox(tx, ty, slot) {
     case 'e': return [tx + 1 - t, ty, tx + 1, ty + 1];
     default:  return [tx + 0.06, ty + 0.06, tx + 0.94, ty + 0.94];     // stations (and floors, for distance checks)
   }
+}
+
+/** The tiles a station covers when its anchor (north-west corner) is on (tx, ty): [[x, y], ...] (one tile for the small ones). */
+function footprintOf(type, tx, ty) {
+  const size = StructureDefs[type] && StructureDefs[type].size || [1, 1], out = [];
+  for (let y = 0; y < size[1]; y++) for (let x = 0; x < size[0]; x++) out.push([tx + x, ty + y]);
+  return out;
+}
+/** The big station (stable, barn) a tile belongs to: { type, tx, ty, w, h } of its anchor, or null. A tile that holds an anchor answers for itself. */
+function anchorOf(map, tx, ty) {
+  const here = map.built[tileKey(tx, ty)], c = here && here.c, def = c && StructureDefs[c];
+  if (!def) return null;
+  if (def.size) return { type: c, tx, ty, w: def.size[0], h: def.size[1] };
+  if (!def.partOf) return null;
+  const big = StructureDefs[def.partOf], [w, h] = big.size;
+  for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+    const a = map.built[tileKey(tx - dx, ty - dy)];
+    if (a && a.c === def.partOf) return { type: def.partOf, tx: tx - dx, ty: ty - dy, w, h };
+  }
+  return null;
 }
 
 const builtAt = (map, tx, ty, slot) => { const t = map.built[tileKey(tx, ty)]; return (t && t[slot]) || null; };
@@ -132,7 +154,14 @@ const BuildSystem = {
     const key = tileKey(tx, ty), tile = map.built[key] || {};
     const insert = !!(def && def.insert);
     if (slot === 'f') { if (map.floors[key]) return no('Already has a floor'); }
-    else if (slot === 'c') { if (Object.keys(tile).length) return no('Something is in the way'); }
+    else if (slot === 'c') {
+      if (Object.keys(tile).length) return no('Something is in the way');
+      for (const [fx, fy] of footprintOf(structureId, tx, ty).slice(1)) {                           // the rest of a big building's footprint must be free ground too
+        const k2 = tileKey(fx, fy);
+        if (isWaterTile(map.tile(fx, fy)) || map.objAt(fx, fy) !== OBJ.NONE || map.propAt(fx, fy) || (map.built[k2] && Object.keys(map.built[k2]).length) || map.floors[k2]
+            || (typeof Groves !== 'undefined' && Groves.at(map, fx, fy))) return no('A ' + def.name.toLowerCase() + ' needs a clear ' + def.size[0] + ' x ' + def.size[1] + ' space');
+      }
+    }
     else if (insert) {
       const existing = tile[slot];
       if (!existing) return no(def.fence ? 'Gates go into an existing fence' : 'Windows and doors go into an existing wall');
@@ -149,8 +178,10 @@ const BuildSystem = {
     }
     if (builder && Math.hypot(tx + 0.5 - builder.x, ty + 0.5 - builder.y) > BUILD_REACH) return no('Too far away');
     if (slot !== 'f' && !insert) {
-      const [x0, y0, x1, y1] = slabBox(tx, ty, slot);
-      for (const q of positions) if (circleOverlapsBox(q.x, q.y, PLAYER_CLEARANCE, x0, y0, x1, y1)) return no('Someone is standing there');
+      for (const [fx, fy] of slot === 'c' ? footprintOf(structureId, tx, ty) : [[tx, ty]]) {
+        const [x0, y0, x1, y1] = slabBox(fx, fy, slot);
+        for (const q of positions) if (circleOverlapsBox(q.x, q.y, PLAYER_CLEARANCE, x0, y0, x1, y1)) return no('Someone is standing there');
+      }
     }
     return { ok: true };
   },
@@ -163,14 +194,29 @@ const BuildSystem = {
     return walls.length ? walls : [base];
   },
 
+  /** Does the big station whose anchor is on (tx, ty) have all its tiles? (An older, one-tile stable does not.) */
+  complete(map, tx, ty) {
+    const a = anchorOf(map, tx, ty);
+    return !a || footprintOf(a.type, a.tx, a.ty).slice(1).every(([x, y]) => { const t = map.built[tileKey(x, y)]; return t && t.c === a.type + '_part'; });
+  },
+
   place(map, tx, ty, type, slot) {
-    if (slot === 'f') map.floors[tileKey(tx, ty)] = type; else setBuiltSide(map, tx, ty, slot, type);
+    if (slot === 'f') map.floors[tileKey(tx, ty)] = type;
+    else if (slot === 'c' && StructureDefs[type].size) {                                            // a big station: the anchor here, its other tiles as parts
+      const [first, ...rest] = footprintOf(type, tx, ty);
+      setBuiltSide(map, first[0], first[1], 'c', type);
+      for (const [x, y] of rest) setBuiltSide(map, x, y, 'c', type + '_part');
+    } else setBuiltSide(map, tx, ty, slot, type);
   },
 
   /** Removes one piece; returns its type (or null when there was none). */
   remove(map, tx, ty, slot) {
     if (slot === 'f') { const key = tileKey(tx, ty), type = map.floors[key] || null; delete map.floors[key]; return type; }
     const type = builtAt(map, tx, ty, slot);
+    if (type && slot === 'c' && (StructureDefs[type].size || StructureDefs[type].partOf)) {            // taking down any tile of a big station takes it all down
+      const a = anchorOf(map, tx, ty);
+      if (a) { for (const [x, y] of footprintOf(a.type, a.tx, a.ty)) setBuiltSide(map, x, y, 'c', null); return a.type; }
+    }
     if (type) setBuiltSide(map, tx, ty, slot, null);
     return type;
   },

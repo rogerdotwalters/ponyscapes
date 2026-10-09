@@ -248,90 +248,34 @@ const StructureSprites = (() => {
     drawWorldBox(g, [tx + 0.62, ty + 0.2, tx + 0.8, ty + 0.38], 56, '#a85f33', '#8f4f2b', '#74401f');            // chimney
   }
 
-  /* ---- the stable and the barn: real gabled buildings in chunky outlined retro pixels (dark ink edges, plank walls, shingled roofs) ---- */
-  const INK = '#2a170c';
-  /** A closed, outlined polygon from world points [x, y, height]. */
-  function inked(g, pts, fill, lineW = 1.5) {
-    const flat = []; for (const [x, y, h] of pts) { const [sx, sy] = project(x, y); flat.push(sx, sy - h); }
-    g.polygon(flat, fill);
-    const ctx = g.ctx; ctx.strokeStyle = INK; ctx.lineWidth = lineW; ctx.lineJoin = 'round'; ctx.beginPath();
-    for (let i = 0; i < flat.length; i += 2) i ? ctx.lineTo(flat[i], flat[i + 1]) : ctx.moveTo(flat[i], flat[i + 1]);
-    ctx.closePath(); ctx.stroke();
-  }
-  function seg(g, a, b, color, w = 1) {                                                          // a line between two world points [x, y, h]
-    const [ax, ay] = project(a[0], a[1]), [bx, by] = project(b[0], b[1]), ctx = g.ctx;
-    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(ax, ay - a[2]); ctx.lineTo(bx, by - b[2]); ctx.stroke();
-  }
-  /** One gabled outbuilding standing on a tile. cfg: wallH, rise, wall { s, e, plank }, roof { a, b }, trim, base. Returns the geometry for the doors. */
-  function drawGabled(g, tx, ty, cfg) {
-    const x0 = tx + 0.04, x1 = tx + 0.96, y0 = ty + 0.04, y1 = ty + 0.96, yM = (y0 + y1) / 2, H = cfg.wallH, R = cfg.rise, ctx = g.ctx;
-    const [gx, gy] = project(tx + 0.5, ty + 0.5);
-    g.ellipse(gx + 4, gy + 6, 44, 20, 'rgba(20,12,4,.28)');                                     // the shadow on the ground
-    inked(g, [[x1, y1, 0], [x1, y0, 0], [x1, y0, H], [x1, yM, H + R], [x1, y1, H]], cfg.wall.e);   // the east wall with its gable
-    inked(g, [[x0, y1, 0], [x1, y1, 0], [x1, y1, H], [x0, y1, H]], cfg.wall.s);                   // the south wall (the front)
-    const at = (u, h, side = 's') => side === 's' ? [x0 + u * (x1 - x0), y1, h] : [x1, y1 - u * (y1 - y0), h];
-    for (let i = 1; i < 10; i++) { seg(g, at(i / 10, 5), at(i / 10, H), cfg.wall.plank, 1); if (i < 10) seg(g, at(i / 10, 5, 'e'), at(i / 10, i / 10 > 0.5 ? H + (1 - i / 10) * 2 * R : H + i / 10 * 2 * R, 'e'), cfg.wall.plank, 1); }
-    inked(g, [[x0, y1, 0], [x1, y1, 0], [x1, y1, 5], [x0, y1, 5]], cfg.base);                       // a fieldstone footing
-    inked(g, [[x1, y1, 0], [x1, y0, 0], [x1, y0, 5], [x1, y1, 5]], shadeHex(cfg.base, 0.8));
-    for (let i = 1; i < 6; i++) { seg(g, at(i / 6, 0), at(i / 6, 5), INK, 1); seg(g, at(i / 6, 0, 'e'), at(i / 6, 5, 'e'), INK, 1); }
-    seg(g, [x1, y1, 0], [x1, y1, H], cfg.trim, 3);                                                // corner post
-    seg(g, [x0, y1, 0], [x0, y1, H], cfg.trim, 3);
-    return { x0, x1, y0, y1, yM, H, R, at, cfg, roof() {
-      const ox = 0.05, oy = 0.07;                                                                // the south roof slope with its overhang, shingled
-      inked(g, [[x0 - ox, y1 + oy, H - 2], [x1 + ox, y1 + oy, H - 2], [x1 + ox, yM, H + R + 1], [x0 - ox, yM, H + R + 1]], cfg.roof.a, 2);
-      for (let k = 1; k < 6; k++) {
-        const t = k / 6, y = y1 + oy + (yM - y1 - oy) * t, h = H - 2 + (R + 3) * t;
-        seg(g, [x0 - ox, y, h], [x1 + ox, y, h], cfg.roof.b, 1.5);
-        for (let i = 0; i < 9; i++) { const x = x0 - ox + ((i + (k % 2 ? 0.5 : 0)) / 9) * (x1 - x0 + 2 * ox); seg(g, [x, y, h], [x, y + (yM - y1 - oy) / 6, h + (R + 3) / 6], cfg.roof.b, 1); }
-      }
-      seg(g, [x0 - ox, y1 + oy, H - 2], [x1 + ox, y1 + oy, H - 2], cfg.trim, 2.5);                  // fascia board
-      seg(g, [x1 + ox, y1 + oy, H - 2], [x1 + ox, yM, H + R + 1], cfg.trim, 3);                    // the gable rake boards
-      seg(g, [x1 + ox, yM, H + R + 1], [x1 + ox, y0 - oy, H - 2], cfg.trim, 3);
-      seg(g, [x0 - ox, yM, H + R + 1], [x1 + ox, yM, H + R + 1], INK, 2.5);                         // the ridge
-    } };
-  }
-  const faceQuadAt = (B, u0, u1, h0, h1) => [B.at(u0, h0), B.at(u1, h0), B.at(u1, h1), B.at(u0, h1)];
-
-  /** A stable: warm timber, two stalls with dutch doors and hay, terracotta shingles, a lantern and a water trough in front. */
-  function drawStable(g, tx, ty) {
-    const B = drawGabled(g, tx, ty, { wallH: 34, rise: 18, wall: { s: '#b88a52', e: '#94683a', plank: 'rgba(60,32,12,.5)' }, roof: { a: '#b8553a', b: '#8f3c27' }, trim: '#5a3a1e', base: '#9a9a9e' });
-    for (const [u0, u1] of [[0.1, 0.44], [0.56, 0.9]]) {
-      inked(g, faceQuadAt(B, u0, u1, 5, 28), '#1f130a');                                          // the open stall
-      inked(g, faceQuadAt(B, u0, u1, 5, 15), '#a97a45');                                          // the shut lower half of the dutch door
-      seg(g, B.at(u0, 5), B.at(u1, 15), 'rgba(40,20,8,.6)', 1.5); seg(g, B.at(u0, 15), B.at(u1, 5), 'rgba(40,20,8,.6)', 1.5);
-      seg(g, B.at(u0, 28), B.at(u1, 28), B.cfg.trim, 2.5);
+  /* ---- the stable and the barn: big buildings the size of the village's houses, ray-cast by the same pixel-art painter (pixelBuildings.js).
+   *  Their tiles are drawn as slices, one per front tile, exactly like a house. ---- */
+  const FARM_LOOKS = {
+    stable: { wall: '#d9c18c', roof: '#8a3f2f', trim: '#4a3322', stone: '#8d8a83', glass: '#aab7e4', infill: 'planks', chimney: false, dormer: false, props: ['hay', 'barrels', 'lantern'] },
+    barn:   { wall: '#b4382c', roof: '#5d4c47', trim: '#efe3cc', stone: '#8d8a83', glass: '#aab7e4', infill: 'planks', chimney: false, dormer: true, props: ['hay', 'crates', 'hay', 'lantern'] }
+  };
+  const farmSites = new Map();                                                                     // 'type@tx,ty' -> the house-like description PixelBuildings paints from
+  function farmSite(a) {
+    const id = `${a.type}@${a.tx},${a.ty}`;
+    let site = farmSites.get(id);
+    if (!site) {
+      const def = StructureDefs[a.type], door = def.door || 1;
+      site = { index: 'farm:' + id, id, x0: a.tx, y0: a.ty, x1: a.tx + a.w - 1, y1: a.ty + a.h - 1, w: a.w, h: a.h, facing: 's', doorX: a.tx + door, doorY: a.ty + a.h - 1, def: { name: def.name, exterior: FARM_LOOKS[a.type] } };
+      farmSites.set(id, site);
     }
-    inked(g, [[B.x1, B.y1 - 0.3, 14], [B.x1, B.y1 - 0.62, 14], [B.x1, B.y1 - 0.62, 26], [B.x1, B.y1 - 0.3, 26]], '#7fb4d6');   // a window in the east wall
-    seg(g, [B.x1, B.y1 - 0.46, 14], [B.x1, B.y1 - 0.46, 26], INK, 1.5); seg(g, [B.x1, B.y1 - 0.3, 20], [B.x1, B.y1 - 0.62, 20], INK, 1.5);
-    B.roof();
-    const ctx = g.ctx, [lx, ly] = project(B.x0 + 0.08 * 0.9, B.y1 + 0.02);                           // a hanging lantern by the left door
-    ctx.strokeStyle = INK; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx + 3, ly - 33); ctx.lineTo(lx + 3, ly - 27); ctx.stroke();
-    g.polygon([lx, ly - 27, lx + 6, ly - 27, lx + 6, ly - 20, lx, ly - 20], '#ffcf5a');
-    const [tx2, ty2] = project(B.x0 + 0.7 * (B.x1 - B.x0), B.y1 + 0.2);                              // a water trough in front
-    inked(g, [[B.x0 + 0.5, B.y1 + 0.14, 0], [B.x0 + 0.9, B.y1 + 0.14, 0], [B.x0 + 0.9, B.y1 + 0.14, 7], [B.x0 + 0.5, B.y1 + 0.14, 7]], '#7a5230');
-    inked(g, [[B.x0 + 0.5, B.y1 + 0.14, 7], [B.x0 + 0.9, B.y1 + 0.14, 7], [B.x0 + 0.9, B.y1 + 0.24, 7], [B.x0 + 0.5, B.y1 + 0.24, 7]], '#4d86b0');
-    const [hx, hy] = project(B.x0 + 0.18, B.y1 + 0.2);                                               // a hay bale
-    inked(g, [[B.x0 + 0.1, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 8], [B.x0 + 0.1, B.y1 + 0.12, 8]], '#d9b64a');
-    inked(g, [[B.x0 + 0.1, B.y1 + 0.12, 8], [B.x0 + 0.3, B.y1 + 0.12, 8], [B.x0 + 0.3, B.y1 + 0.24, 8], [B.x0 + 0.1, B.y1 + 0.24, 8]], '#ecd27a');
-    seg(g, [B.x0 + 0.2, B.y1 + 0.12, 0], [B.x0 + 0.2, B.y1 + 0.12, 8], '#a8842a', 1);
+    return site;
   }
-
-  /** A barn: tall red walls with white trim, big double doors with white crosses, a hayloft hatch with hay and a beam, a dark shingled roof. */
-  function drawBarn(g, tx, ty) {
-    const B = drawGabled(g, tx, ty, { wallH: 46, rise: 24, wall: { s: '#b4382c', e: '#8c2b22', plank: 'rgba(60,10,6,.45)' }, roof: { a: '#6d5d58', b: '#4c3f3b' }, trim: '#f1e8d6', base: '#8d8d93' });
-    inked(g, faceQuadAt(B, 0.2, 0.8, 5, 32), '#f1e8d6');                                             // the big doors, framed in white
-    inked(g, faceQuadAt(B, 0.24, 0.5, 7, 30), '#8c2b22'); inked(g, faceQuadAt(B, 0.5, 0.76, 7, 30), '#8c2b22');
-    for (const [u0, u1] of [[0.24, 0.5], [0.5, 0.76]]) { seg(g, B.at(u0, 7), B.at(u1, 30), '#f1e8d6', 2); seg(g, B.at(u0, 30), B.at(u1, 7), '#f1e8d6', 2); }
-    inked(g, faceQuadAt(B, 0.38, 0.62, 35, 44), '#f1e8d6');                                          // the hayloft hatch
-    inked(g, faceQuadAt(B, 0.41, 0.59, 36.5, 43), '#2a170c');
-    const hy = B.at(0.5, 38); const [hx0, hy0] = project(hy[0], hy[1]);
-    g.ellipse(hx0, hy0 - 38 + 3, 7, 3, '#e8cc6a'); g.ellipse(hx0 - 2, hy0 - 38 + 1, 4, 2, '#d9b64a');   // hay spilling out
-    inked(g, [[B.x1, B.y1 - 0.3, 16], [B.x1, B.y1 - 0.7, 16], [B.x1, B.y1 - 0.7, 34], [B.x1, B.y1 - 0.3, 34]], '#8c2b22');   // a loft door on the east wall, crossed
-    seg(g, [B.x1, B.y1 - 0.3, 16], [B.x1, B.y1 - 0.7, 34], '#f1e8d6', 1.5); seg(g, [B.x1, B.y1 - 0.3, 34], [B.x1, B.y1 - 0.7, 16], '#f1e8d6', 1.5);
-    B.roof();
-    seg(g, [B.x0 + 0.5 * (B.x1 - B.x0), B.y1 + 0.07, B.H - 2], [B.x0 + 0.5 * (B.x1 - B.x0), B.y1 + 0.2, B.H - 5], INK, 2);   // the hoist beam
-    inked(g, [[B.x0 + 0.05, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 0], [B.x0 + 0.3, B.y1 + 0.12, 9], [B.x0 + 0.05, B.y1 + 0.12, 9]], '#d9b64a');   // a hay bale
-    inked(g, [[B.x0 + 0.05, B.y1 + 0.12, 9], [B.x0 + 0.3, B.y1 + 0.12, 9], [B.x0 + 0.3, B.y1 + 0.25, 9], [B.x0 + 0.05, B.y1 + 0.25, 9]], '#ecd27a');
+  /** One tile of a stable or barn: its slice of the building (the building is painted once). Returns nothing for a tile that is not on its front. */
+  function drawFarmTile(g, info, type, tx, ty) {
+    const a = info && info.anchor; if (!a) return;
+    const site = farmSite(a);
+    if (a.tx === tx && a.ty === ty && !info.complete) { for (const [x, y] of footprintOf(a.type, a.tx, a.ty)) PixelBuildings.drawTile(g.ctx, site, x, y); return; }   // (an old, one-tile stable: draw all of it from the anchor)
+    PixelBuildings.drawTile(g.ctx, site, tx, ty);
+    if (tx === site.doorX && ty === site.y1) {                                                      // the picture on the hanging sign by the door
+      const sg = PixelBuildings.signAt(site), ctx = g.ctx;
+      ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#2a1c10';
+      ctx.fillText(a.type === 'barn' ? '\u{1F33E}' : '\u{1F40E}', sg.x + 5 * PixelBuildings.ART, sg.y + 8 * PixelBuildings.ART);
+    }
   }
 
   /** A ring of stones, crossed logs and a flickering flame. */
@@ -364,8 +308,7 @@ const StructureSprites = (() => {
     if (StructureDefs[type] && StructureDefs[type].stockpile) drawStockpile(g, type, tx, ty, info ? info.fill : 0, info ? info.level : 1);
     else if (type === 'crafting_table') drawCraftingTable(g, tx, ty);
     else if (type === 'campfire') drawCampfire(g, tx, ty);
-    else if (type === 'stable') drawStable(g, tx, ty);
-    else if (type === 'barn') drawBarn(g, tx, ty);
+    else if (StructureDefs[type].size || StructureDefs[type].partOf) drawFarmTile(g, info, type, tx, ty);
     else drawClayFurnace(g, tx, ty);
   }
 
@@ -391,6 +334,16 @@ const StructureSprites = (() => {
     ctx.strokeStyle = `rgba(${rgb},.95)`; ctx.lineWidth = 2; ctx.stroke();
     ctx.globalAlpha = target.valid ? 0.65 : 0.35;
     if (target.layer === 'floor') drawFloor(ctx, cx, cy);
+    else if (target.layer === 'station' && StructureDefs[target.structure].size) {                   // a big building: its whole footprint and the building itself
+      const a = { type: target.structure, tx: target.tx, ty: target.ty, w: StructureDefs[target.structure].size[0], h: StructureDefs[target.structure].size[1] };
+      ctx.globalAlpha = 1;
+      for (const [fx, fy] of footprintOf(a.type, a.tx, a.ty)) {
+        const [px, py] = project(fx, fy); ctx.beginPath(); ctx.moveTo(px, py + 0); ctx.lineTo(px + TILE_HALF_W, py + TILE_HALF_H); ctx.lineTo(px, py + 2 * TILE_HALF_H); ctx.lineTo(px - TILE_HALF_W, py + TILE_HALF_H); ctx.closePath();
+        ctx.fillStyle = `rgba(${rgb},.22)`; ctx.fill(); ctx.strokeStyle = `rgba(${rgb},.7)`; ctx.lineWidth = 1; ctx.stroke();
+      }
+      ctx.globalAlpha = target.valid ? 0.7 : 0.4;
+      for (const [fx, fy] of footprintOf(a.type, a.tx, a.ty)) PixelBuildings.drawTile(ctx, farmSite(a), fx, fy);
+    }
     else if (target.layer === 'station') drawStation(g, target.structure, target.tx, target.ty);
     else {
       const [x0, y0, x1, y1] = slabBox(target.tx, target.ty, target.slot), alongX = target.slot === 'n' || target.slot === 's';
