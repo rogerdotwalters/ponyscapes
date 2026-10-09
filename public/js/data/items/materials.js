@@ -10,6 +10,15 @@ Materials.registerAll([
   { id: 'bone', name: 'Bone', maxStack: 20 },                                                                                                   // dogs love them (hunted animals drop them)
   { id: 'antler', name: 'Antler', maxStack: 10, rarity: 'uncommon', spawns: [{ biome: 'forest', rate: 1.5 }, { biome: 'jungle', rate: 1 }] },   // shed antlers lie about in the woods
   { id: 'gold_coin', name: 'Gold Coin', maxStack: 999, rarity: 'rare', spawns: [{ biome: 'beach', rate: 0.6 }] },                              // the odd coin washed up long ago
+  { id: 'copper_coin', name: 'Copper Coin', maxStack: 999 },                                                                                      // the coin system (shared/coins.js): these live in the purse, and lie on the ground as piles
+  { id: 'silver_coin', name: 'Silver Coin', maxStack: 999, rarity: 'uncommon' },
+  { id: 'platinum_coin', name: 'Platinum Coin', maxStack: 999, rarity: 'rare' },
+  { id: 'titanium_coin', name: 'Titanium Coin', maxStack: 999, rarity: 'rare' },
+  { id: 'ruby_coin', name: 'Ruby Coin', maxStack: 999, rarity: 'epic' },
+  { id: 'sapphire_coin', name: 'Sapphire Coin', maxStack: 999, rarity: 'epic' },
+  { id: 'emerald_coin', name: 'Emerald Coin', maxStack: 999, rarity: 'epic' },
+  { id: 'amethyst_coin', name: 'Amethyst Coin', maxStack: 999, rarity: 'legendary' },
+  { id: 'diamond_coin', name: 'Diamond Coin', maxStack: 999, rarity: 'legendary' },
   { id: 'coffee_beans', name: 'Coffee Beans', maxStack: 40, color: '#6b3e22', spawns: [{ biome: 'jungle', rate: 3 }] },                         // jungle pickings
   { id: 'bamboo', name: 'Bamboo', maxStack: 20, color: '#9cc25a', spawns: [{ biome: 'jungle', rate: 5 }] },
   { id: 'hay', name: 'Hay', maxStack: 50, color: '#d9b45a' },                                                                                // cut grass, dried (grass.js)

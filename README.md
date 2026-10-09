@@ -118,9 +118,11 @@ tools/bundle.py       packs the game into one self-contained HTML file
 * **Tools.** `python3 tools/make_retro_tools.py public/assets/items` paints every tool's icon and in-hand picture as outlined pixel art (registered in `js/content/customContent.js`).
 * `node tools/render-compare.js --scene stable|sleeping|inventory|ride_left ...` shoots these scenes.
 
-## Coin bag
+## Coins and the coin bag
 
-The **Coins** button (top right) opens a cutaway sack holding all your coins (`client/ui/coinBagUI.js`): a small physics world (gravity, coins stacking and sliding on each other and the walls) drawn in chunky pixels. Press a coin and drag it: inside the bag it shoves the others about; let go over the game world to **drop** it there (`dropCoins` with a world spot, within `CONFIG.sim.drops.throwRange` tiles of you; whoever steps close picks the pile up, so that is how coins change hands). Up to about 110 coins are shown one by one; a bigger purse is shown as bigger coins (worth 5, 25, 100, 500 ...) and dragging one out drops that many. A tap flicks a coin and makes its neighbours jump.
+**The coin system** (`shared/coins.js`): ten kinds of coin. **Copper, silver, gold, platinum and titanium** are each worth ten of the one below; the **gem coins** (ruby, sapphire, emerald, amethyst, diamond) are each worth five of the one below (so a ruby is 5 titanium). Gold is still the unit every price in the game uses, and is worth 100 copper. The purse holds real coins (`Inventory.coins`: a count of each kind, copper first; `Inventory.purse` is their total in copper). Gaining coins merges any kind that reaches its ratio up into the next (10 silver become a gold); paying works out change; older saves count their coins as gold (77 gold open as 7 platinum and 7 gold).
+
+**The coin bag**: the **Coins** button (top right) floats a cutaway sack over the world, with no window (tap outside it to close). It holds all your coins as big shaded 3D coins on a small physics world (`client/ui/coinBagUI.js`). Press a coin and drag it: inside the bag it shoves the others about; let go over the game world to **drop** it there (`dropCoins` with the coin's kind and a world spot, within `CONFIG.sim.drops.throwRange` tiles of you; whoever steps close picks the pile up, which is how coins change hands). **Double-tap** a coin to break it into the kind below; **Merge coins** turns every full set back into the next kind. A tap flicks a coin. At most about 64 coins are drawn at once.
 
 ## Controls
 

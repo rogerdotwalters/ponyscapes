@@ -278,7 +278,8 @@ class GameServer {
       case 'questAccept': if (typeof cmd.quest === 'string') this.quests.accept(id, cmd.quest); break;       // at a villager's dialogue window (questSystem.js)
       case 'questDeliver': if (typeof cmd.quest === 'string') this.quests.deliver(id, cmd.quest); break;
       case 'puzzleSolve': if (typeof cmd.node === 'string') this.quests.solve(id, cmd.node, cmd.moves); break;   // the client played a puzzle: replay its moves
-      case 'dropCoins': this._dropCoins(id, cmd.count, cmd.x, cmd.y); break;                                              // coins out of the purse onto the ground (serverOwned.js)
+      case 'dropCoins': this._dropCoins(id, cmd.item, cmd.count, cmd.x, cmd.y); break;                                              // coins out of the purse onto the ground (serverOwned.js)
+      case 'coinChange': this._coinChange(id, cmd.mode, cmd.item); break;                                      // break a coin into smaller ones / merge them all up (the coin bag)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
       case 'equip': this._handleEquip(id, inventory, cmd.from); break;
       case 'packMove': this._packMove(id, inventory, cmd); break;                                           // between your bag and your pony's pack (packSystem.js)
@@ -1004,10 +1005,10 @@ class GameServer {
   }
   /** Private: the coins in the player's purse, only when the number changed since last sent (else null). */
   coinsUpdateFor(id) {
-    const coins = this.inventories[id].purse || 0;
-    if (this.coinsSent[id] === coins) return null;
-    this.coinsSent[id] = coins;
-    return coins;
+    const coins = this.inventories[id].coins || Coins.empty(), key = coins.join();                  // (an array of counts, copper first: coins.js)
+    if (this.coinsSent[id] === key) return null;
+    this.coinsSent[id] = key;
+    return coins.slice();
   }
   /** Which rings are open and which guardians are down, only when that changed since last sent (else null). */
   ringsUpdateFor(id) {

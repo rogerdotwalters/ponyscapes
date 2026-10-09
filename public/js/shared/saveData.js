@@ -195,7 +195,7 @@ const SaveData = {
     return {
       v: SaveData.VERSION, savedAt: Date.now(),
       x: spot.x, y: spot.y, hp: p.hp, hunger: p.hunger, thirst: p.thirst, sel: p.sel,
-      inventory: inventory.toJSON(), coins: inventory.purse || 0, gear: Object.assign({}, p.gear),
+      inventory: inventory.toJSON(), coins: (inventory.coins || Coins.empty()).slice(), gear: Object.assign({}, p.gear),
       xp: { s: Object.assign({}, xp.s), a: Object.assign({}, xp.a) },
       maps: (server.treasureMaps[id] || []).map(m => Object.assign({ key: m.key, tx: m.tx, ty: m.ty }, m.kind === 'dungeon' ? { kind: 'dungeon', ring: m.ring } : {})),
       looted: !!p.looted, appearance: p.appearance ? p.appearance.slice() : null,
@@ -209,7 +209,7 @@ const SaveData = {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION) return null;
     const N = SaveData._num, I = SaveData._int, S = CONFIG.sim;
     const out = { v: data.v, x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0),
-      appearance: CharacterLook.sanitize(data.appearance), inventory: [], coins: I(data.coins, 0, 999999, 0), gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [], leashed: {} }, pets: [] };
+      appearance: CharacterLook.sanitize(data.appearance), inventory: [], coins: Array.isArray(data.coins) ? Coins.sanitize(data.coins) : I(data.coins, 0, 999999, 0), gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [], leashed: {} }, pets: [] };
     const source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
     const refund = (id, count) => { const old = LEGACY_ITEMS[id]; if (old) refunds.push({ id: old[0], count: old[1] * count }); else if (ItemDefs[id]) refunds.push({ id, count }); };
     const savedGear = SaveData._plain(data.gear) ? data.gear : {};

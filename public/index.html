@@ -111,11 +111,11 @@
 </div>
 
 <div id="coinPanel" hidden>
-  <header><span>Coin Bag</span><button id="coinClose" tabindex="-1">&#x2715;</button></header>
-  <div id="coinBody"><canvas id="coinCanvas" width="140" height="170"></canvas>
-    <div id="coinTotal"><span id="coinCount">0</span> coins</div>
-    <div id="coinHint">Press a coin and drag it out of the bag onto the world to drop it: anyone who steps close can pick it up, so it is how you hand coins over. A big coin is worth more.</div>
-  </div>
+  <canvas id="coinCanvas" width="560" height="680"></canvas>
+  <div id="coinTotal"><span id="coinCount">0</span></div>
+  <div id="coinBreakdown"></div>
+  <div id="coinButtons"><button id="coinMerge" tabindex="-1" title="Merge coins up: 10 copper make a silver, 10 silver a gold, and so on (gem coins: 5 of the one below)">Merge coins</button></div>
+  <div id="coinHint">Drag a coin out of the bag onto the world to drop it (anyone who steps close picks it up). Double-tap a coin to break it into smaller ones. Tap outside to close.</div>
 </div>
 <div id="craftPanel" hidden>
   <header><span>Crafting</span><button id="craftClose" tabindex="-1">&#x2715;</button></header>
@@ -334,6 +334,7 @@
 <script src="js/shared/npcSystem.js" defer></script>
 <script src="js/shared/friendshipSystem.js" defer></script>
 <script src="js/shared/ponyAbilities.js" defer></script>
+<script src="js/shared/coins.js" defer></script>
 <script src="js/shared/inventory.js" defer></script>
 <script src="js/shared/layers/buildingSites.js" defer></script>
 <script src="js/shared/layers/interiorSpace.js" defer></script>
