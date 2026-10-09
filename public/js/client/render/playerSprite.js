@@ -5,6 +5,7 @@
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
+const TOOL_SIZE = { axe: 34, hammer: 34, knife: 22, shovel: 50, spear: 64, rod: 56, hoe: 48, sickle: 32, hedge: 38, sword: 40, item: 26 };   // how tall each tool's picture is drawn (world px; the character is about 52 tall)
 const TOOL_LENGTH = { sickle: 12, axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10, hedge: 14, hoe: 22, water: 6 };
 /** Each lasso's look: rope, braid highlight, outline, the ring (honda) the loop runs through, its ribbon tails (none: a plain rope end)
  *  and whether it is old and frayed (the starter). A lasso made in the editor uses its item colour. Shared with the item icons and the throw effect. */
@@ -15,7 +16,7 @@ const LASSO_LOOKS = {
   lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
 };
 const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
-const SADDLE_HEIGHT = 15, FACING_LIFT = 14;                        // how far above the pony's footprint a rider sits
+const SADDLE_HEIGHT = 15, SEAT_LIFT = { down: 9, up: 2, left: 0, right: 0 };                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
   constructor(g) { this.g = g; this.walkPhase = {}; this.looks = new LruCache(100); }
@@ -30,12 +31,13 @@ class PlayerSprite {
 
   draw(p, id, sx, sy, isMe, now, rowPhase = 0, wading = false, opts = {}) {
     const mounted = !!p.mount, riding = !!p.boat || mounted;
-    if (mounted) { sy -= SADDLE_HEIGHT + (SpriteRegistry.dirOf(p.facing) === 'down' ? FACING_LIFT : 0); rowPhase = now / 140; }   // (facing the camera the pony is drawn over its rider, who sits up behind its head)                       // up in the saddle, arms swinging with the gait
+    if (mounted) { sy -= SADDLE_HEIGHT + (SEAT_LIFT[SpriteRegistry.dirOf(p.facing)] || 0); rowPhase = now / 140; }   // (the seat is tuned per view: facing the camera the pony is drawn over its rider, who sits up behind its head)                       // up in the saddle, arms swinging with the gait
     if (wading) this._drawRipples(sx, sy, now);
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
+    if (!p.boat && this._holding(p)) pose.hideArm = pose.ux >= 0 ? 1 : -1;                  // the hand holding a tool is the game's coded arm (toolPose.js): the baked one is left out
     if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
     this._drawBody(p, sx, sy, pose, riding, now, opts);
-    if (!p.boat) this._drawHeldItem(p, sx, pose);                                  // the rider swings the lasso / spear from the saddle too
+    if (!p.boat) this._drawHeldItem(p, sx, pose, now);                                  // the rider swings the lasso / spear from the saddle too
     if (wading) { this.g.ellipse(sx, sy - 2, 12, 5.5, 'rgba(110,185,215,.55)'); }     // the water line over the lower legs
     this._drawNameTag(p, isMe, sx, pose);
     this._drawEmote(p, sx, pose);
@@ -76,10 +78,10 @@ class PlayerSprite {
     const legs = !!p.mount;                                                                                         // astride a pony: seated legs, one behind the other
     if (legs) PixelCharacter.riderLegs(ctx, L, W8, pose.dir, sx, hip, 'far', { moving: p.state !== 'idle', now });
     const at = PixelCharacter.draw(ctx, L, W8, pose.dir, sx, sy, {
-      moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0,
+      moving, phase: pose.phase, now, seed: (p.slot | 0) * 0.37, hurt: p.hurtT > 0, hideArm: pose.hideArm | 0,
       crouch: riding ? pose.crouch : pose.crouch * 0.5, cut: riding ? 11 : pose.crouch ? 2 : 0 });
     if (legs) PixelCharacter.riderLegs(ctx, L, W8, pose.dir, sx, hip, 'near', { moving: p.state !== 'idle', now });
-    pose.headY = at.headY; pose.torsoTop = at.torsoTop;
+    pose.headY = at.headY; pose.torsoTop = at.torsoTop; pose.figTop = at.top; pose.pixelBody = true;
   }
 
   /** Worn items that have images: full-body overlays for the facing direction. */
@@ -305,52 +307,60 @@ class PlayerSprite {
     this._drawBody(p, sx, sy, pose, false, now, opts);
   }
 
-  /* ---- held item (axe) ---- */
-  _drawHeldItem(p, sx, pose) {
-    if (this._drawHeldImage(p, sx, pose)) return;
-    if (p.held === 'torch') { this._drawTorch(sx, pose); return; }
+  /* ---- held item: the coded arm (toolPose.js) swings the tool through its key poses ---- */
+  /** What the character is holding that takes the arm: { kind (a ToolPose key), tool, id } or null. */
+  _holding(p) {
+    if (!p.held) return null;
+    if (p.held === 'torch') return { kind: 'torch', tool: null, id: p.held };
     const tool = ItemDB.getTool(p.held);
-    if (!tool) return;
-    const ctx = this.g.ctx, { ux, uy, torsoTop } = pose;
-    const side = ux >= 0 ? 1 : -1, faceAngle = Math.atan2(uy, ux);
-    const angle = faceAngle + this._axeOffset(p, tool) * side;
-    const handX = sx + ux * 7, handY = torsoTop + 12 + uy * 3;
-    const dirX = Math.cos(angle), dirY = Math.sin(angle), perpX = -dirY * side, perpY = dirX * side;
-    const length = TOOL_LENGTH[tool.kind] || 17, tipX = handX + dirX * length, tipY = handY + dirY * length;
-
-    ctx.lineCap = 'round';
-    if (tool.kind === 'bow') this._drawBow(handX, handY, dirX, dirY, perpX, perpY);
-    else if (tool.kind === 'leash') { if (!(p.swingT > 0)) this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, false, lassoLook(p.held)); }   // while it is thrown the lasso has left the hand (the flying loop is drawn by the effects)
-    else if (tool.kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
-    else if (tool.kind === 'shears') this._drawShears(handX, handY, dirX, dirY, perpX, perpY, p.swingT > 0 ? Math.abs(Math.sin(p.swingT * 18)) : 0);
-    else if (tool.kind === 'water') this._drawWateringCan(handX, handY, side, p.swingT > 0);
-    else {
-      ctx.strokeStyle = tool.kind === 'rod' ? '#a07a45' : '#7a5230'; ctx.lineWidth = tool.kind === 'rod' ? 1.8 : 2.5;
-      ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(tipX, tipY); ctx.stroke();
-      if (tool.kind === 'hammer') this._drawHammerHead(tipX, tipY, dirX, dirY, perpX, perpY);
-      else if (tool.kind === 'knife') this.g.polygon([handX + dirX * 4, handY + dirY * 4, tipX + dirX * 8, tipY + dirY * 8, handX + dirX * 4 + perpX * 4, handY + dirY * 4 + perpY * 4], '#d3d8df');
-      else if (tool.kind === 'spear') this.g.polygon([tipX - dirX * 2 + perpX * 3, tipY - dirY * 2 + perpY * 3, tipX + dirX * 9, tipY + dirY * 9, tipX - dirX * 2 - perpX * 3, tipY - dirY * 2 - perpY * 3], '#c9ced6');
-      else if (tool.kind === 'shovel') this._drawShovelHead(tipX, tipY, dirX, dirY, perpX, perpY);
-      else if (tool.kind === 'sickle') { ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tipX + perpX * 5, tipY + perpY * 5, 6, Math.atan2(-perpY, -perpX) - 1.6, Math.atan2(-perpY, -perpX) + 1.6); ctx.stroke(); }   // the crescent blade
-      else if (tool.kind === 'hedge') { for (const s of [-1, 1]) this.g.polygon([tipX - dirX * 1 + perpX * s * 1, tipY - dirY * 1 + perpY * s * 1, tipX + dirX * 9 + perpX * s * 1, tipY + dirY * 9 + perpY * s * 1, tipX + dirX * 9 + perpX * s * 4, tipY + dirY * 9 + perpY * s * 4], '#c9ced6'); }   // two long blades
-      else if (tool.kind === 'hoe') this.g.polygon([tipX - dirX * 1, tipY - dirY * 1, tipX + dirX * 2, tipY + dirY * 2, tipX + dirX * 2 + perpX * 7, tipY + dirY * 2 + perpY * 7, tipX - dirX * 2 + perpX * 6, tipY - dirY * 2 + perpY * 6], '#9aa2ad');
-      else if (tool.kind === 'sword') this._drawSwordBlade(handX, handY, tipX, tipY, dirX, dirY, perpX, perpY, p.held);
-      else if (tool.kind === 'rod') { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + dirX * 6, tipY + dirY * 6 + 12); ctx.stroke(); }
-      else this._drawAxeHead(tipX, tipY, dirX, dirY, perpX, perpY);
-    }
-    ctx.lineCap = 'butt';
+    if (tool) return { kind: ToolPose.KEYS[tool.kind] ? tool.kind : 'axe', tool, id: p.held };
+    return SpriteRegistry.itemImage(p.held, 'held') ? { kind: 'item', tool: null, id: p.held } : null;
   }
 
-  /** An item with a `held` image: grip at the image's bottom centre, turned to point where the tool points (and swinging with it). */
-  _drawHeldImage(p, sx, pose) {
-    const img = p.held && SpriteRegistry.itemImage(p.held, 'held');
-    if (!img) return false;
-    const ctx = this.g.ctx, { ux, uy, torsoTop } = pose, tool = ItemDB.getTool(p.held), side = ux >= 0 ? 1 : -1;
-    const angle = Math.atan2(uy, ux) + (tool ? this._axeOffset(p, tool) : SWING_CARRY_ANGLE) * side;
-    const h = (tool ? TOOL_LENGTH[tool.kind] || 17 : 14) + 10, w = h * img.naturalWidth / img.naturalHeight;
-    ctx.save(); ctx.translate(sx + ux * 7, torsoTop + 12 + uy * 3); ctx.rotate(angle + Math.PI / 2);
-    ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore();
-    return true;
+  _drawHeldItem(p, sx, pose, now) {
+    const hold = this._holding(p);
+    if (!hold) return;
+    const ctx = this.g.ctx, kind = hold.kind, moving = p.state !== 'idle' && !p.mount;
+    const smp = ToolPose.sample(kind, p.swingT, hold.tool);
+    if (moving) smp.h += Math.sin(pose.phase) * 0.8;                                                   // the carried tool bobs with the stride
+    const R = ToolPose.rig(kind, smp, sx, pose, pose.dir), [handX, handY] = R.H, [dirX, dirY] = R.dir, [perpX, perpY] = R.perp, side = R.side;
+    const img = SpriteRegistry.itemImage(hold.id, 'held');
+    ctx.lineCap = 'round';
+    if (img) {                                                                                         // a tool with its own picture: grip near the bottom, turned to point where the pose says
+      const h = TOOL_SIZE[kind] || TOOL_SIZE.item, w = h * img.naturalWidth / img.naturalHeight, step = Math.PI / 12;
+      const angle = Math.round((Math.atan2(dirY, dirX) + Math.PI / 2) / step) * step;                 // (turned in 15 degree steps: chunky, like the pixels)
+      const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+      ctx.save(); ctx.translate(handX, handY); ctx.rotate(angle); ctx.scale(side < 0 ? -1 : 1, R.shorten);
+      ctx.drawImage(img, -w / 2, -h * 0.9, w, h); ctx.restore(); ctx.imageSmoothingEnabled = smooth;
+    } else if (kind === 'torch') this._drawTorch(handX, handY, dirX, dirY);
+    else if (kind === 'bow') this._drawBow(handX, handY, dirX, dirY, perpX, perpY);
+    else if (kind === 'leash') { if (!(p.swingT > 0)) this._drawLassoInHand(handX, handY, dirX, dirY, perpX, perpY, false, lassoLook(p.held)); }   // while it is thrown the lasso has left the hand (the flying loop is drawn by the effects)
+    else if (kind === 'brush') this._drawBrush(handX, handY, dirX, dirY, perpX, perpY, p.held);
+    else if (kind === 'shears') this._drawShears(handX, handY, dirX, dirY, perpX, perpY, smp.open);
+    else if (kind === 'water') this._drawWateringCan(handX, handY, side, smp.tilt);
+    else if (hold.tool) this._drawPlainTool(hold.tool, p, handX, handY, dirX, dirY, perpX, perpY);
+    ctx.lineCap = 'butt';
+    if (pose.pixelBody) {                                                                             // the arm itself, over the grip
+      const L = this._look(p.appearance), W8 = this._wardrobe(p, pose.gear);
+      ToolPose.drawArm(ctx, PixelCharacter.armLook(L, W8), R.S, R.H, sx - PixelCharacter.W * PixelCharacter.PX / 2, pose.figTop, PixelCharacter.PX);
+    }
+  }
+
+  /** A tool with no picture of its own: a wooden shaft with a simple head (the old procedural tools). */
+  _drawPlainTool(tool, p, handX, handY, dirX, dirY, perpX, perpY) {
+    const ctx = this.g.ctx, length = TOOL_LENGTH[tool.kind] || 17, tipX = handX + dirX * length, tipY = handY + dirY * length;
+    ctx.strokeStyle = tool.kind === 'rod' ? '#a07a45' : '#7a5230'; ctx.lineWidth = tool.kind === 'rod' ? 1.8 : 2.5;
+    ctx.beginPath(); ctx.moveTo(handX, handY); ctx.lineTo(tipX, tipY); ctx.stroke();
+    if (tool.kind === 'hammer') this._drawHammerHead(tipX, tipY, dirX, dirY, perpX, perpY);
+    else if (tool.kind === 'knife') this.g.polygon([handX + dirX * 4, handY + dirY * 4, tipX + dirX * 8, tipY + dirY * 8, handX + dirX * 4 + perpX * 4, handY + dirY * 4 + perpY * 4], '#d3d8df');
+    else if (tool.kind === 'spear') this.g.polygon([tipX - dirX * 2 + perpX * 3, tipY - dirY * 2 + perpY * 3, tipX + dirX * 9, tipY + dirY * 9, tipX - dirX * 2 - perpX * 3, tipY - dirY * 2 - perpY * 3], '#c9ced6');
+    else if (tool.kind === 'shovel') this._drawShovelHead(tipX, tipY, dirX, dirY, perpX, perpY);
+    else if (tool.kind === 'sickle') { ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tipX + perpX * 5, tipY + perpY * 5, 6, Math.atan2(-perpY, -perpX) - 1.6, Math.atan2(-perpY, -perpX) + 1.6); ctx.stroke(); }
+    else if (tool.kind === 'hedge') { for (const s of [-1, 1]) this.g.polygon([tipX - dirX + perpX * s, tipY - dirY + perpY * s, tipX + dirX * 9 + perpX * s, tipY + dirY * 9 + perpY * s, tipX + dirX * 9 + perpX * s * 4, tipY + dirY * 9 + perpY * s * 4], '#c9ced6'); }
+    else if (tool.kind === 'hoe') this.g.polygon([tipX - dirX, tipY - dirY, tipX + dirX * 2, tipY + dirY * 2, tipX + dirX * 2 + perpX * 7, tipY + dirY * 2 + perpY * 7, tipX - dirX * 2 + perpX * 6, tipY - dirY * 2 + perpY * 6], '#9aa2ad');
+    else if (tool.kind === 'sword') this._drawSwordBlade(handX, handY, tipX, tipY, dirX, dirY, perpX, perpY, p.held);
+    else if (tool.kind === 'rod') { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + dirX * 6, tipY + dirY * 6 + 12); ctx.stroke(); }
+    else this._drawAxeHead(tipX, tipY, dirX, dirY, perpX, perpY);
   }
 
   _drawSwordBlade(hx, hy, tx, ty, dx, dy, px, py, item) {
@@ -360,11 +370,10 @@ class PlayerSprite {
     ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(hx + px * 5 + dx * 5, hy + py * 5 + dy * 5); ctx.lineTo(hx - px * 5 + dx * 5, hy - py * 5 + dy * 5); ctx.stroke();   // crossguard
   }
 
-  /** A torch: a stick with a flickering flame, held up beside the head. */
-  _drawTorch(sx, pose) {
-    const g = this.g, ctx = g.ctx, { ux, torsoTop } = pose, hx = sx + (ux >= 0 ? 9 : -9), hy = torsoTop + 9, t = Date.now() / 110, flick = Math.sin(t) * 1.5;
-    ctx.strokeStyle = '#6b4727'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (ux >= 0 ? 2 : -2), hy - 16); ctx.stroke(); ctx.lineCap = 'butt';
-    const fx = hx + (ux >= 0 ? 2 : -2), fy = hy - 16;
+  /** A torch: a stick with a flickering flame, held up from the hand. */
+  _drawTorch(hx, hy, dx, dy) {
+    const g = this.g, ctx = g.ctx, t = Date.now() / 110, flick = Math.sin(t) * 1.5, fx = hx + dx * 17, fy = hy + dy * 17;
+    ctx.strokeStyle = '#6b4727'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx - dx * 3, hy - dy * 3); ctx.lineTo(fx, fy); ctx.stroke(); ctx.lineCap = 'butt';
     g.ellipse(fx, fy - 4, 14, 11, 'rgba(255,170,70,.18)');
     g.polygon([fx - 4, fy, fx - 1 + flick * 0.4, fy - 11 - flick, fx + 1.5, fy - 5, fx + 4, fy - 12 + flick * 0.5, fx + 5, fy], '#ff8a2a');
     g.polygon([fx - 2, fy, fx + flick * 0.3, fy - 7, fx + 3, fy], '#ffd24a');
@@ -422,9 +431,9 @@ class PlayerSprite {
   }
 
   /** A watering can held by its handle; tipped forward (pouring) while in use. */
-  _drawWateringCan(x, y, side, pouring) {
-    const ctx = this.g.ctx;
-    ctx.save(); ctx.translate(x, y + 2); ctx.scale(side, 1); if (pouring) ctx.rotate(0.55);
+  _drawWateringCan(x, y, side, tilt) {
+    const ctx = this.g.ctx, pouring = tilt > 0.5;
+    ctx.save(); ctx.translate(x, y + 2); ctx.scale(side, 1); if (tilt > 0) ctx.rotate(tilt * 0.65);
     ctx.fillStyle = '#6f9fc8'; ctx.strokeStyle = '#2c4a66'; ctx.lineWidth = 1;
     ctx.fillRect(-4, 0, 8, 7); ctx.strokeRect(-4, 0, 8, 7);
     ctx.beginPath(); ctx.moveTo(4, 5); ctx.lineTo(9, 0); ctx.stroke();                                // the spout

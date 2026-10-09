@@ -115,10 +115,10 @@ const PixelPony = (() => {
   /* ---- frames: hoof offsets [dx, lift] for each leg pair, the bob, and the sway of mane and tail ---- */
   // A: near front + far hind; B: far front + near hind (a trot moves the diagonals together)
   const TROT = [
-    { A: [2, 0], B: [-2, 0], bob: 0, sway: 1 },
-    { A: [0, 2], B: [0, 0], bob: -1, sway: 0 },
+    { A: [2, 0], B: [-2, 0], bob: 0, sway: 1 },                         // (a planted hoof slides BACK under the body, and a lifted one swings FORWARD:
+    { A: [0, 0], B: [0, 2], bob: -1, sway: 0 },                         //  A lands forward, passes under, pushes off behind, lifts and swings forward again)
     { A: [-2, 0], B: [2, 0], bob: 0, sway: -1 },
-    { A: [0, 0], B: [0, 2], bob: -1, sway: 0 },
+    { A: [0, 2], B: [0, 0], bob: -1, sway: 0 },
   ];
   const STAND = [
     { A: [0, 0], B: [0, 0], bob: 0, sway: 0 },
