@@ -128,11 +128,49 @@ test('going back a room arrives beside the exit you left by; the first entrance 
 test('cave walls: rock blocks only where wall meets floor, solid everywhere, low on the south / east side', () => {
   const r = run(`(() => { const w = new GameServer(4242).grids.get('dungeon:0:0'), P = w.plan, R = P.room; let blocks = 0, bad = 0, low = 0, tall = 0, deep = 0;
     for (let y = -2; y <= R.h + 1; y++) for (let x = -2; x <= R.w + 1; x++) { const o = P.objAt(x, y), floor = R.walkable(x, y);
-      if (floor && o) bad++; if (!floor && !P.solidAt(x, y)) bad++;
-      if (o) { blocks++; if (o === OBJ.CAVEROCK_LOW) low++; else if (o === OBJ.CAVEROCK_TALL) tall++; else bad++; if (R.walkable(x, y - 1) && o !== OBJ.CAVEROCK_LOW) bad++; }
+      if (floor && o && o !== OBJ.CAVEMOUTH_IN) bad++; if (!floor && !P.solidAt(x, y)) bad++;
+      if (o) { blocks++; if (o === OBJ.CAVEROCK_LOW) low++; else if (o === OBJ.CAVEROCK_TALL) tall++; else if (o !== OBJ.CAVEMOUTH_IN) bad++; if (R.walkable(x, y - 1) && o !== OBJ.CAVEROCK_LOW) bad++; }
       if (!floor && !o) deep++; }
     return { blocks, bad, low, tall, deep }; })()`);
   assert.strictEqual(r.bad, 0); assert(r.low > 20 && r.tall > 20 && r.deep > 100, JSON.stringify(r));
+});
+
+test('cave mouths, pools and stalagmites: mouths are solid blocks, pools wadeable and clear of markers, spires never on markers or water', () => {
+  const r = run(`(() => { const out = { rooms: 0, mouths: 0, pools: 0, spires: 0, bad: [] };
+    for (let n = 0; n < 3; n++) {
+      const w = new GameServer(4242).grids.get('dungeon:0:' + n), P = w.plan, R = P.room; out.rooms++;
+      for (const m of P.mouths) { const x = m % R.w, y = (m - x) / R.w; out.mouths++; if (P.objAt(x, y) !== OBJ.CAVEMOUTH_IN || !P.solidAt(x, y) || !R.walkable(x, y)) out.bad.push('mouth ' + x + ',' + y); }
+      for (let y = 0; y < R.h; y++) for (let x = 0; x < R.w; x++) {
+        const code = R.code(x, y), t = P.tileAt(x, y);
+        if (t === TILE.SHALLOW) { out.pools++; if (code !== 0 || P.solidAt(x, y)) out.bad.push('pool on ' + code); }
+        if (code >= 2 && t === TILE.SHALLOW) out.bad.push('water on a marker');
+      }
+      for (let cy = 0; cy <= R.h >> 4; cy++) for (let cx = 0; cx <= R.w >> 4; cx++) for (const { prop } of P.propsIn(cx, cy)) {
+        if (prop.t !== 'stalagmite') continue; out.spires++;
+        const tx = Math.floor(prop.x), ty = Math.floor(prop.y);
+        if (R.code(tx, ty) !== 0 || P.tileAt(tx, ty) === TILE.SHALLOW || P.clear.has(ty * R.w + tx)) out.bad.push('spire at ' + tx + ',' + ty);
+      }
+      // every marker can still be reached on foot through the real world's solidity (mouths and spire circles are no wall)
+      const reach = (() => { const seen = new Set(), q = [[Math.floor(P.entryPoint().x), Math.floor(P.entryPoint().y)]]; seen.add(q[0] + '');
+        for (let i = 0; i < q.length; i++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = q[i][0] + dx, ny = q[i][1] + dy; if (!seen.has(nx + ',' + ny) && !P.solidAt(nx, ny)) { seen.add(nx + ',' + ny); q.push([nx, ny]); } }
+        return seen; })();
+      for (const list of [R.chests, R.spawns]) for (const t of list) if (!reach.has(t.x + ',' + t.y)) out.bad.push('unreachable ' + t.x + ',' + t.y);
+      const ex = P._landing(R.exits); if (!reach.has(Math.floor(ex.x) + ',' + Math.floor(ex.y))) out.bad.push('exit landing unreachable');
+    }
+    return out; })()`);
+  assert.strictEqual(r.bad.length, 0, r.bad.slice(0, 5).join(' | ')); assert(r.mouths === 6 && r.pools > 30 && r.spires > 30, JSON.stringify(r));
+});
+
+test('the Old Cavern is mostly slimes with the odd wolf (weighted spawn nodes)', () => {
+  const r = run(`(() => { const s = new GameServer(4242), tally = {}; let nodes = 0;
+    for (let n = 0; n < 3; n++) { const w = s.grids.get('dungeon:0:' + n); s.dungeons.populate(w); nodes += w.plan.room.spawns.length + w.plan.room.enemies.length; }
+    for (const a of Object.values(s.animals.animals)) if (a.grid && AnimalDefs[a.type] && !AnimalDefs[a.type].pony) tally[a.type] = (tally[a.type] || 0) + 1;
+    const pool = s.dungeons.enemyPool(Dungeons.all()[0]), rolls = []; for (let i = 0; i < 1000; i++) rolls.push(s.dungeons.pick(pool, i / 1000));
+    return { tally, nodes, wolfShare: rolls.filter(x => x === 'wolf').length / 1000, def: AnimalDefs.slime && AnimalDefs.slime.hostile, code: EnemyCodes.codeOf('slime') }; })()`);
+  assert.strictEqual(r.def, true); assert.strictEqual(r.code, 1030);
+  assert.strictEqual(Object.values(r.tally).reduce((a, b) => a + b, 0), r.nodes);
+  assert(r.tally.slime > r.nodes * 0.7, JSON.stringify(r)); assert(!r.tally.wolf || r.tally.wolf < r.nodes * 0.25, JSON.stringify(r));
+  assert(Math.abs(r.wolfShare - 0.1) < 0.01, JSON.stringify(r));
 });
 
 test('debug teleport: village, cave mouth and each dungeon room (host only)', () => {

@@ -12,6 +12,7 @@ const TerrainRenderer = (() => {
   /** Ground colours and effects by biome come from the BIOME TABLE (js/data/biomes/): [grass x3, dirt x3]. A biome with ground: null uses the plain meadow colours. */
   const GROUND = Object.fromEntries(Biomes.all().filter(b => b.ground).map(b => [b.id, [b.ground.grass, b.ground.dirt]]));
   const EFFECT = Object.fromEntries(Biomes.all().filter(b => b.effect && BiomeEffects.has(b.effect)).map(b => [b.id, BiomeEffects.get(b.effect)]));
+  const CAVE_POOL = ['#3f5b70', '#42607a', '#3b566a'];                                    // a cave pool: dark, clear water over the stone
   const CAVE_FLOOR = ['#2b2f3a', '#30343f', '#272b35'], CAVE_WALL = ['#15171e', '#181b22', '#12141a'];
 
   let season = 'spring', today = 0;
@@ -84,13 +85,32 @@ const TerrainRenderer = (() => {
     if (type === TILE.CAVE_WALL) return look('cave', CAVE_WALL, false);
     if (type === TILE.STONE) return look('stone', STONE, false);
     if (type === TILE.WATER) return look('water', WATER, false);
-    if (type === TILE.SHALLOW) return look('shallow', SHALLOW, false);
+    if (type === TILE.SHALLOW) return look('shallow', map.kind === 'dungeon' ? CAVE_POOL : SHALLOW, false);
     return null;
   }
   const scratch = document.createElement('canvas'), tint = document.createElement('canvas');
   scratch.width = tint.width = AutoTile.TW; scratch.height = tint.height = AutoTile.TH;
   const sc = scratch.getContext('2d'), tc = tint.getContext('2d');
   const ART = AutoTile.TW / (2 * TILE_HALF_W);                                        // art pixels per world pixel
+  const CAVE_EDGE = ['#15171c', '#1b1e24', '#22252c', '#1a1c21', '#292d35', '#1e2127'];   // a cave pool's border: dark greys, varied along the edge
+  const edgeArt = new Map();
+  /** A pool's border for one fringe mask: a line 1-2 pixels wide along the fringe's edge, each pixel one of the dark greys (varying in short runs along it). */
+  function caveEdge(m) {
+    let c = edgeArt.get(m);
+    if (c) return c;
+    const W = AutoTile.TW, H = AutoTile.TH, fill = m.fill.getContext('2d').getImageData(0, 0, W, H).data, rim = m.rim.getContext('2d').getImageData(0, 0, W, H).data;
+    c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d'), isRim = (x, y) => x >= 0 && y >= 0 && x < W && y < H && rim[(y * W + x) * 4 + 3] > 0, h = (x, y, k) => { let v = (x * 374761393 + y * 668265263 + k * 2147483647) | 0; v = (v ^ (v >> 13)) * 1274126177; return ((v ^ (v >> 16)) >>> 0) / 4294967296; };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (fill[(y * W + x) * 4 + 3] === 0) continue;
+      const edge = isRim(x, y), thick = !edge && (isRim(x + 1, y) || isRim(x - 1, y) || isRim(x, y + 1) || isRim(x, y - 1)) && h(x >> 1, y >> 1, 3) < 0.55;      // (now and then a second pixel in)
+      if (!edge && !thick) continue;
+      g.fillStyle = CAVE_EDGE[Math.floor((h(x >> 1, y >> 1, 1) * 0.7 + h(x, y, 2) * 0.3) * CAVE_EDGE.length)];
+      g.fillRect(x, y, 1, 1);
+    }
+    edgeArt.set(m, c);
+    return c;
+  }
   const FOAM = '#eef8fb', SHALLOW_RIM = 'rgba(190,235,245,.7)', WET = 'rgba(30,55,80,.3)';
   const watery = l => !!l && !!AutoTile.WATERY[l.kind];
   /** Paint over a tile the fringes of every neighbouring ground that outranks it. Land running out over water is the SHORE: the outer half of
@@ -101,23 +121,26 @@ const TerrainRenderer = (() => {
     if (!list) return;
     const cx = (tx - ty) * TILE_HALF_W, cy = (tx + ty + 1) * TILE_HALF_H, variant = AutoTile.variantOf(tx, ty);
     for (const { look: l, edges, corners } of list) {
-      const m = AutoTile.mask(edges, corners, variant);
+      const soft = map.kind === 'dungeon' && watery(here), m = AutoTile.mask(edges, corners, variant, 1, soft);
       sc.globalCompositeOperation = 'source-over'; sc.setTransform(1, 0, 0, 1, 0, 0); sc.clearRect(0, 0, AutoTile.TW, AutoTile.TH);
       sc.setTransform(ART, 0, 0, ART, AutoTile.TW / 2 - cx * ART, -(cy - TILE_HALF_H) * ART); sc.imageSmoothingEnabled = false;
       cells(sc, l.kind, l.pal, tx, ty, null, l.seasonal);                             // the neighbour's ground, laid over this whole tile ...
       sc.setTransform(1, 0, 0, 1, 0, 0);
       sc.globalCompositeOperation = 'destination-in'; sc.drawImage(m.fill, 0, 0);   // ... cut to the fringe
-      if (watery(here) && !watery(l)) {                                                // the shore: wet ground along the waterline
-        const thin = AutoTile.mask(edges, corners, variant, true);
+      if (watery(here) && !watery(l) && !soft) {                                                // the shore: wet ground along the waterline
+        const thin = AutoTile.mask(edges, corners, variant, true, soft);
         tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = WET; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
         tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.fill, 0, 0);
         tc.globalCompositeOperation = 'destination-out'; tc.drawImage(thin.fill, 0, 0);
         sc.globalCompositeOperation = 'source-atop'; sc.drawImage(tint, 0, 0);
       }
-      const rim = !watery(here) ? l.dark : watery(l) ? SHALLOW_RIM : FOAM;             // a dark outline on land; on water, foam where the beach meets it
-      tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = rim; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
-      tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.rim, 0, 0);
-      sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // and a dark rim where it meets this tile's own ground
+      if (soft) { sc.globalCompositeOperation = 'source-over'; sc.drawImage(caveEdge(m), 0, 0); }          // a cave pool: a thin dark grey border instead of foam
+      else {
+        const rim = !watery(here) ? l.dark : watery(l) ? SHALLOW_RIM : FOAM;             // a dark outline on land; on water, foam where the beach meets it
+        tc.globalCompositeOperation = 'source-over'; tc.clearRect(0, 0, AutoTile.TW, AutoTile.TH); tc.fillStyle = rim; tc.fillRect(0, 0, AutoTile.TW, AutoTile.TH);
+        tc.globalCompositeOperation = 'destination-in'; tc.drawImage(m.rim, 0, 0);
+        sc.globalCompositeOperation = 'source-over'; sc.drawImage(tint, 0, 0);       // and a dark rim where it meets this tile's own ground
+      }
       ctx.drawImage(scratch, cx - TILE_HALF_W, cy - TILE_HALF_H, 2 * TILE_HALF_W, 2 * TILE_HALF_H);
     }
   }
@@ -219,8 +242,8 @@ const TerrainRenderer = (() => {
       if (type === TILE.WATER || type === TILE.SHALLOW) {                                  // water: baked with its shore; only the ripples move
         const here = lookOf(map, tx, ty, type);
         if (!baked) { stillGround(ctx, map, type, tx, ty); blend(ctx, map, tx, ty, here); }
-        ripples(ctx, type === TILE.SHALLOW, tx, ty, cx, cy, t);
-        surf(ctx, map, tx, ty, cx, cy, here, t);                                          // waves washing up the shore
+        ripples(ctx, type === TILE.SHALLOW, tx, ty, cx, cy, t, map.kind === 'dungeon');
+        if (map.kind !== 'dungeon') surf(ctx, map, tx, ty, cx, cy, here, t);                                          // waves washing up the shore
       }
       else if (type >= INTERIOR_TILE_BASE) { diamondPath(ctx, cx, cy); InteriorSprites.tile(ctx, type, cx, cy, tx, ty); }   // a room's floor (or the dark outside it)
       else {
@@ -352,9 +375,9 @@ const TerrainRenderer = (() => {
   }
 
   /** The water's ripples: two short bright strokes that drift to and fro (live, over the baked water and its shore). */
-  function ripples(ctx, shallow, tx, ty, cx, cy, t) {
+  function ripples(ctx, shallow, tx, ty, cx, cy, t, dim) {
     const drift = Math.sin(t * (shallow ? 1.8 : 1.4) + tx * 0.8 + ty * 0.6) * (shallow ? 5 : 4) * DETAIL;
-    ctx.strokeStyle = shallow ? 'rgba(240,250,255,.5)' : 'rgba(190,225,240,.35)'; ctx.lineWidth = shallow ? 1.2 : 1.5; ctx.beginPath();
+    ctx.strokeStyle = dim ? 'rgba(170,200,220,.22)' : shallow ? 'rgba(240,250,255,.5)' : 'rgba(190,225,240,.35)'; ctx.lineWidth = shallow ? 1.2 : 1.5; ctx.beginPath();
     ctx.moveTo(cx - 12 * DETAIL + drift, cy - 2 * DETAIL); ctx.lineTo(cx - 3 * DETAIL + drift, cy - 2 * DETAIL);
     ctx.moveTo(cx + 3 * DETAIL - drift, cy + 4 * DETAIL); ctx.lineTo(cx + 12 * DETAIL - drift, cy + 4 * DETAIL); ctx.stroke();
   }

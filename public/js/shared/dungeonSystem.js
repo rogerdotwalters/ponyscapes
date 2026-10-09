@@ -117,11 +117,13 @@ class DungeonSystem {
     s.pendingEvents.push({ type: 'leftCave', to: id });
   }
 
-  /** What a plain spawn node (4) of this dungeon can be: the dungeon's own list, else the ring's hostile creatures. */
+  /** What a plain spawn node (4) of this dungeon can be: [{ id, weight }] from the dungeon's own list (ids, or [id, weight]), else the ring's hostile creatures. */
   enemyPool(def) {
-    const listed = (def.enemies || []).filter(n => AnimalDefs[n] && !AnimalDefs[n].pony);
-    return listed.length ? listed : Object.values(AnimalDefs).filter(d => d.hostile && !d.boss && !d.pony && d.ring === def.ring).map(d => d.id);
+    const listed = (def.enemies || []).map(e => (Array.isArray(e) ? { id: e[0], weight: +e[1] || 1 } : { id: e, weight: 1 })).filter(e => AnimalDefs[e.id] && !AnimalDefs[e.id].pony);
+    return listed.length ? listed : Object.values(AnimalDefs).filter(d => d.hostile && !d.boss && !d.pony && d.ring === def.ring).map(d => ({ id: d.id, weight: 1 }));
   }
+  /** One of the pool, by weight and a roll in [0, 1). */
+  pick(pool, roll) { let r = roll * pool.reduce((n, e) => n + e.weight, 0); for (const e of pool) if ((r -= e.weight) < 0) return e.id; return pool[pool.length - 1].id; }
 
   /** The first time anyone enters a room, its enemies appear: a random one at every spawn node (4), exactly the named creature at every 1000+ code. */
   populate(world) {
@@ -133,9 +135,9 @@ class DungeonSystem {
       const aid = s.animals.spawn(type, x + 0.5, y + 0.5, 0, { level: AnimalLevels.roll(type, x, y, hash3(seed, x, y, 31), null), grid });
       s.animals.animals[aid].home = { x: x + 0.5, y: y + 0.5 };
     };
-    if (pool.length) for (const n of plan.room.spawns) put(pool[Math.floor(hash3(seed, n.x, n.y, 30) * pool.length)], n.x, n.y);
+    if (pool.length) for (const n of plan.room.spawns) put(this.pick(pool, hash3(seed, n.x, n.y, 30)), n.x, n.y);
     for (const e of plan.room.enemies) {
-      const type = EnemyCodes.idOf(e.code) || (pool.length ? pool[Math.floor(hash3(seed, e.x, e.y, 30) * pool.length)] : null);     // (a number no creature has: a plain node)
+      const type = EnemyCodes.idOf(e.code) || (pool.length ? this.pick(pool, hash3(seed, e.x, e.y, 30)) : null);     // (a number no creature has: a plain node)
       if (type) put(type, e.x, e.y);
     }
   }

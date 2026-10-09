@@ -403,6 +403,7 @@ const PixelBuildings = (() => {
     cliff: { base: '#8f8574', moss: '#58853a', mossLight: '#78a24c', grass: ['#5f9c4a', '#68a652', '#589145'], heights: [24, 46, 70] },
     cave:  { base: '#4f5568', moss: '#3b4a5a', mossLight: '#5a6a80', grass: ['#2b2f3a', '#30343f', '#272b35'], heights: [9, 47, 47] }     // (cave: [low wall, tall wall])
   };
+  ROCK.cavemouth = ROCK.cave;                                                         // (inside a cave: a mouth in the cave's own stone)
   ROCK.mouth = ROCK.cliff;                                                          // (a cave mouth is a block of cliff with an opening cut in its south face)
   const ROCK_VARIANTS = 6, BAYER4 = [0, 0.5, 0.75, 0.25];
   /** Uneven courses of rock, from the ground up: each 5-11 art pixels tall (the same for every tile, so the layers run on across a whole cliff). */
@@ -424,6 +425,13 @@ const PixelBuildings = (() => {
     }
     if (lowest > 0.55 && dither < (lowest - 0.55) * 1.1) c = shade(c, 0.86);                                       // dithered shade towards the foot
     if (hash(Math.floor((u + off * 2) / 13), row, variant + 21) < 0.07 && Math.floor(u + off) % 13 < 2 && inRow > 1) c = shade(R.base, 0.46 * k);   // a crack
+    if (style === 'cave' && H > 20) {                                                                              // stalactites hanging from the top of a tall wall
+      const cell = Math.floor(u / 6), len = hash(cell, variant, 71) < 0.6 ? 3 + hash(cell, variant, 72) * 13 : 0, mid = cell * 6 + 3 + (hash(cell, variant, 73) - 0.5) * 2, drop = H - v;
+      if (len > 0 && drop < len && Math.abs(u - mid) < 2.7 * (1 - drop / len) + 0.35) {
+        const side = u - mid; c = side < -0.3 ? light(R.base, 0.2 * k) : side > 0.5 ? shade(R.base, 0.62 * k) : tones(R.base, k)[2];
+        if (drop > len - 2) c = light(R.base, 0.34);                                                               // the wet tip
+      }
+    }
     if (style === 'cliff' && v > H - 8) {                                                                         // moss spilling down from the top
       const reach = 2 + hash(Math.floor(u / 3), variant, 6) * 6;
       if (H - v < reach) c = hash(Math.floor(u), Math.floor(v), 7) < 0.8 ? (hash(Math.floor(u / 2), Math.floor(v), 8) < 0.5 ? shade(R.moss, k) : shade(R.mossLight, k)) : c;
@@ -465,7 +473,7 @@ const PixelBuildings = (() => {
   function rockArt(style, level, variant) {
     const key = `rock|${style}|${level}|${variant}`;
     if (cache.has(key)) return cache.get(key);
-    const R = ROCK[style], look = style === 'mouth' ? 'cliff' : style, H = R.heights[level], M = 3, minX = Math.floor(-1.1 * HWa) - M, maxX = Math.ceil(1.1 * HWa) + M, minY = Math.floor(-H - 0.6 * HHa) - M, maxY = Math.ceil(2.05 * HHa) + M;
+    const R = ROCK[style], look = style === 'mouth' ? 'cliff' : style === 'cavemouth' ? 'cave' : style, H = R.heights[level], M = 3, minX = Math.floor(-1.1 * HWa) - M, maxX = Math.ceil(1.1 * HWa) + M, minY = Math.floor(-H - 0.6 * HHa) - M, maxY = Math.ceil(2.05 * HHa) + M;
     const canvas = document.createElement('canvas'); canvas.width = maxX - minX; canvas.height = maxY - minY;
     const g = canvas.getContext('2d');
     for (let py = 0; py < canvas.height; py++) for (let px = 0; px < canvas.width; px++) {
@@ -474,13 +482,46 @@ const PixelBuildings = (() => {
       if (!best) continue;
       const east = best.side === 'e', u = (east ? 1 - best.y : best.x) * LEN + variant * 17;
       let c = best.mat === 'top' ? rockTop(R, look, level, best.x, best.y, variant) : rockAt(R, look, u, best.z, east ? 0.78 : 1, variant, H);
-      if (style === 'mouth' && best.side === 's') c = mouthAt(R, best.x, best.z, 1) || c;
+      if ((style === 'mouth' || style === 'cavemouth') && best.side === 's') c = mouthAt(R, best.x, best.z, 1) || c;
       if (best.mat === 'top' && (best.x > 0.93 || best.y > 0.93)) c = shade(c, 0.8);                           // the lip of the top edge
       g.fillStyle = c; g.fillRect(px, py, 1, 1);
     }
     const out = { canvas, minX, minY };
     cache.set(key, out);
     return out;
+  }
+  /** A stalagmite cluster, one to three spires of the cave's own stone (lit on the left, dark on the right, banded, with a wet tip), standing on its foot at the bottom middle of the picture. */
+  function spireArt(variant) {
+    const key = `spire|${variant}`;
+    if (cache.has(key)) return cache.get(key);
+    const R = ROCK.cave, W = 38, Hh = 56, canvas = document.createElement('canvas'); canvas.width = W; canvas.height = Hh;
+    const g = canvas.getContext('2d'), n = 1 + Math.floor(hash(variant, 1, 80) * 3), spikes = [];
+    for (let i = 0; i < n; i++) spikes.push({ x: W / 2 + (i - (n - 1) / 2) * 9 + (hash(variant, i, 81) - 0.5) * 3, h: (i === Math.floor(n / 2) ? 30 : 15) + hash(variant, i, 82) * 14, hw: 5.5 + hash(variant, i, 83) * 2.5 });
+    spikes.sort((a, b) => a.h - b.h);
+    g.fillStyle = 'rgba(0,0,0,.28)'; for (let y = 0; y < 5; y++) { const w = 16 - y * 2.5; g.fillRect(W / 2 - w, Hh - 4 + y, w * 2, 1); }                                   // its shadow on the floor
+    for (const s of spikes) for (let y = 0; y < s.h; y++) {
+      const t = y / s.h, half = s.hw * Math.pow(1 - t, 0.85) + 0.4, py = Hh - 3 - y;
+      for (let x = Math.floor(s.x - half); x <= Math.ceil(s.x + half); x++) {
+        const d = (x + 0.5 - s.x) / half;
+        if (Math.abs(d) > 1) continue;
+        let c = d < -0.25 ? light(R.base, 0.18) : d > 0.35 ? shade(R.base, 0.6) : tones(R.base, 1)[1];
+        if (y % 6 === 5 && hash(x, y, variant + 84) < 0.8) c = shade(c, 0.78);                                                  // a band of the rock
+        else if (hash(x, y, variant + 85) < 0.08) c = shade(c, 0.85);
+        if (t > 0.9) c = light(R.base, 0.34);                                                                                     // the wet tip
+        if (y < 1.5) c = shade(c, 0.66);                                                                                          // its foot in shadow
+        g.fillStyle = c; g.fillRect(x, py, 1, 1);
+      }
+    }
+    const out = { canvas, minX: -W / 2, minY: -(Hh - 3) };
+    cache.set(key, out);
+    return out;
+  }
+  /** Draw a stalagmite standing with its foot at (cx, cy) in world pixels. */
+  function drawSpire(ctx, variant, cx, cy) {
+    const A = spireArt(variant), smooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(A.canvas, cx + A.minX * ART, cy + A.minY * ART, A.canvas.width * ART, A.canvas.height * ART);
+    ctx.imageSmoothingEnabled = smooth;
   }
   /** Draw a tile of rock standing on tile (tx, ty) (its ground centre at cx, cy in world pixels). The variant comes from the tile, so the face never repeats in rows. */
   function drawRock(ctx, style, level, tx, ty, cx, cy) {
@@ -523,5 +564,5 @@ const PixelBuildings = (() => {
   /** How tall the ground floor is in world pixels (the name banner floats above the door). */
   const groundFloorHeight = () => F * ART;
 
-  return { art, pieceArt, rockArt, drawRock, drawTile, drawPiece, signAt, groundFloorHeight, useGround, ART };
+  return { art, pieceArt, rockArt, drawRock, spireArt, drawSpire, drawTile, drawPiece, signAt, groundFloorHeight, useGround, ART };
 })();

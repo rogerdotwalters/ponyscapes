@@ -284,6 +284,7 @@ class Renderer {
     else if (prop.t === 'stone') { if (prop.ripe) PropSprites.drawStone(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'flax') PropSprites.drawFlax(g, item.gx, item.gy, prop);
     else if (prop.t === 'chest') PropSprites.drawChest(g, item.gx, item.gy, !!(this.game.local && this.game.local.looted));
+    else if (prop.t === 'stalagmite') PixelBuildings.drawSpire(g.ctx, prop.v | 0, item.gx, item.gy);
     else if (prop.t === 'dungeon_chest') PropSprites.drawChest(g, item.gx, item.gy, !!prop.opened);
     else if (prop.t === 'clay') { if (prop.ripe) PropSprites.drawClay(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'mound') { if (prop.ripe) PropSprites.drawMound(g, item.gx, item.gy, prop.v, now); }
