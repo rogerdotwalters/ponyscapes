@@ -85,6 +85,7 @@
 
 <div id="topBtns">
   <button class="tbtn" id="btnMenu" tabindex="-1" title="Menu: every section of the game">&#9776; Menu</button>
+  <button class="tbtn" id="btnCoins" tabindex="-1" title="Your coin bag: drag coins out onto the world to drop them"><span class="coinDot" aria-hidden="true"></span>Coins</button>
   <button class="tbtn" id="btnMap" tabindex="-1" title="Map (M)">Map</button>
   <button class="tbtn" id="btnFs" tabindex="-1" title="Fullscreen">&#x26F6;</button>
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
@@ -109,6 +110,13 @@
   <div id="invBody" class="scrollable"></div>
 </div>
 
+<div id="coinPanel" hidden>
+  <canvas id="coinCanvas" width="560" height="680"></canvas>
+  <div id="coinTotal"><span id="coinCount">0</span></div>
+  <div id="coinBreakdown"></div>
+  <div id="coinButtons"><button id="coinMerge" tabindex="-1" title="Merge coins up: 10 copper make a silver, 10 silver a gold, and so on (gem coins: 5 of the one below)">Merge coins</button></div>
+  <div id="coinHint">Drag a coin out of the bag onto the world to drop it (anyone who steps close picks it up). Double-tap a coin to break it into smaller ones. Tap outside to close.</div>
+</div>
 <div id="craftPanel" hidden>
   <header><span>Crafting</span><button id="craftClose" tabindex="-1">&#x2715;</button></header>
   <div id="craftList" class="scrollable"></div>
@@ -326,6 +334,7 @@
 <script src="js/shared/npcSystem.js" defer></script>
 <script src="js/shared/friendshipSystem.js" defer></script>
 <script src="js/shared/ponyAbilities.js" defer></script>
+<script src="js/shared/coins.js" defer></script>
 <script src="js/shared/inventory.js" defer></script>
 <script src="js/shared/layers/buildingSites.js" defer></script>
 <script src="js/shared/layers/interiorSpace.js" defer></script>
@@ -462,10 +471,12 @@
 <script src="js/client/audio/music.js" defer></script>
 <script src="js/client/render/renderer.js" defer></script>
 <script src="js/client/render/backend.js" defer></script>
+<script src="js/client/render/coinArt.js" defer></script>
 <script src="js/client/ui/itemIcons.js" defer></script>
 <script src="js/client/ui/slotView.js" defer></script>
 <script src="js/client/ui/toolbarUI.js" defer></script>
 <script src="js/client/ui/inventoryUI.js" defer></script>
+<script src="js/client/ui/coinBagUI.js" defer></script>
 <script src="js/client/ui/craftingUI.js" defer></script>
 <script src="js/client/ui/settingsUI.js" defer></script>
 <script src="js/client/ui/controlsUI.js" defer></script>

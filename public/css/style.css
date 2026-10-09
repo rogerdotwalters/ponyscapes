@@ -701,3 +701,33 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 #joyKnob{background:linear-gradient(180deg,#e8bb55,#b8801f);border:3px solid var(--deep)}
 #sleepOverlay .slZ{font-family:"Courier New",monospace;text-shadow:3px 3px 0 var(--deep)}
 .invGhost{image-rendering:pixelated}
+
+/* ---------- the coin bag: no window, just a cutaway sack full of coins floating over the world (tap outside it to close) ---------- */
+#coinPanel{position:fixed !important;left:0 !important;top:0 !important;right:0;bottom:0;width:auto !important;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  padding:64px 0 118px !important;background:none !important;border:0 !important;box-shadow:none !important;overflow:visible;pointer-events:none;color:var(--parch,#f1e0b4)}
+#coinPanel>*{pointer-events:auto}
+#coinPanel>#coinHint,#coinPanel>#coinBreakdown,#coinPanel>#coinTotal{pointer-events:none}
+#coinCanvas{display:block;image-rendering:pixelated;touch-action:none;cursor:grab;filter:drop-shadow(0 10px 8px rgba(0,0,0,.45))}
+#coinCanvas.grabbing{cursor:grabbing}
+#coinTotal{font:700 20px var(--font-title,Georgia,serif);color:var(--brass,#f2cf7a);text-shadow:2px 2px 0 #1d120a,0 0 8px rgba(0,0,0,.6)}
+#coinBreakdown{font:600 12px var(--font-title,Georgia,serif);color:#fff3d0;text-shadow:1px 1px 0 #1d120a,0 0 6px rgba(0,0,0,.7);text-align:center;max-width:min(90vw,520px);min-height:14px}
+#coinMerge{padding:5px 14px;border-radius:2px;border:2px solid #1d120a;background:#d9a441;color:#2a170c;font:700 12px var(--font-title,Georgia,serif);box-shadow:inset 0 2px 0 #f6d98c,inset 0 -3px 0 #98691f}
+#coinMerge:active{transform:translateY(1px)}
+#coinHint{font:italic 11px var(--font-title,Georgia,serif);color:#e8d9b0;text-align:center;max-width:min(90vw,360px);text-shadow:1px 1px 0 #1d120a,0 0 6px rgba(0,0,0,.8)}
+.coinDot{display:inline-block;width:9px;height:9px;margin-right:5px;background:#e0a82c;border:2px solid #1d120a;border-radius:50%;box-shadow:inset 1px 1px 0 #ffe07a;vertical-align:-1px}
+.coinGhost{position:fixed;z-index:30;pointer-events:none;image-rendering:pixelated;filter:drop-shadow(0 5px 3px rgba(0,0,0,.4))}
+
+/* while paying at a shop the bag sits to the right of the shop window, the counter tray inside the window is where coins go */
+#coinPanel.pay{align-items:flex-end !important;padding:48px min(40px,3vw) 100px 0 !important}
+#coinPanel.pay #coinHint,#coinPanel.pay #coinButtons{display:none}
+.shopPay{margin:6px 0;padding:8px;border:2px dashed #8a5f32;border-radius:2px;background:rgba(20,10,4,.45)}
+.shopPay .askRow,.shopPay .paidRow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0;font:700 13px var(--font-title,Georgia,serif)}
+.coinChip{display:inline-flex;align-items:center;gap:3px;padding:2px 6px 2px 4px;border:2px solid #1d120a;border-radius:2px;background:rgba(0,0,0,.35);color:#f4e6c1;font:700 13px var(--font-title,Georgia,serif)}
+.coinChip img{width:22px;height:22px;image-rendering:pixelated}
+.coinChip.met{background:rgba(79,122,58,.6);border-color:#bfe8b0}
+.coinChip.have{cursor:pointer;background:rgba(217,164,65,.35)}
+#shopCounter{min-height:58px;margin-top:6px;padding:6px;border:3px solid #1d120a;border-radius:2px;background:repeating-linear-gradient(90deg,#6a4626 0 6px,#5e3f22 6px 12px);box-shadow:inset 0 3px 0 #8a5f32,inset 0 -3px 0 #3f2916;display:flex;flex-wrap:wrap;align-items:center;gap:4px;color:#e8d9b0;font:italic 12px var(--font-title,Georgia,serif)}
+#shopCounter.over{outline:3px solid #7fd1ff;outline-offset:2px}
+#shopCounter .coinChip{cursor:pointer}
+#shopPanel.paying{left:min(16px,2vw) !important}
+.need img,.shophead img{image-rendering:pixelated}

@@ -9,7 +9,7 @@
  *                           │  panels (inventory / crafting) open in the free space between the two thumbs  │
  *                           └ left thumb: floating joystick      right thumb: [Let go Rot Board] / [Bag Use] ┘
  */
-const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
+const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnCoins', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
 const INV_ACTIONS_H = 22 + 36;                      // what you picked, and the Wear / To pony / Drop / Destroy row
@@ -227,11 +227,11 @@ class UiLayout {
     bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
 
     const P = L.panels;
-    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.mapPanel, P.map], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
+    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.mapPanel, P.map], [dom.coinPanel, P.gear], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
       el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
       el.style.setProperty('--slot', P.slot + 'px'); el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--pad', P.pad + 'px');
     }
-    for (const el of [dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel, dom.controlsPanel, dom.dialoguePanel, dom.puzzlePanel]) el.style.width = P.crafting.w + 'px';
+    for (const el of [dom.coinPanel, dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel, dom.controlsPanel, dom.dialoguePanel, dom.puzzlePanel]) el.style.width = P.crafting.w + 'px';
     for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.shopBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.controlsBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';

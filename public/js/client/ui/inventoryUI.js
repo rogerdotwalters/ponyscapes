@@ -23,7 +23,7 @@ class InventoryUI {
     }
     body.addEventListener('pointerdown', e => {
       const b = e.target.closest('button[data-bag],#invMainPony');
-      if (!b) { if (e.target.closest('#invDropCoins')) { e.preventDefault(); game.dropCoins(10); } return; }
+      if (!b) { if (e.target.closest('#invDropCoins')) { e.preventDefault(); game.events.emit('openCoins'); } return; }
       e.preventDefault();
       if (b.id === 'invMainPony') game.makeMainPony(); else this._onBagSlot(Number(b.dataset.bag));
     });
@@ -146,7 +146,7 @@ class InventoryUI {
     if (shape === this.shape) return;
     this.shape = shape;
     const bagName = bag && ItemDefs[bag] ? ItemDefs[bag].name : 'No bag';
-    const html = [`<div class="invpurse"><img alt="" src="${ItemIcons.url('gold_coin')}"><b>Coin purse</b><span id="invCoins">0</span><button id="invDropCoins" tabindex="-1" title="Tip out 10 coins (or all you have, if fewer)">Drop 10</button></div>`,
+    const html = [`<div class="invpurse"><img alt="" src="${ItemIcons.url('gold_coin')}"><b>Coins</b><span id="invCoins">0</span><button id="invDropCoins" tabindex="-1" title="Open your coin bag: drag coins out onto the world to drop them">Coin bag</button></div>`,
       '<div class="invgrid" data-sec="all">',
       `<div class="invsec"><span>${bagName}</span><small>${belt} belt + ${inv.size - belt} bag slots</small></div>`, '<!--me-->'];
     if (chest) html.push(`<div class="invsec"><span>${chest.name}</span><small>${chest.inventory.size} slots</small></div>`, '<!--chest-->');
@@ -183,7 +183,7 @@ class InventoryUI {
     if (this.picked && !this._picked()) this.picked = null;
     this._build();
     const P = this.picked, coinEl = this.body.querySelector('#invCoins'), dropCoins = this.body.querySelector('#invDropCoins');
-    if (coinEl) coinEl.textContent = this.game.inventory.purse || 0;
+    if (coinEl) coinEl.textContent = Coins.format(this.game.inventory.coins || Coins.empty(), true);
     if (dropCoins) dropCoins.disabled = !(this.game.inventory.purse > 0);
     this.slotEls.me.forEach((el, i) => {
       SlotView.fill(el, this.game.inventory.getSlot(i));

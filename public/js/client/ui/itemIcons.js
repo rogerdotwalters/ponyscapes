@@ -556,6 +556,8 @@ const ItemIcons = (() => {
     else for (const [x, y] of [[14, 29], [26, 29], [36, 29], [20, 21], [31, 21], [25, 13]]) { ctx.fillStyle = '#b8643c'; ctx.beginPath(); ctx.ellipse(x, y, 6, 4.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#d98a5c'; ctx.beginPath(); ctx.ellipse(x - 1.5, y - 1.5, 2.6, 1.6, 0, 0, Math.PI * 2); ctx.fill(); }
   }
   for (const f of Foods.all()) if (f.category === 'mushroom') painters[f.id] = mushroomPainter(f.color);
+  /** The coin system's coins (coins.js): one big pixel coin of the kind (coinArt.js), so a shop's "x2 [coin]" is the coin you drag from the bag. */
+  Coins.TIERS.forEach((t, i) => { painters[t.id] = ctx => { ctx.imageSmoothingEnabled = false; CoinArt.draw(ctx, 24, 25, 16, 0.9, i); }; });
   painters.stockpile_wood = ctx => stockpileIcon(ctx, 'wood');
   painters.stockpile_stone = ctx => stockpileIcon(ctx, 'stone');
   painters.stockpile_clay = ctx => stockpileIcon(ctx, 'clay');

@@ -2,11 +2,11 @@
 /* SHARED - inventory data + rules. No UI, no networking.
  * A player's inventory is their TOOL BELT (slots 0..4: the hotbar, keys 1-5) followed by the slots of the BAG they wear (gear.bag; Bags below).
  * A pony's PACK is an Inventory too: the slots of every bag strapped onto it, one after another. */
-const COIN_ITEM = 'gold_coin', PURSE_MAX = 999999;
+const COIN_ITEM = 'gold_coin';                          // (gold: the unit everything is priced in; see coins.js for the whole coin system)
 class Inventory {
   constructor(size = Bags.playerSize(null)) {
     this.slots = new Array(size).fill(null);          // null | { id, count }
-    this.purse = null;                                // a person's COIN PURSE: gold coins live here, not in a slot (null: a pack or chest, where they are an ordinary item)
+    this._coins = null;                               // a person's COIN PURSE: real coins of ten kinds, a count of each (copper first; coins.js). They live here, not in a slot (null: a pack or chest, where they are an ordinary item)
     this.carryStacks = null;                          // stacks of EACH limited resource (wood, stone, clay) this pack may hold; null = no limit (see Carry)
     this.limitHit = null;                             // the resource an add() was last turned away for (the server tells the player why)
   }
@@ -19,16 +19,25 @@ class Inventory {
   }
   toJSON() { return this.slots.map(s => (s ? { id: s.id, count: s.count } : null)); }
   /** A detached copy with the same carry limit and purse (for "would this fit?" trials). */
-  clone() { const c = Inventory.fromJSON(this.toJSON(), this.carryStacks); c.purse = this.purse; return c; }
+  clone() { const c = Inventory.fromJSON(this.toJSON(), this.carryStacks); c._coins = this._coins ? this._coins.slice() : null; return c; }
   /** Take over a trial copy's contents once the trial has worked out. */
-  adopt(trial) { this.slots = trial.slots; this.purse = trial.purse; }
+  adopt(trial) { this.slots = trial.slots; this._coins = trial._coins ? trial._coins.slice() : null; }
+  /** The purse's worth in COPPER (null where there is no purse). Assigning a number makes the fewest coins worth that. */
+  get purse() { return this._coins ? Coins.total(this._coins) : null; }
+  set purse(copper) { this._coins = copper === null ? null : Coins.fromTotal(copper); }
+  /** The count of each kind of coin, copper first (null where there is no purse). */
+  get coins() { return this._coins; }
+  setCoins(arr) { this._coins = Coins.sanitize(arr); }
   /** Is this item kept in the purse here? */
-  _isCoin(itemId) { return this.purse !== null && itemId === COIN_ITEM; }
-  /** Coins that were lying in slots (an older save) go into the purse. Call once when a person's inventory is loaded. */
+  _isCoin(itemId) { return this._coins !== null && Coins.isCoin(itemId); }
+  /** Open the purse. `coins`: an array of counts, or (an older save) a number of GOLD coins, which are merged up (77 gold: 7 platinum and 7 gold). Gold coins that
+   *  were lying in slots (an even older save) go in too. Call once when a person's inventory is loaded. */
   openPurse(coins = 0) {
-    this.purse = 0;
-    for (let i = 0; i < this.slots.length; i++) if (this.slots[i] && this.slots[i].id === COIN_ITEM) { this.purse += this.slots[i].count; this.slots[i] = null; }
-    this.purse = Math.min(PURSE_MAX, this.purse + Math.max(0, Math.floor(coins) || 0));
+    const arr = Array.isArray(coins) ? Coins.sanitize(coins) : Coins.empty();
+    if (!Array.isArray(coins)) arr[Coins.GOLD] = Math.max(0, Math.floor(coins) || 0);
+    for (let i = 0; i < this.slots.length; i++) if (this.slots[i] && this.slots[i].id === COIN_ITEM) { arr[Coins.GOLD] += this.slots[i].count; this.slots[i] = null; }
+    Coins.merge(arr);                                                                  // (a purse is always merged up when it opens)
+    this._coins = arr;
     return this;
   }
 
@@ -44,13 +53,13 @@ class Inventory {
   get size() { return this.slots.length; }
   getSlot(index) { return this.slots[index] || null; }
   itemIdAt(index) { const s = this.getSlot(index); return s ? s.id : ''; }
-  count(itemId) { if (this._isCoin(itemId)) return this.purse; return this.slots.reduce((n, s) => n + (s && s.id === itemId ? s.count : 0), 0); }
+  count(itemId) { if (this._isCoin(itemId)) return Math.floor(this.purse / Coins.value(itemId)); return this.slots.reduce((n, s) => n + (s && s.id === itemId ? s.count : 0), 0); }
 
   has(itemId, amount = 1) { return this.count(itemId) >= amount; }
 
   /** Would `amount` items fit? (used to validate crafting / refunds before changing anything) */
   canAdd(itemId, amount) {
-    if (this._isCoin(itemId)) return this.purse + amount <= PURSE_MAX;
+    if (this._isCoin(itemId)) return this.purse + amount * Coins.value(itemId) <= Coins.MAX_TOTAL;
     const max = ItemDB.maxStack(itemId);
     let room = 0, newStacks = this._stackAllowance(itemId);
     this.slots.forEach(s => {
@@ -63,7 +72,7 @@ class Inventory {
   /** Removes items, preferring the backpack end so hotbar stacks stay put. Returns false if there aren't enough. */
   remove(itemId, amount) {
     if (!this.has(itemId, amount)) return false;
-    if (this._isCoin(itemId)) { this.purse -= amount; return true; }
+    if (this._isCoin(itemId)) { const ok = Coins.pay(this._coins, amount * Coins.value(itemId)); if (ok) Coins.merge(this._coins); return ok; }   // (paid in the purse's own coins, with change, then merged up)
     let left = amount;
     for (let i = this.slots.length - 1; i >= 0 && left > 0; i--) {
       const s = this.slots[i];
@@ -75,9 +84,16 @@ class Inventory {
     return true;
   }
 
+  /** Take exactly `n` coins of this kind out of the purse (a coin dropped on the ground). False if it does not hold that many. */
+  takeCoins(itemId, n) {
+    const t = Coins.tierOf(itemId);
+    if (this._coins === null || t < 0 || !(n > 0) || this._coins[t] < n) return false;
+    this._coins[t] -= n; return true;
+  }
+
   /** Adds items (top up stacks first, then empty slots). Returns how many did NOT fit. */
   add(itemId, amount) {
-    if (this._isCoin(itemId)) { const room = Math.max(0, Math.min(amount, PURSE_MAX - this.purse)); this.purse += room; return amount - room; }
+    if (this._isCoin(itemId)) { const room = Math.max(0, Math.min(amount, Math.floor((Coins.MAX_TOTAL - this.purse) / Coins.value(itemId)))); Coins.add(this._coins, Coins.tierOf(itemId), room); Coins.merge(this._coins); return amount - room; }   // (that kind of coin is added, and the whole purse merges up: 10 silver -> 1 gold)
     const max = ItemDB.maxStack(itemId);
     let left = amount;
     for (let i = 0; i < this.slots.length; i++) {
