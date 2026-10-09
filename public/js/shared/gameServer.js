@@ -70,7 +70,7 @@ class GameServer {
     this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
-    this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
+    this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, castleRestored: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
@@ -223,7 +223,7 @@ class GameServer {
     if (boat) boat.occupant = '';
     [this.players, this.inputQueues, this.inventories, this.coinsSent, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
       .forEach(t => delete t[id]);
-    delete this.ringsSentRev[id]; delete this.settingsSentRev[id];
+    delete this.ringsSentRev[id]; delete this.settingsSentRev[id]; delete this.interiors.versionsSent[id];
     delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id]; delete this.leashLog[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
   }
   /** Everyone playing: their ids, in seat order. */
@@ -844,6 +844,7 @@ class GameServer {
     else if (key === 'testPony') { this.settings.testPony = value; this._setTestPony(value); }
     else if (key === 'botPlayer') this.settings.botPlayer = this.bots.set(value);
     else if (key === 'bearDefeated') this._setBearDefeated(value);
+    else if (key === 'castleRestored') this.interiors.setRestored('castle', !!value);        // (a testing aid: the village restores the castle for everyone, or lets it fall to ruin again)
     else return;
     this.settingsRev++;
   }

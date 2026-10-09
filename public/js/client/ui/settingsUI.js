@@ -77,6 +77,7 @@ class SettingsUI {
       '<div class="gtitle">Act 1</div>' +
       '<label class="chk"><input type="checkbox" data-setting="botPlayer"><span><b>Bot player</b><small>A second player joins you (checked) or leaves (unchecked). It follows you into caves, fights, and picks you up when you are down, to try party play alone.</small></span></label>' +
       '<label class="chk"><input type="checkbox" data-setting="bearDefeated"><span><b>Cave Bear defeated</b><small>Checked: the Cave Bear counts as beaten, so the rubble clears from the Slime Warren (the second cave in the hills). Unchecked: the bear is back.</small></span></label>' +
+      '<label class="chk"><input type="checkbox" data-setting="castleRestored"><span><b>Castle restored</b><small>Checked: the old castle on the hill is restored for everyone (roofed towers, banners, lamps lit, fresh rugs in every room). Unchecked: it is abandoned again. Anyone inside is walked out to the gate.</small></span></label>' +
       '<div class="admRow" style="flex-wrap:wrap;gap:6px;margin-top:6px"><button data-tp="warren" tabindex="-1">Slime Warren: level 1</button>' +
       warren.map((r, i) => (i ? `<button data-tp="warren:${i}" tabindex="-1">${i === warren.length - 1 ? 'Slime King' : 'Level ' + (i + 1)}</button>` : '')).join('') + '</div>';
     el.addEventListener('click', e => { const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp === 'warren' ? 'warren:0' : b.dataset.tp); });

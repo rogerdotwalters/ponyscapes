@@ -189,6 +189,8 @@ function launch(choice, query) {
       const site = BuildingSites.list.find(s => s.id === enterParam || s.def.interior === enterParam);
       if (site) setTimeout(() => { const s = adapter.server, p = s.players[game.myId]; if (p) s.interiors.enter(game.myId, p, site.index); }, 400);
     }
+    const castleParam = new URLSearchParams(location.search).get('castle');
+    if (castleParam && adapter.server) setTimeout(() => adapter.server.interiors.setRestored('castle', castleParam === 'restored'), 200);   // ?castle=restored|ruined: see the castle as it will be once the village has restored it (testing)
     const weatherParam = new URLSearchParams(location.search).get('weather');
     if (weatherParam && adapter.server && Weather.TYPES[weatherParam]) setTimeout(() => adapter.server.weather.force(weatherParam), 300);     // ?weather=thunderstorm: start under that sky (testing)
     window.ponyscapes = { coinBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging

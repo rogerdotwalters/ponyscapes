@@ -16,7 +16,7 @@ const SnapshotBuilder = {
       inventory: server.inventoryUpdateFor(id), coins: (c => (server.coinsSent[id] = c.join(), c.slice()))(server.inventories[id].coins || Coins.empty()), questLog: (server.quests.sentRev[id] = server.quests.rev, server.quests.wire()), pack: (delete server.packSent[id], server.packUpdateFor(id)), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), farm: server.farmUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
       boats: outside ? server.boatStates() : {}, drops: on(server.dropStates()), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
       animals: on(server.animals.states(server._humans())), npcs: on(server.npcs.states()), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
-      pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire()), weather: (server.weather.sentRev[id] = server.weather.rev, server.weather.wire())
+      pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), versions: (server.interiors.versionsSent[id] = server.interiors.versionsRev, BuildingVersions.wire()), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire()), weather: (server.weather.sentRev[id] = server.weather.rev, server.weather.wire())
     };
   },
 
@@ -44,6 +44,7 @@ const SnapshotBuilder = {
     const stock = server.stockpilesUpdateFor(id);      if (stock) snapshot.stockpiles = stock;            // { piles, levels }: the town's storage
     const progress = server.progressUpdateFor(id);     if (progress) snapshot.progress = progress;        // { s: {skill: xp}, a: {attribute: xp} }
     const treasure = server.treasureUpdateFor(id);     if (treasure) snapshot.treasure = treasure;        // [{ key, tx, ty }] where your maps lead
+    const versions = server.interiors.versionsFor(id); if (versions) snapshot.versions = versions;               // a building was restored
     const rings = server.ringsUpdateFor(id);           if (rings) snapshot.rings = rings;                  // a guardian fell: a ring opened
     const friends = server.friendship.updateFor(id);  if (friends) snapshot.friends = friends;            // your hearts with people and animals, only when they changed
     const settings = server.settingsUpdateFor(id);     if (settings) snapshot.settings = settings;          // the host's testing aids, only when they changed

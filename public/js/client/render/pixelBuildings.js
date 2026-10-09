@@ -35,8 +35,9 @@ const PixelBuildings = (() => {
   function specOf(site) {
     const e = site.def.exterior || {}, w = site.w, h = site.h;
     const ym = h / 2 + J / 2, ye = h + J + O, yn = -O, E = F + U, R = (ye - ym) * 44;      // a steep roof
+    const castle = e.style === 'castle';
     return {
-      w, h, ym, ye, yn, E, R, east: site.facing === 'e', door: site.facing === 'e' ? -9 : site.doorX - site.x0, doorE: site.facing === 'e' ? site.doorY - site.y0 : -9,   // (door: the tile along the south face that holds it, doorE: along the east face; -9 = none)
+      castle, ruined: !!e.ruined, banner: e.banner || '#a8323a', w, h, ym, ye, yn, E: castle ? CASTLE.top : E, R: castle ? 0 : R, east: site.facing === 'e', door: site.facing === 'e' ? -9 : site.doorX - site.x0, doorE: site.facing === 'e' ? site.doorY - site.y0 : -9,   // (door: the tile along the south face that holds it, doorE: along the east face; -9 = none)
       infill: e.infill || 'plaster', chimney: e.chimney !== false, dormer: e.dormer !== undefined ? e.dormer : w >= 5, boarded: !!e.boarded, props: ['sign', ...(e.props || ['lantern'])],
       stone: e.stone || '#8d8a83', wall: e.wall || '#dccca6', roof: e.roof || '#8a5a36', trim: e.trim || '#4a3322', glass: e.glass || '#aab7e4',
       chimneyX: w * 0.72, dormerX: w * 0.38,
@@ -79,6 +80,7 @@ const PixelBuildings = (() => {
 
   /** Everything at one art pixel: the nearest surface hit. */
   function cast(S, X, Y) {
+    if (S.castle) return castleCast(S, X, Y);
     const { w, h, ym, ye, yn, E, R } = S, roofS = y => E + R * (ye - y) / (ye - ym), roofN = y => E + R * (y - yn) / (ym - yn), roofAt = y => Math.min(roofS(y), roofN(y));
     const hits = [
       top(X, Y, 0, 0, w + AP, h, h + AP, 'apronS'), top(X, Y, 0, w, w + AP, 0, h, 'apronE'),   // the ground at its foot
@@ -185,6 +187,7 @@ const PixelBuildings = (() => {
   }
 
   function colourOf(S, hit) {
+    if (S.castle && hit.mat.charCodeAt(0) === 99 && hit.mat !== 'chimney') return castleColour(S, hit);         // ('c...': the castle's own surfaces)
     const k = hit.side === 'e' ? 0.78 : 1;
     const u = (hit.side === 'e' ? (S.h + J - hit.y) : hit.x) * LEN, v = hit.z;
     switch (hit.mat) {
@@ -242,6 +245,182 @@ const PixelBuildings = (() => {
     return '#f0f';
   }
 
+  /* ---- the castle: a curtain wall round a court, four corner towers, a gatehouse and a keep, cast like the rest. Restored it is whole, roofed and flies banners; ruined
+   * it is breached and broken (a tower down to a stump, the keep's roof fallen in), grown over with moss and ivy, its gate boarded up. ---- */
+  const CASTLE = { wall: 64, tower: 108, gate: 86, keep: 134, top: 190, thick: 0.62, merlon: 9 };
+
+  /** The solid parts of one castle: boxes { x0..z1, part, jag } (a `jag` is the ragged height of a broken top along its face) and roof pieces { bounds, hit(X, Y) }. */
+  function castleGeo(S) {
+    const { w, h, ruined } = S, C = CASTLE, t = C.thick, boxes = [], roofs = [];
+    const box = (x0, x1, y0, y1, z0, z1, part, jag) => boxes.push({ x0, x1, y0, y1, z0, z1, part, jag, sx0: (x0 - y1) * HWa, sx1: (x1 - y0) * HWa, sy0: (x0 + y0) * HHa - z1, sy1: (x1 + y1) * HHa - z0 });
+    const broken = (seed, lo, hi) => (u => lo + (hi - lo) * hash(Math.floor(u * 3.2), seed, 51) * (0.5 + 0.5 * hash(Math.floor(u * 1.1), seed, 52)));   // a ragged top between lo and hi
+    /* the curtain wall, a tile at a time (so a ruin can have gaps): south and east are the faces you see */
+    const run = (side, i) => {
+      const gone = ruined && ((side === 's' && (i === 1 || i === 6)) || (side === 'e' && (i === 2 || i === 5)) || (side === 'n' && i === 4) || (side === 'w' && i === 3));
+      const low = ruined && ((side === 's' && i === 0) || (side === 'e' && i === 1) || (side === 'n' && i === 2) || (side === 'w' && i === 5));
+      return gone ? { z1: 9 + 8 * hash(i, side.charCodeAt(0), 53), jag: true } : low ? { z1: C.wall - 24, jag: true } : { z1: C.wall };
+    };
+    const wallRun = (side, i, x0, x1, y0, y1, vertical) => {
+      const r = run(side, i), seed = i * 7 + side.charCodeAt(0);
+      box(x0, x1, y0, y1, 0, r.z1, 'wall', r.jag ? broken(seed, r.z1 - 6, r.z1) : null);
+      if (!r.jag) for (let m = 0; m < 2; m++) {                                                                       // merlons: two to a tile along the outer edge, one along the inner
+        const a = (vertical ? y0 : x0) + 0.1 + m * 0.5, b = a + 0.3;
+        if (ruined && hash(i * 2 + m, seed, 54) < 0.28) continue;
+        if (vertical) { box(side === 'e' ? x1 - 0.17 : x0, side === 'e' ? x1 : x0 + 0.17, a, b, r.z1, r.z1 + C.merlon, 'merlon'); }
+        else { box(a, b, side === 's' ? y1 - 0.17 : y0, side === 's' ? y1 : y0 + 0.17, r.z1, r.z1 + C.merlon, 'merlon'); }
+      }
+    };
+    for (let i = 0; i < w; i++) {
+      wallRun('n', i, i, i + 1, 0, t, false);
+      if (i < 2 || i > 4) wallRun('s', i, i, i + 1, h - t, h, false);                                                  // (the gatehouse stands in the middle of the south wall)
+    }
+    for (let j = 0; j < h; j++) { wallRun('w', j, 0, t, j, j + 1, true); wallRun('e', j, w - t, w, j, j + 1, true); }
+    /* the towers */
+    const tw = 1.7, towers = [['nw', 0, 0], ['ne', w - tw, 0], ['se', w - tw, h - tw], ['sw', 0, h - tw]];
+    for (const [id, x0, y0] of towers) {
+      const fallen = ruined && (id === 'sw' ? 'stump' : id === 'se' ? 'broken' : id === 'nw' ? 'broken' : ''), z1 = fallen === 'stump' ? C.wall + 12 : fallen === 'broken' ? C.tower - 22 : C.tower;
+      box(x0, x0 + tw, y0, y0 + tw, 0, z1, 'tower', fallen ? broken(x0 * 5 + y0, z1 - 14, z1) : null);
+    }
+    for (const [id, x0, y0] of towers) {
+      if (ruined && id !== 'ne') continue;                                                                                // the roofs: all four when restored; only the north-east tower keeps its own
+      const cx = x0 + tw / 2, cy = y0 + tw / 2, r = tw / 2 + 0.16, Rr = 58, z0 = C.tower, slope = Rr / r;
+      const sHit = (X, Y) => { const k = slopeY(X, Y, z0 + Rr + slope * cy, -slope, cx - r, cx + r, cy, cy + r, 'croofS'); return k && Math.abs(k.y - cy) >= Math.abs(k.x - cx) ? k : null; };
+      const eHit = (X, Y) => { const k = slopeX(X, Y, z0 + Rr + slope * cx, -slope, cx, cx + r, cy - r, cy + r, 'croofE'); return k && Math.abs(k.x - cx) >= Math.abs(k.y - cy) ? k : null; };
+      const b = { sx0: (cx - r - cy - r) * HWa, sx1: (cx + r - cy + r) * HWa, sy0: (cx + cy - 2 * r) * HHa - z0 - Rr, sy1: (cx + cy + 2 * r) * HHa - z0 };
+      roofs.push(Object.assign({ hit: (X, Y) => sHit(X, Y) || eHit(X, Y), pole: [cx, cy, z0 + Rr] }, b));
+    }
+    /* the gatehouse, over the door */
+    const gz = ruined ? C.gate - 16 : C.gate;
+    box(2, 5, h - 1.5, h, 0, gz, 'gate', ruined ? broken(91, gz - 12, gz) : null);
+    if (!ruined) for (let m = 0; m < 6; m++) { box(2.05 + m * 0.5, 2.05 + m * 0.5 + 0.3, h - 0.17, h, gz, gz + C.merlon, 'merlon'); }
+    if (!ruined) for (let m = 0; m < 3; m++) { box(4.83, 5, h - 1.45 + m * 0.5, h - 1.45 + m * 0.5 + 0.3, gz, gz + C.merlon, 'merlon'); }
+    /* the keep: a tall hall in the court, a roof over it (restored; ruined: only the east end is left) */
+    const kx0 = 2.1, kx1 = 5.9, ky0 = 1.05, ky1 = 4.45, kz = C.keep, ky = (ky0 + ky1) / 2;
+    box(kx0, kx1, ky0, ky1, 0, kz, 'keep', ruined ? broken(23, kz - 20, kz) : null);
+    const ridge = 46, ye = ky1 + 0.22, yn = ky0 - 0.22, roofS = y => kz + ridge * (ye - y) / (ye - ky), roofN = y => kz + ridge * (y - yn) / (ky - yn), roofAt = y => Math.max(kz, Math.min(roofS(y), roofN(y)));
+    const rx0 = ruined ? 4.1 : kx0 - 0.2, rx1 = kx1 + 0.2;
+    roofs.push({
+      sx0: (rx0 - ye) * HWa, sx1: (rx1 - yn) * HWa, sy0: (rx0 + yn) * HHa - kz - ridge - 6, sy1: (rx1 + ye) * HHa - kz,
+      hit: (X, Y) => slopeY(X, Y, kz + ridge * ye / (ye - ky), -ridge / (ye - ky), rx0, rx1, ky, ye, 'ckeepRoofS') || slopeY(X, Y, kz - ridge * yn / (ky - yn), ridge / (ky - yn), rx0, rx1, yn, ky, 'ckeepRoofN')
+        || faceE(X, Y, kx1, ky0, ky1, kz, y => roofAt(y), 'cgable')
+    });
+    return { boxes, roofs };
+  }
+
+  /** The nearest surface of the castle at one art pixel. */
+  function castleCast(S, X, Y) {
+    const { w, h } = S, G = S.geo || (S.geo = castleGeo(S));
+    let best = null;
+    const consider = hit => { if (hit && (!best || hit.n > best.n)) best = hit; };
+    consider(top(X, Y, 0, 0, w + AP, h, h + AP, 'apronS')); consider(top(X, Y, 0, w, w + AP, 0, h, 'apronE'));
+    consider(top(X, Y, 0, 0, w, 0, h, 'ccourt'));
+    for (const b of G.boxes) {
+      if (X < b.sx0 || X > b.sx1 || Y < b.sy0 || Y > b.sy1) continue;
+      const z1 = b.jag || b.z1, mat = 'cstone';
+      const s = faceS(X, Y, b.y1, b.x0, b.x1, b.z0, z1, mat), e = faceE(X, Y, b.x1, b.y0, b.y1, b.z0, z1, mat), tp = b.jag ? top(X, Y, b.z1 - 14, b.x0, b.x1, b.y0, b.y1, 'ctop') : top(X, Y, b.z1, b.x0, b.x1, b.y0, b.y1, 'ctop');
+      for (const hit of [s, e, tp]) if (hit) { hit.part = b.part; consider(hit); }
+    }
+    for (const r of G.roofs) { if (X < r.sx0 || X > r.sx1 || Y < r.sy0 || Y > r.sy1) continue; consider(r.hit(X, Y)); }
+    return best;
+  }
+
+  /** A pennant on a pole at the point of each roof (the ruin keeps one, torn, on the one tower that still has a roof). */
+  function castleFlags(S, g, P) {
+    for (const r of (S.geo || castleGeo(S)).roofs) {
+      if (!r.pole) continue;
+      const [x, y] = P(r.pole[0], r.pole[1], r.pole[2]), px = Math.round(x), py = Math.round(y);
+      g.fillStyle = '#2a2018'; g.fillRect(px, py - 20, 1, 20);
+      g.fillStyle = S.banner;
+      if (S.ruined) { g.fillRect(px + 1, py - 20, 6, 2); g.fillRect(px + 1, py - 18, 3, 2); g.fillRect(px + 5, py - 18, 1, 1); }
+      else { g.fillRect(px + 1, py - 20, 10, 2); g.fillRect(px + 1, py - 18, 8, 2); g.fillRect(px + 1, py - 16, 6, 2); g.fillRect(px + 1, py - 14, 3, 1); g.fillStyle = '#d9b45a'; g.fillRect(px + 1, py - 20, 10, 1); }
+    }
+  }
+
+  /** The castle's stone: courses that run on round the corners, mossy at the foot, and (a ruin) ivy and dark stains. */
+  function castleStone(S, hit, k, u, v) {
+    const ivy = S.ruined ? Math.pow(hash(Math.floor(u / 5), 7, 61), 2.2) * (0.55 + 0.45 * hash(Math.floor(u / 2), 3, 62)) : 0;
+    let c = stoneAt(S, u, v, k * (v < 6 ? 0.88 : 1), hit.part === 'keep' ? mix(S.stone, '#c4bcaa', 0.25) : S.stone);
+    if (S.ruined) {
+      if (hash(Math.floor(u / 3), Math.floor(v / 3), 63) < 0.07) c = shade(c, 0.74);                                       // stains and fallen-out stones
+      if (hit.part !== 'merlon' && v > 6 && hash(Math.floor(u), 5, 64) < ivy * 0.9) {                                       // ivy hanging down in strands from the top
+        const reach = 14 + ivy * 70 * hash(Math.floor(u / 3), 9, 65);
+        if (v < reach && hash(Math.floor(u), Math.floor(v / 2), 66) < 0.75) c = ['#3f6a2c', '#4f7a34', '#5f8a3c', '#2f5a24'][Math.floor(hash(Math.floor(u), Math.floor(v), 67) * 4)] ;
+      }
+    }
+    return c;
+  }
+
+  function castleColour(S, hit) {
+    const k = hit.side === 'e' ? 0.78 : 1, u = (hit.side === 'e' ? S.h - hit.y : hit.x) * LEN, v = hit.z, south = hit.side === 's', C = CASTLE;
+    switch (hit.mat) {
+      case 'ccourt': {                                                                                                    // the court: flagstones; a ruin's grown over
+        const cell = hash(Math.floor(hit.x * 2), Math.floor(hit.y * 2), 70);
+        if (S.ruined && hash(Math.floor(hit.x * 5), Math.floor(hit.y * 5), 71) < 0.55) return ['#4f7a34', '#5f8a3c', '#3f6a2c'][Math.floor(cell * 3)];
+        return shade('#9a958b', 0.86 + cell * 0.16);
+      }
+      case 'ctop': {
+        const n = hash(Math.floor(hit.x * 8), Math.floor(hit.y * 8), 72);
+        if (S.ruined && n < 0.3) return ['#4f7a34', '#5f8a3c'][n < 0.15 ? 0 : 1];
+        return n < 0.1 ? shade(S.stone, 0.8) : n > 0.9 ? light(S.stone, 0.16) : light(S.stone, 0.08);
+      }
+      case 'croofS': case 'croofE': case 'ckeepRoofS': case 'ckeepRoofN': case 'cgable': {
+        if (hit.mat === 'cgable') { const g = hit.z - C.keep; return g < 3 || hit.y < 1.1 || hit.y > 4.4 ? tones(S.trim, 0.78)[2] : stoneAt(S, u, v, 0.78, mix(S.stone, '#c4bcaa', 0.25)); }
+        const kk = hit.mat === 'croofE' ? 0.78 : hit.mat === 'ckeepRoofN' ? 0.74 : 1, along = (hit.mat === 'croofE' ? hit.y : hit.x) * LEN * 0.8;
+        const sd = hit.mat.startsWith('ckeep') ? (hit.mat === 'ckeepRoofN' ? hit.y - 0.83 : 4.67 - hit.y) * 26 : (C.tower + 58 - hit.z) * 0.9, row = Math.floor(sd / 5);
+        if (hit.mat.startsWith('ckeep') && Math.abs(hit.y - 2.75) < 0.07) return tones(S.trim, 1)[2];                       // the ridge
+        if (sd - row * 5 < 1) return shade(S.roof, 0.55 * kk);
+        if (S.ruined && hash(Math.floor(along / 2), Math.floor(sd / 2), 73) < 0.18) return mix(shade(S.roof, kk), '#4f7a34', 0.5);
+        return tones(S.roof, kk)[Math.floor(hash(row, Math.floor((along + (row % 2) * 3.5) / 7), 4) * 3)];
+      }
+      case 'cstone': {
+        const wallFoot = () => footOf(castleStone(S, hit, k, u, v), hit.side === 'e' ? S.groundE(hit.y) : S.groundS(hit.x), v, u);
+        if (hit.part === 'merlon') return castleStone(S, hit, k, u, v);
+        if (hit.part === 'gate' && south) {
+          const local = hit.x - 3.5;                                                                                      // the door: centred on the door tile
+          const half = 0.46, arch = 38 + Math.sqrt(Math.max(0, 1 - Math.pow(local / half, 2))) * 12;
+          if (Math.abs(local) < half && v < arch) {
+            hit.door = true;
+            if (S.ruined) {                                                                                                 // boarded up, the boards split
+              const bx = Math.floor((local + half) / (2 * half) * 9);
+              if (v < 5 && hash(bx, 1, 74) < 0.5) return '#14100c';
+              if (hash(bx, Math.floor(v / 14), 75) < 0.16) return '#14100c';
+              return v % 14 < 1.5 ? '#2a2018' : tones(mix(S.trim, '#7a6a55', 0.4), 1)[Math.floor(hash(bx, 2, 76) * 3)];
+            }
+            const bar = Math.floor((local + half) / (2 * half) * 8), up = v > arch - 20;                                    // a portcullis: iron bars over the dark passage, raised a little
+            if (up && (bar * 7 + Math.floor(v / 5)) % 7 !== 0 && ((local + half) * 100) % 12 < 3.2) return '#3a3a40';
+            return v < 20 ? '#1b1712' : '#0f0d0a';
+          }
+          if (Math.abs(local) < half + 0.12 && v < arch + 5) { hit.door = true; return Math.floor(Math.atan2(v - 36, local * 40) * 6) % 2 ? light(S.stone, 0.18) : light(S.stone, 0.05); }   // the arch's stones
+          if (!S.ruined && Math.abs(Math.abs(local) - 0.78) < 0.1 && v > 34 && v < 76) return hit.x < 3.5 ? S.banner : S.banner;   // a banner each side of the gate
+          if (!S.ruined && Math.abs(Math.abs(local) - 0.78) < 0.1 && v > 31 && v <= 34) return '#d9b45a';
+          if (!S.ruined && v > 62 && v < 78 && Math.abs(local) < 0.12) return '#14110f';                                      // an arrow slit above
+        }
+        if (hit.part === 'keep') {                                                                                          // tall arched windows
+          const along = south ? hit.x : hit.y, cells = south ? [2.9, 4.0, 5.1] : [1.95, 3.0, 3.9], lower = v > 60 && v < 112;
+          for (const c of cells) {
+            const p = (along - c) / 0.28;
+            if (Math.abs(p) < 1 && lower && v < 98 + Math.sqrt(Math.max(0, 1 - p * p)) * 12 && !(south && Math.abs(hit.y - 4.45) > 0.01)) {
+              if (S.ruined) return hash(Math.floor(along * 30), Math.floor(v / 3), 77) < 0.5 ? '#0e0c0a' : '#1c1814';
+              return Math.abs(p) < 0.08 || Math.abs(v - 86) < 1 ? shade(S.trim, 0.8) : p < -0.2 && v > 88 ? light(S.glass, 0.4) : v < 74 ? '#e6c870' : S.glass;
+            }
+          }
+          if (!S.ruined && v > C.keep - 10) return tones(S.trim, k)[2];                                                     // the eaves timber
+        }
+        if (hit.part === 'tower' || hit.part === 'gate') {                                                                  // arrow slits
+          const along = south ? hit.x : hit.y, cell = along - Math.floor(along);
+          const slitAt = hit.part === 'tower' ? v > 52 && v < 78 && Math.abs(cell - 0.5) < 0.05 && (along % 1.7 > 0.6) : false;
+          if (slitAt) return '#14110f';
+        }
+        if (hit.part === 'wall' && v > 24 && v < 40) {                                                                      // a slit every few tiles along the curtain wall
+          const along = south ? hit.x : hit.y;
+          if (Math.abs(along % 2 - 1) < 0.045) return '#14110f';
+        }
+        return wallFoot();
+      }
+    }
+    return '#f0f';
+  }
+
   /* ---- props: little pixel sprites stood against the front wall ---- */
   function props(S, g, P) {
     const px = (x, y, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), 1, 1); };
@@ -295,10 +474,10 @@ const PixelBuildings = (() => {
   const siteKeys = new Map();                                                    // site.index -> { at: the ground function it was keyed for, key, S }
   function art(site) {
     let k = siteKeys.get(site.index);
-    if (!k || k.at !== groundAt) {                                               // (once per building, and again when the ground becomes known)
+    if (!k || k.at !== groundAt || k.def !== site.def) {                         // (once per building, and again when the ground becomes known or it is restored)
       const S = specOf(site);
       const ground = groundAt ? '|g' + [...Array(S.w).keys()].map(x => S.groundS(x) || '-').join() + '/' + [...Array(S.h).keys()].map(y => S.groundE(y) || '-').join() : '';   // (the ground at the foot of its walls is part of the picture)
-      k = { at: groundAt, key: site.index + '|' + site.facing + site.w + 'x' + site.h + 'd' + site.doorX + ',' + site.doorY + '|v2|' + JSON.stringify(site.def.exterior || {}) + ground, S };   // (facing, size, door and the picture's version are part of it: the art pack is keyed by it)
+      k = { at: groundAt, def: site.def, key: site.index + '|' + site.facing + site.w + 'x' + site.h + 'd' + site.doorX + ',' + site.doorY + '|v2|' + JSON.stringify(site.def.exterior || {}) + ground, S };   // (facing, size, door and the picture's version are part of it: the art pack is keyed by it)
       siteKeys.set(site.index, k);
     }
     let pic = cache.get(k.key);                                                  // ready-made, or painted now
@@ -333,6 +512,7 @@ const PixelBuildings = (() => {
     const P = (x, y, z) => [(x - y) * HWa - minX, (x + y) * HHa - z - minY];
     tufts(g, x => P(x, S.h + 0.04, 0), 'x', S.groundS, S.w, 1); tufts(g, y => P(S.w + 0.04, y, 0), 'y', S.groundE, S.h, 2);   // grass at the foot of the walls
     props(S, g, P);
+    if (S.castle) castleFlags(S, g, P);
     return { canvas, minX, minY };
   }
 
