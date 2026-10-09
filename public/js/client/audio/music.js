@@ -478,10 +478,10 @@ const PonyMusic = (() => {
           if ((s === 0 && idx >= 1) || (s === 4 && idx >= 3 && rnd() < 0.6)) { this.mp = this._tune(this.mp, 2, 7, key, sc, pcs, true); this._flute(t, nm(this.mp, key, sc), dur * 3.6, 0.55 * q + 0.15); }
         } else if (id === 'farm') {                                                                                          // casual farm vibes: boom-chick, a banjo and a fiddle, with a lazy shuffle
           const tt = t + (s % 2 ? dur * 0.12 : 0);
-          if (s === 0) this._bass(tt, low, dur * 1.8, 1); else if (s === 4) this._bass(tt, low + 7, dur * 1.8, 0.8);
-          if (s === 2 || s === 6) { this._strum(tt, [root + 60, third + 60, fifth + 60], 0.9); this._brush(tt, 0.9); }
-          if (idx >= 2 && [0, 3, 4, 6].includes(s) && (s === 0 || rnd() < 0.75)) { this.mp = this._tune(this.mp, 3, 9, key, sc, pcs, s === 0 || s === 4); this._pluck(tt, nm(this.mp, key, sc), 0.8); }
-          if (s === 0 && idx % 4 === 3) this._violin(t, nm(clamp(this.mp + 3, 6, 11), key, sc), dur * 7, 0.4, 0.35, true);       // a held fiddle note at the end of every four bars
+          if (s === 0) this._bass(tt, low, dur * 1.8, 1.9); else if (s === 4) this._bass(tt, low + 7, dur * 1.8, 1.5);
+          if (s === 2 || s === 6) { this._strum(tt, [root + 60, third + 60, fifth + 60], 2.2); this._brush(tt, 2); }
+          if (idx >= 2 && [0, 3, 4, 6].includes(s) && (s === 0 || rnd() < 0.75)) { this.mp = this._tune(this.mp, 3, 9, key, sc, pcs, s === 0 || s === 4); this._pluck(tt, nm(this.mp, key, sc), 2); }
+          if (s === 0 && idx % 4 === 3) this._violin(t, nm(clamp(this.mp + 3, 6, 11), key, sc), dur * 7, 0.8, 0.35, true);       // a held fiddle note at the end of every four bars
         } else if (id === 'glee') {                                                                                          // cheery glee: bright, bouncing, a tambourine's shimmer
           if (idx === 11 && s >= 4) { skipRest(); continue; }                                                               // the cheer stops short...
           if (idx === 0 && s === 0) this._crash(t, 0.5);
