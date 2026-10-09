@@ -65,6 +65,7 @@ class AnimalSystem {
   update(tick, humans) {
     const byGrid = {};                                                                   // an animal only reacts to people on its own grid
     for (const h of humans) (byGrid[gridOf(h)] = byGrid[gridOf(h)] || []).push(h);
+    const moved = [];                                                                    // the animals that moved this tick (they push each other apart below)
     for (const id in this.animals) {
       const a = this.animals[id], near = byGrid[gridOf(a)];
       if (a.shornUntil && tick >= a.shornUntil) a.shornUntil = 0;                       // its wool has grown back
@@ -73,7 +74,9 @@ class AnimalSystem {
       this.active = a;                                                                   // (what it does is shown on its grid: see GameServer's events)
       this._think(a, def, near, TICK_DT);
       this._move(a, def, TICK_DT);
+      moved.push(a);
     }
+    this._separate(moved, TICK_DT);
     this.active = null;
     this._runRespawns(tick, byGrid[''] || []);
     if (tick % 30 === 0) this._runNodes(tick, byGrid[''] || []);
@@ -190,6 +193,42 @@ class AnimalSystem {
     a.x += a.vx * dt; a.y += a.vy * dt;
     resolveCollisions(this.mapOf(a), a, def.radius);                    // water, trees, walls (of its own grid): animals stay out of them too
     if (Math.hypot(a.vx, a.vy) > 0.05) turnToward(a, Math.atan2(a.vy, a.vx), ANIMAL_TURN_RATE * dt);
+  }
+
+  /** Soft collisions: animals are not solid to each other, they lean on each other and drift apart. Two free animals push apart as soon as their bodies
+   *  touch; while one is being PULLED (on a rope, or following its owner) the bodies may overlap about a third before they push, and more gently, so
+   *  a string of led ponies can bunch up at a gate. Once the pulling stops the full push returns and they ease apart. Ridden animals are left alone
+   *  (their rider steers them). Positions only: walls, water and trees still win (resolveCollisions). */
+  _separate(list, dt) {
+    if (list.length < 2) return;
+    const cell = new Map(), CELL = 2, pulled = a => !!(a.leashed || a.captor || a.state === 'follow');
+    for (const a of list) {
+      if (a.rider) continue;
+      const key = gridOf(a) + '|' + Math.floor(a.x / CELL) + ',' + Math.floor(a.y / CELL);
+      (cell.get(key) || cell.set(key, []).get(key)).push(a);
+    }
+    const push = new Map();                                                              // animal -> [dx, dy] to add (gathered first so the order does not matter)
+    const add = (a, dx, dy) => { const v = push.get(a) || push.set(a, [0, 0]).get(a); v[0] += dx; v[1] += dy; };
+    for (const a of list) {
+      if (a.rider) continue;
+      const g = gridOf(a), cx = Math.floor(a.x / CELL), cy = Math.floor(a.y / CELL), ra = AnimalDefs[a.type].radius;
+      for (let ix = cx - 1; ix <= cx + 1; ix++) for (let iy = cy - 1; iy <= cy + 1; iy++) {
+        for (const b of cell.get(g + '|' + ix + ',' + iy) || []) {
+          if (b === a || a.id >= b.id) continue;                                         // (each pair once)
+          let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+          const soft = pulled(a) || pulled(b), contact = (ra + AnimalDefs[b.type].radius) * (soft ? 0.65 : 1);
+          if (d >= contact) continue;
+          if (d < 1e-4) { const ang = ((a.id.length * 7 + b.id.length * 13 + a.id.charCodeAt(a.id.length - 1)) % 628) / 100; dx = Math.cos(ang); dy = Math.sin(ang); d = 1; }
+          const overlap = contact - Math.hypot(dx, dy), k = Math.min(0.5, (soft ? 4 : 9) * dt) * overlap * 0.5;
+          const ux = dx / d, uy = dy / d;
+          add(a, -ux * k, -uy * k); add(b, ux * k, uy * k);
+        }
+      }
+    }
+    for (const [a, [dx, dy]] of push) {
+      a.x += dx; a.y += dy;
+      resolveCollisions(this.mapOf(a), a, AnimalDefs[a.type].radius);
+    }
   }
 
   /** Nearest animal whose body is within `reach` of the player: { id, animal, gap } or null. */
