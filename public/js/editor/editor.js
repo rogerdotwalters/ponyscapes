@@ -290,8 +290,9 @@
   /* ------------------------------------------------------------ the list ------------------------------------------------------------ */
   function renderList() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-    $('btnNew').disabled = tab === 'characters' || tab === 'settings';
+    $('btnNew').disabled = tab === 'characters' || tab === 'settings' || tab === 'loot';
     const list = $('list'); list.innerHTML = '';
+    if (tab === 'loot') { LootEditor.renderList(list, { q: search, selected, select: key => { selected = key; renderList(); renderDetail(); }, rerender: () => { renderList(); renderDetail(); } }); return; }                       // (loot tables: lootEditor.js, saved on this device as you edit)
     if (tab === 'settings') {
       list.append(h('button', { class: 'entry on' }, h('span', { class: 'en' }, h('b', {}, 'Pony speed & levels'), h('small', {}, 'settings')), Object.keys(draft.settings).length ? h('span', { class: 'tag edited' }, 'edited') : null));
       return;
@@ -500,6 +501,7 @@
   function renderDetail() {
     const box = $('detail'); box.innerHTML = '';
     if (tab === 'settings') { box.append(...settingsForm()); return; }
+    if (tab === 'loot') { LootEditor.renderDetail(box, selected, () => { renderList(); renderDetail(); }); return; }
     if (!selected || !idsOf(tab).includes(selected)) { box.append(h('div', { class: 'empty' }, 'Pick something on the left, or press ', h('b', {}, '+ New'), '.')); return; }
     const id = selected, form = tab === 'items' ? itemForm(id) : tab === 'creatures' ? creatureForm(id) : characterForm(id);
     const edited = !form.custom && !!draft[tab][id];

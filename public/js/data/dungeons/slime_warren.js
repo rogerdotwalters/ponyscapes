@@ -21,5 +21,5 @@ Dungeons.register({
     { max: 13, rate: 1.5, level: 10, total: 26 }
   ],
   king: { room: 5, level: 10 },
-  loot: [{ item: 'gold_coin', min: 20, max: 60 }, { item: 'torch', min: 1, max: 3, chance: 0.7 }, { item: 'apple', min: 3, max: 6, chance: 0.7 }, { item: 'cooked_venison', min: 1, max: 2, chance: 0.3 }]
+  loot: [{ item: 'gold_coin', min: 20, max: 60 }, { item: 'goo', min: 2, max: 5, chance: 0.8 }, { item: 'bone', min: 1, max: 3, chance: 0.5 }, { item: 'apple', min: 3, max: 6, chance: 0.7 }, { item: 'rope', min: 1, max: 3, chance: 0.6 }, { item: 'torch', min: 1, max: 3, chance: 0.7 }, { item: 'cooked_venison', min: 1, max: 2, chance: 0.3 }]
 });

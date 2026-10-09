@@ -25,10 +25,33 @@ class LobbyUI {
       this.$('#charEdit').onclick = () => this._showCreator();
       this.$('#lobbyName').oninput = () => { if (this.look && !this.$('#lobbyMain').hidden) this._renderCard(); };
       this.$('#lobbyRelayNote').textContent = 'Using ' + RelayConnection.baseUrl();
-      if (!this._load('ponyscapes.character')) this._showCreator(true);                            // a new player makes their character first
-      else if (this.query.has('join')) this._showJoin(this.query.get('join'));
-      else this._pane('lobbyMain');
+      this.$('#lobbyPlay').onclick = () => this._enter();
+      this.$('#lobbyEditor').onclick = () => this._editor();
+      this.$('#lobbyMenu').onclick = () => this._pane('lobbyHome');
+      this.$('#lobbyEditorGo').onclick = () => this._editor(this.$('#lobbyEditorCode').value);
+      this.$('#lobbyEditorCode').onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') this._editor(this.$('#lobbyEditorCode').value); };
+      if (this.query.has('join')) this._enter();                                                   // an invite link goes straight to joining: no main menu
+      else this._home();
     });
+  }
+
+  /* ---------------------------- the main menu: Play or Editor, with "Harmony Hooves" (the last tune of the soundtrack) as its theme ---------------------------- */
+  _home() {
+    this._pane('lobbyHome');
+    if (!this.music && typeof PonyMusic !== 'undefined') this.music = new PonyMusic({ theme: 'harmony' });          // (sound starts on the first tap: browsers keep it off until then)
+    if (typeof GameAudio !== 'undefined') GameAudio.onReady(() => { this.$('#lobbySound').hidden = true; });
+  }
+  /** Play: a new player makes their character first; then solo / host / join. */
+  _enter() {
+    if (!this._load('ponyscapes.character')) this._showCreator(true);
+    else if (this.query.has('join')) this._showJoin(this.query.get('join'));
+    else this._pane('lobbyMain');
+  }
+  /** Editor: behind the developer code (the same as Dev settings). Unlocked, it opens editor.html. */
+  _editor(typed) {
+    if (!DevLock.unlocked && typed === undefined) { this.$('#lobbyEditorLock').hidden = false; this.$('#lobbyEditorCode').focus(); return; }
+    if (!DevLock.unlocked && !DevLock.tryCode(typed)) { this._error('That is not the code.'); this.$('#lobbyEditorCode').select(); return; }
+    location.href = 'editor.html';
   }
 
   /* ---------------------------- identity ---------------------------- */
@@ -136,14 +159,14 @@ class LobbyUI {
     if (id !== 'lobbyCreator') this._stopSpin();
     if (id === 'lobbyMain' && this.look) this._renderCard();
     for (const p of this.root.querySelectorAll('.lobbyPane')) p.hidden = p.id !== id;
-    this.$('#nameField').hidden = id === 'lobbyBusy';                                  // (your name is on every screen except the spinner: an invite link opens straight on Join)
+    this.$('#nameField').hidden = id === 'lobbyBusy' || id === 'lobbyHome';                                  // (your name is on every screen except the spinner: an invite link opens straight on Join)
     this._error('');
     const first = this.$('#' + id + ' input, #' + id + ' button.big'); if (first && first.focus && id !== 'lobbyBusy' && id !== 'lobbyCreator') try { first.focus(); } catch (e) { /* not focusable */ }
     const card = this.$('.lobbyCard'); if (card) card.scrollTop = 0;                    // every screen starts at its top
   }
   _busy(text) { this.$('#lobbyBusyText').textContent = text; this._pane('lobbyBusy'); }
   _error(text) { const e = this.$('#lobbyError'); e.hidden = !text; e.textContent = text || ''; if (text) { const card = this.$('.lobbyCard'); if (card) card.scrollTop = 0; } }      // (errors are at the top, in view)
-  _finish(result) { this.root.hidden = true; const r = this.resolve; this.resolve = null; r(result); }
+  _finish(result) { if (this.music) { this.music.stop(); this.music = null; } this.root.hidden = true; const r = this.resolve; this.resolve = null; r(result); }
   static ago(ms) { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago'; }
 
   /* ---------------------------- host ---------------------------- */

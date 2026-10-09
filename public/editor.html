@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="css/editor.css">
 </head>
 <body>
+<script src="js/shared/devLock.js"></script>
+<script src="js/editor/lockGate.js"></script>
 <header id="top">
   <div class="brand"><b>Content Editor</b><span id="status"></span></div>
   <nav id="tabs">
@@ -14,6 +16,7 @@
     <button data-tab="creatures">Creatures</button>
     <button data-tab="characters">Characters</button>
     <button data-tab="settings">Settings</button>
+    <button data-tab="loot">Loot</button>
   </nav>
   <div class="actions">
     <button id="btnPlay" title="Opens the game (solo) using this draft">Play-test draft</button>
@@ -102,6 +105,7 @@
 <script src="js/data/zones/mushroom.js"></script>
 <script src="js/data/dungeons/registry.js"></script>
 <script src="js/data/dungeons/cavern.js"></script>
+<script src="js/data/dungeons/slime_warren.js"></script>
 <script src="js/data/ponies/registry.js"></script>
 <script src="js/data/ponies/variants.js"></script>
 <script src="js/data/ponies/abilities.js"></script>
@@ -164,10 +168,12 @@
 <script src="js/data/furniture/basic.js"></script>
 <script src="js/data/interiors/tiles.js"></script>
 <script src="js/shared/itemDefs.js"></script>
+<script src="js/content/lootTables.js"></script>
 <script src="js/shared/recipeDefs.js"></script>
 <script src="js/shared/resourceDefs.js"></script>
 <script src="js/shared/ponyDefs.js"></script>
 <script src="js/shared/animalDefs.js"></script>
+<script src="js/shared/lootTables.js"></script>
 <script src="js/shared/animalLevels.js"></script>
 <script src="js/shared/enemyCodes.js"></script>
 <script src="js/shared/ponyProgress.js"></script>
@@ -267,6 +273,7 @@
 <script src="js/client/render/wantBubble.js"></script>
 <script src="js/client/render/animalSprite.js"></script>
 <script src="js/client/ui/itemIcons.js"></script>
+<script src="js/editor/lootEditor.js"></script>
 <script src="js/editor/editor.js"></script>
 </body>
 </html>

@@ -214,10 +214,11 @@ const PonyMusic = (() => {
   };
 
   class Music {
-    constructor() {
+    /** @param {{theme?: string}} [opts] theme: start on (and stay on) this tune, as the main menu does with 'harmony'; without it the game picks the tune from what is happening. */
+    constructor(opts = {}) {
       this.ctx = null; this.timer = 0; this.nextTime = 0; this.step = 0; this.bar = 0;
       Music.current = this; this.forced = ''; this.forcedAmb = false; this.fullNow = false; this._passed = -1; this._cycle = 8;       // forced: a track picked in the Soundtrack player ('' = follow the game)
-      this.theme = 'calm'; this.mood = { night: 0, indoors: 0, cave: 0 }; this.hurtT = 0; this.lastHp = null; this.battleT = 0; this.stormT = 0; this.tempestT = 0; this.lines = { a: [], b: [] }; this.cpos = -3; this.marks = []; this.paused = false; this.pausePos = 0; this.last = 0;
+      this.theme = THEMES[opts.theme] ? opts.theme : 'calm'; if (THEMES[opts.theme]) this.forced = opts.theme; this.mood = { night: 0, indoors: 0, cave: 0 }; this.hurtT = 0; this.lastHp = null; this.battleT = 0; this.stormT = 0; this.tempestT = 0; this.lines = { a: [], b: [] }; this.cpos = -3; this.marks = []; this.paused = false; this.pausePos = 0; this.last = 0;
       GameAudio.onReady(ctx => { this.ctx = ctx; this._build(); });
     }
 
@@ -296,6 +297,12 @@ const PonyMusic = (() => {
     }
     pause() { if (!this.ctx || this.paused) return; this.pausePos = this.position(); this.paused = true; this.gate.gain.setTargetAtTime(0, this.ctx.currentTime, 0.04); }
     resume() { if (!this.ctx || !this.paused) return; this.paused = false; this.marks = []; this.gate.gain.setTargetAtTime(1, this.ctx.currentTime, 0.05); this.nextTime = Math.max(this.nextTime, this.ctx.currentTime + 0.25); }
+    /** Silence this player for good (the main menu's, once the game starts): the scheduler stops and what is sounding fades out. */
+    stop() {
+      if (this.timer) clearInterval(this.timer); this.timer = 0;
+      if (this.ctx && this.fade) { this.fade.gain.cancelScheduledValues(this.ctx.currentTime); this.fade.gain.setTargetAtTime(0, this.ctx.currentTime, 0.35); }
+      if (Music.current === this) Music.current = null;
+    }
     /** The title of the tune playing now. */
     get title() { return THEMES[this.theme].title + (this.ambient ? ' \u2013 ambient' : ''); }
 

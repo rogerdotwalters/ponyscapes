@@ -15,7 +15,8 @@
     "rooms:samples": "node tools/cave-rooms.js samples",
     "test:dungeon": "node tools/test-dungeon.js",
     "test:downed": "node tools/test-downed.js",
-    "test:warren": "node tools/test-warren.js"
+    "test:warren": "node tools/test-warren.js",
+    "test:loot": "node tools/test-loot.js"
   },
   "devDependencies": { "wrangler": "^4.0.0" }
 }
