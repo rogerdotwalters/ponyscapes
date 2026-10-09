@@ -3,16 +3,18 @@
  * a key already used by another action moves to this one) and a MOUSE & TOUCH tab with what clicks and taps do and the tap-to-walk switch. */
 class ControlsUI {
   constructor({ panel, tabs, body, closeButton }) {
-    this.panel = panel; this.tabs = tabs; this.body = body; this.tab = 'keys'; this.waiting = null; this.tick = 0; this.note = '';       // waiting: { id, index } while a key is awaited
+    this.panel = panel; this.tabs = tabs; this.body = body; this.tab = 'keys'; this.waiting = null; this.tick = 0; this.note = ''; this.scrubbing = false;       // waiting: { id, index } while a key is awaited
     tabs.innerHTML = '<button data-tab="keys">Keys</button><button data-tab="pointer">Mouse &amp; touch</button><button data-tab="music">Soundtrack</button>';
     tabs.addEventListener('click', e => { const t = e.target.closest('button'); if (t) this.show(t.dataset.tab); });
     closeButton.addEventListener('click', () => this.close());
     body.addEventListener('click', e => this._click(e));
     body.addEventListener('change', e => {
+      if (e.target.id === 'trackScrub') { const m = PonyMusic.current; if (m) m.seek(Number(e.target.value)); this.scrubbing = false; return; }
       const set = { ctlTapMove: 'setTapToMove', ctlFixedStick: 'setFixedJoystick', ctlWalkToAct: 'setWalkToAct' }[e.target.id];
       if (set) { Controls[set](e.target.checked); this.refresh(); }
     });
     body.addEventListener('input', e => {
+      if (e.target.id === 'trackScrub') { this.scrubbing = true; this._setTimes(Number(e.target.value)); return; }                  // (dragging the scrub bar: show the time, seek on release)
       const kind = { ctlWeatherVol: 'weather', ctlMusicVol: 'music', ctlSfxVol: 'sfx' }[e.target.id];
       if (kind) { GameAudio.setVolume(kind, e.target.value / 100); e.target.parentNode.querySelector('output').textContent = e.target.value + '%'; }
     });
@@ -36,6 +38,13 @@ class ControlsUI {
       this.waiting = { id, index: Number(index) }; Controls.capturing = true; this.refresh();
       return;
     }
+    const act = e.target.closest('button[data-act]');
+    if (act) {
+      const m = PonyMusic.current;
+      if (m && GameAudio.ctx) { if (act.dataset.act === 'next') m.skip(1); else if (act.dataset.act === 'prev') m.skip(-1); else if (m.paused) m.resume(); else m.pause(); }
+      else this.note = 'Tap or press a key once to start the sound.';
+      this.refresh(); return;
+    }
     const track = e.target.closest('button[data-track]');
     if (track) { const m = PonyMusic.current; if (m) { if (track.dataset.track === 'auto') m.auto(); else m.play(track.dataset.track); } if (!GameAudio.ctx) this.note = 'Tap or press a key once to start the sound.'; this.refresh(); return; }
     const reset = e.target.closest('button[data-reset]');
@@ -58,25 +67,39 @@ class ControlsUI {
     clearInterval(this.tick); this.tick = 0;
     this.body.innerHTML = this.tab === 'keys' ? this._keys() : this.tab === 'music' ? this._music() : this._pointer();
     if (this.tab === 'music') this._nowPlaying();
-    if (this.tab === 'music') this.tick = setInterval(() => { if (!this.isOpen || this.tab !== 'music') { clearInterval(this.tick); return; } this._nowPlaying(); }, 1000);
+    if (this.tab === 'music') this.tick = setInterval(() => { if (!this.isOpen || this.tab !== 'music') { clearInterval(this.tick); return; } this._nowPlaying(); }, 250);
   }
 
-  /** The Soundtrack player: pick any track to play it (from its beginning) until you pick Auto, which lets the game choose by weather, danger and place. */
+  /** The Soundtrack player: skip back / forward through the tracks, pause, scrub through the tune, or pick any track (it plays from its beginning).
+   *  Auto lets the game choose by weather, danger and place. */
   _music() {
-    const m = PonyMusic.current, forced = m ? m.forced : '', playing = m ? m.theme : 'calm';
-    const row = (id, glyph, title, blurb) => `<button class="trackRow${(id === 'auto' ? !forced : forced === id) ? ' on' : ''}" data-track="${id}" tabindex="-1"><span class="mg">${glyph}</span><span class="mt"><b>${title}</b><i>${blurb}</i></span></button>`;
+    const m = PonyMusic.current, forced = m ? m.forced : '', paused = !!(m && m.paused), len = m ? Math.floor(m.length()) : 0;
+    const row = (t) => `<button class="trackRow${forced === t.id ? ' on' : ''}" data-track="${t.id}" tabindex="-1"><span class="mg">${forced === t.id ? '\u25A0' : '\u25B6'}</span><span class="mt"><b>${t.title}</b><i>${t.blurb}</i></span></button>`;
+    this._musicKey = m ? [m.theme, forced, paused].join('|') : '';
     return (this.note ? `<div class="ctlNote">${this.note}</div>` : '') +
-      '<div class="gtitle">Now playing</div><div id="trackNow" class="trackNow"></div>' +
-      '<div class="gtitle">Tracks</div>' +
-      row('auto', '\u{1F3B2}', 'Auto', 'The game picks: calm by day, storms, battles, caves') +
-      PonyMusic.TRACKS.map(t => row(t.id, forced === t.id ? '\u25A0' : '\u25B6', t.title, t.blurb)).join('') +
+      '<div id="trackNow" class="trackNow"></div>' +
+      `<div class="scrubRow"><span id="trackTime">0:00</span><input type="range" id="trackScrub" min="0" max="${len}" step="1" value="0"><span id="trackLen">${this._fmt(len)}</span></div>` +
+      '<div class="transport">' +
+        '<button data-act="prev" tabindex="-1" title="Previous track">\u23EE</button>' +
+        `<button data-act="pause" tabindex="-1" title="${paused ? 'Play' : 'Pause'}">${paused ? '\u25B6' : '\u23F8'}</button>` +
+        '<button data-act="next" tabindex="-1" title="Next track">\u23ED</button>' +
+        `<button data-track="auto" class="autoBtn${forced ? '' : ' on'}" tabindex="-1" title="Let the game choose the music">Auto</button>` +
+      '</div>' +
+      '<div class="gtitle">Tracks</div>' + PonyMusic.TRACKS.map(row).join('') +
       '<div class="gtitle">Volume</div>' +
       `<label class="admSlide"><span><b>Music</b></span><input type="range" id="ctlMusicVol" min="0" max="100" step="5" value="${Math.round(GameAudio.volume('music') * 100)}"><output>${Math.round(GameAudio.volume('music') * 100)}%</output></label>` +
-      '<div class="menunote">A track you pick keeps playing, whatever the weather, until you pick Auto again.</div>';
+      '<div class="menunote">Skip or pick a track and it keeps playing, whatever the weather, until you press Auto. Drag the bar to jump to another part of the tune.</div>';
   }
+  _fmt(sec) { sec = Math.max(0, Math.floor(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+  _setTimes(sec) { const t = this.body.querySelector('#trackTime'); if (t) t.textContent = this._fmt(sec); }
+  /** Keep the player's title, time and scrub bar current (a few times a second); rebuild it if the tune, the pick or the pause changed. */
   _nowPlaying() {
     const el = this.body.querySelector('#trackNow'), m = PonyMusic.current; if (!el || !m) return;
-    el.textContent = '\u266A ' + m.title + (m.forced ? ' (your pick)' : ' (auto)');
+    if ([m.theme, m.forced, m.paused].join('|') !== this._musicKey) { this.refresh(); return; }
+    el.textContent = '\u266A ' + m.title + (m.forced ? ' (your pick)' : ' (auto)') + (m.paused ? ' \u2013 paused' : '');
+    if (this.scrubbing) return;
+    const pos = m.position(), bar = this.body.querySelector('#trackScrub'); if (bar) bar.value = Math.floor(pos);
+    this._setTimes(pos);
   }
 
   _keys() {

@@ -575,3 +575,10 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .trackRow .mt b{font:700 14px Georgia,serif}
 .trackRow .mt i{font:400 11px Georgia,serif;font-style:normal;color:#b9c4d0}
 .trackNow{font:600 14px Georgia,serif;color:#e3c27a;padding:2px 2px 6px}
+.scrubRow{display:flex;align-items:center;gap:8px;font:600 12px ui-monospace,monospace;color:#e3c27a;padding:2px 2px 6px}
+.scrubRow input[type=range]{flex:1;min-width:0;accent-color:#e3c27a;height:28px}
+.transport{display:flex;gap:8px;margin:2px 0 6px}
+.transport button{flex:1;min-height:44px;border-radius:10px;border:1.5px solid rgba(227,194,122,.55);background:rgba(10,18,28,.6);color:#f4e6c1;font-size:18px}
+.transport button:active{background:rgba(227,194,122,.35)}
+.transport .autoBtn{flex:1.4;font:700 14px Georgia,serif}
+.transport .autoBtn.on{border-color:#e3c27a;background:rgba(227,194,122,.22)}
