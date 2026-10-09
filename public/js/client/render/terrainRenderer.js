@@ -31,19 +31,30 @@ const TerrainRenderer = (() => {
     if (field) plots(ctx, tx, ty, field);
   }
   const SOIL = ['#7a5233', '#83593a', '#704b2e'];
-  /** The nine plots of a field: a furrowed square each, dark when watered, pale when packed hard, with a hole, a seed or a mound of earth on it. */
+  /** A one-pixel-thick line of hard pixels (no antialiasing, like the rest of the ground). */
+  function pxLine(ctx, x0, y0, x1, y1) {
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) | 0;
+    for (let i = 0; i <= n; i++) ctx.fillRect(Math.round(x0 + (x1 - x0) * i / (n || 1)), Math.round(y0 + (y1 - y0) * i / (n || 1)), 1, 1);
+  }
+  /** A filled ellipse in rows of hard pixels. */
+  function pxOval(ctx, x, y, rx, ry) {
+    for (let dy = -ry; dy <= ry; dy++) { const w = Math.round(rx * Math.sqrt(1 - (dy * dy) / ((ry + 0.5) * (ry + 0.5)))); ctx.fillRect(Math.round(x) - w, Math.round(y) + dy, w * 2 + 1, 1); }
+  }
+  /** The nine plots of a field: an inked, furrowed diamond each (dark when watered, pale when packed hard), with a hole, a seed or a mound of earth on it. */
   function plots(ctx, tx, ty, field) {
-    const hw = TILE_HALF_W / 3, hh = TILE_HALF_H / 3;
+    const hw = Math.round(TILE_HALF_W / 3 * 0.9), hh = Math.round(TILE_HALF_H / 3 * 0.9);
     for (let i = 0; i < 9; i++) {
-      const plot = field.cells[i], wx = tx + (i % 3 + 0.5) / 3, wy = ty + (Math.floor(i / 3) + 0.5) / 3, x = (wx - wy) * TILE_HALF_W, y = (wx + wy) * TILE_HALF_H;
-      ctx.beginPath(); ctx.moveTo(x, y - hh * 0.86); ctx.lineTo(x + hw * 0.86, y); ctx.lineTo(x, y + hh * 0.86); ctx.lineTo(x - hw * 0.86, y); ctx.closePath();
-      ctx.fillStyle = plot.u ? 'rgba(205,175,125,.38)' : plot.w === today ? 'rgba(28,14,6,.4)' : 'rgba(40,22,10,.1)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(30,16,8,.45)'; ctx.lineWidth = 1; ctx.stroke();
-      if (plot.h && !plot.v) {                                                            // a dug hole (with a seed in it, if planted)
-        ctx.fillStyle = '#2a170b'; ctx.beginPath(); ctx.ellipse(x, y, hw * 0.42, hh * 0.42, 0, 0, Math.PI * 2); ctx.fill();
-        if (plot.c) { const c = Crops.get(plot.c); ctx.fillStyle = c ? c.colors.crop : '#e8d9a0'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 2); }
-      } else if (plot.v && !plot.c) { ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y, hw * 0.4, hh * 0.4, 0, 0, Math.PI * 2); ctx.fill(); }
-      else if (plot.v) { ctx.fillStyle = plot.w === today ? '#4a2f1b' : '#8a6340'; ctx.beginPath(); ctx.ellipse(x, y + 1, hw * 0.34, hh * 0.34, 0, 0, Math.PI * 2); ctx.fill(); }   // (a mound the crop grows from)
+      const plot = field.cells[i], wx = tx + (i % 3 + 0.5) / 3, wy = ty + (Math.floor(i / 3) + 0.5) / 3, x = Math.round((wx - wy) * TILE_HALF_W), y = Math.round((wx + wy) * TILE_HALF_H);
+      ctx.fillStyle = plot.u ? 'rgba(205,175,125,.4)' : plot.w === today ? 'rgba(28,14,6,.42)' : 'rgba(40,22,10,.12)';             // the bed's soil, row by row
+      for (let dy = -hh; dy <= hh; dy++) { const w = Math.round(hw * (1 - Math.abs(dy) / (hh + 0.5))); ctx.fillRect(x - w, y + dy, w * 2 + 1, 1); }
+      ctx.fillStyle = 'rgba(29,18,10,.7)';                                                                                              // the ink edge
+      pxLine(ctx, x - hw, y, x, y - hh); pxLine(ctx, x, y - hh, x + hw, y); pxLine(ctx, x + hw, y, x, y + hh); pxLine(ctx, x, y + hh, x - hw, y);
+      if (plot.h && !plot.v) {                                                                                                          // a dug hole (with a seed in it, if planted)
+        ctx.fillStyle = '#1d120a'; pxOval(ctx, x, y + 1, 5, 3); ctx.fillStyle = '#2a170b'; pxOval(ctx, x, y + 1, 4, 2);
+        if (plot.c) { const c = Crops.get(plot.c); ctx.fillStyle = '#1d120a'; ctx.fillRect(x - 2, y, 4, 3); ctx.fillStyle = c ? c.colors.crop : '#e8d9a0'; ctx.fillRect(x - 1, y + 1, 2, 1); }
+      } else if (plot.v) {                                                                                                              // a mound the crop grows from
+        ctx.fillStyle = '#1d120a'; pxOval(ctx, x, y + 2, 6, 3); ctx.fillStyle = plot.w === today ? '#4a2f1b' : '#8a6340'; pxOval(ctx, x, y + 2, 5, 2); ctx.fillStyle = plot.w === today ? '#5e3b24' : '#a47a50'; ctx.fillRect(x - 2, y + 1, 4, 1);
+      }
     }
   }
 

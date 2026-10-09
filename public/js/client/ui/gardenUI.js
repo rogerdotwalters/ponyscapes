@@ -12,14 +12,14 @@ const GARDEN_TOOLS = [
   { id: 'shovel', kind: 'shovel', name: 'Shovel', hint: 'Dig a hole to plant in' },
   { id: 'watering_can', kind: 'water', name: 'Watering can', hint: 'Water a plot for today' }
 ];
-const GARDEN_CELL = 100, GARDEN_PAD = 14, GARDEN_SIZE = GARDEN_CELL * 3 + GARDEN_PAD * 2;
+const GARDEN_CELL = 34, GARDEN_PAD = 7, GARDEN_ART = GARDEN_CELL * 3 + GARDEN_PAD * 2;      // the bed is drawn in art pixels (like the coin bag) and shown at a whole number of screen pixels each
 
 class GardenUI {
   constructor({ panel, canvas, seedList, toolBar, pouchHost, title, hint, closeButton, game, requestOpen }) {
     Object.assign(this, { panel, canvas, seedList, toolBar, pouchHost, titleEl: title, hintEl: hint, game, requestOpen });
     this.tile = null; this.tool = 'hand'; this.pouches = new Map(); this.hover = -1; this.dragSeed = null; this.particles = []; this.shake = {}; this.raf = 0;
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = canvas.height = Math.round(GARDEN_SIZE * this.dpr); this.ctx = canvas.getContext('2d');
+    this.ctx = canvas.getContext('2d'); this._fit();
+    window.addEventListener('resize', () => this.isOpen && this._fit());
     closeButton.addEventListener('click', () => this.close());
     panel.addEventListener('pointerdown', e => { if (e.target === panel) this.close(); });                 // (a tap outside the windows closes it)
     canvas.addEventListener('pointermove', e => { this.hover = this._cellAt(e.clientX, e.clientY); });
@@ -31,6 +31,11 @@ class GardenUI {
     game.events.on('openGarden', e => { if (e && Number.isInteger(e.tx)) this.show(e.tx, e.ty); });
   }
 
+  /** The bed is drawn at 3 screen pixels to the art pixel (2 on a small screen) so the pixels stay crisp. */
+  _fit() {
+    this.S = Math.min(window.innerWidth - 60, (window.innerHeight - 250) * 1.15) < GARDEN_ART * 3 ? 2 : 3;
+    this.canvas.width = this.canvas.height = GARDEN_ART * this.S; this.canvas.style.width = this.canvas.style.height = GARDEN_ART * this.S + 'px';
+  }
   get isOpen() { return !this.panel.hidden; }
   /** Open the window on the field at tile (tx, ty) (goes through the panel group, so any other window closes). */
   show(tx, ty) {
@@ -41,7 +46,7 @@ class GardenUI {
     if (!this.tile) return;
     const held = ItemDB.getTool(this.game.heldItemId());
     this.tool = held && GARDEN_TOOLS.some(t => t.kind && t.kind === held.kind) ? GARDEN_TOOLS.find(t => t.kind === held.kind).id : 'hand';
-    this.panel.hidden = false; this.hover = -1; this.particles = [];
+    this.panel.hidden = false; this.hover = -1; this.particles = []; this._fit();
     this.titleEl.textContent = 'Garden plot'; this._renderTools(); this._renderSeeds(); this._say('');
     if (!this.raf) this.raf = requestAnimationFrame(t => this._frame(t));
   }
@@ -49,6 +54,17 @@ class GardenUI {
     this.panel.hidden = true; cancelAnimationFrame(this.raf); this.raf = 0;
     for (const p of this.pouches.values()) p.dispose();
     this.pouches.clear(); this.pouchHost.textContent = '';
+  }
+
+  /** The hand tool's picture: a pixel-art open hand (drawn once). */
+  static handIcon() {
+    if (GardenUI._hand) return GardenUI._hand;
+    const rows = ['......KK........', '.....KSSK.KK....', '.....KSSKKSSK...', '.KK..KSSKSSSK...', 'KSSK.KSSKSSSK.KK', 'KSSKKKSSSSSSKKSK', 'KSSSKSSSSSSSKSSK', '.KSSSSSSSSSSSSSK',
+      '..KSSSSSSSSSSSK.', '..KSSSSSSSSSSDK.', '...KSSSSSSSSDK..', '...KSSSSSSSDDK..', '....KSSSSSDDK...', '....KKSSSDDKK...', '.....KKDDDKK....', '.......KKKK.....'];
+    const c = document.createElement('canvas'); c.width = c.height = 48; const g = c.getContext('2d'), col = { K: '#1d120a', S: '#e8b890', D: '#b98258' };
+    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (col[ch]) { g.fillStyle = col[ch]; g.fillRect(x * 3, y * 3, 3, 3); } }));
+    g.fillStyle = '#f8dcc0'; for (const [x, y] of [[7, 2], [7, 3], [10, 4], [6, 6], [4, 6]]) g.fillRect(x * 3, y * 3, 3, 3);
+    return (GardenUI._hand = c.toDataURL());
   }
 
   /* ---- the side list and the tools ---- */
@@ -75,7 +91,7 @@ class GardenUI {
     this.toolBar.innerHTML = GARDEN_TOOLS.map(t => {
       const have = !t.kind || Farming.hasTool(inv, t.kind);
       return `<button data-tool="${t.id}" class="${this.tool === t.id ? 'on' : ''}" ${have ? '' : 'disabled'} tabindex="-1" title="${have ? t.hint : 'You need a ' + t.name.toLowerCase()}">` +
-        `${t.kind ? `<img alt="" src="${ItemIcons.url(t.id)}">` : '<span class="handIcon">&#x270B;</span>'}<span>${t.name}</span></button>`;
+        `<img alt="" src="${t.kind ? ItemIcons.url(t.id) : GardenUI.handIcon()}"><span>${t.name}</span></button>`;
     }).join('');
   }
   _pickTool(id) { this.tool = id; this._renderTools(); const t = GARDEN_TOOLS.find(x => x.id === id); this._say(t ? t.hint : ''); }
@@ -110,11 +126,11 @@ class GardenUI {
   /** The plot under a screen point, or -1. */
   _cellAt(cx, cy) {
     const r = this.canvas.getBoundingClientRect(); if (cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) return -1;
-    const x = (cx - r.left) / r.width * GARDEN_SIZE - GARDEN_PAD, y = (cy - r.top) / r.height * GARDEN_SIZE - GARDEN_PAD;
+    const x = (cx - r.left) / r.width * GARDEN_ART - GARDEN_PAD, y = (cy - r.top) / r.height * GARDEN_ART - GARDEN_PAD;
     if (x < 0 || y < 0 || x >= GARDEN_CELL * 3 || y >= GARDEN_CELL * 3) return -1;
     return Math.floor(y / GARDEN_CELL) * 3 + Math.floor(x / GARDEN_CELL);
   }
-  /** What the chosen tool does to a plot: an op, or '' when there is nothing to do (and why). */
+  /** What the chosen tool does to a plot: an op, or why not. */
   _opFor(plot) {
     const today = Seasons.at(this.game.clockTick).day;
     if (this.tool === 'hoe') return plot.u ? { op: 'till' } : { why: plot.c ? 'Something is growing there' : 'The soil is loose already' };
@@ -126,6 +142,19 @@ class GardenUI {
     if (!plot.c && plot.h) return { op: 'cover' };
     return { why: plot.c ? 'It is still growing: water it each day' : 'Nothing to do here with your hand: dig a hole with the shovel' };
   }
+  /** A line about a plot, for the hint under the bed while the pointer is over it. */
+  _describe(plot) {
+    const state = Farming.stateOf(plot), crop = plot.c && Crops.get(plot.c), name = crop ? crop.name : '', today = Seasons.at(this.game.clockTick).day, wet = plot.w === today ? ' Watered today.' : '';
+    switch (state) {
+      case 'packed': return 'Packed soil: loosen it with the hoe.';
+      case 'loose': return 'Loose soil: dig a hole with the shovel.' + wet;
+      case 'hole': return 'A hole, ready for a seed: drag one in from a pouch.' + wet;
+      case 'seed': return `${name} seed in the hole: cover it with your hand.` + wet;
+      case 'growing': return `${name}: day ${plot.d} of ${Farming.growDays(plot.c)}. It grows a day for each day it is watered.` + wet;
+      case 'ripe': return `${name} is ripe: pick it with your hand.`;
+      default: return `The ${name.toLowerCase()} has withered: clear it with your hand.`;
+    }
+  }
   _use(i) {
     const field = this._field(); if (i < 0 || !field) return;
     const act = this._opFor(field.cells[i]);
@@ -135,64 +164,72 @@ class GardenUI {
     this.game.fieldOp(act.op, this.tile.tx, this.tile.ty, i); this._burst(i, act.op);
     this._say(act.op === 'dig' ? 'Drag a seed from a pouch into the hole.' : act.op === 'cover' ? 'Water it so it can grow.' : act.op === 'harvest' ? 'A fine harvest!' : '');
   }
+  /** A burst of art-pixel specks: earth for digging and covering, drops for water, gold for a harvest. */
   _burst(i, op) {
     const r = this._rect(i), cx = r.x + GARDEN_CELL / 2, cy = r.y + GARDEN_CELL / 2, water = op === 'water', gold = op === 'harvest', n = water ? 14 : 10;
     for (let k = 0; k < n; k++) this.particles.push({
-      x: cx + (Math.random() - 0.5) * (water ? 60 : 24), y: water ? cy - 46 - Math.random() * 20 : cy + 6, vx: (Math.random() - 0.5) * (water ? 20 : 150), vy: water ? 120 + Math.random() * 80 : -(80 + Math.random() * 120),
-      life: 0.5 + Math.random() * 0.3, t: 0, color: water ? '#6cc3f0' : gold ? '#ffe27a' : op === 'plant' ? '#e8d9a0' : '#6b4526', size: water ? 3 : 4, g: water ? 0 : 520
+      x: Math.round(cx + (Math.random() - 0.5) * (water ? 20 : 8)), y: Math.round(water ? cy - 15 - Math.random() * 6 : cy + 2), vx: (Math.random() - 0.5) * (water ? 6 : 50), vy: water ? 40 + Math.random() * 26 : -(26 + Math.random() * 40),
+      life: 0.5 + Math.random() * 0.3, t: 0, color: water ? (k % 3 ? '#6cc3f0' : '#bfe8ff') : gold ? (k % 2 ? '#ffe27a' : '#fff3b0') : op === 'plant' ? '#e8d9a0' : (k % 2 ? '#6b4526' : '#8a6040'), size: water ? 1 : 2, g: water ? 0 : 170
     });
   }
 
-  /* ---- drawing ---- */
+  /* ---- drawing (pixel art, in art pixels: the canvas is scaled by whole numbers) ---- */
   _frame(now) {
     if (!this.isOpen) return;
     const me = this.game.local, field = this._field();
     if (!field || !me || Math.hypot(this.tile.tx + 0.5 - me.x, this.tile.ty + 0.5 - me.y) > Farming.REACH + 2) { this.close(); return; }       // (the field is gone, or you walked away from it)
+    if (this.hover !== this.lastHover) { this.lastHover = this.hover; if (this.hover >= 0 && !this.dragSeed) this._say(this._describe(field.cells[this.hover])); }
     this._draw(field, now);
     this.raf = requestAnimationFrame(t => this._frame(t));
   }
+  /** A filled pixel ellipse (hard edges). */
+  static ellipse(g, cx, cy, rx, ry, color) {
+    g.fillStyle = color;
+    for (let dy = -ry; dy <= ry; dy++) { const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy * dy) / ((ry + 0.5) * (ry + 0.5))))); g.fillRect(cx - w, cy + dy, w * 2 + 1, 1); }
+  }
   _draw(field, now) {
-    const g = this.ctx, k = this.dpr, today = Seasons.at(this.game.clockTick).day, dt = Math.min(0.05, (now - (this.lastDraw || now)) / 1000); this.lastDraw = now;
-    g.setTransform(k, 0, 0, k, 0, 0); g.clearRect(0, 0, GARDEN_SIZE, GARDEN_SIZE); g.imageSmoothingEnabled = false;
-    g.fillStyle = '#1d120a'; g.fillRect(0, 0, GARDEN_SIZE, GARDEN_SIZE);                                      // a plank frame round the bed
-    g.fillStyle = '#7a5a34'; g.fillRect(3, 3, GARDEN_SIZE - 6, GARDEN_SIZE - 6); g.fillStyle = '#946d3e'; g.fillRect(3, 3, GARDEN_SIZE - 6, 3); g.fillStyle = '#5c4122'; g.fillRect(3, GARDEN_SIZE - 6, GARDEN_SIZE - 6, 3);
-    g.fillStyle = '#3a2512'; g.fillRect(GARDEN_PAD - 4, GARDEN_PAD - 4, GARDEN_CELL * 3 + 8, GARDEN_CELL * 3 + 8);
+    const g = this.ctx, S = this.S, today = Seasons.at(this.game.clockTick).day, dt = Math.min(0.05, (now - (this.lastDraw || now)) / 1000), A = GARDEN_ART; this.lastDraw = now;
+    g.setTransform(S, 0, 0, S, 0, 0); g.clearRect(0, 0, A, A); g.imageSmoothingEnabled = false;
+    g.fillStyle = '#1d120a'; g.fillRect(0, 0, A, A);                                                              // the wooden frame: inked, lit above, shaded below
+    g.fillStyle = '#8a5f32'; g.fillRect(1, 1, A - 2, A - 2); g.fillStyle = '#b98a50'; g.fillRect(1, 1, A - 2, 1); g.fillRect(1, 1, 1, A - 2);
+    g.fillStyle = '#5a3a1e'; g.fillRect(1, A - 2, A - 2, 1); g.fillRect(A - 2, 1, 1, A - 2);
+    g.fillStyle = '#74512a'; for (let y = 4; y < A - 4; y += 5) { g.fillRect(2, y, GARDEN_PAD - 4, 1); g.fillRect(A - GARDEN_PAD + 2, y + 2, GARDEN_PAD - 4, 1); }   // grain
+    for (const [x, y] of [[3, 3], [A - 4, 3], [3, A - 4], [A - 4, A - 4]]) { g.fillStyle = '#1d120a'; g.fillRect(x - 1, y - 1, 3, 3); g.fillStyle = '#d6be8c'; g.fillRect(x, y, 1, 1); }   // nails
+    g.fillStyle = '#1d120a'; g.fillRect(GARDEN_PAD - 2, GARDEN_PAD - 2, GARDEN_CELL * 3 + 4, GARDEN_CELL * 3 + 4);
     for (let i = 0; i < 9; i++) this._drawPlot(g, field.cells[i], i, today, now);
     for (const p of this.particles) { p.t += dt; p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
     this.particles = this.particles.filter(p => p.t < p.life);
-    for (const p of this.particles) { g.globalAlpha = 1 - p.t / p.life; g.fillStyle = p.color; g.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size); }
-    g.globalAlpha = 1;
+    for (const p of this.particles) { g.fillStyle = p.color; g.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size); }
   }
   _drawPlot(g, plot, i, today, now) {
-    const { x, y } = this._rect(i), S = GARDEN_CELL, cx = x + S / 2, cy = y + S / 2, wet = plot.w === today, packed = !!plot.u, state = Farming.stateOf(plot);
-    const sh = this.shake[i] && now - this.shake[i] < 300 ? Math.sin((now - this.shake[i]) * 0.07) * 3 * (1 - (now - this.shake[i]) / 300) : 0, ox = x + sh;
-    g.fillStyle = packed ? '#a17c50' : wet ? '#4b2f1b' : '#7a5233'; g.fillRect(ox + 3, y + 3, S - 6, S - 6);                             // the soil
-    g.fillStyle = packed ? '#b99468' : wet ? '#5a3a24' : '#8a6040'; g.fillRect(ox + 3, y + 3, S - 6, 4);
-    g.fillStyle = packed ? '#8a6a42' : wet ? '#3b2314' : '#6a4529'; g.fillRect(ox + 3, y + S - 7, S - 6, 4);
-    for (let n = 0; n < 16; n++) {                                                                                   // specks of earth, the same every frame
-      const h = (i * 131 + n * 977) % 997; g.fillStyle = h % 3 ? (wet ? '#3b2314' : '#6a4529') : (packed ? '#c7a574' : '#93694a');
-      g.fillRect(ox + 8 + (h * 7) % (S - 20), y + 8 + (h * 13) % (S - 20), 3, 2);
+    const { x, y } = this._rect(i), C = GARDEN_CELL, state = Farming.stateOf(plot), wet = plot.w === today, packed = state === 'packed';
+    const age = this.shake[i] ? now - this.shake[i] : 999, sh = age < 300 ? Math.round(Math.sin(age * 0.07) * 2 * (1 - age / 300)) : 0, ox = x + sh, cx = ox + C / 2 | 0, cy = y + C / 2 | 0;
+    const base = packed ? '#a17c50' : wet ? '#4b2f1b' : '#7a5233', hi = packed ? '#b99468' : wet ? '#5a3a24' : '#8a6040', lo = packed ? '#8a6a42' : wet ? '#3b2314' : '#6a4529';
+    g.fillStyle = '#1d120a'; g.fillRect(ox, y, C, C);                                                                   // an inked bed square
+    g.fillStyle = base; g.fillRect(ox + 1, y + 1, C - 2, C - 2); g.fillStyle = hi; g.fillRect(ox + 1, y + 1, C - 2, 1); g.fillStyle = lo; g.fillRect(ox + 1, y + C - 2, C - 2, 1);
+    for (let n = 0; n < 14; n++) {                                                                                       // specks of earth (the same every frame)
+      const h = (i * 131 + n * 977) % 997; g.fillStyle = h % 3 ? lo : packed ? '#c7a574' : '#93694a';
+      g.fillRect(ox + 3 + (h * 7) % (C - 8), y + 3 + (h * 13) % (C - 8), h % 4 ? 1 : 2, 1);
     }
-    if (packed) { g.strokeStyle = '#7d5c36'; g.lineWidth = 2; g.beginPath(); g.moveTo(ox + 20, y + 30); g.lineTo(ox + 44, y + 44); g.lineTo(ox + 40, y + 62); g.moveTo(ox + 70, y + 24); g.lineTo(ox + 62, y + 50); g.stroke(); }   // cracks
-    else for (let n = 1; n < 4; n++) { g.fillStyle = wet ? 'rgba(20,10,4,.35)' : 'rgba(40,22,10,.28)'; g.fillRect(ox + 8, y + 8 + n * 21, S - 16, 3); }    // furrows
-    if (state === 'hole' || state === 'seed') {                                                                      // a dug hole (with the seed in it)
-      g.fillStyle = '#1d0f06'; g.beginPath(); g.ellipse(cx + sh, cy + 4, 28, 17, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#2a170b'; g.beginPath(); g.ellipse(cx + sh, cy + 6, 24, 13, 0, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = '#9a7248'; g.lineWidth = 3; g.beginPath(); g.ellipse(cx + sh, cy + 4, 28, 17, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
-      if (state === 'seed') { const crop = Crops.get(plot.c), look = SeedPouch.seedLook(crop ? crop.colors.crop : '#c9b27a'); SeedPouch.drawSeed(g, cx + sh, cy + 6, -0.3, look, 3.2); }
-    } else if (plot.c) {                                                                                             // covered: a mound, and the crop on it
-      g.fillStyle = wet ? '#3a2314' : '#7d5638'; g.beginPath(); g.ellipse(cx + sh, cy + 22, 34, 14, 0, 0, Math.PI * 2); g.fill();
-      g.fillStyle = wet ? '#4f301d' : '#946a45'; g.beginPath(); g.ellipse(cx + sh, cy + 19, 30, 11, 0, Math.PI, Math.PI * 2); g.fill();
-      PixelCrops.draw(g, cx + sh, cy + 24, plot, 2.5);
-      const days = Farming.growDays(plot.c), frac = state === 'ripe' ? 1 : state === 'dead' ? 0 : Math.min(1, plot.d / days);                  // a little growth bar
-      g.fillStyle = '#1d120a'; g.fillRect(ox + 22, y + S - 14, S - 44, 6); g.fillStyle = state === 'dead' ? '#7a5a33' : state === 'ripe' ? '#ffe27a' : '#7fd05a'; g.fillRect(ox + 23, y + S - 13, Math.round((S - 46) * frac), 4);
-      if (state === 'ripe') { g.strokeStyle = `rgba(255,226,122,${0.55 + 0.35 * Math.sin(now / 250 + i)})`; g.lineWidth = 3; g.strokeRect(ox + 5, y + 5, S - 10, S - 10); }
+    if (packed) { g.fillStyle = '#6e4f2c'; for (const [dx, dy] of [[6, 8], [7, 9], [8, 10], [9, 11], [9, 12], [8, 13], [20, 6], [19, 7], [19, 8], [18, 9], [17, 10]]) g.fillRect(ox + dx, y + dy, 1, 1); }   // cracks
+    else { g.fillStyle = wet ? 'rgba(20,10,4,.4)' : 'rgba(40,22,10,.3)'; for (let n = 1; n < 4; n++) { g.fillRect(ox + 3, y + 3 + n * 7, C - 6, 1); } }   // furrows
+    if (state === 'hole' || state === 'seed') {                                                                          // a dug hole (with the seed in it)
+      GardenUI.ellipse(g, cx, cy + 1, 12, 7, '#1d120a'); GardenUI.ellipse(g, cx, cy, 11, 6, '#a47a4c'); GardenUI.ellipse(g, cx, cy + 1, 10, 6, '#2a170b'); GardenUI.ellipse(g, cx, cy + 2, 8, 4, '#1d0f06');
+      if (state === 'seed') { const crop = Crops.get(plot.c); SeedPouch.drawSeed(g, cx, cy + 2, -0.25, SeedPouch.seedLook(crop ? crop.colors.crop : '#c9b27a'), 1); }
+    } else if (plot.c) {                                                                                                // covered: a mound, and the crop on it
+      GardenUI.ellipse(g, cx, cy + 6, 13, 5, '#1d120a'); GardenUI.ellipse(g, cx, cy + 6, 12, 4, wet ? '#3a2314' : '#7d5638'); GardenUI.ellipse(g, cx, cy + 5, 10, 2, wet ? '#4f301d' : '#9a6f48');
+      PixelCrops.draw(g, cx, cy + 7, plot, 1 / 1.25);                                                                   // (one art pixel of the crop to one of the bed)
+      const frac = state === 'ripe' ? 1 : state === 'dead' ? 0 : Math.min(1, plot.d / Farming.growDays(plot.c)), bw = C - 14;   // a little growth bar
+      g.fillStyle = '#1d120a'; g.fillRect(ox + 6, y + C - 6, bw, 4); g.fillStyle = '#3a2a16'; g.fillRect(ox + 7, y + C - 5, bw - 2, 2);
+      g.fillStyle = state === 'dead' ? '#7a5a33' : state === 'ripe' ? '#ffe27a' : '#7fd05a'; g.fillRect(ox + 7, y + C - 5, Math.round((bw - 2) * frac), 2);
     }
-    if (wet) { g.fillStyle = '#6cc3f0'; g.fillRect(ox + S - 18, y + 9, 5, 5); g.fillRect(ox + S - 17, y + 6, 3, 3); g.fillRect(ox + S - 19, y + 13, 7, 3); }          // a drop: watered today
-    const planting = !!this.dragSeed;
-    if (this.hover === i) {                                                                                          // what the pointer is over
-      const ok = planting ? plot.h && !plot.c : !!this._opFor(plot).op;
-      g.strokeStyle = ok ? '#ffe08a' : 'rgba(255,255,255,.35)'; g.lineWidth = ok ? 4 : 2; g.strokeRect(ox + 2, y + 2, S - 4, S - 4);
+    if (state === 'ripe' && Math.sin(now / 260 + i) > -0.2) { g.fillStyle = '#ffe27a'; for (const [dx, dy] of [[2, 2], [C - 5, 2], [2, C - 5], [C - 5, C - 5]]) { g.fillRect(ox + dx, y + dy, 3, 1); g.fillRect(ox + dx, y + dy, 1, 3); } }   // gold corners: ready to pick
+    if (wet) { g.fillStyle = '#1d120a'; g.fillRect(ox + C - 8, y + 3, 5, 6); g.fillStyle = '#6cc3f0'; g.fillRect(ox + C - 7, y + 5, 3, 3); g.fillRect(ox + C - 6, y + 4, 1, 1); g.fillStyle = '#bfe8ff'; g.fillRect(ox + C - 7, y + 5, 1, 1); }   // a drop: watered today
+    if (this.hover === i) {                                                                                              // what the pointer is over
+      const ok = this.dragSeed ? plot.h && !plot.c : !!this._opFor(plot).op;
+      g.fillStyle = ok ? '#ffe08a' : 'rgba(241,224,180,.4)';
+      g.fillRect(ox, y, C, 1); g.fillRect(ox, y + C - 1, C, 1); g.fillRect(ox, y, 1, C); g.fillRect(ox + C - 1, y, 1, C);
+      if (ok) { g.fillStyle = '#1d120a'; g.fillRect(ox + 1, y + 1, C - 2, 1); g.fillRect(ox + 1, y + C - 2, C - 2, 1); g.fillRect(ox + 1, y + 1, 1, C - 2); g.fillRect(ox + C - 2, y + 1, 1, C - 2); }
     }
   }
 }
