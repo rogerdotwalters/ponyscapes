@@ -6,7 +6,8 @@ const Sfx = (() => {
   const bus = () => GameAudio.buses && GameAudio.buses.sfx, LEAD = 0.05;      // (a short lead: the clock we read can be a few frames behind the one the sound plays on, and a 70 ms footfall must not be over before it starts)
 
   /** A burst of noise through one filter, with a quick attack and an exponential fade. Optionally the filter sweeps from freq to freq2. */
-  function puff(ctx, { at = 0, len = 0.1, type = 'bandpass', freq = 1000, freq2 = 0, q = 0.8, gain = 0.3, attack = 0.005, pan = 0 }) {
+  function puff(ctx, { at = 0, len = 0.1, type = 'bandpass', freq = 1000, freq2 = 0, q = 0.8, gain = 0.3, attack = 0.005, pan = 0, vol = 1 }) {
+    gain *= vol; if (gain < 0.0004) return;
     const t = ctx.currentTime + LEAD + at, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     src.buffer = GameAudio.noise();
     f.type = type; f.Q.value = q; f.frequency.setValueAtTime(freq, t); if (freq2) f.frequency.exponentialRampToValueAtTime(freq2, t + len);
@@ -17,7 +18,8 @@ const Sfx = (() => {
     src.start(t, Math.random() * 1.5, len + 0.05);
   }
   /** A short pitched knock or click: a sine/triangle that drops in pitch while it fades. */
-  function tone(ctx, { at = 0, len = 0.08, from = 200, to = 80, gain = 0.3, type = 'sine', pan = 0 }) {
+  function tone(ctx, { at = 0, len = 0.08, from = 200, to = 80, gain = 0.3, type = 'sine', pan = 0, vol = 1 }) {
+    gain *= vol; if (gain < 0.0004) return;
     const t = ctx.currentTime + LEAD + at, o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.setValueAtTime(from, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + len);
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
@@ -81,7 +83,7 @@ const Sfx = (() => {
 
   /** Called every frame with the game: drops a footstep each time the local player has travelled a stride (shorter strides at a walk, longer at a run). */
   class Footsteps {
-    constructor(game) { this.game = game; this.dist = 0; this.last = null; this.side = 1; this.beat = 0; }
+    constructor(game, rainOf) { this.game = game; this.rainOf = rainOf || (() => 0); this.dist = 0; this.last = null; this.side = 1; this.beat = 0; this.wet = false; }
     update() {
       const p = this.game.local; if (!p || !this.game.map) { this.last = null; return; }
       const prev = this.last; this.last = { x: p.x, y: p.y, map: this.game.map };
@@ -95,10 +97,14 @@ const Sfx = (() => {
       if (this.dist < stride) return;
       this.dist -= stride; this.side = -this.side;
       if (boat || (this.game.localBoat)) return oar();
-      const ground = groundOf(this.game.map, p.x, p.y);
+      const ground = groundOf(this.game.map, p.x, p.y), inWater = ground === 'water', rain = this.rainOf() || 0, outdoors = this.game.map.kind === 'world';
       if (riding) { hoof(ground, this.side > 0); setTimeout(() => hoof(ground, this.side < 0), 120); }
       else step(ground, this.side, run);
+      if (inWater) Sfx.splash(this.wet ? 0.55 : 1, this.side * 0.15, run);                                                       // wading: a splash on each step (a big one on stepping in)
+      else if (outdoors && ground !== 'wood' && rain > 0.4 && Math.random() < Math.min(1, (rain - 0.3) * 1.5)) Sfx.puddle(0.6 + 0.4 * rain, this.side * 0.15);          // rain-wet ground: now and then a foot lands in a puddle
+      else if (this.wet) Sfx.drip(0.6);                                                                                           // stepping out of the water
+      this.wet = inWater;
     }
   }
-  return { bag, step, hoof, oar, Footsteps };
+  return { bag, step, hoof, oar, Footsteps, puff, tone, ready, LEAD };
 })();
