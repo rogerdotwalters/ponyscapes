@@ -118,6 +118,7 @@ function launch(choice, query) {
     function openSection(section) {
       if (section === 'skills') { panels.closeAll(); journalUI.openTab('skills'); return; }
       if (section === 'treasure') { panels.closeAll(); journalUI.openTab('map'); return; }
+      if (section === 'soundtrack') { panels.open('controls'); controlsUI.show('music'); return; }
       const names = { inventory: 'inventory', crafting: 'crafting', gear: 'gear', map: 'map', ponies: 'ponies', town: 'town', settings: 'settings', session: 'session', controls: 'controls' };
       if (names[section]) panels.open(names[section]);
     }

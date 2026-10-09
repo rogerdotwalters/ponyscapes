@@ -567,3 +567,11 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .qcard b{display:block;font:600 14px Georgia,serif}.qcard small{opacity:.75;display:block;margin-bottom:4px}
 .qcard ul{margin:4px 0 0;padding-left:18px;font-size:12px}.qcard li.qdone{opacity:.55;text-decoration:line-through}.qcard li.qnow{color:#e3c27a;font-weight:600}
 .qcard.done{opacity:.7}
+.trackRow{display:flex;align-items:center;gap:10px;width:100%;margin:4px 0;padding:8px 10px;min-height:48px;text-align:left;border-radius:10px;border:1.5px solid rgba(227,194,122,.45);background:rgba(10,18,28,.6);color:#f4e6c1}
+.trackRow.on{border-color:#e3c27a;background:rgba(227,194,122,.22)}
+.trackRow:active{background:rgba(227,194,122,.35)}
+.trackRow .mg{font-size:18px;width:24px;text-align:center}
+.trackRow .mt{display:flex;flex-direction:column;min-width:0}
+.trackRow .mt b{font:700 14px Georgia,serif}
+.trackRow .mt i{font:400 11px Georgia,serif;font-style:normal;color:#b9c4d0}
+.trackNow{font:600 14px Georgia,serif;color:#e3c27a;padding:2px 2px 6px}
