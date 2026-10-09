@@ -87,7 +87,7 @@ const PonyMusic = (() => {
     ];
     // [bar, value] keyframes. Between two the value eases smoothly (smoothstep; the pace in the log domain), so a change takes several bars.
     const PACE = [[0, 0.5], [5, 0.5], [11, 0.32], [21, 0.3], [28, 0.24], [33, 0.22], [39, 0.34], [46, 0.26], [53, 0.55], [56, 0.55], [66, 0.26], [72, 0.17], [78, 0.17], [87, 0.5]];     // seconds per step
-    const LOUD = [[0, 0.3], [7, 0.45], [12, 0.5], [23, 0.55], [30, 0.8], [35, 0.8], [38, 0.45], [47, 0.95], [52, 0.4], [57, 0.4], [69, 0.9], [72, 1], [80, 1], [87, 0.7]];              // 0..1
+    const LOUD = [[0, 0.3], [7, 0.45], [12, 0.65], [23, 0.7], [30, 0.85], [35, 0.85], [38, 0.5], [47, 0.95], [52, 0.6], [57, 0.6], [69, 0.9], [72, 1], [80, 1], [87, 0.7]];              // 0..1
     const ease = (keys, x, geo) => {
       if (x <= keys[0][0]) return keys[0][1];
       for (let i = 1; i < keys.length; i++) if (x <= keys[i][0]) {
@@ -471,11 +471,11 @@ const PonyMusic = (() => {
           if (s === 4 && idx >= 5) { this.mp = this._tune(this.mp, 4, 8, key, sc, pcs, true); this._flute(t, nm(this.mp, key, sc), dur * 3.5, 0.45 * V + 0.1); }
         } else if (id === 'farm') {                                                                                          // casual farm vibes: a fiddle, a boom-chick cello, a hand-drum
           const tt = t + (s % 2 ? dur * 0.12 : 0), pc = root % 12, low = 36 + pc + (pc < 5 ? 12 : 0);
-          if (s === 0) this._cello(tt, low, dur * 0.9, 1.3 * V); else if (s === 4) this._cello(tt, low + 7, dur * 0.9, V);                                  // boom
-          if (s === 2 || s === 6) chordTones.forEach((n, i) => this._violin(tt + i * 0.02, n + 12, dur * 0.5, 0.4 * V, i % 2 ? 0.3 : -0.3, true));        // chick
-          if (s === 0) this._drum(tt, 0.5 * V, 0.9); else if (s === 4) this._drum(tt, 0.35 * V, 0.9); else if (s === 2 || s === 6) this._drum(tt, 0.16 * V, 0.7);
+          if (s === 0) this._cello(tt, low, dur * 0.9, 1.9 * V); else if (s === 4) this._cello(tt, low + 7, dur * 0.9, 1.5 * V);                                  // boom
+          if (s === 2 || s === 6) chordTones.forEach((n, i) => this._violin(tt + i * 0.02, n + 12, dur * 0.5, 0.7 * V, i % 2 ? 0.3 : -0.3, true));        // chick
+          if (s === 0) this._drum(tt, 0.8 * V, 0.9); else if (s === 4) this._drum(tt, 0.6 * V, 0.9); else if (s === 2 || s === 6) this._drum(tt, 0.25 * V, 0.7);
           if (s === 0 && idx % 4 === 0) this._pad(t, chordTones, dur * 16, 0.4 * V, { cutoff: 1200, tremolo: 4, depth: 0.25, attack: 0.5 });
-          if (idx >= 2 && [0, 3, 4, 6].includes(s) && (s === 0 || rnd() < 0.75)) { this.mp = this._tune(this.mp, 3, 9, key, sc, pcs, s === 0 || s === 4); this._violin(tt, nm(this.mp, key, sc), dur * 0.8, 0.8 * V, 0.3); }   // the fiddle tune
+          if (idx >= 2 && [0, 3, 4, 6].includes(s) && (s === 0 || rnd() < 0.75)) { this.mp = this._tune(this.mp, 3, 9, key, sc, pcs, s === 0 || s === 4); this._violin(tt, nm(this.mp, key, sc), dur * 0.8, 1.3 * V, 0.3); }   // the fiddle tune
           if (s === 0 && idx % 4 === 3) this._violin(t, nm(clamp(this.mp + 3, 6, 11), key, sc), dur * 7, 0.5 * V, -0.2, true);                           // a held note
           if (s === 0 && idx % 4 === 1 && idx >= 4) this._flute(t, nm(clamp(this.mp + 2, 5, 10), key, sc), dur * 3, 0.5 * V);                            // a whistle
           if (idx === 15 && s === 0) this._brass(t, brassNote(pcs[0]), dur * 6, 0.4 * V);                                                              // a far horn, leaning towards the glee
