@@ -318,7 +318,8 @@ const PixelDecor = (() => {
       const c = def.colors, z = A(def.height || 46), front = frontOf(rot);
       const hearth = (hh) => {
         const u = hh.u, v = hh.v, fw = hh.fw;
-        if (u > fw * 0.2 && u < fw * 0.8 && v > 1 && v < A(26)) {                                       // the fire box, flames in it
+        if (u > fw * 0.2 && u < fw * 0.8 && v > 1 && v < A(26)) {                                       // the fire box, flames in it (a cold hearth: ash and a charred log)
+          if (c.cold) return v < 2.5 ? '#4a4540' : v < 5 && Math.abs(u - fw * 0.5) < fw * 0.18 ? '#1c1a18' : shade(c.dark, 0.9);
           const f = (u - fw * 0.5) / (fw * 0.3), tip = A(18) * (1 - Math.abs(f) * 0.9) + hash(Math.floor(u), 0, 4) * 3;
           if (v < 2.5) return '#7a3510';
           if (v < tip) return v < tip * 0.45 ? '#fff0a0' : v < tip * 0.75 ? '#ffd24a' : c.fire;

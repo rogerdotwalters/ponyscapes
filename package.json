@@ -17,7 +17,8 @@
     "test:downed": "node tools/test-downed.js",
     "test:warren": "node tools/test-warren.js",
     "test:loot": "node tools/test-loot.js",
-    "test:farming": "node tools/test-farming.js"
+    "test:farming": "node tools/test-farming.js",
+    "test:castle": "node tools/test-castle.js"
   },
   "devDependencies": { "wrangler": "^4.0.0" }
 }

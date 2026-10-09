@@ -43,6 +43,7 @@ class ClientGame {
   onWelcome(welcome) {
     this.myId = welcome.id;
     if (welcome.admin) GameSettings.applyWire(welcome.admin, true);     // the host's speed, clock and trees: before the land is built, so it matches the server's
+    if (welcome.versions) BuildingVersions.apply(welcome.versions);        // which buildings are restored: before any room is built (we may join standing inside one)
     this.worldMap = new World(welcome.mapSeed);              // same seed as the server -> identical terrain, never sent
     this.grids = new GridSet(welcome.mapSeed, this.worldMap);
     this.grid = gridOf(welcome.player); this.map = this.grids.get(this.grid);     // (we may join standing inside a room)
@@ -370,6 +371,7 @@ class ClientGame {
     if (snapshot.friends) { this.friends = snapshot.friends; this.events.emit('friendsChanged', this.friends); }
     for (const id in snapshot.animals || {}) this.beingTypes[id] = snapshot.animals[id].type;          // remember what each animal is, so the Journal can list your friends when they are far away
     if (snapshot.rings) this._applyRings(snapshot.rings);
+    if (snapshot.versions) { BuildingVersions.apply(snapshot.versions); this.events.emit('versionsChanged', snapshot.versions); }   // a building was restored (the server walked anyone inside out)
     if (snapshot.settings) { this.settings = snapshot.settings; this.events.emit('settingsChanged', this.settings); }
     if (snapshot.admin) { GameSettings.applyWire(snapshot.admin, false); this.events.emit('adminChanged'); }
     if (snapshot.weather) { this.weather = snapshot.weather; this.events.emit('weatherChanged', this.weather); }

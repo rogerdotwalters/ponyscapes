@@ -34,6 +34,7 @@ const Interiors = (() => {
       if (draft) { raw = JSON.parse(draft); source = 'draft'; }
     }
   } catch (e) { /* a broken draft never stops the game */ }
+  if (plain(root.PONYSCAPES_GENERATED_INTERIORS)) raw = Object.assign({}, raw, root.PONYSCAPES_GENERATED_INTERIORS);   // (rooms made by code: js/content/castleRooms.js; a draft never loses them)
 
   /** A furniture piece's footprint once turned: [w, h]. */
   const footprint = (def, rot) => ((rot | 0) % 2 ? [def.size[1], def.size[0]] : [def.size[0], def.size[1]]);
@@ -67,8 +68,18 @@ const Interiors = (() => {
       if (!exit) exit = [w >> 1, h - 1];
     }
     const ex = exit[0], ey = exit[1];
+    const links = [];                                                                               // doorways to the building's other rooms: { x, y, to (a key of the building's `rooms`), name }
+    for (const l of Array.isArray(L.links) ? L.links : []) {
+      if (!plain(l) || typeof l.to !== 'string' || !/^[a-z][a-z0-9_]{0,23}$/.test(l.to)) continue;
+      const lx = l.x | 0, ly = l.y | 0;
+      if (lx < 0 || ly < 0 || lx >= w || ly >= h || (lx === ex && ly === ey) || links.some(k => k.x === lx && k.y === ly)) continue;
+      links.push({ x: lx, y: ly, to: l.to, name: typeof l.name === 'string' ? l.name.slice(0, 40) : l.to });
+      walls[ly * w + lx] = 0; solid[ly * w + lx] = 0;                                              // (a doorway is always walkable)
+      if (InteriorTileInfo.byChar.n) grid[ly * w + lx] = InteriorTileInfo.byChar.n.tile;                      // (drawn as a threshold)
+    }
+    const exitTo = typeof L.exitTo === 'string' && /^[a-z][a-z0-9_]{0,23}$/.test(L.exitTo) ? L.exitTo : '';   // the room the doormat leads back to ('' = outside)
     grid[ey * w + ex] = exitTile ? exitTile.tile : grid[ey * w + ex]; walls[ey * w + ex] = 0; solid[ey * w + ex] = 0;   // the doormat is always walkable
-    return Object.freeze({ id, name: typeof L.name === 'string' ? L.name : id, w, h, grid, walls, solid, furniture, exit: [ex, ey] });
+    return Object.freeze({ id, name: typeof L.name === 'string' ? L.name : id, w, h, grid, walls, solid, furniture, exit: [ex, ey], links, exitTo });
   }
   const layouts = {};
   for (const [id, L] of Object.entries(raw)) { const built = /^[a-z][a-z0-9_]{0,39}$/.test(id) ? build(id, L) : null; if (built) layouts[id] = built; }
@@ -78,7 +89,17 @@ const Interiors = (() => {
 /** The inside of one building, in its room grid's own coordinates: (0, 0) is the layout's top-left tile, everything outside it is the dark.
  *  Each room is its own GRID (js/shared/grids.js: 'room:<site>' shared, 'room:<site>:<n>' a player's own copy), built from this plan. */
 class RoomPlan {
-  constructor(site, layout) { this.site = site; this.layout = layout; }
+  constructor(site, layout, key = '') { this.site = site; this.layout = layout; this.key = key; }
+  /** Where the doorways to the building's other rooms are: [{ x, y (tile centre), to, name }]. */
+  links() { return this.layout.links.map(l => ({ x: l.x + 0.5, y: l.y + 0.5, tx: l.x, ty: l.y, to: l.to, name: l.name })); }
+  /** The floor you stand on when you come through the doorway at tile (tx, ty): the open floor beside it, away from the wall it is set in. */
+  approachOf(tx, ty) {
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const x = tx + dx, y = ty + dy;
+      if (this.isFloor(x, y) && !this.solidAt(x, y) && !this.layout.links.some(l => l.x === x && l.y === y) && !(x === this.layout.exit[0] && y === this.layout.exit[1])) return { x: x + 0.5, y: y + 0.5 };
+    }
+    return { x: tx + 0.5, y: ty + 0.5 };
+  }
   /** Index into the layout's arrays, or -1 outside the room. */
   cell(tx, ty) { const L = this.layout; return tx >= 0 && ty >= 0 && tx < L.w && ty < L.h ? ty * L.w + tx : -1; }
   tileAt(tx, ty) { const i = this.cell(tx, ty); return i < 0 ? InteriorTileInfo.VOID_TILE : this.layout.grid[i]; }

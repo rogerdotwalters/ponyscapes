@@ -2,6 +2,7 @@
 /* DATA - the tiles a room is painted with in level-editor.html. Each is one character in a layout's rows (js/content/interiors.js).
  *   kind     'floor' (walk on it), 'wall' (a solid block; drawn tall at the back of a room, low at the front so you can see in), 'void' (outside the room)
  *   colors   floor: [three shades]; wall: { top, left, right }          pattern  how the game decorates it (planks, stone, checker, carpet, straw, mat, plaster, brick)
+ *   link     (floors) a doorway to another room of the same building (a layout's `links`, js/shared/layers/interiorSpace.js)
  *   window   (walls) draw a window in it                                  exit    (floors) the doormat: interact here to go back outside
  * Tile ids and object ids are given out in this order, so add new ones at the END (saved rooms store characters, not ids). */
 const InteriorTiles = new Registry('interiorTiles', {
@@ -23,5 +24,9 @@ InteriorTiles.registerAll([
   { id: 'plaster_wall', char: 'P', name: 'Plaster wall', kind: 'wall', pattern: 'plaster', colors: { top: '#a99a86', left: '#efe6d4', right: '#d6ccb8' } },
   { id: 'brick_wall', char: 'B', name: 'Brick wall', kind: 'wall', pattern: 'brick', colors: { top: '#7a3b2c', left: '#b25a43', right: '#934a37' } },
   { id: 'wood_window', char: 'V', name: 'Wood wall with window', kind: 'wall', pattern: 'planks', window: true, colors: { top: '#6d4c2f', left: '#b8875a', right: '#946a42' } },
-  { id: 'plaster_window', char: 'Q', name: 'Plaster wall with window', kind: 'wall', pattern: 'plaster', window: true, colors: { top: '#a99a86', left: '#efe6d4', right: '#d6ccb8' } }
+  { id: 'plaster_window', char: 'Q', name: 'Plaster wall with window', kind: 'wall', pattern: 'plaster', window: true, colors: { top: '#a99a86', left: '#efe6d4', right: '#d6ccb8' } },
+  { id: 'stone_window', char: 'Z', name: 'Stone wall with window', kind: 'wall', pattern: 'stone', window: true, colors: { top: '#8f897c', left: '#b4aea0', right: '#8f897c' } },
+  { id: 'doorway', char: 'n', name: 'Doorway (to another room)', kind: 'floor', pattern: 'stone', link: true, colors: ['#8c8478', '#847c70', '#948c80'] },
+  { id: 'dark_stone_wall', char: 'D', name: 'Dark stone wall', kind: 'wall', pattern: 'stone', colors: { top: '#5f5a52', left: '#8a8478', right: '#6d675c' } },
+  { id: 'cellar_floor', char: 'c', name: 'Cellar flagstones', kind: 'floor', pattern: 'stone', colors: ['#7c776e', '#746f66', '#847f76'] }
 ]);

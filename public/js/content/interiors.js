@@ -5,6 +5,7 @@
  *     tiles      see js/data/interiors/tiles.js:  .  nothing   w d s t r b h  floors   m  doormat (the way out)   W S P B  walls   V Q  walls with a window
  *     furniture  see js/data/furniture/: x, y = its top-left tile; rot 0-3 turns it (1 and 3 swap its width and depth)
  *     exit       the doormat tile: you arrive on the tile just north of it, and interact on it to go back outside
+ *     links, exitTo   (code only, js/content/castleRooms.js) doorways to a building's other rooms, and the room the doormat leads back to
  * A building (js/data/buildings/) names the layout it opens into with `interior`. North is the top row; walls at the top and left of a room are
  * drawn tall, walls at the bottom and right are drawn low so you can see in. */
 window.PONYSCAPES_INTERIORS = {

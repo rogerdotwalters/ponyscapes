@@ -4,6 +4,7 @@
  *
  *   grid id      ''                  the overworld (anything without a `grid` is here, so old saves just work)
  *                'room:<site>'       a shared room: the store, the carpenter, the vet (site = its BuildingSites index)
+ *                'room:<site>:<k>'   (a shared building with several rooms, like the castle) its k-th room; the first one is plain 'room:<site>'
  *                'room:<site>:<n>'   a player's own copy of a room (their home; n = their home number, handed out by the server)
  *                'cave:<ring>'       a ring's boss lair
  *                'dungeon:<d>:<r>'   room <r> of room dungeon <d> (js/data/dungeons/ lists them; each room is a picture-sized 2D list: roomCodes.js)
@@ -139,6 +140,8 @@ class InstanceWorld extends World {
   /** Where you arrive, and where the way out is. */
   entryPoint() { return this.plan.entryPoint(); }
   exitPoint() { return this.plan.exitPoint(); }
+  /** The doorways to the other rooms of the same building (a room of a building with several: interiorSystem.js). */
+  links() { return this.plan.links ? this.plan.links() : []; }
 }
 
 const Grids = {
@@ -165,10 +168,17 @@ const Grids = {
       const dungeon = Dungeons.all()[g.dungeon], room = dungeon && CaveRooms.get(dungeon.rooms[g.room]);
       return room ? new DungeonRoomPlan(id, dungeon, g.room, room) : null;                          // (a room missing from js/content/caveRooms.js is simply not there)
     }
-    const site = BuildingSites.list[g.site], layout = site && Interiors.get(site.def.interior);
-    if (!layout || (site.def.instance === 'player') !== (g.n !== undefined)) return null;          // a player building's rooms are numbered; a shared one's is not
-    return new RoomPlan(site, layout);
+    const site = BuildingSites.list[g.site], def = site && site.def;
+    if (!def) return null;
+    if (def.instance === 'player') { const layout = Interiors.get(def.interior); return layout && g.n !== undefined ? new RoomPlan(site, layout, '') : null; }   // a player building's rooms are numbered by owner
+    if (g.n === undefined) { const layout = Interiors.get(def.interior); return layout ? new RoomPlan(site, layout, Grids.roomKeys(site)[0] || '') : null; }   // a shared building's first room
+    const key = Grids.roomKeys(site)[g.n], layout = key && Interiors.get(def.rooms[key]);                       // ... and its other rooms: room:<site>:<k>, k = the room's place in the building's `rooms`
+    return layout ? new RoomPlan(site, layout, key) : null;
   },
+  /** The names of a building's rooms, entrance first ([] for a building with just the one room). */
+  roomKeys: site => (site.def.rooms ? Object.keys(site.def.rooms) : []),
+  /** The grid id of the room `key` of a (shared) building: its first room is plain 'room:<site>'. */
+  roomOf(site, key) { const k = Grids.roomKeys(site).indexOf(key); return k < 0 ? null : k === 0 ? Grids.room(site.index) : Grids.room(site.index, k); },
   /** Is this a grid id that can exist ('' included)? */
   valid(id) { return id === '' || !!Grids.plan(id); },
   /** The building site a room grid belongs to (null for caves and the overworld). */

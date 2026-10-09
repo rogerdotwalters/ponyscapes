@@ -73,14 +73,8 @@ const Village = (() => {
     return -1;
   }
 
-  /** Solid structure on this tile (keep walls and towers, houses). */
+  /** Solid structure on this tile (the castle on the keep's footprint, houses: BuildingSites). */
   function obj(tx, ty) {
-    if (within(KEEP, tx, ty)) {
-      if ([[KEEP.x0, KEEP.y0], [KEEP.x1, KEEP.y0], [KEEP.x0, KEEP.y1], [KEEP.x1, KEEP.y1], [6, KEEP.y1], [9, KEEP.y1]].some(([x, y]) => x === tx && y === ty)) return OBJ.TOWER;
-      const edge = tx === KEEP.x0 || tx === KEEP.x1 || ty === KEEP.y0 || ty === KEEP.y1;
-      const gate = ty === KEEP.y1 && (tx === 7 || tx === 8);
-      return edge && !gate ? OBJ.WALL : OBJ.NONE;
-    }
     return BuildingSites.obj(tx, ty);                                                       // the carpenter, store, veterinary, homes...
   }
 
@@ -104,7 +98,7 @@ const Village = (() => {
   const props = new Map();
   const rng = mulberry32(4242);
   props.set(tileKey(20, 20), { t: 'well', x: 20.5, y: 20.5, r: 0.5 / TILE_SCALE, v: 0 });
-  [[17.5, 17.5], [22.5, 17.5], [17.5, 22.5], [22.5, 22.5], [5.5, 5.5], [10.5, 5.5], [10.5, 9.5], [5.5, 9.5],
+  [[17.5, 17.5], [22.5, 17.5], [17.5, 22.5], [22.5, 22.5],
    [13.5, 24.5], [28.5, 22.5], [37.5, 22.5], [16.5, 26.5]].forEach(([x, y]) => {
     props.set(tileKey(Math.floor(x), Math.floor(y)), { t: 'barrel', x: x + (rng() - 0.5) * 0.2, y: y + (rng() - 0.5) * 0.2, r: 0.26 / TILE_SCALE, v: 0 });
   });
