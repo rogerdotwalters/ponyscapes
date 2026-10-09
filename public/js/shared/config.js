@@ -60,7 +60,7 @@ const CONFIG = {
      *  `arriveChance` / `leaveChance` = each morning's chance for a free place to be taken / for a pony to move on. They appear `spawnMin`..`spawnMax` tiles from a player, and leave
      *  only once nobody is within `hideDistance`. */
     wildPonies: { perBiome: 10, startFill: 0.4, arriveChance: 0.6, leaveChance: 0.3, morningHour: 6, spawnMin: 18, spawnMax: 40, hideDistance: 24, samples: 3 },
-    drops: { max: 400, pickupRange: 1.3, gatherRange: 2.6, coinRange: 1.1 },             // items dropped on the ground (kept in the world save)
+    drops: { max: 400, pickupRange: 1.3, gatherRange: 2.6, coinRange: 1.1, throwRange: 4 },             // items dropped on the ground (kept in the world save)
     // Animal levels rise with distance from the ORIGIN (the starting village): one level per `tilesPerLevel` tiles, on top of each species' own base level
     levels: { origin: { x: 20.5, y: 26.5 }, tilesPerLevel: 60, max: 99 },     // zones are wide: one level per 60 tiles
     light: { torchRadius: 6, campfireRadius: 8, torchSeconds: 120, darkBelow: 0.35 },   // tiles; a torch burns out after torchSeconds of use; "dark" = daylight below darkBelow

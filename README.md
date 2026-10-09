@@ -118,6 +118,10 @@ tools/bundle.py       packs the game into one self-contained HTML file
 * **Tools.** `python3 tools/make_retro_tools.py public/assets/items` paints every tool's icon and in-hand picture as outlined pixel art (registered in `js/content/customContent.js`).
 * `node tools/render-compare.js --scene stable|sleeping|inventory|ride_left ...` shoots these scenes.
 
+## Coin bag
+
+The **Coins** button (top right) opens a cutaway sack holding all your coins (`client/ui/coinBagUI.js`): a small physics world (gravity, coins stacking and sliding on each other and the walls) drawn in chunky pixels. Press a coin and drag it: inside the bag it shoves the others about; let go over the game world to **drop** it there (`dropCoins` with a world spot, within `CONFIG.sim.drops.throwRange` tiles of you; whoever steps close picks the pile up, so that is how coins change hands). Up to about 110 coins are shown one by one; a bigger purse is shown as bigger coins (worth 5, 25, 100, 500 ...) and dragging one out drops that many. A tap flicks a coin and makes its neighbours jump.
+
 ## Controls
 
 * **Mouse / touch** (not rebindable): left click or tap uses what is in your hand where you point (water, plant, hoe, chop, swing or shoot a weapon; hold the mouse button to repeat). On a villager it talks (a window offers their shop, any quests and gifts; with nothing to offer they just say hello). On an animal it feeds it (food in hand), ropes it (lasso in hand), attacks it (weapon in hand) or pets it. **Right click** throws the lasso in the lasso slot at the animal under the pointer; phones keep the **Lasso** button. Swords sweep a 120 degree fan and hit every animal in it.

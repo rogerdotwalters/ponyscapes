@@ -97,12 +97,19 @@ Object.assign(GameServer.prototype, {
     this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'dropped', to: id, item: taken.item, count: taken.count, x: p.x, y: p.y });
   },
-  /** Tip coins out of the purse onto the ground in front of you. */
-  _dropCoins(id, count) {
+  /** Tip coins out of the purse onto the ground in front of you, or (the coin bag: drag a coin out onto the world) at the spot you pointed at,
+   *  which has to be within a few tiles of you and not in a wall or the water. */
+  _dropCoins(id, count, x, y) {
     const p = this.players[id], inventory = this.inventories[id], n = clamp(Math.floor(count) || 0, 0, inventory.purse || 0);
     if (!p || !n) return;
+    let ax = p.x + Math.cos(p.facing) * 0.55, ay = p.y + Math.sin(p.facing) * 0.55;
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      const reach = CONFIG.sim.drops.throwRange || 4, dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy), k = d > reach ? reach / d : 1;
+      const tx = p.x + dx * k, ty = p.y + dy * k, map = this.mapOf(p);
+      if (!map.isSolid(Math.floor(tx), Math.floor(ty)) && !isWaterTile(map.tile(Math.floor(tx), Math.floor(ty)))) { ax = tx; ay = ty; }
+    }
     inventory.remove('gold_coin', n);
-    const pile = this._dropOnGround('gold_coin', n, p.x + Math.cos(p.facing) * 0.55, p.y + Math.sin(p.facing) * 0.55, gridOf(p));
+    const pile = this._dropOnGround('gold_coin', n, ax, ay, gridOf(p));
     if (pile) pile.dropT = this.tick + 3 * CONFIG.sim.tickRate;                 // (not snatched straight back: it waits a few seconds)
     this.inventoryRev[id]++;
     this.pendingEvents.push({ type: 'dropped', to: id, item: 'gold_coin', count: n, x: p.x, y: p.y });

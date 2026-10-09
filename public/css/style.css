@@ -103,8 +103,8 @@ canvas{display:block}
 #emoteWheel{position:fixed;inset:0;z-index:9;background:rgba(5,10,20,.35)}
 .ebubble{position:absolute;border-radius:50%;border:2px solid rgba(227,194,122,.85);background:rgba(250,246,232,.96);padding:0;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .ebubble.etrade{background:rgba(227,194,122,.95);color:#10202f;font-family:Georgia,serif;font-weight:700}
-#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
-#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
+#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#coinPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
+#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#coinPanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
 #gearClose,#tradeClose,#puzzleClose,#dialogueClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
 #gearBody,#ponyBody,#townBody,#tradeBody,#shopBody,#controlsBody{overflow-y:auto;touch-action:pan-y}
 .shophead{display:flex;align-items:center;gap:4px;margin:0 0 8px;font-size:13px}.shophead img{width:20px;height:20px}
@@ -191,7 +191,7 @@ canvas{display:block}
 /* ---------- click-off backdrop, menu hub, area map ---------- */
 #panelBackdrop{position:fixed;inset:0;z-index:4;background:rgba(5,10,20,.28)}
 #panelBackdrop[hidden]{display:none}
-#menuClose,#mapClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
+#menuClose,#mapClose,#coinClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
 #menuBody,#mapBody{overflow-y:auto;touch-action:pan-y}
 .menugrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .menugrid button{display:flex;align-items:center;gap:8px;padding:9px 8px;min-height:50px;text-align:left;border-radius:10px;border:1.5px solid rgba(227,194,122,.55);background:rgba(10,18,28,.6);color:#f4e6c1;position:relative}
@@ -556,7 +556,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .pbtn.attack{border-color:#e07a6a;color:#ffd6cf;background:rgba(80,20,20,.62)}
 
 /* puzzle screen (puzzleUI.js) */
-#puzzlePanel{z-index:7}
+#puzzlePanel,#coinPanel{z-index:7}
 .pzHint{font:italic 13px Georgia,serif;line-height:1.4;margin:0 0 10px;opacity:.9}
 .pzGrid{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:6px;max-width:300px;margin:0 auto}
 .pzCell{aspect-ratio:1;border-radius:10px;border:2px solid rgba(227,194,122,.5);background:rgba(10,18,28,.7);color:#f4e6c1;font:700 22px Georgia,serif;padding:0;touch-action:manipulation}
@@ -608,20 +608,20 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 :root{--oak:#3a281a;--oak2:#4a3322;--deep:#1d120a;--gold:#d9a441;--brass:#f2cf7a;--parch:#f1e0b4;--ink:#2a170c;--wine:#7a2a2a;--moss:#4f7a3a;
   --font-title:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif}
 /* stepped (pixel-cut) corners, a gold rule inside an iron frame, and a hard drop shadow */
-#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,.lobbyCard{
+#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#coinPanel,.lobbyCard{
   border:3px solid var(--deep);border-radius:3px;color:var(--parch);
   background:
     repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 2px,transparent 2px 22px),
     linear-gradient(180deg,#46311f 0%,var(--oak) 60%,#2f2014 100%);
   box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px var(--deep),inset 0 0 0 5px rgba(242,207,122,.35),0 5px 0 rgba(0,0,0,.45),0 0 0 2px #000;
   }
-#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header{
+#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#coinPanel header{
   font:700 17px var(--font-title);letter-spacing:2px;text-transform:uppercase;color:var(--brass);text-shadow:2px 2px 0 var(--deep);
   padding:0 0 5px;border-bottom:2px solid var(--gold);box-shadow:0 2px 0 var(--deep)}
-#invClose,#craftClose,#settingsClose,#gearClose,#tradeClose,#puzzleClose,#dialogueClose,#journalClose,#menuClose,#mapClose{
+#invClose,#craftClose,#settingsClose,#gearClose,#tradeClose,#puzzleClose,#dialogueClose,#journalClose,#menuClose,#mapClose,#coinClose{
   width:28px;height:28px;border-radius:2px;border:2px solid var(--deep);background:var(--wine);color:#ffe8d0;font:700 14px var(--font-title);padding:0;
   box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.35)}
-#invClose:active,#craftClose:active,#settingsClose:active,#gearClose:active,#tradeClose:active,#journalClose:active,#menuClose:active,#mapClose:active{transform:translateY(1px)}
+#invClose:active,#craftClose:active,#settingsClose:active,#gearClose:active,#tradeClose:active,#journalClose:active,#menuClose:active,#mapClose:active,#coinClose:active{transform:translateY(1px)}
 #panelBackdrop{background:rgba(8,4,0,.45)}
 
 /* wooden buttons: a lit top edge, a shaded underside, ink outline; gold for the main action */
@@ -701,3 +701,12 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 #joyKnob{background:linear-gradient(180deg,#e8bb55,#b8801f);border:3px solid var(--deep)}
 #sleepOverlay .slZ{font-family:"Courier New",monospace;text-shadow:3px 3px 0 var(--deep)}
 .invGhost{image-rendering:pixelated}
+
+/* ---------- the coin bag: a cutaway sack full of coins that you can drag out onto the world ---------- */
+.coinDot{display:inline-block;width:9px;height:9px;margin-right:5px;background:#e0a82c;border:2px solid #1d120a;border-radius:50%;box-shadow:inset 1px 1px 0 #ffe07a;vertical-align:-1px}
+#coinBody{display:flex;flex-direction:column;align-items:center;gap:6px;touch-action:none}
+#coinCanvas{display:block;height:min(340px,calc(100vh - 250px));min-height:150px;aspect-ratio:140/170;width:auto;max-width:100%;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none;cursor:grab;background:radial-gradient(ellipse at 50% 60%,rgba(0,0,0,.28),transparent 70%)}
+#coinCanvas.grabbing{cursor:grabbing}
+#coinTotal{font:700 15px var(--font-title,Georgia,serif);color:var(--brass,#f2cf7a);text-shadow:1px 1px 0 #1d120a}
+#coinHint{font:italic 11px var(--font-title,Georgia,serif);color:#c9b58a;text-align:center;max-width:300px}
+.coinGhost{position:fixed;z-index:30;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 35% 30%,#ffe9a0 0 18%,#e0a82c 19% 62%,#b8801c 63%);border:3px solid #1d120a;box-shadow:0 5px 0 rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font:800 11px Georgia,serif;color:#5a3a0a}

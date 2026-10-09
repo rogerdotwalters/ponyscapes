@@ -278,7 +278,7 @@ class GameServer {
       case 'questAccept': if (typeof cmd.quest === 'string') this.quests.accept(id, cmd.quest); break;       // at a villager's dialogue window (questSystem.js)
       case 'questDeliver': if (typeof cmd.quest === 'string') this.quests.deliver(id, cmd.quest); break;
       case 'puzzleSolve': if (typeof cmd.node === 'string') this.quests.solve(id, cmd.node, cmd.moves); break;   // the client played a puzzle: replay its moves
-      case 'dropCoins': this._dropCoins(id, cmd.count); break;                                              // coins out of the purse onto the ground (serverOwned.js)
+      case 'dropCoins': this._dropCoins(id, cmd.count, cmd.x, cmd.y); break;                                              // coins out of the purse onto the ground (serverOwned.js)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
       case 'equip': this._handleEquip(id, inventory, cmd.from); break;
       case 'packMove': this._packMove(id, inventory, cmd); break;                                           // between your bag and your pony's pack (packSystem.js)

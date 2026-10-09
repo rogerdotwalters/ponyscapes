@@ -115,7 +115,7 @@ class ClientGame {
   questAccept(quest) { this.net.sendCommand({ type: 'questAccept', quest }); }
   questDeliver(quest) { this.net.sendCommand({ type: 'questDeliver', quest }); }
   puzzleSolve(node, moves) { this.net.sendCommand({ type: 'puzzleSolve', node, moves }); }
-  dropCoins(count) { this.net.sendCommand({ type: 'dropCoins', count }); }
+  dropCoins(count, x, y) { this.net.sendCommand(Number.isFinite(x) && Number.isFinite(y) ? { type: 'dropCoins', count, x, y } : { type: 'dropCoins', count }); }   // (x, y: where in the world, from the coin bag)
   buy(item) { this.net.sendCommand({ type: 'buy', item }); }
   _applyPack(wire) {
     this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
