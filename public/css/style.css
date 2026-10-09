@@ -731,3 +731,42 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 #shopCounter .coinChip{cursor:pointer}
 #shopPanel.paying{left:min(16px,2vw) !important}
 .need img,.shophead img{image-rendering:pixelated}
+
+/* ---------- the garden window: nine plots, your seed packs down the side, seed pouches beside it ---------- */
+#gardenPanel{position:fixed !important;left:0 !important;top:0 !important;right:0;bottom:0;width:auto !important;z-index:6;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;
+  padding:56px 8px 110px !important;background:rgba(10,8,4,.35) !important;border:0 !important;box-shadow:none !important;overflow:auto;color:var(--parch,#f1e0b4)}
+#gardenWin{display:flex;flex-direction:column;gap:6px;padding:10px 12px 8px;background:#5a3b20;border:3px solid #1d120a;border-radius:6px;box-shadow:inset 0 0 0 2px #8a5e32,0 8px 24px rgba(0,0,0,.5);max-width:100%}
+#gardenWin header{display:flex;justify-content:space-between;align-items:center;font:700 16px var(--font-title,Georgia,serif);color:#f6dfa2;text-shadow:1px 1px 0 #1d120a}
+#gardenClose{width:26px;height:26px;border-radius:3px;border:2px solid #1d120a;background:#7a4e2a;color:#f4e6c1;font-size:14px;padding:0;cursor:pointer}
+#gardenMain{display:flex;gap:10px;align-items:stretch}
+#gardenSeeds{display:flex;flex-direction:column;width:124px;flex:none;background:rgba(0,0,0,.3);border:2px solid #1d120a;border-radius:4px;padding:6px 4px}
+.gardenLabel{font:700 11px var(--font-title,Georgia,serif);color:#e8c878;text-align:center;margin-bottom:4px;text-transform:uppercase;letter-spacing:.08em}
+#gardenSeedList{flex:1 1 0;min-height:0;max-height:340px;overflow-y:auto;touch-action:pan-y;display:flex;flex-direction:column;gap:4px;padding-right:2px}
+.seedPack{position:relative;display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;column-gap:5px;align-items:center;text-align:left;padding:4px 5px;border:2px solid #1d120a;border-radius:3px;
+  background:#7a5230;color:#f4e6c1;font:700 12px var(--font-title,Georgia,serif);cursor:pointer;box-shadow:inset 0 2px 0 #9a6c3e}
+.seedPack img{grid-row:1 / 3;width:34px;height:34px;image-rendering:pixelated}
+.seedPack small{font:italic 10px Georgia,serif;color:#d9c79a}
+.seedPack .seedCount{position:absolute;right:4px;top:2px;font-size:11px;color:#ffe08a;text-shadow:1px 1px 0 #1d120a}
+.seedPack.open{background:#4f7a3a;box-shadow:inset 0 2px 0 #7aab5a}
+.seedPack.off{opacity:.65}
+.gardenNone{margin:4px;font:italic 11px Georgia,serif;color:#e8d9b0}
+#gardenBed{display:flex;flex-direction:column;gap:8px;align-items:center}
+#gardenCanvas{width:min(328px,calc(100vw - 190px));aspect-ratio:1;image-rendering:pixelated;touch-action:none;cursor:pointer;border-radius:2px}
+#gardenTools{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+#gardenTools button{display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 6px;min-width:62px;border:2px solid #1d120a;border-radius:3px;background:#7a5230;color:#f4e6c1;font:700 10px var(--font-title,Georgia,serif);box-shadow:inset 0 2px 0 #9a6c3e;cursor:pointer}
+#gardenTools button img{width:30px;height:30px;image-rendering:pixelated}
+#gardenTools .handIcon{font-size:24px;line-height:30px}
+#gardenTools button.on{background:#d9a441;color:#2a170c;box-shadow:inset 0 2px 0 #f6d98c,inset 0 -3px 0 #98691f}
+#gardenTools button:disabled{opacity:.4;cursor:not-allowed}
+#gardenHint{font:italic 11px Georgia,serif;color:#e8d9b0;text-align:center;max-width:490px;min-height:28px}
+#gardenPouches{position:fixed;right:8px;top:56px;bottom:110px;display:flex;flex-flow:column wrap-reverse;gap:10px;align-content:flex-start;pointer-events:none}
+#gardenPouches>*{pointer-events:auto}
+.pouch{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 6px 4px;background:rgba(40,26,12,.78);border:2px solid #1d120a;border-radius:6px;box-shadow:0 6px 16px rgba(0,0,0,.5)}
+.pouch header{display:flex;width:100%;justify-content:space-between;align-items:center;font:700 12px var(--font-title,Georgia,serif);color:#f6dfa2}
+.pouch .pouchClose{width:20px;height:20px;border:1px solid #1d120a;border-radius:3px;background:#7a4e2a;color:#f4e6c1;font-size:11px;padding:0;cursor:pointer}
+.pouch canvas{display:block;image-rendering:pixelated;touch-action:none;cursor:grab;filter:drop-shadow(0 6px 5px rgba(0,0,0,.4))}
+.pouch canvas.grabbing{cursor:grabbing}
+.pouch .pouchCount{font:700 12px var(--font-title,Georgia,serif);color:#fff3d0}
+.pouch.empty .pouchCount{color:#e08a7a}
+@media (max-width:900px){#gardenPouches{position:static;flex-flow:row wrap;justify-content:center}.pouch canvas{width:140px;height:auto}}
+@media (max-width:640px){#gardenMain{flex-direction:column}#gardenSeeds{width:auto}#gardenSeedList{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x}.seedPack{min-width:112px}#gardenCanvas{width:min(328px,calc(100vw - 48px))}}

@@ -176,13 +176,13 @@ class WeatherSystem {
     if (this.wet.day !== today) this.wet = { day: today, plots: {} };                           // (a new day: the soil starts to dry)
     let changed = false;
     for (const key in farm) {
-      if (Groves.isKey(key) || Grass.isKey(key) || Hedges.isKey(key)) continue;                                      // saplings and cut grass are not fields
-      const plot = farm[key];
-      if (plot.w === today) continue;
-      const i = key.indexOf(','), cx = +key.slice(0, i), cy = +key.slice(i + 1);
-      if (Weather.covered(s.map, cx >> 1, cy >> 1)) continue;
+      if (!Farming.isKey(key)) continue;                                                                             // saplings, cut grass and hedges are not fields
+      const field = farm[key];
+      if (field.cells.every(plot => plot.w === today)) continue;
+      const [tx, ty] = Farming.tileOf(key);
+      if (Weather.covered(s.map, tx, ty)) continue;
       const wet = (this.wet.plots[key] || 0) + rate * dt;
-      if (wet >= 1) { delete this.wet.plots[key]; plot.w = today; plot.idle = 0; changed = true; } else this.wet.plots[key] = wet;
+      if (wet >= 1) { delete this.wet.plots[key]; for (const plot of field.cells) plot.w = today; field.idle = 0; changed = true; } else this.wet.plots[key] = wet;     // (rain wets the whole field)
     }
     if (changed) s._farmChanged();
   }

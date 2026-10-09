@@ -280,6 +280,7 @@ class GameServer {
       case 'puzzleSolve': if (typeof cmd.node === 'string') this.quests.solve(id, cmd.node, cmd.moves); break;   // the client played a puzzle: replay its moves
       case 'dropCoins': this._dropCoins(id, cmd.item, cmd.count, cmd.x, cmd.y); break;                                              // coins out of the purse onto the ground (serverOwned.js)
       case 'coinChange': this._coinChange(id, cmd.mode, cmd.item); break;                                      // break a coin into smaller ones / merge them all up (the coin bag)
+      case 'field': this._fieldOp(id, cmd); break;                                                          // one job on one plot of a field, from the garden window (farming.js)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
       case 'equip': this._handleEquip(id, inventory, cmd.from); break;
       case 'packMove': this._packMove(id, inventory, cmd); break;                                           // between your bag and your pony's pack (packSystem.js)

@@ -18,6 +18,14 @@ const SaveData = {
   _num(v, lo, hi, fallback) { return typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback; },
   _int(v, lo, hi, fallback) { return typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fallback; },
   _plain: v => v !== null && typeof v === 'object' && !Array.isArray(v),
+  /** One plot of a field (farming.js). `legacy`: a half-tile plot of an older save (a crop in it was planted and covered). */
+  _plot(f, legacy) {
+    if (!SaveData._plain(f)) return Farming.newCell();
+    const c = typeof f.c === 'string' && Crops.has(f.c) ? f.c : '', plot = { w: SaveData._int(f.w, -1, 2 ** 31, -1), c, d: c ? SaveData._int(f.d, 0, 999, 0) : 0 };
+    if (c) { plot.h = 1; plot.v = legacy || f.v ? 1 : 0; if (f.dead) plot.dead = true; } else if (f.h) plot.h = 1;
+    if (f.u && !c) plot.u = 1;
+    return plot;
+  },
 
   /** Somewhere a person can actually stand, near (x, y): their own spot if it is fine, else the closest free tile, else the village spawn. */
   safeSpot(server, x, y, slot) {
@@ -108,10 +116,17 @@ const SaveData = {
       if (/^g-?\d{1,7},-?\d{1,7}$/.test(k) && SaveData._plain(f) && typeof TreeSpecies !== 'undefined' && TreeSpecies.has(f.t)) {   // a planted sapling / grown tree (groves.js)
         out.farm[k] = { t: f.t, d: SaveData._int(f.d, 0, 999, 0) }; if (f.g) out.farm[k].g = 1; continue;
       }
-      if (!/^-?\d{1,7},-?\d{1,7}$/.test(k) || !SaveData._plain(f) || Object.keys(out.farm).length >= 20000) continue;
-      const c = typeof f.c === 'string' && Crops.has(f.c) ? f.c : '';
-      out.farm[k] = { w: SaveData._int(f.w, -1, 2 ** 31, -1), c, d: c ? SaveData._int(f.d, 0, 999, 0) : 0, idle: SaveData._int(f.idle, 0, 99, 0) };
-      if (c && f.dead) out.farm[k].dead = true;
+      if (Object.keys(out.farm).length >= 20000 || !SaveData._plain(f)) continue;
+      if (/^f-?\d{1,7},-?\d{1,7}$/.test(k)) {                                                                 // a field of 3 x 3 plots (farming.js)
+        if (!Array.isArray(f.cells)) continue;
+        out.farm[k] = { cells: Array.from({ length: 9 }, (_, i) => SaveData._plot(f.cells[i])), idle: SaveData._int(f.idle, 0, 99, 0) };
+        continue;
+      }
+      if (/^-?\d{1,7},-?\d{1,7}$/.test(k)) {                                                                  // an older save's half-tile plot: it becomes a plot of the field on its tile
+        const [cx, cy] = k.split(',').map(Number), fk = Farming.key(cx >> 1, cy >> 1), old = SaveData._plot(f, true);
+        const field = out.farm[fk] || (out.farm[fk] = Farming.newField());
+        field.cells[Farming.legacyIndex(cx, cy)] = old;
+      }
     }
     for (const [k, n] of Object.entries(SaveData._plain(stock.rooms) ? stock.rooms : {})) if (/^room:[0-9:]{1,24}\|\d{1,3},\d{1,3}$/.test(k)) out.stockpiles.rooms[k] = SaveData._int(n, 0, 99999, 0);   // the bins in rooms
     for (const q of Array.isArray(data.pets) ? data.pets.slice(0, SaveData.MAX_PETS * 64) : []) {             // (older saves have none)

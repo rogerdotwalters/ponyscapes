@@ -27,7 +27,7 @@ class TapActions {
   /* ---- a finger held down: show what it is on ---- */
   hold(cssX, cssY) {
     const desc = this._describe(cssX, cssY);
-    this.highlight = { x: desc.x, y: desc.y, r: desc.type === 'ground' ? 0.6 : desc.type === 'object' ? 0.9 : Math.max(0.8, (desc.radius || 0.3) * 3) };
+    this.highlight = { x: desc.x, y: desc.y, r: desc.type === 'ground' || desc.type === 'field' ? 0.6 : desc.type === 'object' ? 0.9 : Math.max(0.8, (desc.radius || 0.3) * 3) };
   }
   clearHold() { this.highlight = null; }
 
@@ -51,8 +51,16 @@ class TapActions {
     const hit = this._pick(cssX, cssY);
     if (hit && hit.type === 'npc') return { type: 'npc', id: hit.npc.id, x: hit.npc.x, y: hit.npc.y };
     if (hit && hit.type === 'animal') return { type: 'animal', id: hit.animal.id, x: hit.animal.x, y: hit.animal.y, radius: AnimalDefs[hit.animal.type].radius };
-    const w = this.camera.screenToWorld(cssX, cssY), obj = this._objectAt(w);
+    const w = this.camera.screenToWorld(cssX, cssY), tx = Math.floor(w.x), ty = Math.floor(w.y);
+    if (this._gardening() && this.game.fieldAt(tx, ty)) return { type: 'field', tx, ty, x: tx + 0.5, y: ty + 0.5 };      // a hoe, shovel, can or seeds in hand: tap a field to garden it
+    const obj = this._objectAt(w);
     return obj ? { type: 'object', kind: obj.kind, x: w.x, y: w.y } : { type: 'ground', x: w.x, y: w.y };
+  }
+
+  /** Is something in hand that works a field: a hoe, a shovel, a watering can, or seeds? */
+  _gardening() {
+    const held = this.game.heldItemId(), tool = ItemDB.getTool(held), def = held && ItemDefs[held];
+    return !!(tool && ['hoe', 'shovel', 'water'].includes(tool.kind)) || !!(def && def.seed);
   }
 
   /** A door, stockpile, chest, crop, pick-up, shop counter, boat... right where the pointer is: asks the interaction rules as if we stood on that spot. */
@@ -86,7 +94,7 @@ class TapActions {
 
   /** The live thing a description points at (it may have moved), or null if it is gone. */
   _live(desc) {
-    if (desc.type === 'ground' || desc.type === 'object') return desc;
+    if (desc.type === 'ground' || desc.type === 'object' || desc.type === 'field') return desc;
     const view = this.game.getRenderState(1), src = desc.type === 'npc' ? view.npcs[desc.id] : view.animals[desc.id];
     return src ? Object.assign({}, desc, { x: src.x, y: src.y, animal: desc.type === 'animal' ? src : null, npc: desc.type === 'npc' ? Object.assign({ id: desc.id }, src) : null }) : null;
   }
@@ -107,6 +115,7 @@ class TapActions {
     this.input.setPath(null);
     switch (plan.action) {
       case 'talk': this.bus.emit('talkTo', thing.npc); return false;
+      case 'garden': this.bus.emit('openGarden', { tx: thing.tx, ty: thing.ty }); return false;
       case 'aim': this._aimedUse(plan.point || thing); return !!plan.repeat && mouse;
       case 'act': game.animalAct(thing.id, plan.act); return false;
       case 'interact': this.input.aimAt(thing, { action: false, ms: 300 }); game.requestInteract(); return false;
@@ -127,6 +136,7 @@ class TapActions {
       const food = held && game.inventory.has(held, 1) && ItemDefs[held] && ItemDefs[held].food;
       return Object.assign({ action: 'act', act: food || ItemDB.isApple(held) || Wants.accepts(a, held) ? 'feed' : 'pet' }, within(near));
     }
+    if (thing.type === 'field') return { action: 'garden', ready: dist <= Farming.REACH };
     if (thing.type === 'object') {                                                                                         // ready = the interact key would do the same thing from where we stand
       const real = this._interactionFrom(me);
       return { action: 'interact', ready: !!real && real.kind === thing.kind };

@@ -194,9 +194,14 @@ class Renderer {
         list.push({ kind: 'sapling', depth: tx + ty + 0.9, gx: isoX(tx + 0.5, ty + 0.5), gy: isoY(tx + 0.5, ty + 0.5), plot, tx, ty });
         continue;
       }
-      if (!plot.c) continue;
-      const i = key.indexOf(','), wx = (+key.slice(0, i) + 0.5) / 2, wy = (+key.slice(i + 1) + 0.5) / 2, tx = Math.floor(wx), ty = Math.floor(wy);
-      list.push({ kind: 'crop', depth: wx + wy - 0.1, gx: isoX(wx, wy), gy: isoY(wx, wy), plot, tx, ty });
+      if (!Farming.isKey(key)) continue;
+      const [tx, ty] = Farming.tileOf(key);                                           // a field: each covered crop stands on its own plot
+      for (let n = 0; n < 9; n++) {
+        const cell = plot.cells[n];
+        if (!cell.c || !cell.v) continue;
+        const wx = tx + (n % 3 + 0.5) / 3, wy = ty + (Math.floor(n / 3) + 0.5) / 3;
+        list.push({ kind: 'crop', depth: wx + wy - 0.1, gx: isoX(wx, wy), gy: isoY(wx, wy), plot: cell, tx, ty, sway: tx * 131 + ty + n * 17 });      // (each plot sways on its own)
+      }
     }
     this._farmIndex = { farm, list };
     return list;
@@ -259,7 +264,7 @@ class Renderer {
     }
     if (item.kind === 'drop') return this._drawDrop(item.gx, item.gy, item.drop, now);
     if (item.kind === 'puzzleNode') return QuestSprites.node(this.ctx, item.gx, item.gy, item.node, !!QuestLog.needing(this.game.questLog, item.node.id), now);
-    if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx + this.effects.sway(item.tx * 131 + item.ty, now, 2), item.gy, item.plot);   // (bending in the wind)
+    if (item.kind === 'crop') return PixelCrops.draw(this.ctx, item.gx + this.effects.sway(item.sway, now, 2), item.gy, item.plot, FIELD_CROP_SCALE);   // (bending in the wind)
     if (item.kind === 'sapling') { const biome = this.game.map.biome(item.tx, item.ty); return PixelProps.drawSapling(this.ctx, item.gx + this.effects.sway(item.tx * 131 + item.ty, now, 3), item.gy, item.plot.t, Groves.growth(item.plot), TREE_TINT[biome] || PropSprites.seasonTint); }
     if (item.kind === 'boat') return this.boatSprite.draw(item.boat, item.id, isoX(item.boat.x, item.boat.y), isoY(item.boat.x, item.boat.y), now);
     if (item.kind === 'player') {
