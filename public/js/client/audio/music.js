@@ -6,6 +6,8 @@
  *           a suspenseful build-up (heartbeat drums, a drone, trembling strings, a violin climbing, a snare roll) whose last note drops away,
  *           a very fast chorus where two violins duel, one in each ear, then join; an interlude that slows to a lone cello and builds again;
  *           and the duel once more, two rounds, with the violins' roles swapped in the second.
+ *   BALLAD  "The Ballad of Hollowmere": one long piece (about four minutes) that carries every mood in turn: a soft intro, a casual farm interlude,
+ *           cheery glee, dreaded anticipation, a somber realization, rising hope and victory. It never plays by itself: pick it in the Soundtrack player.
  *   STORM   "Thunder Over Hollowmere": dark and slow, in C minor: a deep cello drone, tremolo strings, tolling low harp, distant drum swells and a lonely flute.
  *           Plays under a heavy downpour or a gale.
  *   BATTLE  "Ironhoof Gallop": fast and driving, in D minor, in a galloping 6/8: an ostinato cello, rapid harp, tremolo strings, war drums and a staccato flute.
@@ -27,6 +29,7 @@ const PonyMusic = (() => {
       rhythms: [[0, 5], [0, 4], [2, 6], [0], [0, 3, 6]]
     },
     tempest: { title: 'Duel at Stormcrown', blurb: 'Build-up, a duel of violins, a cello interlude, the duel again. Thunderstorms.', key: 4, bar: 8, level: 1, fadeIn: 2, fadeOut: 2.5 },                                     // E minor (harmonic); its sections and chords are TEMPEST below
+    ballad: { title: 'The Ballad of Hollowmere', blurb: 'Every mood in one piece: intro, farm, glee, dread, grief, hope, victory.', key: 2, bar: 8, level: 1, fadeIn: 2, fadeOut: 2.5 },
     battle: {
       title: 'Ironhoof Gallop', blurb: 'Fast and galloping. Battles and caves.', key: 2, scale: MINOR_PENT, eighth: 0.19, bar: 6, level: 0.9, fadeIn: 0.5, fadeOut: 1.1,                                          // D minor, 6/8 (two dotted-quarter beats a bar)
       prog: [[[0, 'm'], [8, 'M'], [10, 'M'], [0, 'm']], [[0, 'm'], [5, 'm'], [7, 'm'], [0, 'm']]],                                     // Dm Bb C Dm, then Dm Gm Am Dm
@@ -55,11 +58,41 @@ const PonyMusic = (() => {
     const where = bi => { let idx = bi, first = 0; for (const sec of sections) { if (idx < sec.bars) return { sec, idx, first }; idx -= sec.bars; first += sec.bars; } return null; };
     return { sections, chords, durOf, where, bars: chords.length };
   })();
+  /** The ballad: seven moods, each in its own key and pace, joined end to end. chords are [degree, quality, key]. */
+  const BALLAD = (() => {
+    const M = (key, deg) => [deg, 'M', key], m = (key, deg) => [deg, 'm', key];
+    const sections = [
+      { id: 'intro', bars: 8, dur: 0.5 },                         // soft intro, D major
+      { id: 'farm', bars: 16, dur: 0.3 },                         // casual farm vibes, G major
+      { id: 'glee', bars: 12, dur: 0.2 },                         // cheery glee, A major
+      { id: 'dread', bars: 12, dur: 0.4, dur1: 0.26 },            // dreaded anticipation, E minor, quickening
+      { id: 'somber', bars: 10, dur: 0.55 },                      // somber realization, E minor, slow
+      { id: 'hope', bars: 12, dur: 0.45, dur1: 0.22 },            // rising hope, G major, quickening
+      { id: 'victory', bars: 16, dur: 0.17 },                     // victory, D major, galloping
+      { id: 'end', bars: 1, dur: 0.5 }                            // the last chord, left to ring
+    ];
+    const chords = [
+      M(2, 0), m(2, 9), M(2, 5), M(2, 7),  M(2, 0), m(2, 9), M(2, 5), M(2, 7),
+      M(7, 0), M(7, 5), M(7, 0), M(7, 7),  M(7, 0), M(7, 5), M(7, 7), M(7, 0),  M(7, 0), M(7, 5), M(7, 0), M(7, 7),  M(7, 0), M(7, 5), M(7, 7), M(7, 0),
+      M(9, 0), M(9, 5), M(9, 7), M(9, 0),  M(9, 0), m(9, 9), M(9, 5), M(9, 7),  M(9, 0), M(9, 5), M(9, 7), M(9, 0),
+      m(4, 0), m(4, 0), m(4, 5), M(4, 7),  m(4, 0), M(4, 8), m(4, 5), M(4, 7),  m(4, 0), m(4, 5), M(4, 7), M(4, 7),
+      m(4, 0), m(4, 5), m(4, 0), M(4, 7), M(4, 8), m(4, 5), M(4, 7), m(4, 0), m(4, 5), M(4, 7),
+      M(7, 0), M(7, 7), m(7, 9), M(7, 5),  M(7, 0), M(7, 7), m(7, 9), M(7, 5),  M(7, 5), M(7, 7), M(7, 7), M(7, 7),
+      M(2, 0), M(2, 7), m(2, 9), M(2, 5),  M(2, 0), M(2, 5), M(2, 7), M(2, 0),  M(2, 0), M(2, 7), m(2, 9), M(2, 5),  M(2, 5), M(2, 7), M(2, 0), M(2, 0),
+      M(2, 0)
+    ];
+    const durOf = (sec, idx) => sec.dur1 ? sec.dur * Math.pow(sec.dur1 / sec.dur, idx / (sec.bars - 1)) : sec.dur;
+    const where = bi => { let idx = bi, first = 0; for (const sec of sections) { if (idx < sec.bars) return { sec, idx, first }; idx -= sec.bars; first += sec.bars; } return null; };
+    return { sections, chords, durOf, where, bars: chords.length };
+  })();
+  const FORMS = { tempest: TEMPEST, ballad: BALLAD };
+  /** A pentatonic position (0 = the key's tonic above middle C, five to the octave) as a MIDI note. */
+  const nm = (p, key, sc) => 60 + key + sc[((p % 5) + 5) % 5] + 12 * Math.floor(p / 5);                                              // the long, sectioned pieces
   /** A scale position (0 = E4, seven to the octave) as a MIDI note. */
   const posNote = p => 64 + 12 * Math.floor(p / 7) + HARMONIC[((p % 7) + 7) % 7];
   const HOSTILE_RANGE = 11, HOLD_BATTLE = 7, HOLD_STORM = 5, HOLD_TEMPEST = 8;                           // tiles; seconds the mood lingers after the cause is gone
 
-  let flute = null, harp = null, hall = null;
+  let flute = null, harp = null, hall = null, pulse = null;
   const wave = (ctx, partials) => { const re = new Float32Array(partials.length + 1), im = new Float32Array(partials.length + 1); partials.forEach((a, i) => { im[i + 1] = a; }); return ctx.createPeriodicWave(re, im); };
   const fluteWave = ctx => flute || (flute = wave(ctx, [1, 0.28, 0.07, 0.03]));         // mostly the fundamental: a soft, hollow tube
   const harpWave = ctx => harp || (harp = wave(ctx, [1, 0.5, 0.26, 0.13, 0.07, 0.03]));  // a plucked string: bright first, rounder as it dies
@@ -75,7 +108,7 @@ const PonyMusic = (() => {
     constructor() {
       this.ctx = null; this.timer = 0; this.nextTime = 0; this.step = 0; this.bar = 0; this.phrase = []; this.lead = 4;     // lead: the flute's last scale position (it walks, rather than leaps)
       Music.current = this; this.forced = '';                                              // forced: a track picked in the Soundtrack player ('' = follow the game)
-      this.theme = 'calm'; this.mood = { night: 0, indoors: 0, cave: 0 }; this.hurtT = 0; this.lastHp = null; this.battleT = 0; this.stormT = 0; this.tempestT = 0; this.lines = { a: [], b: [] }; this.vpos = { a: 12, b: 9 }; this.cpos = -3; this.marks = []; this.paused = false; this.pausePos = 0; this.last = 0;
+      this.theme = 'calm'; this.mood = { night: 0, indoors: 0, cave: 0 }; this.hurtT = 0; this.lastHp = null; this.battleT = 0; this.stormT = 0; this.tempestT = 0; this.lines = { a: [], b: [] }; this.vpos = { a: 12, b: 9 }; this.cpos = -3; this.mp = 4; this.cp = -5; this.marks = []; this.paused = false; this.pausePos = 0; this.last = 0;
       GameAudio.onReady(ctx => { this.ctx = ctx; this._build(); });
     }
 
@@ -121,8 +154,8 @@ const PonyMusic = (() => {
      * so a position in it is seconds into the cycle, and seeking starts the bar that second falls in. ---- */
     _table(name = this.theme) {
       const th = THEMES[name], starts = []; let at = 0;
-      const bars = name === 'tempest' ? TEMPEST.bars : 8;
-      for (let i = 0; i < bars; i++) { starts.push(at); at += name === 'tempest' ? 8 * TEMPEST.durOf(TEMPEST.where(i).sec, TEMPEST.where(i).idx) : th.bar * th.eighth; }
+      const form = FORMS[name], bars = form ? form.bars : 8;
+      for (let i = 0; i < bars; i++) { starts.push(at); if (form) { const w = form.where(i); at += 8 * form.durOf(w.sec, w.idx); } else at += th.bar * th.eighth; }
       return { starts, total: at, bars };
     }
     /** Length of the playing tune's cycle, in seconds. */
@@ -139,8 +172,8 @@ const PonyMusic = (() => {
       if (!this.ctx || !this.fade) return;
       const tbl = this._table(), name = this.theme, th = THEMES[name], B = th.bar, now = this.ctx.currentTime;
       let bi = 0; for (let i = 0; i < tbl.bars; i++) if (tbl.starts[i] <= sec) bi = i;
-      this.step = bi * B; this.bar = bi; this.lead = 4; this.marks = []; this.pausePos = tbl.starts[bi];
-      if (name !== 'tempest') this.phrase = this._compose(th);
+      this.step = bi * B; this.bar = bi; this.lead = 4; this.mp = 4; this.cp = -5; this.marks = []; this.pausePos = tbl.starts[bi];
+      if (!FORMS[name]) this.phrase = this._compose(th);
       const level = th.level; this.bus.gain.cancelScheduledValues(now); this.bus.gain.setTargetAtTime(0, now, 0.03); this.bus.gain.setTargetAtTime(level, now + 0.22, 0.05);       // (a quick dip hides the cut)
       this.nextTime = now + 0.3;
     }
@@ -172,7 +205,7 @@ const PonyMusic = (() => {
       this.buses[this.theme].gain.setTargetAtTime(0, now, from.fadeOut / 3);
       this.buses[name].gain.setTargetAtTime(to.level, now + 0.05, to.fadeIn / 3);
       this.theme = name; this.bus = this.buses[name];
-      this.step = 0; this.bar = 0; this.phrase = []; this.lead = 4; this.marks = []; this.pausePos = 0; this.nextTime = Math.max(this.nextTime, now + 0.2);      // (the new tune starts on its first bar)
+      this.step = 0; this.bar = 0; this.phrase = []; this.lead = 4; this.mp = 4; this.cp = -5; this.marks = []; this.pausePos = 0; this.nextTime = Math.max(this.nextTime, now + 0.2);      // (the new tune starts on its first bar)
     }
 
     /* ---- the players ---- */
@@ -233,6 +266,38 @@ const PonyMusic = (() => {
       if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); tail = p; }
       tail.connect(this.bus); if (!short) this._vibrato(t, oscs.map(o => o.frequency), hz, 0.006, 6.1, 0.2, end);
     }
+    /** A plucked bass: a round triangle thump. */
+    _bass(t, note, len, vel) {
+      const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = midi(note);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.2 * vel, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.connect(g); g.connect(this.bus); o.start(t); o.stop(t + len + 0.05);
+    }
+    /** A banjo-like pluck: a bright sawtooth that mellows and dies quickly. */
+    _pluck(t, note, vel) {
+      const ctx = this.ctx, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = midi(note);
+      f.type = 'lowpass'; f.frequency.setValueAtTime(3800, t); f.frequency.exponentialRampToValueAtTime(900, t + 0.25); f.Q.value = 0.7;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.06 * vel, t + 0.004); g.gain.setTargetAtTime(0.0001, t + 0.01, 0.1);
+      o.connect(f); f.connect(g); g.connect(this.bus); o.start(t); o.stop(t + 0.7);
+    }
+    /** A soft downstroke across a chord (the "chick" of a boom-chick), a quick pulse-wave pluck on each note. */
+    _strum(t, notes, vel) {
+      const ctx = this.ctx; if (!pulse) { const n = 24, re = new Float32Array(n), im = new Float32Array(n); for (let k = 1; k < n; k++) im[k] = Math.sin(Math.PI * k * 0.25) / k; pulse = ctx.createPeriodicWave(re, im); }
+      notes.forEach((n, i) => {
+        const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), at = t + i * 0.022;
+        o.setPeriodicWave(pulse); o.frequency.value = midi(n); f.type = 'lowpass'; f.frequency.value = 2000;
+        g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(0.045 * vel, at + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.22);
+        o.connect(f); f.connect(g); g.connect(this.bus); o.start(at); o.stop(at + 0.26);
+      });
+    }
+    /** Brushes: a faint filtered hiss. */
+    _brush(t, vel) {
+      const ctx = this.ctx, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = GameAudio.noise(); f.type = 'bandpass'; f.frequency.value = 5200; f.Q.value = 0.5;
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.03 * vel, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+      s.connect(f); f.connect(g); g.connect(this.bus); s.start(t, Math.random() * 1.5, 0.2);
+    }
     /** A cymbal crash: a long wash of bright noise. */
     _crash(t, vel) {
       const ctx = this.ctx, n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
@@ -283,13 +348,13 @@ const PonyMusic = (() => {
 
     /** One bar (8 racing sixteenths) for a duelling violin, as scale positions (null = a breath), walking up and down inside lo..hi and landing
      *  on a chord tone on each beat. Remembers where the voice ended so the next bar carries on from there. */
-    _duelLine(voice, pcs, lo, hi, ending) {
+    _duelLine(voice, pcs, lo, hi, ending, noteOf = posNote) {
       const rnd = Math.random, out = []; let p = this.vpos[voice], dir = rnd() < 0.5 ? 1 : -1;
       for (let i = 0; i < 8; i++) {
         if (rnd() < 0.18) dir = -dir;
         p += dir * (rnd() < 0.72 ? 1 : 2);
         if (p > hi) { p = hi; dir = -1; } else if (p < lo) { p = lo; dir = 1; }
-        if (i % 4 === 0) for (const d of [0, 1, -1, 2, -2]) if (pcs.includes(posNote(p + d) % 12) && p + d >= lo && p + d <= hi) { p += d; break; }             // (a chord tone on the beat)
+        if (i % 4 === 0) for (const d of [0, 1, -1, 2, -2]) if (pcs.includes(noteOf(p + d) % 12) && p + d >= lo && p + d <= hi) { p += d; break; }             // (a chord tone on the beat)
         out.push(i % 2 === 1 && rnd() < 0.08 ? null : p);
       }
       if (ending) out[7] = null;
@@ -387,10 +452,111 @@ const PonyMusic = (() => {
       }
     }
 
+    /** Move a melody one step (a walk of up to two scale steps) inside lo..hi; on a strong beat (snap) settle on a chord tone. */
+    _tune(p, lo, hi, key, sc, pcs, snap) {
+      p = clamp(p + [-2, -1, -1, 0, 1, 1, 2][Math.random() * 7 | 0], lo, hi);
+      if (snap) for (const k of [0, 1, -1, 2, -2]) if (p + k >= lo && p + k <= hi && pcs.includes(nm(p + k, key, sc) % 12)) { p += k; break; }
+      return p;
+    }
+
+    /** The ballad, step by step. See BALLAD for the form: intro, farm, glee, dread, somber, hope, victory and the last chord. */
+    _scheduleBallad() {
+      const ctx = this.ctx, total = BALLAD.bars, rnd = Math.random;
+      while (this.nextTime < ctx.currentTime + 0.6) {
+        const bi = Math.floor(this.step / 8) % total, s = this.step % 8, t = this.nextTime, { sec, idx } = BALLAD.where(bi);
+        const dur = BALLAD.durOf(sec, idx), chord = BALLAD.chords[bi], key = chord[2], root = key + chord[0], third = root + (chord[1] === 'm' ? 3 : 4), fifth = root + 7;
+        const pcs = [root % 12, third % 12, fifth % 12], chordTones = [root + 48, third + 48, fifth + 48], pc = root % 12, low = 36 + pc + (pc < 5 ? 12 : 0);
+        const T = [root + 48, fifth + 48, root + 60, third + 60, fifth + 60, root + 72, third + 72, fifth + 72];
+        const sc = sec.id === 'dread' || sec.id === 'somber' ? MINOR_PENT : MAJOR_PENT, id = sec.id;
+        if (s === 0) { this.marks.push({ t, bar: bi }); if (this.marks.length > 16) this.marks.shift(); }
+        const skipRest = () => { this.nextTime += dur; this.step++; };
+        if (id === 'intro') {                                                                                                // a soft intro: a harp, a drifting flute, a cello that wakes late
+          const e = (idx + s / 8) / 8, q = 0.35 + 0.45 * e;
+          if (s % 2 === 0) this._harp(t, T[[0, 1, 2, 3][s / 2]], 0.6 * q + 0.1, 1.3);
+          if (s === 0 && idx % 2 === 0) this._pad(t, [root + 48, fifth + 48], dur * 16, 0.5 * q + 0.2, { cutoff: 650, tremolo: 4, depth: 0.3, attack: 2 });
+          if (s === 0 && idx >= 4) this._cello(t, 36 + root, dur * 8, 0.5);
+          if ((s === 0 && idx >= 1) || (s === 4 && idx >= 3 && rnd() < 0.6)) { this.mp = this._tune(this.mp, 2, 7, key, sc, pcs, true); this._flute(t, nm(this.mp, key, sc), dur * 3.6, 0.55 * q + 0.15); }
+        } else if (id === 'farm') {                                                                                          // casual farm vibes: boom-chick, a banjo and a fiddle, with a lazy shuffle
+          const tt = t + (s % 2 ? dur * 0.12 : 0);
+          if (s === 0) this._bass(tt, low, dur * 1.8, 1.9); else if (s === 4) this._bass(tt, low + 7, dur * 1.8, 1.5);
+          if (s === 2 || s === 6) { this._strum(tt, [root + 60, third + 60, fifth + 60], 2.2); this._brush(tt, 2); }
+          if (idx >= 2 && [0, 3, 4, 6].includes(s) && (s === 0 || rnd() < 0.75)) { this.mp = this._tune(this.mp, 3, 9, key, sc, pcs, s === 0 || s === 4); this._pluck(tt, nm(this.mp, key, sc), 2); }
+          if (s === 0 && idx % 4 === 3) this._violin(t, nm(clamp(this.mp + 3, 6, 11), key, sc), dur * 7, 0.8, 0.35, true);       // a held fiddle note at the end of every four bars
+        } else if (id === 'glee') {                                                                                          // cheery glee: bright, bouncing, a tambourine's shimmer
+          if (idx === 11 && s >= 4) { skipRest(); continue; }                                                               // the cheer stops short...
+          if (idx === 0 && s === 0) this._crash(t, 0.5);
+          if (s === 0) this._drum(t, 0.6, 1); else if (s === 4) this._drum(t, 0.45, 1);
+          if (s === 2 || s === 6) this._snare(t, 0.35);
+          this._brush(t, 0.35);
+          if (s % 4 === 0) this._bass(t, low + (s === 4 ? 7 : 0), dur * 1.4, 0.9);
+          this._harp(t, T[[0, 1, 2, 3, 4, 3, 2, 1][s]], 0.5, 0.35);
+          if (rnd() < 0.78) { this.mp = this._tune(this.mp, 2, 9, key, sc, pcs, s % 4 === 0); this._flute(t, nm(this.mp, key, sc), dur * 0.8, 0.8); }
+        } else if (id === 'dread') {                                                                                         // dreaded anticipation: a heartbeat, a drone, a violin trembling higher
+          const e = (idx + s / 8) / 12;
+          if (idx === 11 && s >= 4) { skipRest(); continue; }                                                               // a held breath
+          if (s === 0) {
+            this._cello(t, 36 + root, dur * 8, 0.6 + 0.4 * e);
+            this._pad(t, chordTones, dur * 8, 0.6 + 0.4 * e, { cutoff: 800 + 600 * e, tremolo: 5 + 3 * e, depth: 0.5, attack: 1 });
+            this._drum(t, 0.4 + 0.4 * e, 1.8); this._drum(t + 0.25, 0.28 + 0.3 * e, 2);
+          }
+          if (e > 0.3 && s % 2 === 0) this._drum(t, 0.25 + 0.5 * e, 1.4);
+          if (s === 0 || s === 4) this._harp(t, root + 48, 0.4 + 0.2 * e, 1.2);
+          if (e > 0.45) this._cello(t, 36 + root, dur * 0.8, 0.4 + 0.6 * e);
+          if (idx >= 10) this._snare(t, 0.3 + 0.4 * (s / 8));
+          if (e > 0.15) {
+            if (idx === 11 && s === 3) this._violin(t, nm(11, key, sc), dur * 5, 0.9, -0.4, false, true);                 // the climb's last note drops away
+            else this._violin(t, nm(3 + Math.floor(e * 8), key, sc), dur * 0.9, 0.12 + 0.4 * e, 0.3, true);
+          }
+        } else if (id === 'somber') {                                                                                        // a somber realization: slow, a lone cello, a husky flute, a falling cry
+          const k = idx / 10;
+          if (s === 0) { this._pad(t, [root + 48, fifth + 48], dur * 8, 0.6, { cutoff: 500, tremolo: 3.5, depth: 0.3, attack: 1.2 }); this._cello(t, 36 + root, dur * 8, 0.9); }
+          if (idx === 0 && s === 0) this._drum(t, 0.5, 2.2);
+          if (s === 0 || s === 4) {
+            this.cp = this._tune(this.cp, -8, -2, key, sc, pcs, true); this._cello(t, nm(this.cp, key, sc), dur * 3.9, 0.7 + 0.4 * k);
+            this._harp(t, (s === 0 ? root : fifth) + 36 + 12 * (idx % 2), 0.6, 1.8);
+          }
+          if (s === 0 && idx >= 2 && idx % 2 === 0) { this.mp = this._tune(clamp(this.mp, 3, 6), 3, 6, key, sc, pcs, true); this._flute(t, nm(this.mp, key, sc), dur * 5, 0.5, 1.8); }
+          if (idx === 9 && s === 0) this._violin(t, nm(10, key, sc), dur * 8, 0.7, -0.4, false, true);
+        } else if (id === 'hope') {                                                                                          // rising hope: a harp climbing, a flute lifting, strings swelling, a drum finding its feet
+          const e = (idx + s / 8) / 12;
+          if (idx === 11 && s === 7) { skipRest(); continue; }                                                              // a breath before the victory
+          if (s === 0) this._pad(t, chordTones, dur * 8, 0.3 + 0.6 * e, { cutoff: 900 + 1200 * e, tremolo: 4 + 3 * e, depth: 0.3, attack: 0.6 });
+          if (s === 0 && idx % 2 === 0) this._cello(t, 36 + root, dur * 16, 0.6 + 0.4 * e);
+          if (idx >= 6 && s % 2 === 0) this._cello(t, 36 + root + (s % 4 === 2 ? 12 : 0), dur * 0.8, 0.5 + 0.5 * e);
+          if (idx >= 2 || s % 2 === 0) this._harp(t, T[s], 0.35 + 0.4 * e, 1);
+          if (s === 0 || s === 4) { this.mp = this._tune(clamp(2 + Math.floor(idx * 0.55) + (s === 4 ? 1 : 0), 2, 9), 2, 9, key, sc, pcs, true); this._flute(t, nm(this.mp, key, sc), dur * 3.8, 0.5 + 0.5 * e); }
+          if (idx >= 6 && s === 0) this._violin(t, nm(5 + Math.floor(idx * 0.5), key, sc), dur * 8, 0.3 + 0.4 * e, -0.3);
+          if (idx >= 5 && s === 0) this._drum(t, 0.3 + 0.4 * e, 1.4); else if (idx >= 8 && s === 4) this._drum(t, 0.4 + 0.5 * e, 1.1);
+          if (idx === 11) this._snare(t, 0.3 + 0.6 * (s / 8));
+        } else if (id === 'victory') {                                                                                       // victory: the gallop in the major, two violins in harmony, drums, horns
+          if (idx === 0 && s === 0) { this._crash(t, 1.2); this._drum(t, 1.4, 1.6); } else if (idx % 8 === 0 && s === 0) this._crash(t, 0.7);
+          if (s === 0) this._drum(t, 1, 1); else if (s === 3) this._drum(t, 0.8, 1); else if (s === 6) this._drum(t, 0.7, 1);
+          if (s === 4) this._snare(t, 0.8); else if (s === 7) this._snare(t, 0.5);
+          if (s % 2 === 0) this._cello(t, 36 + root + (s % 4 === 2 ? 12 : 0), dur * 1.7, 1);
+          if (s === 0) this._pad(t, chordTones, dur * 8, 1.1, { cutoff: 2600, tremolo: 9, depth: 0.3, attack: 0.05 });
+          this._harp(t, T[[0, 1, 2, 3, 4, 6, 5, 3][s]], 0.4, 0.35);
+          if (s === 0) { this.lines.a = this._duelLine('a', pcs, 5, 13, idx === 15, (p) => nm(p, key, sc)); this.lines.b = this.lines.a.map(p => p === null ? null : p - 2); }     // (B sings a third below: they no longer duel, they soar together)
+          const pa = this.lines.a[s], pb = this.lines.b[s];
+          if (pa != null) this._violin(t, nm(pa, key, sc), dur * 0.95, 0.95, -0.5);
+          if (pb != null) this._violin(t, nm(pb, key, sc), dur * 0.95, 0.8, 0.5, true);
+          if (s === 0 || s === 4) { this.mp = this._tune(clamp(this.mp, 8, 12), 8, 12, key, sc, pcs, true); this._flute(t, nm(this.mp, key, sc), dur * 3.5, 0.7); }
+        } else {                                                                                                             // the last chord: everything lands together and is left to ring
+          if (s === 0) {
+            this._pad(t, [root + 36, root + 48, third + 48, fifth + 48, root + 60], dur * 8, 1.2, { cutoff: 2200, tremolo: 5, depth: 0.2, attack: 0.1 });
+            this._cello(t, 36 + root, dur * 8, 1.1); this._crash(t, 0.8); this._drum(t, 1.2, 1.5);
+            this._violin(t, nm(10, key, sc), dur * 8, 0.9, -0.4); this._violin(t, nm(8, key, sc), dur * 8, 0.8, 0.4, true);
+            for (let k = 0; k < 6; k++) this._harp(t + k * 0.07, T[k], 0.6, 2.5);
+          }
+        }
+        this.nextTime += dur; this.step++;
+      }
+    }
+
     _schedule() {
       const ctx = this.ctx; if (!ctx || ctx.state !== 'running') { if (ctx) this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.2); return; }
       if (this.paused) { this.nextTime = Math.max(this.nextTime, ctx.currentTime + 0.3); return; }
       if (this.theme === 'tempest') return this._scheduleTempest();
+      if (this.theme === 'ballad') return this._scheduleBallad();
       const theme = THEMES[this.theme], name = this.theme, B = theme.bar, quiet = this.mood.cave && name !== 'battle' ? 0.6 : 1;
       while (this.nextTime < ctx.currentTime + 0.6) {
         const eighth = theme.eighth, s = this.step % B, chord = theme.prog[Math.floor(this.bar / 4) % theme.prog.length][this.bar % 4], root = theme.key + chord[0], minor = chord[1] === 'm';
@@ -431,7 +597,7 @@ const PonyMusic = (() => {
       }
     }
   }
-  Music.TRACKS = ['calm', 'storm', 'tempest', 'battle'].map(id => ({ id, title: THEMES[id].title, blurb: THEMES[id].blurb }));
+  Music.TRACKS = ['calm', 'storm', 'tempest', 'battle', 'ballad'].map(id => ({ id, title: THEMES[id].title, blurb: THEMES[id].blurb }));
   Music.TITLES = Object.fromEntries(Object.entries(THEMES).map(([id, t]) => [id, t.title]));
   return Music;
 })();
