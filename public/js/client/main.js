@@ -192,7 +192,7 @@ function launch(choice, query) {
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
         tapToMove.tick();
-        footsteps.update(); music.update(game.hour(), game.map.kind, effects.weather.cur.rain);
+        footsteps.update(); music.update(game, effects.weather.cur);
         game.advanceRemoteClock(frameMs);
         game.streamWorld();
         renderer.render(game.getRenderState(alpha), frameMs, now);
