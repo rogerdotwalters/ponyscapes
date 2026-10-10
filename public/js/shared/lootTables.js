@@ -31,6 +31,15 @@ const LootTables = (() => {
   const mine = () => device || (device = readDevice());
   const writeDevice = () => { try { localStorage.setItem(KEY, JSON.stringify({ version: 1, tables: mine() })); return true; } catch (e) { return false; } };
 
+  /** COINS. Every enemy (hostile creature or guardian) drops coins: a table with no coin entry gets one worked out from the creature's health. A coin entry's count grows with the
+   *  creature's level (+20% for every level above 1) and varies by a fifth either way each time, so a level 10 slime pays well over twice a level 2 one, and no two pay alike. */
+  const COIN_PER_LEVEL = 0.2, COIN_SPREAD = 0.2;
+  const coinCount = (base, level, rng = Math.random) => Math.max(1, Math.round(base * (1 + COIN_PER_LEVEL * (Math.max(1, level || 1) - 1)) * (1 - COIN_SPREAD + 2 * COIN_SPREAD * rng())));
+  const coinEntry = def => { const min = Math.max(1, Math.round(def.hp * 0.4)); return { item: 'silver_coin', min, max: Math.max(min + 1, Math.round(def.hp * 1.2)) }; };
+  const withCoins = (def, list) => ((def.hostile || def.boss) && !list.some(e => Coins.isCoin(e.item)) ? list.concat([coinEntry(def)]) : list);
+  const builtInDrops = new Map();                                                                      // (worked out once per creature)
+  const ownDrops = def => { let t = builtInDrops.get(def.id); if (!t) builtInDrops.set(def.id, t = withCoins(def, def.drops || [])); return t; };
+
   const creatureKey = id => 'creature:' + id, chestKey = id => 'chest:' + id;
   const copy = list => list.map(e => Object.assign({}, e));
 
@@ -43,7 +52,7 @@ const LootTables = (() => {
   /** The built-in table of a key (a copy), or [] . */
   function builtIn(key) {
     const [kind, id] = key.split(':');
-    if (kind === 'creature') return copy((AnimalDefs[id] && AnimalDefs[id].drops) || []);
+    if (kind === 'creature') return copy(AnimalDefs[id] ? ownDrops(AnimalDefs[id]) : []);
     const dungeon = typeof Dungeons !== 'undefined' ? Dungeons.all().find(d => d.id === id) : null;
     return copy((dungeon && dungeon.loot) || []);
   }
@@ -53,7 +62,7 @@ const LootTables = (() => {
   const current = key => copy(mine()[key] || file[key] || builtIn(key));
 
   /** What a creature drops (its table in use). */
-  const dropsOf = def => (mine()[creatureKey(def.id)] || file[creatureKey(def.id)] || def.drops || []);
+  const dropsOf = def => (mine()[creatureKey(def.id)] || file[creatureKey(def.id)] || ownDrops(def));
   /** What a dungeon's chests can hold. The built-in default is a few coins. */
   const chestOf = def => mine()[chestKey(def.id)] || file[chestKey(def.id)] || (def.loot && def.loot.length ? def.loot : [{ item: 'gold_coin', min: 10, max: 30 }]);
 
@@ -88,5 +97,5 @@ const LootTables = (() => {
   /** Forget what was read from this device (the next call reads it again): for tests and for a second tab that saved. */
   const reload = () => { device = null; };
 
-  return { KEY, all, builtIn, current, source, dropsOf, chestOf, save, reset, exportText, importText, sample, sanitize, reload, MAX_ENTRIES };
+  return { KEY, all, builtIn, current, source, dropsOf, chestOf, save, reset, exportText, importText, sample, sanitize, reload, coinCount, COIN_PER_LEVEL, MAX_ENTRIES };
 })();

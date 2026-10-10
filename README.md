@@ -62,6 +62,8 @@ To see what the generator makes, open **`/map-preview.html`**: a Regenerate butt
 
 **Main menu, editor and loot tables.** The game opens on a menu: **Play** (character, then solo / host / join) or **Editor** (`editor.html`, behind the same developer code as Dev settings; `shared/devLock.js`). The menu's theme is the soundtrack's last tune, *Harmony Hooves*. The editor's **Loot** tab edits what every creature drops and what each dungeon's chests hold (`shared/lootTables.js`): changes save at once in that phone's or computer's browser storage, and *Download lootTables.js* / *Import* move them between devices (put the file at `public/js/content/lootTables.js` to make it the game's own). The host's device decides what drops in a game with friends. Check it with `npm run test:loot`.
 
+**Coins and selling.** Every enemy drops coins (a creature whose loot table has none gets silver worked out from its health), and a coin drop grows with the creature's level (+20% per level above 1) and varies a little each time, so deeper Slime Warren slimes pay more (`shared/lootTables.js`). The General Store's counter has a **Sell** tab: it buys everything in your bag except coins, for copper-sized prices (an item's own `sell` value, else 40% of its shop price, else from its recipe, food value, tool damage or rarity: `Shops.sellPrice`).
+
 The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.
 
 ## How saving works

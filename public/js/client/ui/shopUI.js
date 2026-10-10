@@ -7,9 +7,12 @@
 class ShopUI {
   constructor({ panel, body, closeButton, game, requestOpen, coinBag }) {
     this.panel = panel; this.body = body; this.game = game; this.coinBag = coinBag; this.items = []; this.site = -1; this.since = 0;
+    this.tab = 'buy';                                                                    // 'buy' or 'sell' (the General Store buys everything but coins)
     this.paying = null;                                                                  // { item, ask (coins the shop asks for), copper, offered, sent }
     closeButton.addEventListener('click', () => this.close());
     body.addEventListener('click', e => {
+      const t = e.target.closest('button[data-tab]'); if (t) { this.tab = t.dataset.tab; this.refresh(); return; }
+      const s = e.target.closest('button[data-sell]'); if (s) { this.game.sell(s.dataset.sell, s.dataset.count === 'all' ? 9999 : 1); return; }
       const b = e.target.closest('button[data-buy]'); if (b && !b.disabled) { this._buy(b.dataset.buy); return; }
       if (e.target.closest('button[data-cancel]')) { this._stopPaying(); this.refresh(); return; }
       const chip = e.target.closest('[data-take]'); if (chip && this.paying && !this.paying.sent) this.coinBag.unoffer(Number(chip.dataset.take));
@@ -82,12 +85,26 @@ class ShopUI {
         `<div class="gempty">Hold a coin in your coin bag and drag it over the counter. A bigger coin is worth more, and the shop gives change.</div><div class="payBtns"><button class="tbig alt" data-cancel>Cancel</button></div></div>`;
       this._drawPay(); return;
     }
+    const tabs = `<div class="shopTabs"><button data-tab="buy" class="${this.tab === 'buy' ? 'on' : ''}">Buy</button><button data-tab="sell" class="${this.tab === 'sell' ? 'on' : ''}">Sell</button></div>`;
+    if (this.tab === 'sell') { this._drawSell(site, purse, tabs); return; }
     const rows = this.items.map(id => {
       const def = ItemDefs[id], price = Shops.price(id), copper = Shops.coinPrice(price), others = price.filter(([item]) => !Coins.isCoin(item));
       const afford = (g.inventory.purse || 0) >= copper && others.every(([item, n]) => this._have(item) >= n);
       const cost = (copper ? ShopUI.askChips(copper) : '') + others.map(([item, n]) => `<span class="need${this._have(item) < n ? ' missing' : ''}">x${n}<img alt="" src="${ItemIcons.url(item)}"></span>`).join(' ');
       return `<div class="recipe"><div class="out"><img alt="" src="${ItemIcons.url(id)}"></div><div class="info"><div class="name">${def.name}</div><small class="gwho">${ShopUI.what(id, g.gear)}</small><div class="needs">${cost}</div></div><button class="shopbuy" data-buy="${id}"${afford ? '' : ' disabled'}>Buy</button></div>`;
     });
-    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <b>${purse}</b></div>` + (rows.join('') || '<div class="gnone">Nothing for sale.</div>');
+    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <b>${purse}</b></div>` + tabs + (rows.join('') || '<div class="gnone">Nothing for sale.</div>');
+  }
+
+  /** The Sell tab: everything in your bag the shop will buy (all but coins), with what one is worth and buttons to sell one or the whole stack. */
+  _drawSell(site, purse, tabs) {
+    const have = {};
+    for (const s of this.game.inventory.slots) if (s && Shops.sellPrice(s.id)) have[s.id] = (have[s.id] || 0) + s.count;
+    const rows = Object.entries(have).sort((a, b) => ItemDefs[a[0]].name.localeCompare(ItemDefs[b[0]].name)).map(([id, n]) => {
+      const each = Shops.sellPrice(id);
+      return `<div class="recipe"><div class="out"><img alt="" src="${ItemIcons.url(id)}"><span class="qty">${n}</span></div><div class="info"><div class="name">${ItemDefs[id].name}</div><div class="needs">${ShopUI.askChips(each)} each</div></div>` +
+        `<button class="shopbuy" data-sell="${id}" data-count="1">Sell 1</button>${n > 1 ? `<button class="shopbuy" data-sell="${id}" data-count="all">All ${n}</button>` : ''}</div>`;
+    });
+    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <b>${purse}</b></div>` + tabs + (rows.join('') || '<div class="gnone">Your bag has nothing to sell.</div>');
   }
 }

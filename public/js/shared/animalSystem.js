@@ -398,7 +398,8 @@ class AnimalSystem {
     const drops = [];
     for (const d of LootTables.dropsOf(def)) {                                       // (the editor's loot tables, else the creature's own: lootTables.js)
       if (d.chance !== undefined && this.rng() >= d.chance) continue;
-      drops.push({ item: d.item, count: d.min + Math.floor(this.rng() * (d.max - d.min + 1)) });
+      const count = d.min + Math.floor(this.rng() * (d.max - d.min + 1));
+      drops.push({ item: d.item, count: Coins.isCoin(d.item) ? LootTables.coinCount(count, a.level, () => this.rng()) : count });      // coins grow with the creature's level and vary
     }
     return { killed: true, drops, animal: a };
   }

@@ -65,7 +65,7 @@ const LootEditor = (() => {
     };
     box.append(
       h('div', { class: 'formHead' }, h('h2', {}, info.name), h('span', { class: 'tag' + (src === 'device' ? ' edited' : '') }, SOURCE[src])),
-      h('p', { class: 'note' }, info.kind === 'chest' ? 'Each row is rolled once for every chest opened: the chance it is in the chest, then a number from Min to Max.' : 'Each row is rolled once for every one of these creatures that dies: the chance it drops, then a number from Min to Max. No rows = it drops nothing.'),
+      h('p', { class: 'note' }, info.kind === 'chest' ? 'Each row is rolled once for every chest opened: the chance it is in the chest, then a number from Min to Max.' : 'Each row is rolled once for every one of these creatures that dies: the chance it drops, then a number from Min to Max. No rows = it drops nothing. Coins are worth more from a higher-level creature (+20% per level above 1) and vary a little each time.'),
       h('div', { class: 'lootRows' }, rows.map(rowEl)),
       h('div', { class: 'lootButtons' },
         h('button', { class: 'primary', onclick: () => { rows.push({ item: 'gold_coin', min: 1, max: 1 }); commit(rows, true); } }, '+ Add item'),

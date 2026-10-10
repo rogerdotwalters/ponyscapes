@@ -23,7 +23,7 @@ Materials.registerAll([
   { id: 'bamboo', name: 'Bamboo', maxStack: 20, color: '#9cc25a', spawns: [{ biome: 'jungle', rate: 5 }] },
   { id: 'hay', name: 'Hay', maxStack: 50, color: '#d9b45a' },                                                                                // cut grass, dried (grass.js)
   { id: 'rope', name: 'Rope', maxStack: 30 },
-  { id: 'goo', name: 'Slime Goo', maxStack: 30, color: '#7fd37a' },                                                                          // what slimes leave behind (the Slime Warren)
+  { id: 'goo', name: 'Slime Goo', maxStack: 30, color: '#7fd37a', sell: 12 },                                                                          // what slimes leave behind (the Slime Warren)
   { id: 'clay', name: 'Clay', maxStack: 20, resource: 'clay' },
   { id: 'brick', name: 'Brick', maxStack: 40, resource: 'stone' },
   { id: 'arrow', name: 'Arrow', maxStack: 30 },
