@@ -71,6 +71,26 @@ window.PONYSCAPES_INTERIORS = {
     ],
     "exit": [5, 8]
   },
+  "blacksmith": {
+    "name": "Smithy",
+    "tiles": [
+      "WWVWWWWWWVWW",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssrrssssS",
+      "SssssrrssssS",
+      "SssssrrssssS",
+      "SssssrrssssS",
+      "SSSSSmSSSSSS"
+    ],
+    "furniture": [
+      { "id": "weapon_rack", "x": 1, "y": 1, "rot": 0 }, { "id": "weapon_rack", "x": 3, "y": 1, "rot": 0 }, { "id": "lamp", "x": 5, "y": 1, "rot": 0 },
+      { "id": "weapon_rack", "x": 7, "y": 1, "rot": 0 }, { "id": "weapon_rack", "x": 9, "y": 1, "rot": 0 }, { "id": "workbench", "x": 1, "y": 5, "rot": 1 },
+      { "id": "counter", "x": 8, "y": 4, "rot": 0 }, { "id": "crate", "x": 1, "y": 7, "rot": 0 }, { "id": "crate", "x": 10, "y": 7, "rot": 0 }, { "id": "cask", "x": 10, "y": 6, "rot": 0 }
+    ],
+    "exit": [5, 8]
+  },
   "player_home": {
     "name": "Your Home",
     "tiles": [

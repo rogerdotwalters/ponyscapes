@@ -43,9 +43,11 @@ class AnimalSprite {
     else if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
     const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
     if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
+    const enemy = !animal.owner && !animal.captor && (def.hostile || def.boss), bar = enemy && view && (view.near || (def.boss && view.wantNear));
+    if (bar) this._hpBar(animal, def, sx, sy - tagY - 13);                                  // an enemy's health, above its name
     const hearts = !animal.rider && view && (view.friend || view.invite);
     if (hearts) HeartMeter.draw(ctx, sx, sy - tagY - 16, view.friend || null, now);        // your hearts with it (or three faint empty ones, inviting you to make friends)
-    if (animal.want && view && view.wantNear) WantBubble.draw(ctx, sx, sy - tagY - (hearts ? 30 : 10), animal.want, animal.wantN, now, view.holding === animal.want || (Wants.of(animal.type) || { items: [] }).items.includes(view.holding));   // what it is asking for
+    if (animal.want && view && view.wantNear) WantBubble.draw(ctx, sx, sy - tagY - (hearts ? 30 : 10) - (bar ? 10 : 0), animal.want, animal.wantN, now, view.holding === animal.want || (Wants.of(animal.type) || { items: [] }).items.includes(view.holding));   // what it is asking for
   }
 
   /** The retro pixel-art pony (pixelPony.js): its kind's wings and horn, its biome's effects, and a soft glow / magic aura behind it. */
@@ -82,6 +84,33 @@ class AnimalSprite {
     ctx.restore();
   }
 
+  /** An enemy's health bar: dark, with a fill that goes green, yellow, red as it loses health. */
+  _hpBar(animal, def, cx, cy) {
+    const ctx = this.g.ctx, max = AnimalLevels.maxHp(def, animal.level), frac = clamp(animal.hp / max, 0, 1), w = def.boss || (def.sprite && def.sprite.scale >= 2) ? 56 : 34, h = 5, x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
+    ctx.fillStyle = 'rgba(10,18,28,.85)'; ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = frac > 0.6 ? '#5fd068' : frac > 0.3 ? '#f2c230' : '#ff5a4f'; ctx.fillRect(x, y, Math.max(1, Math.round(w * frac)), h);
+    ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x, y, Math.max(1, Math.round(w * frac)), 1);
+  }
+
+  /** The level marker beside a name (AnimalLevels.marker): one or two triangles (up = stronger than you, down = weaker), a diamond for even, a skull for far beyond you. Drawn into `c` at (x, y), 12 px wide. */
+  static drawMarker(c, m, x, y) {
+    c.save(); c.translate(x, y); c.lineJoin = 'round';
+    if (m.kind === 'skull') {
+      c.fillStyle = m.color; c.beginPath(); c.arc(6, 5.2, 4.8, 0, Math.PI * 2); c.fill(); c.fillRect(3.4, 8, 5.2, 3.6);
+      c.fillStyle = '#10202f'; c.beginPath(); c.arc(4.2, 5.2, 1.3, 0, Math.PI * 2); c.arc(7.8, 5.2, 1.3, 0, Math.PI * 2); c.fill(); c.fillRect(5.4, 7.2, 1.2, 1.4); c.fillRect(4.6, 9.4, 0.8, 2); c.fillRect(6.6, 9.4, 0.8, 2);
+    } else if (m.kind === 'even') {
+      c.fillStyle = m.color; c.beginPath(); c.moveTo(6, 1.5); c.lineTo(10.5, 6); c.lineTo(6, 10.5); c.lineTo(1.5, 6); c.closePath(); c.fill();
+    } else {
+      const up = m.kind === 'up'; c.fillStyle = m.color; c.strokeStyle = 'rgba(10,18,28,.7)'; c.lineWidth = 1;
+      for (let i = 0; i < m.count; i++) {
+        const top = m.count === 2 ? (up ? 0.5 + (1 - i) * 5 : 0.5 + i * 5) : 3, a = up ? [6, top, 10.5, top + 4.8, 1.5, top + 4.8] : [1.5, top, 10.5, top, 6, top + 4.8];
+        c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(a[2], a[3]); c.lineTo(a[4], a[5]); c.closePath(); c.stroke(); c.fill();
+      }
+    }
+    c.restore();
+  }
+
   /** Name (for your own animals) and a coloured LEVEL badge: green = easy for you, yellow = even, orange = hard, red = deadly. A wild pony shows its rarity. */
   _nameTag(animal, sx, sy, view, height) {
     const g = this.g, ctx = g.ctx, def = AnimalDefs[animal.type], lv = animal.level || 1, mine = !!(animal.owner || animal.captor);
@@ -91,15 +120,17 @@ class AnimalSprite {
     if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
     else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name}` : def.name);
     const threat = AnimalLevels.threat(lv, view ? view.ref : 1), color = { easy: '#8be28b', even: '#ffe08a', hard: '#ffab6b', deadly: '#ff6b6b' }[threat];
-    const font = 'bold 11px Georgia, serif', badge = 'Lv ' + lv, bw = SpriteCache.textWidth(font, badge) + 8, tw = SpriteCache.textWidth(font, label) + 8, width = tw + bw + 4, y = sy - height;
+    const marker = !mine && (def.hostile || def.boss) && view ? AnimalLevels.marker(lv, view.ref) : null, mw = marker ? 15 : 0;          // enemies: how its level compares with yours
+    const font = 'bold 11px Georgia, serif', badge = 'Lv ' + lv, bw = SpriteCache.textWidth(font, badge) + 8, tw = SpriteCache.textWidth(font, label) + 8, width = mw + tw + bw + 4, y = sy - height;
     const textColor = rarity.order ? rarity.color : '#ffd6e8';
-    SpriteCache.stamp(ctx, `a|${label}|${badge}|${color}|${textColor}`, width, 14, width / 2, 7, g2 => {                // (the tag is painted once, then stamped)
+    SpriteCache.stamp(ctx, `a|${label}|${badge}|${color}|${textColor}|${marker ? marker.kind + marker.count : ''}`, width, 14, width / 2, 7, g2 => {                // (the tag is painted once, then stamped)
       const c = g2.ctx, x0 = -width / 2;
       c.font = font; c.textAlign = 'left'; c.textBaseline = 'middle';
       g2.roundRect(x0, -7, width, 14, 6); c.fillStyle = 'rgba(10,18,28,.62)'; c.fill();
-      g2.roundRect(x0 + tw + 2, -6, bw, 12, 5); c.fillStyle = color; c.fill();
-      c.fillStyle = textColor; c.fillText(label, x0 + 4, 0);
-      c.fillStyle = '#10202f'; c.fillText(badge, x0 + tw + 6, 0);
+      if (marker) AnimalSprite.drawMarker(c, marker, x0 + 2, -6);
+      g2.roundRect(x0 + mw + tw + 2, -6, bw, 12, 5); c.fillStyle = color; c.fill();
+      c.fillStyle = textColor; c.fillText(label, x0 + mw + 4, 0);
+      c.fillStyle = '#10202f'; c.fillText(badge, x0 + mw + tw + 6, 0);
     }, sx, y);
   }
 

@@ -2,7 +2,7 @@
 /* DATA - NPC: blacksmith */
 Npcs.register({
   id: 'blacksmith', name: 'Hilda', role: 'Blacksmith', look: [1, 3, 8, 2, 8, 6], gear: {},
-  home: { x: 14.5, y: 19.5 }, radius: 2.5,
+  home: { x: 14.5, y: 19.5 }, radius: 2.5, works: 'blacksmith',
   tastes: { loves: ['gold_coin'], likes: ['stone', 'hide', 'claw', 'fang'], dislikes: ['wool'] },
   talk: [
     { min: 1, lines: ['Mind the sparks. Need something mended?', 'Iron does not forgive a lazy hand.'] },

@@ -18,5 +18,6 @@ FurnitureDefs.registerAll([
   { id: 'candelabra',   name: 'Candelabra',      size: [1, 1], solid: false, height: 48, style: 'lamp', light: 2, colors: { pole: '#b8923a', shade: '#ffe9a8' } },
   { id: 'reading_desk', name: 'Reading Desk',    size: [2, 1], solid: true,  height: 26, style: 'workbench', colors: { top: '#8a5f33', leg: '#4a3322', tool: '#d8d2c0' } },
   { id: 'grand_rug',    name: 'Grand Rug',       size: [3, 2], solid: false, height: 0,  style: 'rug',       colors: { main: '#8c2f3a', edge: '#e2c874' } },
+  { id: 'trapdoor',    name: 'Trapdoor',        size: [2, 1], solid: false, height: 0,  style: 'trapdoor',  colors: { frame: '#5a3a24', plank: '#3d2a1c', ring: '#b8923a' } },
   { id: 'old_rug',      name: 'Rotten Rug',      size: [3, 2], solid: false, height: 0,  style: 'torn_rug',  colors: { main: '#6e3a3a', edge: '#9a8a5a', dark: '#40282a' } }
 ]);

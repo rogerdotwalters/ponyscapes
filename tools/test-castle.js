@@ -1,121 +1,100 @@
 'use strict';
-/* TOOLS - checks the castle in Node (no browser):  node tools/test-castle.js
- * the castle stands on the keep's footprint with a door in its south wall; its rooms (a module each: js/content/castleRooms.js) come in a ruined and a restored
- * version with the same doorways; every room is its own instance, reachable and joined to the next by a doorway; restoring it walks visitors out and
- * rebuilds the rooms; the state is saved with the world and sent to every player. */
+/* TOOLS - checks the slime castle and the Smithy in Node (no browser):  node tools/test-castle.js
+ * the ruined castle's slimes, the trapdoor to the Slime Cellars, their waves and the Slime Baron, and the blacksmith's swords. */
 const assert = require('assert');
 const { run } = require('./headless')();
 let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ok   ' + name); } catch (e) { console.error('  FAIL ' + name + '\n       ' + (e.stack || e).split('\n').slice(0, 4).join('\n       ')); process.exitCode = 1; } };
+const same = (a, b, m) => assert.strictEqual(JSON.stringify(a), JSON.stringify(b), m);
+const world = () => run(`(() => { globalThis.S = new GameServer(4242); globalThis.A = S.addPlayer(); globalThis.PA = S.players[A]; globalThis.CASTLE = BuildingSites.list.find(b => b.id === 'castle'); return CASTLE.index; })()`);
+const roomGrid = key => run(`Grids.room(CASTLE.index, Grids.roomKeys(CASTLE).indexOf('${key}'))`);
+const into = (key, x, y) => run(`S._moveToGrid(A, PA, '${roomGrid(key)}', ${x}, ${y})`);
+const slimesIn = grid => run(`Object.values(S.animals.animals).filter(a => a.type === 'slime' && a.grid === '${grid}').map(a => a.level)`);
 
-run(`globalThis.setup = () => {
-  globalThis.S = new GameServer(4242); globalThis.A = S.addPlayer(); globalThis.PA = S.players[A];
-  globalThis.SITE = BuildingSites.list.find(s => s.id === 'castle');
-  const f = BuildingSites.doorFront(SITE); PA.x = f.x; PA.y = f.y; S.map.ensureAround(PA.x, PA.y, 2);
-  return SITE.index;
-}`);
-const press = () => run('S.tick += 40; S._interact(A, PA); S.tick += 40');
-const where = () => run('PA.grid');
-const label = () => run('(() => { const a = Interactions.find(S.grids.of(PA), S.boats, PA, null, {}, A, {}, {}); return a && a.label })()');
-/** Stand beside the doorway (or the doormat) to `name` in the room we are in. */
-const goTo = name => run(`(() => { const m = S.grids.of(PA), l = m.links().find(k => k.name === ${JSON.stringify(name)}), L = m.plan.layout;
-  const at = l ? m.plan.approachOf(l.tx, l.ty) : { x: m.exitPoint().x, y: m.exitPoint().y - 1 }; PA.x = at.x; PA.y = at.y; return !!(l || ${JSON.stringify(name)} === 'back'); })()`);
-
-test('the castle fills the keep: 8 x 7 tiles with its door on the south face, the old walls and corner towers gone', () => {
-  assert.strictEqual(run('setup()'), 18);
-  assert.strictEqual(run('[SITE.x0, SITE.y0, SITE.w, SITE.h, SITE.doorX, SITE.doorY].join()'), '4,4,8,7,7,10');
-  assert.strictEqual(run('Village.obj(7, 10)'), run('OBJ.DOOR'));
-  assert.strictEqual(run('Village.obj(4, 4)'), run('OBJ.HOUSE'));
-  assert(!run('Village.propAtTile(5, 5)'), 'no barrel left inside the walls');
+test('the ruined castle fills with slimes the first time a room is entered: more in big rooms, tougher deeper in', () => {
+  world();
+  into('gatehall', 6.5, 6.5); const gate = slimesIn(roomGrid('gatehall'));
+  into('greathall', 7.5, 9.5); const hall = slimesIn(roomGrid('greathall'));
+  into('pantry', 3.5, 4.5); const pantry = slimesIn(roomGrid('pantry'));
+  assert(gate.length >= 2 && hall.length >= gate.length && pantry.length >= 2, [gate.length, hall.length, pantry.length].join());
+  assert(hall.every(l => l === 5) && gate.every(l => l === 3), 'levels by room');
+  assert.strictEqual(slimesIn(roomGrid('library')).length, 0, 'rooms nobody has entered stay empty');
+  into('gatehall', 6.5, 6.5); assert.strictEqual(slimesIn(roomGrid('gatehall')).length, gate.length, 'not again');
 });
 
-test('it is ruined until it is restored: two versions of one building, each with its own rooms', () => {
-  run('setup()');
-  assert.strictEqual(run('SITE.def.id'), 'castle_ruins'); assert.strictEqual(run('SITE.def.exterior.ruined'), true);
-  assert.strictEqual(run('Grids.roomKeys(SITE).length'), 9);
-  assert.strictEqual(run('Grids.plan(Grids.roomOf(SITE, "greathall")).layout.id'), 'castle_greathall_ruined');
-  run('BuildingVersions.apply(["castle"])');
-  assert.strictEqual(run('SITE.def.id'), 'castle'); assert.strictEqual(run('Grids.plan(Grids.roomOf(SITE, "greathall")).layout.id'), 'castle_greathall');
-  run('BuildingVersions.apply([])');
+test('slimes are not on the way in, and not inside furniture', () => {
+  world(); into('greathall', 7.5, 10.5);
+  const bad = run(`(() => { const plan = S.grids.get('${roomGrid('greathall')}').plan, out = []; for (const a of Object.values(S.animals.animals)) if (a.type === 'slime') { if (Math.hypot(a.x - 7.5, a.y - 10.5) < 3) out.push('near the door'); if (plan.solidAt(Math.floor(a.x), Math.floor(a.y))) out.push('in furniture'); } return out; })()`);
+  same(bad, []);
 });
 
-test('both versions: every room is its own grid, joined by doorways that the other room leads back through, and you can walk from the entrance to every doorway', () => {
+test('restoring the castle clears the slimes for good; a restored castle never gets them', () => {
+  world(); into('kitchen', 5.5, 6.5); assert(slimesIn(roomGrid('kitchen')).length > 0);
+  run(`S.interiors.setRestored('castle', true)`); assert.strictEqual(run(`Object.values(S.animals.animals).filter(a => a.type === 'slime' && String(a.grid).startsWith('room:' + CASTLE.index)).length`), 0);
+  into('kitchen', 5.5, 6.5); assert.strictEqual(slimesIn(roomGrid('kitchen')).length, 0, 'no slimes in the restored castle');
+  run(`S.interiors.setRestored('castle', false)`); into('chapel', 4.5, 8.5); assert(slimesIn(roomGrid('chapel')).length > 0, 'ruined again: they come back');
+});
+
+test('the cellar has a trapdoor (ruined or restored) that leads down into the Slime Cellars, and back up to the cellar', () => {
+  world();
   for (const restored of [false, true]) {
-    run(`setup(); BuildingVersions.apply(${restored ? '["castle"]' : '[]'})`);
-    const out = JSON.parse(run(`JSON.stringify(Grids.roomKeys(SITE).map(key => {
-      const gid = Grids.roomOf(SITE, key), p = Grids.plan(gid), L = p.layout, e = p.entryPoint(), sx = Math.floor(e.x), sy = Math.floor(e.y), seen = new Set([sy * 100 + sx]), q = [[sx, sy]];
-      while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (p.solidAt(nx, ny) || seen.has(ny * 100 + nx)) continue; seen.add(ny * 100 + nx); q.push([nx, ny]); } }
-      const back = L.exitTo ? Grids.plan(Grids.roomOf(SITE, L.exitTo)).layout.links.some(l => l.to === key) : true;
-      return { key, gid, reach: [L.exit, ...L.links.map(l => [l.x, l.y])].every(([x, y]) => seen.has(y * 100 + x)), targets: L.links.every(l => Grids.valid(Grids.roomOf(SITE, l.to))), back };
-    }))`));
-    assert.strictEqual(new Set(out.map(o => o.gid)).size, out.length, 'one grid each');
-    for (const o of out) { assert(o.reach, o.key + ' reachable'); assert(o.targets, o.key + ' links'); assert(o.back, o.key + ' is the doorway its parent opens by'); }
+    run(`S.interiors.setRestored('castle', ${restored})`);
+    const has = run(`Interiors.get(BuildingSites.list[CASTLE.index].def.rooms.cellar).furniture.some(f => f.id === 'trapdoor')`); assert(has, 'trapdoor, restored=' + restored);
   }
-  run('BuildingVersions.apply([])');
+  run(`S.interiors.setRestored('castle', false)`); into('cellar', 6.5, 4.8);
+  assert.strictEqual(run(`Interactions.find(S.mapOf(PA), {}, PA, '', {}, A).kind`), 'enter_crypt'); into('cellar', 1.5, 7.5); assert.notStrictEqual(run(`(Interactions.find(S.mapOf(PA), {}, PA, '', {}, A) || {}).kind`), 'enter_crypt', 'only at the trapdoor');
+  into('cellar', 6.5, 4.8); run('S._interact(A, PA)');
+  assert.strictEqual(run('PA.grid'), 'dungeon:2:0', 'down');
+  const plan = run('S.mapOf(PA).plan'), spot = run('(p => p._landing(p.room.entrances))(S.mapOf(PA).plan)'); run(`PA.x = ${spot.x}; PA.y = ${spot.y}`); run('S.tick += 60; S._interact(A, PA)');
+  assert.strictEqual(run('PA.grid'), roomGrid('cellar'), 'up again, into the cellar');
 });
 
-test('the same rooms in both versions: same size, same doorways; the ruin has cold hearths, no lamps and holes in its walls', () => {
-  for (const key of run('CastleRooms.KEYS')) {
-    const a = run(`CastleRooms.layouts.castle_${key}`), b = run(`CastleRooms.layouts.castle_${key}_ruined`);
-    assert.strictEqual(JSON.stringify([a.tiles.length, a.tiles[0].length, a.exit, a.links]), JSON.stringify([b.tiles.length, b.tiles[0].length, b.exit, b.links]), key);
+test('the Slime Cellars: three waves, each tougher; then the Slime Baron, who leaps and slams', () => {
+  world(); run('S.dungeons.debugTeleport(A, PA, "crypt:0")'); assert.strictEqual(run('PA.grid'), 'dungeon:2:0');
+  const w = run('Dungeons.all()[2].waves'); for (const k of ['max', 'level', 'total']) for (let i = 1; i < w.length; i++) assert(w[i][k] > w[i - 1][k], k);
+  assert(run('Object.keys(S.dungeons.waves).length') === 1);
+  for (let n = 0; n < 3; n++) {
+    for (let i = 0; i < 60 && !run(`S.dungeons.cleared.has(PA.grid)`); i++) { run(`for (let t = 0; t < 150; t++) S.step(); for (const id of Object.keys(S.animals.animals)) { const a = S.animals.animals[id]; if (a.wave && a.grid === PA.grid) S.animals.damage(id, 99999); }`); }
+    assert(run(`S.dungeons.cleared.has(PA.grid)`), 'level ' + (n + 1) + ' cleared');
+    const spot = run('(p => p._landing(p.room.exits))(S.mapOf(PA).plan)'); run(`PA.x = ${spot.x}; PA.y = ${spot.y}; S.tick += 60; S._interact(A, PA)`);
   }
-  const lights = layout => layout.furniture.filter(f => run(`!!(FurnitureDefs.get(${JSON.stringify(f.id)}).light)`)).length;
-  assert(lights(run('CastleRooms.layouts.castle_greathall')) > 0); assert.strictEqual(lights(run('CastleRooms.layouts.castle_greathall_ruined')), 0);
-  assert(run('CastleRooms.KEYS.some(k => CastleRooms.layouts["castle_" + k + "_ruined"].tiles.join("").includes("."))'), 'holes in the walls');
+  assert.strictEqual(run('PA.grid'), 'dungeon:2:3', 'the arena');
+  const baron = run(`(() => { const k = Object.values(S.animals.animals).find(a => a.type === 'slime_baron'); return k && { level: k.level }; })()`); assert(baron && baron.level === 9);
+  run(`S.worldProgress && 0`); run(`(() => { const k = Object.values(S.animals.animals).find(a => a.type === 'slime_baron'); PA.x = k.x + 6; PA.y = k.y; PA.hp = PA.maxHp; })()`);
+  const seen = new Set(); for (let i = 0; i < 30 * 10; i++) { run(`(() => { const k = Object.values(S.animals.animals).find(a => a.type === 'slime_baron'); PA.x = k.x + 6; PA.y = k.y; S.step(); })()`); seen.add(run(`Object.values(S.animals.animals).find(a => a.type === 'slime_baron').state`)); }
+  for (const st of ['windup', 'jump', 'slam']) assert(seen.has(st), st);
+  run(`S.animals.damage(Object.keys(S.animals.animals).find(id => S.animals.animals[id].type === 'slime_baron'), 999999)`);
+  assert(run('S.pendingEvents.some(e => e.type === "kingDefeated")'));
 });
 
-test('walking in: the door asks "Enter", the doormat takes you out, each doorway takes you to the next room and back', () => {
-  run('setup()');
-  assert.strictEqual(label(), 'Enter Ruined Castle');
-  press(); assert.strictEqual(where(), 'room:18');
-  assert.strictEqual(run('S.grids.of(PA).plan.layout.id'), 'castle_gatehall_ruined');
-  goTo('Great Hall'); assert.strictEqual(label(), 'Go to Great Hall');
-  press(); assert.strictEqual(where(), 'room:18:1');
-  assert.strictEqual(run('S.grids.of(PA).plan.layout.exitTo'), 'gatehall');
-  goTo('Library'); press(); assert.strictEqual(where(), 'room:18:6');
-  goTo('back'); assert.strictEqual(label(), 'Back to Great Hall');
-  press(); assert.strictEqual(where(), 'room:18:1');
-  assert(run('(() => { const m = S.grids.of(PA), l = m.links().find(k => k.to === "library"); return Math.hypot(PA.x - l.x, PA.y - l.y) < 2.2 })()'), 'back through the doorway we left by');
-  goTo('Lord\'s Solar'); press(); assert.strictEqual(where(), 'room:18:8');
-  goTo('back'); press(); goTo('back'); press(); assert.strictEqual(where(), 'room:18', 'the hall');
-  goTo('Guardroom'); press(); goTo('Cellar'); press(); assert.strictEqual(where(), 'room:18:3');
-  goTo('back'); press(); goTo('back'); press(); goTo('back'); assert.strictEqual(label(), 'Go outside');
-  press(); assert.strictEqual(where(), '');
-  assert(Math.abs(run('PA.y') - 11.45) < 0.01, 'out at the gate');
+test('the overworld still has just the two cave mouths (the cellars have none)', () => {
+  world(); same(run('S.map.terrain.caveSites.caves().map(c => c.dungeon)'), ['cavern', 'slime_warren']);
 });
 
-test('too far from a doorway does nothing', () => {
-  run('setup()'); press();
-  run('PA.x += 4'); const g = where(); run('S.interiors.link(A, PA, 6, 0)'); assert.strictEqual(where(), g);
+test('the Smithy: a shop on the village edge where Hilda works, selling seven swords from fast to heavy', () => {
+  world();
+  const smithy = run(`(() => { const b = BuildingSites.list.find(x => x.id === 'blacksmith'); return b && { index: b.index, stock: Shops.stock(b) }; })()`);
+  assert(smithy, 'a Smithy in the village'); assert.strictEqual(smithy.stock.length, 7);
+  assert.strictEqual(run(`Npcs.get('blacksmith').works`), 'blacksmith');
+  const price = id => run(`Shops.coinPrice(Shops.price('${id}'))`), damage = id => run(`ItemDefs.${id}.tool.damage`), swing = id => run(`ItemDefs.${id}.tool.swingTime`);
+  assert(price('wooden_sword') < price('stone_sword') && price('stone_sword') < price('iron_sword') && price('iron_sword') < price('steel_sword') && price('steel_sword') < price('broadsword') && price('broadsword') < price('gilded_sword'));
+  assert(damage('broadsword') > damage('steel_sword') && damage('steel_sword') > damage('iron_sword') && damage('iron_sword') > damage('stone_sword'));
+  assert(swing('rapier') < swing('iron_sword') && swing('broadsword') > swing('iron_sword'), 'the rapier is quick, the broadsword slow');
+  assert.strictEqual(run(`ItemDefs.broadsword.tool.kind`), 'sword');
 });
 
-test('restoring the castle walks visitors out, forgets its ruined rooms, and the state is saved and sent', () => {
-  run('setup()'); press(); goTo('Great Hall'); press();
-  assert.strictEqual(where(), 'room:18:1'); assert(run('S.grids.has("room:18:1")'));
-  run('SnapshotBuilder.welcomeFor(S, A)'); assert.strictEqual(run('S.interiors.versionsFor(A)'), null, 'told at the welcome');
-  assert.strictEqual(run('S.interiors.setRestored("castle", true)'), true);
-  assert.strictEqual(where(), '', 'walked out'); assert(!run('S.grids.has("room:18:1")'), 'rooms forgotten');
-  assert.strictEqual(run('JSON.stringify(S.interiors.versionsFor(A))'), '["castle"]'); assert.strictEqual(run('S.interiors.versionsFor(A)'), null);
-  assert.strictEqual(label(), 'Enter Castle'); press();
-  assert.strictEqual(run('S.grids.of(PA).plan.layout.id'), 'castle_gatehall');
-  const world = JSON.parse(JSON.stringify(run('SaveData.exportWorld(S)')));
-  assert.strictEqual(JSON.stringify(world.interiors.restored), '["castle"]');
-  run('BuildingVersions.apply([])');
-  run(`globalThis.W = ${JSON.stringify(world)}`); run('globalThis.S2 = new GameServer(4242)');
-  assert.strictEqual(run('SITE.def.id'), 'castle_ruins', 'a new world starts in ruins');
-  run('S2.interiors.restore(W.interiors)'); assert.strictEqual(run('SITE.def.id'), 'castle', 'a saved restoration comes back');
-  assert.strictEqual(run('S.interiors.setRestored("castle", true)'), false, 'nothing changes twice');
-  assert.strictEqual(run('S.interiors.setRestored("player_home", true)'), false, 'only a building with a ruined self can be restored');
-  assert.strictEqual(run('JSON.stringify(SnapshotBuilder.welcomeFor(S2, S2.addPlayer()).versions)'), '["castle"]');
-  run('BuildingVersions.apply([])');
-});
-
-test('the host can restore it from Settings, and the checkbox follows the castle', () => {
-  run('setup()'); assert.strictEqual(run('S.settings.castleRestored'), false);
-  run(`S.receiveCommand(A, { type: 'setting', key: 'castleRestored', value: true })`);
-  assert.strictEqual(run('SITE.def.id'), 'castle'); assert.strictEqual(run('S.settings.castleRestored'), true);
-  run(`S.receiveCommand(A, { type: 'setting', key: 'castleRestored', value: false })`);
-  assert.strictEqual(run('SITE.def.id'), 'castle_ruins'); assert.strictEqual(run('S.settings.castleRestored'), false);
+test('buying a sword at the Smithy takes the coins; the Smithy does not buy things (only the General Store does)', () => {
+  world();
+  const r = run(`(() => {
+    const site = BuildingSites.list.find(b => b.id === 'blacksmith'), grid = Grids.room(site.index), w = S.grids.get(grid), f = w.plan.layout.furniture.find(g => g.id === 'counter');
+    S._moveToGrid(A, PA, grid, f.x + f.w / 2, f.y + f.h + 0.4);
+    const inv = S.inventories[A]; for (const sl of inv.toJSON()) if (sl) inv.remove(sl.id, sl.count); inv.add('gold_coin', 100);
+    const before = inv.purse; S._buy(A, 'iron_sword', Coins.empty().map((n, i) => (i === 4 ? 1 : 0)));
+    const bought = inv.count('iron_sword'), paid = before - inv.purse;
+    inv.add('rope', 2); S._sell(A, 'rope', 2);
+    return { bought, paid, rope: inv.count('rope') };
+  })()`);
+  assert.strictEqual(r.bought, 1); assert.strictEqual(r.paid, 4000, 'a titanium coin put down, change given back'); assert.strictEqual(r.rope, 2, 'the Smithy does not buy rope');
 });
 
 console.log(`${passed} passed`);
