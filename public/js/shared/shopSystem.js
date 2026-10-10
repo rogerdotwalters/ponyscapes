@@ -11,6 +11,26 @@ const Shops = {
   price: id => (ItemDefs[id] && ItemDefs[id].price) || [],
   /** What a price asks for in coins, in COPPER (the coin entries of the price, any kind of coin, added up). */
   coinPrice: price => price.reduce((sum, [item, n]) => sum + (Coins.isCoin(item) ? n * Coins.value(item) : 0), 0),
+  /** What the shop pays for ONE of an item, in COPPER (0 = it buys nothing: coins). Every other item sells. In order: the item's own `sell` (copper, in its data); 40% of what the
+   *  shop charges for it; 60% of what its ingredients sell for; food by what it fills (2 copper a point); a tool or weapon by its damage; else by rarity. At least 1. */
+  sellPrice(id, depth = 0) {
+    const def = ItemDefs[id];
+    if (!def || Coins.isCoin(id) || depth > 4) return 0;
+    if (Shops._sell[id] !== undefined) return Shops._sell[id];
+    const own = Number.isFinite(+def.sell) ? Math.max(0, Math.round(+def.sell)) : null, buy = Shops.coinPrice(Shops.price(id));
+    let v;
+    if (own !== null) v = own;
+    else if (buy > 0) v = buy * 0.4;
+    else if (Array.isArray(def.craft) && def.craft.length) v = 0.6 * def.craft.reduce((sum, [item, n]) => sum + Shops.sellPrice(item, depth + 1) * (+n || 1), 0);
+    else if (def.food) v = ((+def.food.hunger || 0) + (+def.food.thirst || 0)) * 2;
+    else if (def.tool) v = 60 + 40 * (+def.tool.damage || 0);
+    else v = Shops.RARITY_SELL[def.rarity] || Shops.RARITY_SELL.common;
+    v = own === 0 ? 0 : Math.max(1, Math.round(v));
+    if (depth === 0) Shops._sell[id] = v;
+    return v;
+  },
+  RARITY_SELL: { common: 20, uncommon: 60, rare: 200, epic: 600, legendary: 2000 },                       // copper, for something with no price, recipe, food value or tool
+  _sell: {},
   /** Pure (client + server): a shop counter within reach of p in this room? { site, dist } or null. */
   counterNear(map, p) {
     if (!map || map.kind !== 'room' || !map.plan || !map.plan.layout) return null;
@@ -34,8 +54,25 @@ function findShopInteraction(map, p) {
 Interactions.extra.push(findShopInteraction);
 InteractionHandlers.shop = (server, id, p, action) => server.pendingEvents.push({ type: 'shop', to: id, site: action.site, items: Shops.stock(BuildingSites.list[action.site]) });
 
-/** Server side: buying. Added to GameServer. */
+/** Server side: buying and selling. Added to GameServer. */
 Object.assign(GameServer.prototype, {
+  /** Sell `count` of an item from the bag at a shop counter (the General Store buys EVERYTHING but coins). The coins go straight into the purse. */
+  _sell(id, itemId, count) {
+    const p = this.players[id], inventory = this.inventories[id], near = p && Shops.counterNear(this.mapOf(p), p);
+    if (!near) { this._notice(id, 'Walk up to the shop counter to sell'); return; }
+    const each = Shops.sellPrice(itemId);
+    if (!each) { this._notice(id, 'The shop does not buy that'); return; }
+    const n = Math.min(inventory.count(itemId), Math.max(1, Math.floor(+count) || 1));
+    if (n < 1) return;
+    const total = each * n;
+    if (inventory.purse + total > Coins.MAX_TOTAL) { this._notice(id, 'Your coin purse is full'); return; }
+    inventory.remove(itemId, n);
+    Coins.add(inventory._coins, 0, total); Coins.merge(inventory._coins);                                    // (copper in; the purse merges up)
+    this.inventoryRev[id]++;
+    this.pendingEvents.push({ type: 'sold', to: id, item: itemId, count: n, copper: total, x: p.x, y: p.y });
+    this._notice(id, `Sold ${n} ${ItemDefs[itemId].name} for ${Coins.format(total)}`);
+  },
+
   /** `pay`: the coins the player put on the counter (an array of counts, copper first). The coin part of the price is taken from THEM (the shop gives
    *  change when a bigger coin was needed); anything else a price asks for comes out of the bag (and the pack beside you) as before. */
   _buy(id, itemId, pay) {

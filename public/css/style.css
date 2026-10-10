@@ -107,6 +107,7 @@ canvas{display:block}
 #gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
 #gearClose,#tradeClose,#puzzleClose,#dialogueClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
 #gearBody,#ponyBody,#townBody,#tradeBody,#shopBody,#controlsBody{overflow-y:auto;touch-action:pan-y}
+.shopTabs{display:flex;gap:6px;margin:0 0 8px}.shopTabs button{flex:1;padding:7px;border-radius:8px;border:1px solid rgba(227,194,122,.5);background:rgba(10,18,28,.6);color:#f4e6c1;font:600 14px Georgia,serif;cursor:pointer}.shopTabs button.on{background:rgba(227,194,122,.9);color:#10202f}
 .shophead{display:flex;align-items:center;gap:4px;margin:0 0 8px;font-size:13px}.shophead img{width:20px;height:20px}
 .shopbuy{height:30px;padding:0 12px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif}.shopbuy:disabled{opacity:.35}
 .gsum{font-size:12px;margin-bottom:8px;color:#e9ddb8}
