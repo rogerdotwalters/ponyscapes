@@ -40,5 +40,19 @@ const AnimalLevels = {
   /** Wild animals around a spot are about this level (for the map). */
   zoneLevel: (x, y, layers) => (layers && layers.zones ? layers.zones.zoneLevel(x, y) : 1),
   /** How threatening a level looks to you: 'easy' | 'even' | 'hard' | 'deadly' by how far above your own level it is. */
+  /** The marker beside an enemy's name for how its level compares with yours (`mine`): { kind, count, color, text }.
+   *  kind 'down' (weaker than you: one arrow, two when much weaker) | 'even' | 'up' (stronger: one arrow, two when well above you) | 'skull' (a LOW level player facing something VERY high:
+   *  at least 8 levels above you and at least double your level). */
+  marker(level, mine) {
+    const d = level - mine, lv = Math.max(1, level || 1), me = Math.max(1, mine || 1);
+    if (d >= 8 && lv >= me * 2) return { kind: 'skull', count: 1, color: '#f4f0e6', text: 'Far beyond you' };
+    if (d >= 5) return { kind: 'up', count: 2, color: '#ff5a4f', text: 'Much stronger than you' };
+    if (d >= 2) return { kind: 'up', count: 1, color: '#ffab6b', text: 'Stronger than you' };
+    if (d >= -1) return { kind: 'even', count: 1, color: '#ffe08a', text: 'About your level' };
+    if (d >= -5) return { kind: 'down', count: 1, color: '#8be28b', text: 'Weaker than you' };
+    return { kind: 'down', count: 2, color: '#6fd0a0', text: 'Much weaker than you' };
+  },
+  /** An enemy's health at its level (the same sum the server makes when it is born), for drawing its bar. */
+  maxHp: (def, level) => Math.max(1, Math.round(def.hp * (1 + 0.18 * ((level || 1) - 1)))),
   threat(level, mine) { const d = level - mine; return d <= 0 ? 'easy' : d <= 3 ? 'even' : d <= 8 ? 'hard' : 'deadly'; }
 };
