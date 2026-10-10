@@ -34,6 +34,11 @@ const Shelter = {
       const dist = Math.hypot(x - clamp(x, tx, tx + w), y - clamp(y, ty, ty + h));                // (from the nearest point of the building)
       if (dist <= reach && (!best || dist < best.dist) && Shelter._reaches(map, x, y, tx, ty, w, h)) best = { tx, ty, dist, type: tile.c };
     }
+    if (map.grid === '' || map.grid === undefined) for (const site of BuildingSites.list) {              // the village STABLE (its door and walls count: a pony beside it is in shelter)
+      if (!site.def.stable) continue;
+      const dist = Math.hypot(x - clamp(x, site.x0, site.x1 + 1), y - clamp(y, site.y0, site.y1 + 1));
+      if (dist <= range + 0.6 && (!best || dist < best.dist) && Shelter._reaches(map, x, y, site.x0, site.y0, site.w, site.h)) best = { tx: site.x0, ty: site.y0, dist, type: site.id };
+    }
     return best;
   },
   /** Can you walk from (x, y) to the building in a few steps? A pony on the other side of a fence does not count as "in" the stable. */

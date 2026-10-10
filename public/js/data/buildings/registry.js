@@ -10,6 +10,8 @@
  *              boarded (windows boarded up), props ['lantern', 'firewood', 'barrels', 'crates', 'flowers', 'hay'] beside its door
  *   hours      [open, close] of a shop (a villager who `works` there is inside, behind its keeper furniture, between them)    keeper  the furniture id they stand beside
  *   home       true: a home that belongs to ONE player (the host's game gives each person one, js/shared/interiorSystem.js); locked to everyone else
+ *   stable     true: the STABLE: every player gets a stable of their own (like a home, `instance: 'player'`) but anybody may walk in; its furniture has stalls for
+ *              ponies (js/shared/stableSystem.js)
  *   resident   the villager who lives here (a home: they sleep inside, shared/npcSystem.js)
  *   glyph      the picture on its hanging sign
  *   rooms      (optional) a building of SEVERAL rooms: key -> layout id, entrance first (the first must be `interior`). Each room is its own instance, 'room:<site>:<k>'

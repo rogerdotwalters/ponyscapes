@@ -25,5 +25,7 @@ FurnitureDefs.registerAll([
   /* ---- home crafts (js/shared/homeCrafts.js): station = a crafting station you stand at; press = squeeze dye out of what you hold; store = a bin for one item ---- */
   { id: 'loom', name: 'Loom', size: [2, 1], solid: true, height: 44, style: 'loom', station: 'loom', colors: { wood: '#8a5f33', light: '#b8875a', warp: '#efe8d6', cloth: '#d9cfb4' } },
   { id: 'dye_press', name: 'Dye Press', size: [1, 1], solid: true, height: 34, style: 'press', press: true, colors: { wood: '#7a5233', light: '#a8763f', iron: '#5a5a66', tub: '#6d4c2f' } },
+  /* ---- the stable (data/buildings/pony_stable.js, shared/stableSystem.js): a stall holds one pony; walk up and press the interact key ---- */
+  { id: 'stall', name: 'Stall', size: [2, 2], solid: false, stall: true, height: 24, style: 'stall', colors: { wood: '#8a5f33', post: '#6d4c2f', hay: '#e0c46c' } },
   { id: 'wool_bin', name: 'Wool Bin', size: [2, 1], solid: true, height: 20, style: 'bin', store: { item: 'wool', capacity: 500 }, colors: { wood: '#9a6a3c', band: '#5b3e24', fill: '#f2efe6' } }
 ]);

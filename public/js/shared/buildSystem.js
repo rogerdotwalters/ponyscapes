@@ -23,8 +23,8 @@ const StructureDefs = Object.freeze({
   clay_furnace:   defineStructure('station', { name: 'Clay Furnace', refundItemId: 'clay_furnace' }),
   barn:           defineStructure('station', { name: 'Barn', refundItemId: 'barn', size: [5, 4], door: 2 }),                       // a barn the size of the General Store: shelters ponies like a stable, with a larger reach and a better apple discount
   barn_part:      defineStructure('station', { name: 'Barn', refundItemId: 'barn', partOf: 'barn' }),                              // (the other tiles of its footprint: the anchor is the north-west corner)                                              // a big barn: shelters ponies like a stable, with a larger reach and a better apple discount
-  stable:         defineStructure('station', { name: 'Stable', refundItemId: 'stable', size: [3, 2], door: 1 }),                  // a timber stable with stalls, the size of a small home: a wild pony you lead here will take apples and settle
-  stable_part:    defineStructure('station', { name: 'Stable', refundItemId: 'stable', partOf: 'stable' }),                                          // a roofed stall: a wild pony you lead here will take apples and settle
+  stable:         defineStructure('station', { name: 'Pony Shelter', refundItemId: 'stable', size: [3, 2], door: 1 }),                  // a timber stable with stalls, the size of a small home: a wild pony you lead here will take apples and settle
+  stable_part:    defineStructure('station', { name: 'Pony Shelter', refundItemId: 'stable', partOf: 'stable' }),                                          // a roofed stall: a wild pony you lead here will take apples and settle
   campfire:       defineStructure('station', { name: 'Campfire', refundItemId: 'campfire', light: true }),
   stockpile_wood:  defineStructure('station', { name: 'Wood Stockpile', refundItemId: 'stockpile_wood', stockpile: 'wood' }),      // town storage: see stockpiles.js
   stockpile_stone: defineStructure('station', { name: 'Stone Stockpile', refundItemId: 'stockpile_stone', stockpile: 'stone' }),

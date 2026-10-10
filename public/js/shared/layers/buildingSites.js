@@ -28,7 +28,7 @@ const BuildingSites = (() => {
     ['storehouse', 34, 33, 'e'], ['vacant_home', 24, 16], ['vacant_home', 37, 16, 'e'], ['vacant_home', 52, 16],
     ['home_baker', 11, 14], ['home_child', 9, 24], ['home_elder', 14, 8], ['home_guard', -4, 11, 'e'], ['home_carpenter', -6, 16], ['home_merchant', 31, 16],
     ['home_veterinarian', 54, 25], ['home_farmer', 24, 24], ['home_fisher', -10, 26, 'e'], ['home_blacksmith', -12, 16],
-    ['castle', 4, 4], ['blacksmith', -18, 22]];                                                                                        // (the old castle, on the keep's footprint: ruined until it is restored)   // (add new sites at the END: a room's grid is named by its index)
+    ['castle', 4, 4], ['blacksmith', -18, 22], ['pony_stable', 23, 31]];                                                                                        // (the old castle, on the keep's footprint: ruined until it is restored)   // (add new sites at the END: a room's grid is named by its index)
   const list = PLACED.filter(([id]) => BuildingDefs.has(id)).map(([id, x0, y0, facing = 's'], index) => {
     const base = BuildingDefs.get(id), [w, h] = base.size, def = base;
     const x1 = x0 + w - 1, y1 = y0 + h - 1, east = facing === 'e', doorX = east ? x1 : x0 + clamp(def.door, 0, w - 1), doorY = east ? y0 + clamp(def.door, 0, h - 1) : y1;

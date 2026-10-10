@@ -97,7 +97,7 @@ class GameServer {
     const mount = p.mount && this.animals.animals[p.mount];
     if (mount) { mount.grid = grid; mount.x = x; mount.y = y; mount.vx = mount.vy = 0; }
     for (const a of Object.values(this.animals.animals)) {                  // a pet on a rope comes too, and so does your main pony
-      if ((a.leashed && (a.owner === id || a.captor === id) || (a.main && a.owner === id)) && a.id !== p.mount) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; }
+      if ((a.leashed && (a.owner === id || a.captor === id) || (a.main && a.owner === id)) && a.id !== p.mount && !a.stall) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; }
     }
     this.eventGrid = grid;
     if (this.castleSlimes) this.castleSlimes.enter(grid);                    // (the ruined castle fills with slimes the first time a room is entered)
@@ -130,7 +130,6 @@ class GameServer {
     for (let tx = P.x0; tx <= P.x1; tx++) { put(tx, P.y0, 'wood_fence', 'n'); put(tx, P.y1, 'wood_fence', 's'); }
     for (let ty = P.y0; ty <= P.y1; ty++) { put(P.x0, ty, 'wood_fence', 'w'); put(P.x1, ty, 'wood_fence', 'e'); }
     put(P.x0, midY, 'wood_gate', 'w');                         // the gate faces the home
-    put(P.x1 - 2, P.y0, 'stable', 'c');                         // the stable (3 x 2 tiles) stands against the north fence, in the far corner
     this.builtRev++;
   }
 
