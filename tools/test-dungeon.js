@@ -310,4 +310,19 @@ test('plant spreading: trees seed their own kind beside them, in season, in thei
   assert(r.grownOf > 0 && r.grown === r.grownOf, 'a grown sapling stands as a tree of its kind: ' + r.grown + ' of ' + r.grownOf);
 });
 
+test('open ground: trees stay sparse enough to walk through, and wild ponies are plentiful (a zone holds many pony regions, not one)', () => {
+  const r = run(`(() => { const w = new World(4242), T = w.terrain, Z = T.layers.zones, out = { trees: {}, regions: 0, sameCell: false, farCell: false };
+    for (const n of Z.layout()) { let g = 0, t = 0; for (let y = -n.r; y <= n.r; y += 2) for (let x = -n.r; x <= n.r; x += 2) { const tx = Math.floor(n.x + x), ty = Math.floor(n.y + y); if (Z.at(tx, ty).index !== n.def.index || Z.kindAt(tx, ty) !== 0 || T.tile(tx, ty) !== TILE.GRASS) continue; g++; if (T.hasTree(tx, ty, TILE.GRASS)) t++; } out.trees[n.def.id] = t / g; }
+    const B = T.layers.biomes, m = Z.layout()[0], x = Math.floor(m.x), y = Math.floor(m.y), cell = CONFIG.world.ponyCell;
+    out.sameCell = B.regionKey(x, y) === B.regionKey(x + 1, y + 1) || B.regionKey(x, y) === B.regionKey(x - 1, y - 1); out.farCell = B.regionKey(x, y) !== B.regionKey(x + 2 * cell, y);
+    const keys = new Set(); for (let dy = -50; dy <= 50; dy += 5) for (let dx = -50; dx <= 50; dx += 5) keys.add(B.regionKey(x + dx, y + dy)); out.regions = keys.size;
+    const s = new GameServer(4242), id = s.addPlayer(), p = s.players[id]; p.x = m.x + 20; p.y = m.y; s.map.ensureAround(p.x, p.y, 4);
+    for (let tick = 0, mornings = 0, last = -1; tick < 60 * 60 * 100 && mornings < 4; tick += 60) { const mo = s.wildPonies.morningAt(tick); if (mo !== last) { last = mo; mornings++; } for (let k = 0; k < 4; k++) s.wildPonies.update(tick); }
+    out.ponies = Object.values(s.animals.animals).filter(a => s.wildPonies.isWild(a) && Math.hypot(a.x - p.x, a.y - p.y) < 40).length; return out; })()`);
+  assert(r.trees.meadows <= 0.05 && r.trees.orchard <= 0.08 && r.trees.mushroom <= 0.09 && r.trees.forest <= 0.15, 'tree share of grass: ' + JSON.stringify(r.trees));
+  assert(r.trees.forest > r.trees.meadows, 'the forest is still the woodiest');
+  assert(r.farCell && r.regions >= 4, 'a zone is cut into several pony regions: ' + r.regions);
+  assert(r.ponies >= 12, 'wild ponies within 40 tiles after a few mornings: ' + r.ponies);
+});
+
 console.log(process.exitCode ? 'FAILED' : `all ${passed} checks passed`);
