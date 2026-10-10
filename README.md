@@ -64,6 +64,8 @@ To see what the generator makes, open **`/map-preview.html`**: a Regenerate butt
 
 Green slimes also **leap**: from a few tiles away a slime squats (a small red ring marks where you stand), hops at that spot and splashes down, hurting you only if you are still there (`shared/behaviors/slimeleap.js`, the `leap` block in `data/creatures/slime.js`).
 
+**Pony skill trees.** Every pony variety (meadow, moss, frost ...) gets its own tree of skills that unlock as the pony levels up (`data/ponies/skills.js`, powers in `shared/ponySkills.js`). Meadow ponies come first: **Leaf Blast** (a cone of razor leaves, from pony level 3) and a power from the pony's **cutie mark** (level 6: star, heart, flower, moon, cloud, apple, drop and note each give a different one). Ridden, a pony's powers are H / K for its rarity abilities, then Y / O for skills (the power button on touch screens); skills grow 8% stronger per pony level, and the Pony Book shows the tree with what is still locked. Check it with `npm run test:skills`.
+
 **Coins and selling.** Every enemy drops coins (a creature whose loot table has none gets silver worked out from its health), and a coin drop grows with the creature's level (+20% per level above 1) and varies a little each time, so deeper Slime Warren slimes pay more (`shared/lootTables.js`). The General Store's counter has a **Sell** tab: it buys everything in your bag except coins, for copper-sized prices (an item's own `sell` value, else 40% of its shop price, else from its recipe, food value, tool damage or rarity: `Shops.sellPrice`).
 
 The older five-ring world is kept in `legacy/ring-world/` (see the README there). Check the world with `npm run test:dungeon`.

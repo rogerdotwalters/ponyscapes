@@ -184,7 +184,7 @@ class ClientGame {
     this.powerQueued = index + 1;
   }
   /** What the ridden pony can do: [{ ability, cooldown }] (empty when not riding). */
-  abilityState() { const L = this.local; return L && L.mount ? (L.abilities || []).map((id, i) => ({ ability: AbilityDefs[id], cooldown: L.abilityCd[i] || 0 })).filter(a => a.ability) : []; }
+  abilityState() { const L = this.local; return L && L.mount ? (L.abilities || []).map((id, i) => ({ ability: abilityDef(id), cooldown: L.abilityCd[i] || 0 })).filter(a => a.ability) : []; }
 
   /** Host only: change how hunger / thirst work for one player slot ('p2'...). Either mode may be omitted. */
   /** Host only: easy / medium / hard (what happens when health runs out in a dungeon). */

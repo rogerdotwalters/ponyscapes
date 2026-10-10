@@ -203,7 +203,7 @@ function launch(choice, query) {
       if (key === powerShown) return;
       powerShown = key;
       $('abilityBar').hidden = !list.length;
-      $('abilityBar').innerHTML = list.map((a, i) => `<span class="${a.cooldown > 0 ? 'cd' : 'ready'}" style="--c:${a.ability.color}"><kbd>${i ? 'K' : 'H'}</kbd>${text[i]}</span>`).join('');
+      $('abilityBar').innerHTML = list.map((a, i) => `<span class="${a.cooldown > 0 ? 'cd' : 'ready'}" style="--c:${a.ability.color}"><kbd>${['H', 'K', 'Y', 'O'][i]}</kbd>${text[i]}</span>`).join('');
       const ready = list.find(a => !(a.cooldown > 0)) || list[0];
       $('btnAbility').style.display = list.length ? '' : 'none';
       $('btnAbility').textContent = ready ? ready.ability.glyph + (ready.cooldown > 0 ? ' ' + Math.ceil(ready.cooldown) : '') : '';

@@ -16,13 +16,13 @@ function createPlayer(slot, spawn) {
     mount: '', mountLevel: 1,                                                // id of the pony we are riding (or ''), and its level (higher-level ponies run faster)
     flying: false, flyT: 0, flyDur: 0, flyCd: 0,                            // a pegasus's flight: in the air, seconds left, how long it lasts, seconds until the next one
     buffs: noBuffs(), companions: 0, carryStacks: 1,                         // what the ponies with you add (rarity.js), and stacks of each resource you may carry (stockpiles.js)
-    abilities: [], abilityCd: [0, 0], dashT: 0, dashBoost: 0,                // the ridden pony's rarity abilities (H / K), their cooldowns, and a running Dash
+    abilities: [], abilityCd: [0, 0, 0, 0], dashT: 0, dashBoost: 0,          // the ridden pony's powers (rarity abilities, then skills: H K Y O), their cooldowns, and a running Dash
     down: 0, downHp: 0, downMax: 0, graceT: 0,                               // downed in a dungeon (downed.js): seconds until you get up (0 = on your feet), health stored by snacks, the wait you began with, and the safe moment after
     asleep: false, sleepT: 0, sleepForced: false                             // sleeping in the bed at home (sleepSystem.js): seconds asleep, and whether the night forced it
   };
 }
 const noBuffs = () => ({ movement: 0, health: 0, luck: 0, friendship: 0, carry: 0 });
-const clonePlayer = p => Object.assign({}, p, { gear: Object.assign({}, p.gear), buffs: Object.assign(noBuffs(), p.buffs), abilities: (p.abilities || []).slice(), abilityCd: (p.abilityCd || [0, 0]).slice() });
+const clonePlayer = p => Object.assign({}, p, { gear: Object.assign({}, p.gear), buffs: Object.assign(noBuffs(), p.buffs), abilities: (p.abilities || []).slice(), abilityCd: (p.abilityCd || [0, 0, 0, 0]).slice() });
 
 /** Never trust the wire: clamp everything. Input = { moveX, moveY, action, interact, slot, seq } (world axes).
  *  `interact` is true for exactly one tick per key press (board / leave a boat). */
@@ -38,7 +38,7 @@ function sanitizeInput(i) {
     moveX: clamp(num(i.moveX), -1, 1), moveY: clamp(num(i.moveY), -1, 1),
     action: !!i.action, interact: !!i.interact,
     slot: sanitizeSlot(i.slot), seq: i.seq | 0,
-    power: clamp(i.power | 0, 0, 2),                                         // 1 / 2: fire the ridden pony's first / second rarity ability this tick
+    power: clamp(i.power | 0, 0, 4),                                         // 1-4: fire the ridden pony's first .. fourth power this tick (rarity abilities, then skills)
     lasso: !!i.lasso,                                                        // L / right click: throw the lasso from the lasso slot
     aim: !!i.aim && Number.isFinite(i.ax) && Number.isFinite(i.ay), ax: clamp(num(i.ax), -1e6, 1e6), ay: clamp(num(i.ay), -1e6, 1e6)   // a click / tap: the world point the swing, throw or tool is aimed at
   };

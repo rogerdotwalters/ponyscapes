@@ -5,3 +5,4 @@ const PonyKinds = new Registry('pony kinds', { required: ['name', 'ring', 'weigh
 const PonyVariantTable = new Registry('pony varieties', { required: ['name', 'accessory'] });
 const PonyTraits = new Registry('pony traits', { required: ['name', 'stat', 'base', 'perLevel'] });
 const PonyAbilities = new Registry('pony abilities', { required: ['name', 'cooldown', 'slot'] });
+const PonySkillTrees = new Registry('pony skill trees', { required: ['skills'] });         // one per variety (variants.js): its skills, unlocked by the pony's level (skills.js)

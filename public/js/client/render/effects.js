@@ -39,6 +39,7 @@ class Effects {
     game.events.on('slimeLeap', e => this._burst(e.x, e.y, 14, SLIME, 6));                                    // the Slime King pushes off
     game.events.on('slimeWindup', e => this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: e.seconds }));       // a red ring on the floor where he will land (slimeking.js)
     game.events.on('slimeSlam', e => { this._burst(e.x, e.y, 36, SLIME, 14); this._burst(e.x, e.y, 16, DUST_COLORS, 6); this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: 0.5, wave: true }); });   // the landing: slime and dust fly, a shock ring spreads
+    game.events.on('healed', e => this._float(e, `+${e.amount} hp`));
     game.events.on('loot', e => this._float(e, 'Chest opened!'));
     game.events.on('tradeDone', e => this._float(e, 'Trade complete'));
     game.events.on('bite', e => this._burst(e.x, e.y, 8, ['#4a3a5a', '#2b2233', '#a24a4a'], 12));
@@ -85,12 +86,14 @@ class Effects {
 
   /** A pony ability: a jet of fire, a ring of frost, a puff of dust behind a dash. */
   _onAbility(e) {
-    const ability = AbilityDefs[e.ability];
+    const ability = abilityDef(e.ability);
     if (!ability) return;
     const fx = Math.cos(e.facing), fy = Math.sin(e.facing), colors = { flame_breath: ['#ff7a1a', '#ffb34a', '#ffe08a', '#d6331a'], frost_nova: ['#9fe3ff', '#d6f4ff', '#ffffff', '#6fc3ff'], dash: DUST_COLORS }[e.ability] || GOLD_COLORS;
     if (e.ability === 'flame_breath') for (let d = 0.8; d <= 3.2; d += 0.6) this._burst(e.x + fx * d, e.y + fy * d, 6, colors, 26 - d * 2);
     else if (e.ability === 'frost_nova') for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; this._burst(e.x + Math.cos(a) * 2.4, e.y + Math.sin(a) * 2.4, 3, colors, 10); }
-    else this._burst(e.x - fx * 0.6, e.y - fy * 0.6, 12, colors, 6);
+    else if (e.ability === 'leaf_blast') for (let d = 0.7; d <= 3.6; d += 0.5) { for (const side of [-0.45, 0, 0.45]) { const a = e.facing + side * (d / 3.6), x = e.x + Math.cos(a) * d, y = e.y + Math.sin(a) * d; this._burst(x, y, 4, LEAF_COLORS, 22 - d * 2); } }     // a cone of leaves
+    else if (SkillAbilityDefs[e.ability] && SkillAbilityDefs[e.ability].effectDefs.some(f => f.shape === 'circle')) for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, r = Math.max(1.5, SkillAbilityDefs[e.ability].effectDefs[0].radius * 0.7); this._burst(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 3, [ability.color, '#ffffff'], 10); }
+    else this._burst(e.x - fx * 0.6, e.y - fy * 0.6, 12, SkillAbilityDefs[e.ability] ? [ability.color, '#ffffff'] : colors, 6);
     if (e.by === this.game.myId) this._float({ to: e.by }, ability.glyph + ' ' + ability.name);
   }
 

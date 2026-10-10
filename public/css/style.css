@@ -398,7 +398,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .ptraits{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0}
 .prarity,.pbuff,.pability{font-size:10.5px;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.07)}
 .prarity{background:var(--c);color:#10202f;font-weight:700}
-.pability{border:1px solid var(--c)}
+.pability{border:1px solid var(--c)}.pability.locked{opacity:.45;border-style:dashed}
 .pability kbd{font:600 9px Georgia,serif;padding:0 3px;border-radius:3px;background:rgba(255,255,255,.18)}
 
 /* ---- the ridden pony's abilities ---- */

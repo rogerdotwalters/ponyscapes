@@ -46,16 +46,16 @@ class Buff {
 
 /** What an ability does when it fires. kind: damage (hp) | slow (% slower) | speed (% faster) | light (radius in tiles) | scare (wild animals bolt).
  *  shape: self | circle (round the pony) | cone (in front of it); target: self | hostile (spiders ...) | wild (any wild animal that is not a pony) | allies (players). */
-const EffectKinds = Object.freeze(['damage', 'slow', 'speed', 'light', 'scare']);
+const EffectKinds = Object.freeze(['damage', 'slow', 'speed', 'light', 'scare', 'heal', 'gift']);          // heal: restore health (to yourself or to players near you); gift: put `value` of `item` in your bag
 const EffectShapes = Object.freeze(['self', 'circle', 'cone']);
 const EffectTargets = Object.freeze(['self', 'hostile', 'wild', 'allies']);
 
 class Effect {
-  constructor({ id, name, kind, value = 0, radius = 0, duration = 0, shape = 'self', target = 'self', color = '#ffffff' }) {
+  constructor({ id, name, kind, value = 0, radius = 0, duration = 0, shape = 'self', target = 'self', color = '#ffffff', item = '' }) {
     if (!EffectKinds.includes(kind)) throw new Error(`Effect ${id}: unknown kind "${kind}"`);
     if (!EffectShapes.includes(shape)) throw new Error(`Effect ${id}: unknown shape "${shape}"`);
     if (!EffectTargets.includes(target)) throw new Error(`Effect ${id}: unknown target "${target}"`);
-    Object.assign(this, { id, name, kind, value: Math.round(value) | 0, radius: +radius || 0, duration: +duration || 0, shape, target, color });
+    Object.assign(this, { id, name, kind, value: Math.round(value) | 0, radius: +radius || 0, duration: +duration || 0, shape, target, color, item });
     Object.freeze(this);
   }
   /** Is (x, y) inside this effect, fired from `from` facing `facing`? */
@@ -68,15 +68,18 @@ class Effect {
 }
 Effect.CONE_HALF_ANGLE = 0.6;
 
+/** An effect by id: a rarity ability's, or a pony skill's (ponySkills.js). */
+const effectDef = id => EffectDefs[id] || (typeof SkillEffectDefs !== 'undefined' ? SkillEffectDefs[id] : null);
+
 class Ability {
   /** trigger: 'active' (you fire it while riding: B / N or the ability button) | 'passive' (always on). cooldown in seconds. */
   constructor({ id, name, description = '', trigger = 'active', cooldown = 0, effects = [], glyph = '✨', color = '#ffffff' }) {
     if (trigger !== 'active' && trigger !== 'passive') throw new Error(`Ability ${id}: trigger must be active or passive`);
-    for (const e of effects) if (!EffectDefs[e]) throw new Error(`Ability ${id}: unknown effect "${e}"`);
+    for (const e of effects) if (!effectDef(e)) throw new Error(`Ability ${id}: unknown effect "${e}"`);
     Object.assign(this, { id, name, description, trigger, cooldown: +cooldown || 0, effects: Object.freeze(effects.slice()), glyph, color });
     Object.freeze(this);
   }
-  get effectDefs() { return this.effects.map(e => EffectDefs[e]); }
+  get effectDefs() { return this.effects.map(effectDef); }
   get passive() { return this.trigger === 'passive'; }
 }
 

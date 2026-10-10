@@ -20,6 +20,8 @@ const CONTROL_ACTIONS = [
   { id: 'fly',       group: 'Riding', label: 'Fly / land', keys: ['KeyB'] },
   { id: 'power1',    group: 'Riding', label: 'Pony power 1', keys: ['KeyH'] },
   { id: 'power2',    group: 'Riding', label: 'Pony power 2', keys: ['KeyK'] },
+  { id: 'power3',    group: 'Riding', label: 'Pony power 3 (a skill)', keys: ['KeyY'] },
+  { id: 'power4',    group: 'Riding', label: 'Pony power 4 (a skill)', keys: ['KeyO'] },
   { id: 'mainPony',  group: 'Riding', label: 'Make this your main pony', keys: ['KeyN'] },
   { id: 'inventory', group: 'Windows', label: 'Bag', keys: ['KeyI', 'Tab'] },
   { id: 'crafting',  group: 'Windows', label: 'Crafting', keys: ['KeyQ'] },
