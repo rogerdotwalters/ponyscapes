@@ -35,6 +35,7 @@ class Effects {
     game.events.on('lifted', e => this._float(e, 'Picked them up!'));
     const SLIME = ['#5fbf6a', '#8fe08a', '#3a8f4a', '#c4f5b8'];
     game.events.on('slimePuff', e => this._burst(e.x, e.y, 10, SLIME, 8));                                    // a slime wells up out of the floor
+    game.events.on('slimeLand', e => this._burst(e.x, e.y, 8, SLIME, 4));                                      // a small slime splashes down
     game.events.on('slimeLeap', e => this._burst(e.x, e.y, 14, SLIME, 6));                                    // the Slime King pushes off
     game.events.on('slimeWindup', e => this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: e.seconds }));       // a red ring on the floor where he will land (slimeking.js)
     game.events.on('slimeSlam', e => { this._burst(e.x, e.y, 36, SLIME, 14); this._burst(e.x, e.y, 16, DUST_COLORS, 6); this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: 0.5, wave: true }); });   // the landing: slime and dust fly, a shock ring spreads

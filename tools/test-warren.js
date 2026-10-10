@@ -90,6 +90,31 @@ test('the Slime King: waits in the arena; jumps, slams for ring damage, then res
   const states = run(`Object.values(S.animals.states([PA]))[0].lift`); assert(states === undefined || states >= 0);
 });
 
+/** A slime 4 tiles from a (standing) player in the first Warren room; returns what it did over `seconds`. `dodge` moves the player away the moment the slime squats. */
+const slimeLeap = (seconds, dodge) => run(`(() => {
+  S.dungeons.waves = {}; PA.hp = PA.maxHp;
+  const world = S.mapOf(PA), R = world.plan.room; let spot = null;
+  for (let y = 5; y < R.h - 5 && !spot; y++) for (let x = 5; x < R.w - 12 && !spot; x++) { let ok = true; for (let dx = 0; dx <= 8 && ok; dx++) for (let dy = -2; dy <= 2 && ok; dy++) if (R.code(x + dx, y + dy) !== 0 || world.plan.isPool(x + dx, y + dy)) ok = false; if (ok) spot = { x, y }; }
+  PA.x = spot.x + 6.5; PA.y = spot.y + 0.5;
+  const id = S.animals.spawn('slime', spot.x + 2.5, spot.y + 0.5, 0, { level: 4, grid: PA.grid }), a = S.animals.animals[id]; a.leapT = 0; a.wave = true;
+  const seen = new Set(); let lift = 0, away = false;
+  for (let i = 0; i < ${seconds} * CONFIG.sim.tickRate; i++) {
+    S.step();
+    seen.add(a.state); lift = Math.max(lift, a.jumpLift || 0);
+    if (${dodge ? 'true' : 'false'} && a.state === 'windup' && !away) { PA.y += 4; away = true; }
+  }
+  return { seen: [...seen], lift, hurt: PA.hp < PA.maxHp - 1 };
+})()`);
+
+test('green slimes leap at you: squat, hop, land; they hurt only if you are still there', () => {
+  setup(); run('S.worldProgress.defeatBoss(0)'); press();
+  const hit = slimeLeap(3, false);
+  for (const st of ['windup', 'jump', 'slam']) assert(hit.seen.includes(st), 'saw ' + st + ' in ' + hit.seen);
+  assert(hit.lift > 0.3, 'a hop: ' + hit.lift); assert(hit.hurt, 'it landed on you');
+  setup(); run('S.worldProgress.defeatBoss(0)'); press();
+  assert.strictEqual(slimeLeap(1.4, true).hurt, false, 'step aside and it lands harmlessly');
+});
+
 test('killing the Slime King ends the Warren', () => {
   setup(); run('S.worldProgress.defeatBoss(0)'); run(`S.dungeons.debugTeleport(A, PA, 'warren:5')`);
   run(`S.animals.damage(Object.keys(S.animals.animals).find(id => S.animals.animals[id].type === 'slime_king'), 999999)`);
