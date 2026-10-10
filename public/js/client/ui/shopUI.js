@@ -85,7 +85,8 @@ class ShopUI {
         `<div class="gempty">Hold a coin in your coin bag and drag it over the counter. A bigger coin is worth more, and the shop gives change.</div><div class="payBtns"><button class="tbig alt" data-cancel>Cancel</button></div></div>`;
       this._drawPay(); return;
     }
-    const tabs = `<div class="shopTabs"><button data-tab="buy" class="${this.tab === 'buy' ? 'on' : ''}">Buy</button><button data-tab="sell" class="${this.tab === 'sell' ? 'on' : ''}">Sell</button></div>`;
+    if (this.tab === 'sell' && !(site && site.def.buys)) this.tab = 'buy';
+    const tabs = !(site && site.def.buys) ? '' : `<div class="shopTabs"><button data-tab="buy" class="${this.tab === 'buy' ? 'on' : ''}">Buy</button><button data-tab="sell" class="${this.tab === 'sell' ? 'on' : ''}">Sell</button></div>`;
     if (this.tab === 'sell') { this._drawSell(site, purse, tabs); return; }
     const rows = this.items.map(id => {
       const def = ItemDefs[id], price = Shops.price(id), copper = Shops.coinPrice(price), others = price.filter(([item]) => !Coins.isCoin(item));

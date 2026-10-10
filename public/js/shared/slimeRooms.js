@@ -6,9 +6,12 @@
  * way in at the rock face nearest the north-west and the way on at the rock face FARTHEST from it by walking distance, and a chest far from both. No enemies are written into the rooms:
  * the Warren's waves (dungeonSystem.js) bring the slimes. */
 const SlimeRooms = (() => {
-  const SIZES = [40, 45, 50, 55, 60];                                   // levels 1-5: 50 on average
-  const ARENA = 38;
-  const rngOf = (salt) => (x, y, k) => hash3(salt, x, y, k);
+  /** The sets of rooms: the Warren's (levels 1-5 about 50 x 50, then the King's arena) and the castle crypt's (smaller: three levels, then the Baron's). */
+  const SETS = {
+    warren: { prefix: 'slime', name: 'Slime cave', sizes: [40, 45, 50, 55, 60], salt: 4100, chest: 5100, arena: { id: 'slime_king', name: 'The Slime King', size: 38, salt: 6100, pillars: 77 } },
+    crypt:  { prefix: 'crypt', name: 'Crypt level', sizes: [34, 38, 42], salt: 9100, chest: 9700, arena: { id: 'crypt_baron', name: 'The Slime Baron', size: 34, salt: 9900, pillars: 91 } }
+  };
+  const SIZES = SETS.warren.sizes, ARENA = SETS.warren.arena.size;  const rngOf = (salt) => (x, y, k) => hash3(salt, x, y, k);
 
   /** Walking distance (4-way) from tile (sx, sy) over the open tiles of a Uint8Array grid (1 = open), -1 where not reachable. */
   function distances(open, w, h, sx, sy) {
@@ -92,28 +95,28 @@ const SlimeRooms = (() => {
   }
 
   /** Cave level 1-5 (index 0-4). */
-  function level(index) {
-    const size = SIZES[index] || 50, id = `slime_${index + 1}`;
+  function level(index, set = SETS.warren) {
+    const size = set.sizes[index] || 50, id = `${set.prefix}_${index + 1}`;
     for (let salt = 0; salt < 20; salt++) {
-      const open = carve(size, size, 4100 + index * 131 + salt * 7919), room = finish(id, `Slime cave ${index + 1}`, size, size, open, 5100 + index * 17 + salt, 1);
+      const open = carve(size, size, set.salt + index * 131 + salt * 7919), room = finish(id, `${set.name} ${index + 1}`, size, size, open, set.chest + index * 17 + salt, 1);
       if (room && !room.problems().length) return room;
     }
     return null;
   }
 
   /** The Slime King's round arena: a wide floor with rock pillars standing about, the way in on the west, a way out on the east. */
-  function arena() {
-    const w = ARENA, h = ARENA, open = new Uint8Array(w * h), c = (w - 1) / 2, R = rngOf(77);
+  function arena(set = SETS.warren) {
+    const A = set.arena, w = A.size, h = A.size, open = new Uint8Array(w * h), c = (w - 1) / 2, R = rngOf(A.pillars);
     for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
       const d = Math.hypot(x - c, y - c);
       if (d <= 16.5 + (R(x, y, 1) - 0.5) * 1.6) open[y * w + x] = 1;
     }
     for (const [px, py] of [[-8, -6], [8, -6], [-8, 7], [8, 7], [0, -10], [0, 11]]) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (dx * dx + dy * dy <= 2) open[Math.round(c + py + dy) * w + Math.round(c + px + dx)] = 0;
-    return finish('slime_king', 'The Slime King', w, h, open, 6100, 1);
+    return finish(A.id, A.name, w, h, open, A.salt, 1);
   }
 
-  const build = () => [0, 1, 2, 3, 4].map(level).concat([arena()]).filter(Boolean);
+  const build = () => Object.values(SETS).flatMap(set => set.sizes.map((_, i) => level(i, set)).concat([arena(set)])).filter(Boolean);
   const rooms = build();
   for (const room of rooms) CaveRooms.register(room);
-  return { rooms, level, arena, SIZES, ARENA };
+  return { rooms, level, arena, SETS, SIZES, ARENA };
 })();

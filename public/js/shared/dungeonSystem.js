@@ -30,6 +30,17 @@ function findDungeonInteraction(map, p) {
   }
   return best;
 }
+/** The trapdoor in the castle's cellar (a furniture piece, data/furniture/castle.js): the way down into the dungeon whose `entrance` is 'castle'. */
+function findCryptInteraction(map, p) {
+  if (map.kind !== 'room' || !map.plan || map.plan.key !== 'cellar' || !map.plan.site || map.plan.site.id !== 'castle') return null;
+  const f = map.plan.layout.furniture.find(g => g.id === 'trapdoor');
+  if (!f) return null;
+  const def = FurnitureDefs.get('trapdoor'), w = f.rot % 2 ? def.size[1] : def.size[0], h = f.rot % 2 ? def.size[0] : def.size[1];
+  const dist = Math.hypot(p.x - clamp(p.x, f.x, f.x + w), p.y - clamp(p.y, f.y, f.y + h));
+  return dist <= 1.0 ? { kind: 'enter_crypt', label: 'Down the trapdoor', dist } : null;
+}
+Interactions.extra.push(findCryptInteraction);
+InteractionHandlers.enter_crypt = (server, id, p) => server.dungeons.enterCrypt(id, p);
 Interactions.extra.push(findCaveInteraction);                                                // the interact key now knows about caves
 InteractionHandlers.leave_cave = (server, id, p) => server.dungeons.leave(id, p);
 InteractionHandlers.enter_dungeon = (server, id, p, action) => server.dungeons.enterDungeon(id, p, action.dungeon);
@@ -59,6 +70,21 @@ class DungeonSystem {
   }
 
   /* ---- room dungeons (js/data/dungeons/, rooms from PNGs: js/shared/roomCodes.js) ---- */
+
+  /** The trapdoor in the castle's cellar -> the first room of the dungeon whose `entrance` is 'castle'. */
+  enterCrypt(id, p) {
+    const s = this.server, d = Dungeons.all().findIndex(def => def.entrance === 'castle'), def = Dungeons.all()[d];
+    if (!def) return;
+    const world = s.grids.get(Grids.dungeon(d, 0));
+    if (world.kind !== 'dungeon') { s._notice(id, 'The way down is blocked by fallen stones'); return; }
+    if (this._cooling(id)) return;
+    p.returnTo = { grid: gridOf(p), x: p.x, y: p.y };
+    const at = world.plan.entryPoint();
+    s._moveToGrid(id, p, world.grid, at.x, at.y);
+    this.populate(world); this.announce(id, world);
+    s._notice(id, `You climb down into ${def.name}`);
+    s.pendingEvents.push({ type: 'enteredCave', to: id, ring: def.ring });
+  }
 
   /** The mouth of dungeon `d` in the overworld -> its first room. */
   enterDungeon(id, p, d) {
@@ -95,10 +121,17 @@ class DungeonSystem {
   /** Testing aid (the host, Dev settings): 'village', 'cave' (the first dungeon's mouth) or 'room:<n>' (inside its room n, as if you had walked in); 'warren' and 'warren:<n>' are the
    *  same for the Slime Warren (the second dungeon), whether or not the rubble has been cleared. */
   debugTeleport(id, p, to) {
-    const s = this.server, caves = s.map.terrain.caveSites.caves(), mouth = caves[0], room = /^room:(\d{1,2})$/.exec(to), warren = /^warren(?::(\d{1,2}))?$/.exec(to);
+    const s = this.server, caves = s.map.terrain.caveSites.caves(), mouth = caves[0], room = /^room:(\d{1,2})$/.exec(to), warren = /^warren(?::(\d{1,2}))?$/.exec(to), crypt = /^crypt(?::(\d{1,2}))?$/.exec(to);
     if (p.flying) { p.flying = false; p.flyT = 0; }
     if (to === 'village') { const at = Village.spawns[0]; s._moveToGrid(id, p, '', at.x, at.y); p.returnTo = null; }
     else if (to === 'cave' && mouth) { s._moveToGrid(id, p, '', mouth.x, mouth.y + 1.6); p.returnTo = null; }
+    else if (crypt) {                                                                                         // the Slime Cellars, as if you had come down the castle's trapdoor
+      const d = Dungeons.all().findIndex(def => def.entrance === 'castle'), world = d >= 0 && s.grids.get(Grids.dungeon(d, Number(crypt[1] || 0)));
+      if (!world || world.kind !== 'dungeon') { s._notice(id, 'No such room'); return; }
+      const site = BuildingSites.list.find(b => b.id === 'castle'), at = world.plan.entryPoint();
+      p.returnTo = { grid: site ? Grids.room(site.index, Math.max(0, Grids.roomKeys(site).indexOf('cellar'))) : '', x: 6.5, y: 4.8 };
+      s._moveToGrid(id, p, world.grid, at.x, at.y); this.populate(world); this.announce(id, world);
+    }
     else if ((room || warren) && caves.length) {
       const d = warren ? 1 : 0, door = caves.find(c => c.index === d), n = Number(warren ? (warren[1] || 0) : room[1]);
       if (!door) { s._notice(id, 'No such cave'); return; }
@@ -114,7 +147,7 @@ class DungeonSystem {
   /** Out of the dungeon, back to the cave mouth. */
   leaveDungeon(id, p, d) {
     const s = this.server, mouth = s.map.terrain.caveSites.caves().find(c => c.index === d), back = p.returnTo || (mouth ? { x: mouth.x, y: mouth.y + 1.6 } : { x: 20.5, y: 26.5 });
-    s._moveToGrid(id, p, '', back.x, back.y);
+    s._moveToGrid(id, p, back.grid || '', back.x, back.y);                                   // (a cave mouth in the hills, or the castle cellar's trapdoor: `grid`)
     p.returnTo = null;
     s.pendingEvents.push({ type: 'leftCave', to: id });
   }
@@ -161,15 +194,16 @@ class DungeonSystem {
     if (!w && !(world.plan.dungeon.king && world.plan.dungeon.king.room === world.plan.index)) return;
     s.pendingEvents.push({ type: 'roomState', to: id, grid, cleared, left: this.left(grid) });
     if (w && !cleared) s._notice(id, `Slimes will keep coming. Defeat all ${w.total} to open the way on`);
-    if (!w) s._notice(id, this.kingDown.has(grid) ? 'The Slime King is gone' : 'The Slime King watches you from the middle of the arena');
+    if (!w) s._notice(id, this.kingDown.has(grid) ? 'The way is quiet' : `The ${AnimalDefs[world.plan.dungeon.king.type || 'slime_king'].name} watches you from the middle of the arena`);
   }
 
   /** The Slime King is placed in the middle of his arena (once, until he dies). */
   ensureKing(world) {
     const s = this.server, grid = world.grid, plan = world.plan, def = plan.dungeon;
-    if (this.kingDown.has(grid) || Object.values(s.animals.animals).some(a => a.type === 'slime_king' && a.grid === grid)) return;
+    const type = def.king.type || 'slime_king';
+    if (this.kingDown.has(grid) || Object.values(s.animals.animals).some(a => a.type === type && a.grid === grid)) return;
     const R = plan.room, cx = Math.floor(R.w / 2), cy = Math.floor(R.h / 2);
-    const id = s.animals.spawn('slime_king', cx + 0.5, cy + 0.5, 0, { level: def.king.level, grid });
+    const id = s.animals.spawn(type, cx + 0.5, cy + 0.5, 0, { level: def.king.level, grid });
     s.animals.animals[id].home = { x: cx + 0.5, y: cy + 0.5 };
   }
 
@@ -268,18 +302,18 @@ class DungeonSystem {
 
   /** AnimalSystem tells us whenever something dies. */
   onKilled(animal, def) {
-    if (def.id === 'slime_king') { this.kingFell(animal); return; }
+    if (def.king) { this.kingFell(animal, def); return; }
     if (!def.boss) return;
     delete this.bosses[def.bossRing];
     this.conquer(def.bossRing, def.name, false);
   }
 
   /** The Slime King falls: his arena is quiet, and everybody in it is told. */
-  kingFell(animal) {
+  kingFell(animal, def) {
     const s = this.server, grid = gridOf(animal);
     this.kingDown.add(grid);
     s.pendingEvents.push({ type: 'kingDefeated', grid, x: animal.x, y: animal.y });
-    for (const p of Object.values(s.players)) if (gridOf(p) === grid) s._notice(p.id, 'The Slime King is defeated! The Slime Warren is quiet at last');
+    for (const p of Object.values(s.players)) if (gridOf(p) === grid) s._notice(p.id, `The ${def.name} is defeated! The slimes here are quiet at last`);
   }
 
   /** A ring's guardian is beaten (or appeased: wantSystem.js): the next ring opens for everyone. */

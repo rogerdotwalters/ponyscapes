@@ -64,6 +64,7 @@ class GameServer {
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
     this.downed = new DownedSystem(this);                                    // going down in a dungeon instead of waking in the village (downed.js)
+    this.castleSlimes = new CastleSlimes(this);                              // the ruined castle's slimes (castleSlimes.js)
     this.bots = new BotSystem(this);                                         // the test bot (botSystem.js)
     this.sleep = new SleepSystem(this);                                      // bedtime, the forced sleep and skipping the night (sleepSystem.js)
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
@@ -99,6 +100,7 @@ class GameServer {
       if ((a.leashed && (a.owner === id || a.captor === id) || (a.main && a.owner === id)) && a.id !== p.mount) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; }
     }
     this.eventGrid = grid;
+    if (this.castleSlimes) this.castleSlimes.enter(grid);                    // (the ruined castle fills with slimes the first time a room is entered)
   }
 
   /** Three stockpiles in the home's yard, already holding some of what the testing kit used to put in your pack. */

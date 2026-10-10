@@ -5,5 +5,6 @@
  *   ring       which zone its cave mouth stands in (0 = zone 1)
  *   lair       (optional) true: the zone's guardian lair (the boss arena of zone `ring`) is the dungeon's LAST layer, down from the last room's exit; beating the guardian opens the next zone
  *   enemies    the creatures a plain spawn node (4) picks from: ids, or [id, weight] for a rare one ([['slime', 9], ['wolf', 1]] = one wolf in ten). (A creature number, 1000+, always spawns that creature.) Default: the ring's hostile creatures
+ *   entrance   (optional) 'castle': no cave mouth in the hills; its way in is the trapdoor in the castle's cellar (dungeonSystem.js)
  *   loot       what its chests can hold: [{ item, min, max, chance }] (default: a few coins and supplies) */
 const Dungeons = new Registry('dungeons', { required: ['name', 'ring', 'rooms'] });

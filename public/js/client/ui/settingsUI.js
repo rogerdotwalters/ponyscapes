@@ -72,14 +72,15 @@ class SettingsUI {
   /** Act 1 (the Old Cavern, the Cave Bear and the Slime Warren): tests for the story so far. */
   _createAct1() {
     const el = document.createElement('div'); el.className = 'testBox';
-    const warren = Dungeons.all()[1] ? Dungeons.all()[1].rooms : [];
+    const warren = Dungeons.all()[1] ? Dungeons.all()[1].rooms : [], crypt = (Dungeons.all().find(d => d.entrance === 'castle') || { rooms: [] }).rooms;
     el.innerHTML =
       '<div class="gtitle">Act 1</div>' +
       '<label class="chk"><input type="checkbox" data-setting="botPlayer"><span><b>Bot player</b><small>A second player joins you (checked) or leaves (unchecked). It follows you into caves, fights, and picks you up when you are down, to try party play alone.</small></span></label>' +
       '<label class="chk"><input type="checkbox" data-setting="bearDefeated"><span><b>Cave Bear defeated</b><small>Checked: the Cave Bear counts as beaten, so the rubble clears from the Slime Warren (the second cave in the hills). Unchecked: the bear is back.</small></span></label>' +
       '<div class="admRow" style="gap:8px;align-items:center;margin-top:6px"><button data-castle tabindex="-1">Restore the castle</button><small data-castle-state style="color:#a9b6c4"></small></div>' +
       '<div class="admRow" style="flex-wrap:wrap;gap:6px;margin-top:6px"><button data-tp="warren" tabindex="-1">Slime Warren: level 1</button>' +
-      warren.map((r, i) => (i ? `<button data-tp="warren:${i}" tabindex="-1">${i === warren.length - 1 ? 'Slime King' : 'Level ' + (i + 1)}</button>` : '')).join('') + '</div>';
+      warren.map((r, i) => (i ? `<button data-tp="warren:${i}" tabindex="-1">${i === warren.length - 1 ? 'Slime King' : 'Level ' + (i + 1)}</button>` : '')).join('') + '</div>' +
+      '<div class="admRow" style="flex-wrap:wrap;gap:6px;margin-top:6px">' + crypt.map((r, i) => `<button data-tp="crypt:${i}" tabindex="-1">${i === 0 ? 'Slime Cellars: level 1' : i === crypt.length - 1 ? 'Slime Baron' : 'Level ' + (i + 1)}</button>`).join('') + '</div>';
     el.addEventListener('click', e => {
       if (e.target.closest('button[data-castle]')) { this.game.setSetting('castleRestored', !(this.game.settings && this.game.settings.castleRestored)); return; }   // (restores the castle for everyone, or lets it fall to ruin again)
       const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp === 'warren' ? 'warren:0' : b.dataset.tp); });

@@ -60,6 +60,7 @@ Object.assign(GameServer.prototype, {
   _sell(id, itemId, count) {
     const p = this.players[id], inventory = this.inventories[id], near = p && Shops.counterNear(this.mapOf(p), p);
     if (!near) { this._notice(id, 'Walk up to the shop counter to sell'); return; }
+    if (!near.site.def.buys) { this._notice(id, 'This shop does not buy things: the General Store does'); return; }
     const each = Shops.sellPrice(itemId);
     if (!each) { this._notice(id, 'The shop does not buy that'); return; }
     const n = Math.min(inventory.count(itemId), Math.max(1, Math.floor(+count) || 1));

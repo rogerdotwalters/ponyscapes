@@ -148,6 +148,7 @@ class InteriorSystem {
     }
     for (const gid of s.grids.ids()) { const g = Grids.parse(gid); if (g && g.kind === 'room' && g.site === site.index) s.grids.drop(gid); }
     this.versionsRev++;
+    if (s.castleSlimes) s.castleSlimes.clear(site.index);                                          // (a restored castle has no slimes; a ruined one gets them when entered)
     this._syncSettings();
     return true;
   }

@@ -595,7 +595,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def && def.hedge ? hedgePainter(def) : def && def.sapling ? saplingPainter(def) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.blade ? (c => swordIcon(c, def.blade, def.edge || '#f4f8ff')) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def && def.hedge ? hedgePainter(def) : def && def.sapling ? saplingPainter(def) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d'));
     return (cache[key] = canvas.toDataURL());
   }

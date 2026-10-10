@@ -98,7 +98,7 @@ class CaveSites {
       }
       return false;
     };
-    const dungeons = Math.max(1, typeof Dungeons !== 'undefined' ? Dungeons.size : 1);
+    const dungeons = Math.max(1, typeof Dungeons !== 'undefined' ? Dungeons.all().filter(d => !d.entrance).length : 1);          // (a dungeon with its own `entrance` has no mouth in the hills)
     for (let d = 0; d < dungeons; d++) place('cave_hill', 100 + d, 50, 80, 400);               // the dungeons' mouths first, so nothing else takes their ground
     let key = 0;
     for (const id of Object.keys(this.COUNT)) for (let i = 0; i < this.COUNT[id]; i++) place(id, key++, 40, 90, 60);

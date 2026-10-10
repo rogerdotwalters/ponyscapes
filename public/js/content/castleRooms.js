@@ -54,7 +54,7 @@ const CastleRooms = (() => {
     cellar: room('Cellar', 13, 9, {
       exit: [11, 8], exitTo: 'guardroom', floor: 'c', wall: 'D',
       furniture: [['cask', 1, 1], ['cask', 2, 1], ['cask', 3, 1], ['cask', 1, 2], ['cask', 5, 1], ['crate', 7, 1], ['crate', 8, 1], ['worn_chest', 11, 1],
-        ['cask', 1, 5], ['cask', 1, 6], ['crate', 4, 6], ['crate', 5, 6], ['crate', 5, 5], ['hay_bale', 9, 5], ['hay_bale', 10, 5], ['worn_chest', 11, 3], ['candelabra', 8, 6]]
+        ['cask', 1, 5], ['cask', 1, 6], ['crate', 4, 6], ['crate', 5, 6], ['crate', 5, 5], ['hay_bale', 9, 5], ['hay_bale', 10, 5], ['worn_chest', 11, 3], ['candelabra', 8, 6], ['trapdoor', 6, 3]]
     }),
     kitchen: room('Kitchen', 11, 9, {
       exit: [5, 8], exitTo: 'gatehall', floor: 't', windows: [[3, 0], [7, 0]],

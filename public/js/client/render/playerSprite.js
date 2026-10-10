@@ -370,7 +370,7 @@ class PlayerSprite {
   }
 
   _drawSwordBlade(hx, hy, tx, ty, dx, dy, px, py, item) {
-    const g = this.g, ctx = g.ctx, blade = item === 'stone_sword' ? '#9a9aa2' : '#d6b07a', edge = item === 'stone_sword' ? '#cfcfd6' : '#f0d9ae';
+    const g = this.g, ctx = g.ctx, def = ItemDefs[item] || {}, blade = def.blade || (item === 'stone_sword' ? '#9a9aa2' : '#d6b07a'), edge = def.edge || (item === 'stone_sword' ? '#cfcfd6' : '#f0d9ae');
     g.polygon([hx + dx * 6 + px * 2.2, hy + dy * 6 + py * 2.2, tx + dx * 8, ty + dy * 8, hx + dx * 6 - px * 2.2, hy + dy * 6 - py * 2.2], blade);
     ctx.strokeStyle = edge; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hx + dx * 7, hy + dy * 7); ctx.lineTo(tx + dx * 7, ty + dy * 7); ctx.stroke();
     ctx.strokeStyle = '#5a3a20'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(hx + px * 5 + dx * 5, hy + py * 5 + dy * 5); ctx.lineTo(hx - px * 5 + dx * 5, hy - py * 5 + dy * 5); ctx.stroke();   // crossguard

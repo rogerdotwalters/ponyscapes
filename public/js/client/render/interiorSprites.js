@@ -148,6 +148,12 @@ const InteriorSprites = (() => {
       for (const u of [0.42, 0.58]) { const [x, y] = facePt(fb, face, u, h / 2); ctx.fillStyle = c.knob || '#d9b45a'; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill(); }
       if (c.cross) { faceQuad(ctx, fb, face, 0.44, 0.56, h - 18, h - 8, c.cross); faceQuad(ctx, fb, face, 0.36, 0.64, h - 15, h - 11, c.cross); }
     },
+    trapdoor(ctx, b, def) {                                                                               // a wooden hatch in the floor: a frame, dark planks and an iron ring
+      const c = def.colors;
+      box(ctx, b.x0 + 0.04, b.y0 + 0.06, b.x1 - 0.04, b.y1 - 0.06, 3, c.frame);
+      box(ctx, b.x0 + 0.14, b.y0 + 0.16, b.x1 - 0.14, b.y1 - 0.16, 1.5, c.plank, 3);
+      const [cx, cy] = P((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2); ctx.strokeStyle = c.ring; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(cx, cy - 4.5, 4.2, 2.4, 0, 0, Math.PI * 2); ctx.stroke();
+    },
     rug(ctx, b, def) {
       const c = def.colors, [cx, cy] = P((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2), rw = (b.x1 - b.x0) / 2, rh = (b.y1 - b.y0) / 2;
       const ell = (k, color) => { ctx.beginPath(); ctx.ellipse(cx, cy, (rw + rh) / 2 * W * 0.92 * k, (rw + rh) / 2 * H * 0.92 * k, 0, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill(); };
