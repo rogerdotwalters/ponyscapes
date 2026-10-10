@@ -17,6 +17,7 @@ function createPlayer(slot, spawn) {
     flying: false, flyT: 0, flyDur: 0, flyCd: 0,                            // a pegasus's flight: in the air, seconds left, how long it lasts, seconds until the next one
     buffs: noBuffs(), companions: 0, carryStacks: 1,                         // what the ponies with you add (rarity.js), and stacks of each resource you may carry (stockpiles.js)
     abilities: [], abilityCd: [0, 0, 0, 0], dashT: 0, dashBoost: 0,          // the ridden pony's powers (rarity abilities, then skills: H K Y O), their cooldowns, and a running Dash
+    regenT: 0, regenRate: 0,                                                  // health regeneration from an apple (appleSystem.js): seconds left, hp a second
     down: 0, downHp: 0, downMax: 0, graceT: 0,                               // downed in a dungeon (downed.js): seconds until you get up (0 = on your feet), health stored by snacks, the wait you began with, and the safe moment after
     asleep: false, sleepT: 0, sleepForced: false                             // sleeping in the bed at home (sleepSystem.js): seconds asleep, and whether the night forced it
   };

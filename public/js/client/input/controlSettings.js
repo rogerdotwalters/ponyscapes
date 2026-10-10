@@ -13,6 +13,7 @@ const CONTROL_ACTIONS = [
   { id: 'use',       group: 'Actions', label: 'Use (tool, weapon, place)', keys: ['KeyE', 'Space', 'Enter'] },
   { id: 'interact',  group: 'Actions', label: 'Interact (pick, board, talk)', keys: ['KeyF'] },
   { id: 'lasso',     group: 'Actions', label: 'Throw lasso', keys: ['KeyL'] },
+  { id: 'apple',     group: 'Actions', label: 'Give your pony an apple (Shift: change kind)', keys: ['KeyC'] },
   { id: 'drop',      group: 'Actions', label: 'Drop held item (Shift: all)', keys: ['KeyX'] },
   { id: 'release',   group: 'Actions', label: 'Let go / untie', keys: ['KeyU'] },
   { id: 'rotate',    group: 'Actions', label: 'Rotate what you build', keys: ['KeyR'] },

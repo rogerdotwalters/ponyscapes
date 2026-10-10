@@ -1,4 +1,5 @@
 'use strict';
+/* (APPLES carry a `pony` block: what the Apple button does when you give one to your pony, see shared/appleSystem.js. heal: the share of its health restored at once; regen: [hp a second, seconds] health regeneration for YOU, the only thing an apple does for the player; speed: [% faster, seconds] for its rider; cooldowns: the share of the rider's power cooldowns taken off; xp: pony experience.) */
 /* DATA - foods. One line per entry. EVERY food and drink lives here and only here. hunger/thirst are what it restores; category decides how it behaves (berry, fruit, meat, drink). A raw food names what it cooks into. */
 const Foods = new Registry('foods', { required: ['name', 'category', 'maxStack'], check: f => (['berry', 'fruit', 'meat', 'drink', 'mushroom'].includes(f.category) ? null : 'has an unknown category') });
 Foods.registerAll([
@@ -22,14 +23,14 @@ Foods.registerAll([
   { id: 'cooked_chicken', name: 'Roast Chicken', category: 'meat', maxStack: 10, hunger: 16, thirst: 0 },
   { id: 'egg', name: 'Egg', category: 'meat', maxStack: 12, hunger: 5, thirst: 0, cooksInto: 'fried_egg', recipe: { id: 'cook_egg', name: 'Fry Egg' } },
   { id: 'fried_egg', name: 'Fried Egg', category: 'meat', maxStack: 12, hunger: 11, thirst: 0 },
-  { id: 'apple', name: 'Apple', category: 'fruit', maxStack: 30, hunger: 10, thirst: 3, color: '#d9382b', apple: true },
+  { id: 'apple', name: 'Apple', category: 'fruit', maxStack: 30, hunger: 10, thirst: 3, color: '#d9382b', apple: true, pony: { heal: 0.3 } },
   /* ---- more apples: they grow in the Orchard (its `apples` table). Every kind of apple does what an apple does (ponies, taming) ---- */
-  { id: 'green_apple', name: 'Green Apple', category: 'fruit', maxStack: 30, hunger: 9, thirst: 4, color: '#7cc142', apple: true },
-  { id: 'golden_apple', name: 'Golden Apple', category: 'fruit', maxStack: 30, hunger: 12, thirst: 3, color: '#f2c94c', apple: true, rarity: 'uncommon' },
-  { id: 'pink_apple', name: 'Pink Lady Apple', category: 'fruit', maxStack: 30, hunger: 11, thirst: 3, color: '#f07fa0', apple: true, rarity: 'uncommon' },
-  { id: 'crab_apple', name: 'Crab Apple', category: 'fruit', maxStack: 30, hunger: 6, thirst: 2, color: '#b5482e', apple: true },
-  { id: 'crystal_apple', name: 'Crystal Apple', category: 'fruit', maxStack: 30, hunger: 15, thirst: 6, color: '#9fe0e6', apple: true, rarity: 'epic' },   // grows only on Orchard apple trees where the Orchard meets a Crystal Hollow
-  { id: 'russet_apple', name: 'Russet Apple', category: 'fruit', maxStack: 30, hunger: 11, thirst: 2, color: '#b07a3a', apple: true, rarity: 'rare' },
+  { id: 'green_apple', name: 'Green Apple', category: 'fruit', maxStack: 30, hunger: 9, thirst: 4, color: '#7cc142', apple: true, pony: { heal: 0.3, regen: [2, 6] } },
+  { id: 'golden_apple', name: 'Golden Apple', category: 'fruit', maxStack: 30, hunger: 12, thirst: 3, color: '#f2c94c', apple: true, pony: { heal: 0.5, speed: [40, 15] }, rarity: 'uncommon' },
+  { id: 'pink_apple', name: 'Pink Lady Apple', category: 'fruit', maxStack: 30, hunger: 11, thirst: 3, color: '#f07fa0', apple: true, pony: { heal: 0.45, cooldowns: 0.5 }, rarity: 'uncommon' },
+  { id: 'crab_apple', name: 'Crab Apple', category: 'fruit', maxStack: 30, hunger: 6, thirst: 2, color: '#b5482e', apple: true, pony: { heal: 0.15, regen: [1, 5] } },
+  { id: 'crystal_apple', name: 'Crystal Apple', category: 'fruit', maxStack: 30, hunger: 15, thirst: 6, color: '#9fe0e6', apple: true, pony: { heal: 1, cooldowns: 1, speed: [60, 12] }, rarity: 'epic' },   // grows only on Orchard apple trees where the Orchard meets a Crystal Hollow
+  { id: 'russet_apple', name: 'Russet Apple', category: 'fruit', maxStack: 30, hunger: 11, thirst: 2, color: '#b07a3a', apple: true, pony: { heal: 0.4, xp: 20 }, rarity: 'rare' },
   { id: 'raw_fish', name: 'Raw Fish', category: 'meat', maxStack: 10, hunger: 9, thirst: 0, cooksInto: 'cooked_fish', recipe: { id: 'cook_fish', name: 'Grilled Fish' } },
   { id: 'cooked_rabbit', name: 'Roast Rabbit', category: 'meat', maxStack: 10, hunger: 17, thirst: 0 },
   { id: 'cooked_venison', name: 'Roast Venison', category: 'meat', maxStack: 10, hunger: 28, thirst: 0 },

@@ -124,6 +124,8 @@ class ClientGame {
   /** One job on one plot of a field (the garden window): op = till | dig | water | plant | cover | clear | harvest. The server checks it all (farming.js). */
   fieldOp(op, tx, ty, i, item) { this.net.sendCommand({ type: 'field', op, tx, ty, i, item }); }
   fieldAt(tx, ty) { return Farming.fieldAt(this.map, tx, ty); }
+  /** The Apple button: give one apple (of this kind) to your pony (appleSystem.js). */
+  useApple(item) { this.net.sendCommand({ type: 'apple', item }); }
   sell(item, count) { this.net.sendCommand({ type: 'sell', item, count }); }
   buy(item, pay) { this.net.sendCommand({ type: 'buy', item, pay }); }
   _applyPack(wire) {

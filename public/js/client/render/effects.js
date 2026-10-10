@@ -39,6 +39,7 @@ class Effects {
     game.events.on('slimeLeap', e => this._burst(e.x, e.y, 14, SLIME, 6));                                    // the Slime King pushes off
     game.events.on('slimeWindup', e => this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: e.seconds }));       // a red ring on the floor where he will land (slimeking.js)
     game.events.on('slimeSlam', e => { this._burst(e.x, e.y, 36, SLIME, 14); this._burst(e.x, e.y, 16, DUST_COLORS, 6); this.rings.push({ x: e.x, y: e.y, r: e.r, age: 0, life: 0.5, wave: true }); });   // the landing: slime and dust fly, a shock ring spreads
+    game.events.on('apple', e => { this._burst(e.x, e.y, 8, HEART_COLORS, 22); this._float(e, e.healed ? `Pony +${e.healed} hp` : 'Yum!'); });      // an apple for your pony (appleSystem.js)
     game.events.on('healed', e => this._float(e, `+${e.amount} hp`));
     game.events.on('loot', e => this._float(e, 'Chest opened!'));
     game.events.on('tradeDone', e => this._float(e, 'Trade complete'));

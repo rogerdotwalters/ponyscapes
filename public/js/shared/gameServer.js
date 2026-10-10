@@ -290,6 +290,7 @@ class GameServer {
       case 'ponyBagOn': this._ponyBagOn(id, inventory, cmd.from); break;
       case 'ponyBagOff': this._ponyBagOff(id, inventory, cmd.index); break;
       case 'buy': if (typeof cmd.item === 'string') this._buy(id, cmd.item, cmd.pay); break;
+      case 'apple': if (typeof cmd.item === 'string') this._giveApple(id, cmd.item); break;                           // the Apple button (appleSystem.js)
       case 'sell': if (typeof cmd.item === 'string') this._sell(id, cmd.item, cmd.count); break;                        // at a shop counter (shopSystem.js)                          // at a shop counter (shopSystem.js)
       case 'unequip': this._handleUnequip(id, inventory, cmd.slot); break;
       case 'emote': this._handleEmote(id, cmd.id); break;
@@ -585,6 +586,7 @@ class GameServer {
     if (p.abilityCd.some(t => t > 0)) p.abilityCd = p.abilityCd.map(t => Math.max(0, t - TICK_DT));
     this.dungeons.tickHints(id, p);
     this.downed.tick(id, p);
+    if (p.regenT > 0) { p.regenT = Math.max(0, p.regenT - TICK_DT); if (p.hp > 0 && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p.regenRate * TICK_DT); if (p.regenT === 0) p.regenRate = 0; }     // an apple's regeneration
     if (p.emoteT === 0) p.emote = '';
     if (p.hp > 0 && p.hp < p.maxHp && p.hunger > 0 && p.thirst > 0) p.hp = Math.min(p.maxHp, p.hp + S.health.regenPerSecond * TICK_DT);
     if (p.held === 'torch' && LightSources.isDark(this.tick)) {

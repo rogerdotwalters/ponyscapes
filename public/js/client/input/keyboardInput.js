@@ -23,6 +23,7 @@ const KEY_EVENTS = {
   power2: bus => bus.emit('ponyPower', 2),                  // ...and its second (legendary)
   power3: bus => bus.emit('ponyPower', 3),                  // the skills a pony learns as it levels up (ponySkills.js) follow its rarity abilities
   power4: bus => bus.emit('ponyPower', 4),
+  apple: (bus, shift) => bus.emit(shift ? 'cycleApple' : 'useApple'),   // the Apple button (appleUI.js)
   lasso: bus => bus.emit('throwLasso'),                     // the lasso in the lasso slot (whatever is in your hand)
   drop: (bus, shift) => bus.emit('dropHeld', shift),        // drop what is in your hand (Shift: the whole stack)
   town: bus => bus.emit('toggleTown')                       // stockpiles and building upgrades

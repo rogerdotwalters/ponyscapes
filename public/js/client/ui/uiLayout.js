@@ -33,13 +33,14 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
   const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
   const drop = makeRect(lasso.x - g - small, ability.y, small, small);       // drop what is in your hand, beside the lasso
-  const cluster = unionRect([useRect, bag, board, rot, release, ability, lasso, drop]);
+  const apple = makeRect(drop.x - g - small, ability.y, small, small);       // the Apple button (give your pony an apple), at the end of that row
+  const cluster = unionRect([useRect, bag, board, rot, release, ability, lasso, drop, apple]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, bag, board, rot, release, ability, lasso, drop, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, bag, board, rot, release, ability, lasso, drop, apple, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -185,7 +186,9 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
-  return { k, w, h, buttonScale: sys.shrink, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  /* ---- the Apple button: touch has its own place in the thumb cluster; on desktop it sits beside the emote button ---- */
+  const appleRect = touch ? touchLayout.apple : [emote.x + ub + gap, emote.x - ub - gap].map(x => makeRect(x, emote.y, ub, ub)).find(r => r.x >= left && r.x + r.w <= right) || makeRect(emote.x, emote.y - 2 * (gap + ub), ub, ub);
+  return { k, w, h, buttonScale: sys.shrink, apple: appleRect, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -244,6 +247,7 @@ class UiLayout {
     if (dom.season) { place(dom.season, L.season); dom.season.style.fontSize = Math.round(12 * L.k) + 'px'; dom.season.classList.toggle('compact', L.season.compact); dom.season.classList.toggle('tiny', L.season.tiny); }
     for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
+    if (dom.btnApple && L.apple) { place(dom.btnApple, L.apple); dom.btnApple.style.fontSize = Math.max(11, Math.round(L.apple.w * 0.26)) + 'px'; }
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
     dom.clock.style.fontSize = Math.round(11 * L.k) + 'px';
     dom.abilityBar.classList.toggle('touch', !L.abilityBar);
