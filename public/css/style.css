@@ -374,6 +374,10 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .ggrid{grid-template-columns:repeat(3,1fr)}
 
 /* the pony ability button (Fly / Land / cooling down) */
+#btnApple{position:fixed;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1;border-color:#d9382b;background:rgba(70,25,20,.62)}
+#btnApple img{width:56%;height:56%;object-fit:contain;image-rendering:pixelated;pointer-events:none}
+#btnApple .aCount{font:700 .8em Georgia,serif;pointer-events:none}
+#btnApple.empty{opacity:.5;border-style:dashed}
 #btnFly{position:fixed;z-index:3;border-color:#9fd8ff;color:#e6f6ff;background:rgba(30,70,110,.7);font-weight:700}
 #btnFly.on{background:rgba(120,200,255,.75);color:#0b2236}
 #btnFly.cooling{opacity:.6;border-style:dashed}
@@ -398,7 +402,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .ptraits{display:flex;flex-wrap:wrap;gap:3px;margin:2px 0}
 .prarity,.pbuff,.pability{font-size:10.5px;padding:1px 6px;border-radius:8px;background:rgba(255,255,255,.07)}
 .prarity{background:var(--c);color:#10202f;font-weight:700}
-.pability{border:1px solid var(--c)}
+.pability{border:1px solid var(--c)}.pability.locked{opacity:.45;border-style:dashed}
 .pability kbd{font:600 9px Georgia,serif;padding:0 3px;border-radius:3px;background:rgba(255,255,255,.18)}
 
 /* ---- the ridden pony's abilities ---- */

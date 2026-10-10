@@ -290,6 +290,7 @@ class GameServer {
       case 'ponyBagOn': this._ponyBagOn(id, inventory, cmd.from); break;
       case 'ponyBagOff': this._ponyBagOff(id, inventory, cmd.index); break;
       case 'buy': if (typeof cmd.item === 'string') this._buy(id, cmd.item, cmd.pay); break;
+      case 'apple': if (typeof cmd.item === 'string') this._giveApple(id, cmd.item); break;                           // the Apple button (appleSystem.js)
       case 'sell': if (typeof cmd.item === 'string') this._sell(id, cmd.item, cmd.count); break;                        // at a shop counter (shopSystem.js)                          // at a shop counter (shopSystem.js)
       case 'unequip': this._handleUnequip(id, inventory, cmd.slot); break;
       case 'emote': this._handleEmote(id, cmd.id); break;
@@ -428,7 +429,7 @@ class GameServer {
         const traits = PonyRarity.of(a.look, a.type), mine = a.owner === id;
         if (mine) companions++;
         for (const b of traits.buffs) if (mine || (b.affectsOthers && sameGrid(a, p) && Math.hypot(a.x - p.x, a.y - p.y) <= b.range)) buffs[b.type] += b.value;
-        if (mine && a.rider === id) abilities = traits.abilities.filter(ab => !ab.passive).map(ab => ab.id);
+        if (mine && a.rider === id) abilities = traits.abilities.filter(ab => !ab.passive).map(ab => ab.id).concat(PonySkills.unlocked(a.look, a.type, a.level)).slice(0, 4);     // its rarity abilities, then the skills its level has unlocked (ponySkills.js)
       }
       p.buffs = buffs; p.companions = companions; p.abilities = abilities;
       p.carryStacks = Carry.stacksFor(p);
@@ -441,22 +442,37 @@ class GameServer {
   /** H / K (or the ability button) while riding: fire the pony's first / second rarity ability. (Flight is separate: B, _useAbility.) */
   _useRarityAbility(id, p, index) {
     if (!p.mount) return;
-    const ability = AbilityDefs[p.abilities[index]];
-    if (!ability) { this._notice(id, index ? 'Your pony has no second ability (only legendary ponies have two)' : 'Your pony has no ability (rare ponies and better have one)'); return; }
+    const ability = abilityDef(p.abilities[index]);
+    if (!ability) { this._notice(id, index ? 'Your pony has no power in that slot' : 'Your pony has no powers yet (rare ponies have one; a pony learns skills as it levels up: Pony Book)'); return; }
     if (p.abilityCd[index] > 0) return;
     p.abilityCd = p.abilityCd.slice(); p.abilityCd[index] = ability.cooldown;
-    for (const effect of ability.effectDefs) this._applyEffect(id, p, effect);
+    const scale = SkillAbilityDefs[ability.id] ? PonySkills.scale(p.mountLevel) : 1;                                    // (a skill grows with its pony's level)
+    for (const effect of ability.effectDefs) this._applyEffect(id, p, effect, scale);
     this.pendingEvents.push({ type: 'ability', ability: ability.id, x: p.x, y: p.y, facing: p.facing, by: id });
   }
 
-  _applyEffect(id, p, effect) {
+  _applyEffect(id, p, effect, scale = 1) {
+    if (effect.kind === 'heal') {                                                                          // heal you (and, for 'allies', every player on your grid within the radius)
+      for (const q of Object.values(this.players)) {
+        if (q.down > 0 || q.hp <= 0 || !sameGrid(q, p) || !(q === p || (effect.target === 'allies' && effect.covers(p, p.facing, q.x, q.y)))) continue;
+        const before = q.hp; q.hp = Math.min(q.maxHp, q.hp + Math.round(effect.value * scale));
+        if (q.hp > before) this.pendingEvents.push({ type: 'healed', to: q.id, amount: Math.round(q.hp - before), x: q.x, y: q.y });
+      }
+      return;
+    }
+    if (effect.kind === 'gift') {                                                                          // put something in your bag (what does not fit falls at your feet)
+      const count = Math.max(1, Math.round(effect.value * scale)), left = this.inventories[id].add(effect.item, count);
+      if (left) this._dropOnGround(effect.item, left, p.x, p.y, gridOf(p));
+      this.inventoryRev[id]++; this.pendingEvents.push({ type: 'gain', to: id, item: effect.item, count: count - left });
+      return;
+    }
     if (effect.shape === 'self') { if (effect.kind === 'speed') { p.dashT = effect.duration; p.dashBoost = effect.value; } return; }
     for (const aid of Object.keys(this.animals.animals)) {
       const a = this.animals.animals[aid], def = a && AnimalDefs[a.type];
       if (!a || a.owner || a.captor || a.rider || def.protected || !sameGrid(a, p)) continue;            // never pets, never ponies; only on your grid
       if ((effect.target === 'hostile' && !def.hostile) || !effect.covers(p, p.facing, a.x, a.y)) continue;
-      if (effect.kind === 'damage') strikeAnimal(this.toolDeps, id, aid, effect.value);
-      else if (effect.kind === 'slow') { a.slowT = effect.duration; a.slowF = Math.max(0.1, 1 - effect.value / 100); }
+      if (effect.kind === 'damage') strikeAnimal(this.toolDeps, id, aid, effect.value * scale);
+      else if (effect.kind === 'slow') { a.slowT = effect.duration; a.slowF = Math.max(0.1, 1 - Math.min(90, effect.value * scale) / 100); }
       else if (effect.kind === 'scare') this.animals.startle(aid, p);
     }
   }
@@ -567,9 +583,10 @@ class GameServer {
   _tickPlayer(id, p) {
     const S = CONFIG.sim;
     p.hurtT = Math.max(0, p.hurtT - TICK_DT); p.emoteT = Math.max(0, p.emoteT - TICK_DT);
-    if (p.abilityCd[0] > 0 || p.abilityCd[1] > 0) p.abilityCd = p.abilityCd.map(t => Math.max(0, t - TICK_DT));
+    if (p.abilityCd.some(t => t > 0)) p.abilityCd = p.abilityCd.map(t => Math.max(0, t - TICK_DT));
     this.dungeons.tickHints(id, p);
     this.downed.tick(id, p);
+    if (p.regenT > 0) { p.regenT = Math.max(0, p.regenT - TICK_DT); if (p.hp > 0 && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + p.regenRate * TICK_DT); if (p.regenT === 0) p.regenRate = 0; }     // an apple's regeneration
     if (p.emoteT === 0) p.emote = '';
     if (p.hp > 0 && p.hp < p.maxHp && p.hunger > 0 && p.thirst > 0) p.hp = Math.min(p.maxHp, p.hp + S.health.regenPerSecond * TICK_DT);
     if (p.held === 'torch' && LightSources.isDark(this.tick)) {

@@ -25,11 +25,13 @@ class PonyBookUI {
   }
 
   /** Rarity badge, buffs and abilities of a pony. */
-  static traits(look, type) {
+  static traits(look, type, level = 1) {
     const t = PonyRarity.of(look, type), r = t.rarity;
     const buffs = t.buffs.map(b => `<span class="pbuff" title="${b.description}${b.affectsOthers ? ` (and everyone within ${b.range} tiles)` : ''}">${b.name}: ${b.label}${b.affectsOthers ? ' \u25CE' : ''}</span>`);
-    const abilities = t.abilities.map((a, i) => `<span class="pability" style="--c:${a.color}" title="${a.description}${a.passive ? '' : ` (${a.cooldown}s)`}">${a.glyph} ${a.name}${a.passive ? '' : ` <kbd>${i ? 'K' : 'H'}</kbd>`}</span>`);
-    return `<div class="ptraits"><span class="prarity" style="--c:${r.color}">${r.name}</span>${buffs.join('')}${abilities.join('')}${!buffs.length && !abilities.length ? '<span class="pbuff">No special traits</span>' : ''}</div>`;
+    const active = t.abilities.filter(a => !a.passive), abilities = t.abilities.map(a => `<span class="pability" style="--c:${a.color}" title="${a.description}${a.passive ? '' : ` (${a.cooldown}s)`}">${a.glyph} ${a.name}${a.passive ? '' : ` <kbd>${['H', 'K', 'Y', 'O'][active.indexOf(a)]}</kbd>`}</span>`);
+    const tree = PonySkills.tree(look, type, level), slots = active.length;                                                   // the skill tree: unlocked as the pony levels up (data/ponies/skills.js)
+    const skills = tree.map((s, i) => s.ability ? `<span class="pability${s.unlocked ? '' : ' locked'}" style="--c:${s.ability.color}" title="${s.ability.description} (${s.ability.cooldown}s) \u00b7 ${s.text}">${s.ability.glyph} ${s.name}${s.unlocked ? ` <kbd>${['H', 'K', 'Y', 'O'][slots + tree.slice(0, i).filter(q => q.unlocked).length]}</kbd>` : ` <small>(level ${s.level})</small>`}</span>` : `<span class="pability locked" title="${s.text}">${s.label} <small>(level ${s.level})</small></span>`);
+    return `<div class="ptraits"><span class="prarity" style="--c:${r.color}">${r.name}</span>${buffs.join('')}${abilities.join('')}${skills.join('')}${!buffs.length && !abilities.length && !skills.length ? '<span class="pbuff">No special traits</span>' : ''}</div>`;
   }
 
   static status(pet) {
@@ -56,7 +58,7 @@ class PonyBookUI {
       const pet = g.pets[i], def = AnimalDefs[pet.type], name = pet.look ? PonyLook.describe(pet.look).name : def.name;
       const mystical = def.mystical ? '<em>mystical</em>' : '';
       const flies = PonyAbilityRules.has(pet.type, 'fly') ? '<em class="pfly">can fly (' + PonyAbilities.get('fly').key + ')</em>' : '';
-      const traits = pet.look ? PonyBookUI.traits(pet.look, pet.type) : '';
+      const traits = pet.look ? PonyBookUI.traits(pet.look, pet.type, pet.level) : '';
       return `<div class="pcard"><canvas class="portrait" width="92" height="80" data-i="${i}"></canvas>` +
         `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}</div>${traits}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
     }).join('');

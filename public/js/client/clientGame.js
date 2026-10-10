@@ -124,6 +124,8 @@ class ClientGame {
   /** One job on one plot of a field (the garden window): op = till | dig | water | plant | cover | clear | harvest. The server checks it all (farming.js). */
   fieldOp(op, tx, ty, i, item) { this.net.sendCommand({ type: 'field', op, tx, ty, i, item }); }
   fieldAt(tx, ty) { return Farming.fieldAt(this.map, tx, ty); }
+  /** The Apple button: give one apple (of this kind) to your pony (appleSystem.js). */
+  useApple(item) { this.net.sendCommand({ type: 'apple', item }); }
   sell(item, count) { this.net.sendCommand({ type: 'sell', item, count }); }
   buy(item, pay) { this.net.sendCommand({ type: 'buy', item, pay }); }
   _applyPack(wire) {
@@ -184,7 +186,7 @@ class ClientGame {
     this.powerQueued = index + 1;
   }
   /** What the ridden pony can do: [{ ability, cooldown }] (empty when not riding). */
-  abilityState() { const L = this.local; return L && L.mount ? (L.abilities || []).map((id, i) => ({ ability: AbilityDefs[id], cooldown: L.abilityCd[i] || 0 })).filter(a => a.ability) : []; }
+  abilityState() { const L = this.local; return L && L.mount ? (L.abilities || []).map((id, i) => ({ ability: abilityDef(id), cooldown: L.abilityCd[i] || 0 })).filter(a => a.ability) : []; }
 
   /** Host only: change how hunger / thirst work for one player slot ('p2'...). Either mode may be omitted. */
   /** Host only: easy / medium / hard (what happens when health runs out in a dungeon). */
