@@ -418,6 +418,17 @@ const PixelDecor = (() => {
         for (let i = 0; i < n; i++) { const u = (i + 0.5) / n, [x, y] = P(0.2 + (w - 0.4) * u, h / 2 + Math.sin(i * 2.3) * 0.12, z + fill * 5 + Math.sin(i * 1.7)); blob(g, x, y - 2, 6, 4.5, pal, i); }
       });
     },
+    /** A stall: low plank partitions either side, a low board at the back and front, corner posts, straw underfoot and a feed trough (open above, so the pony inside shows). */
+    stall(s, def, w, h) {
+      const c = def.colors, z = A(def.height || 24), wood = M.wood(c.wood, { dir: 'v', pw: 4 }), post = M.wood(c.post, { dir: 'v', pw: 3 });
+      s.box(0.05, 0.05, w - 0.05, h - 0.05, 0, 1.4, M.hay(c.hay));                                         // the straw
+      s.box(0, 0, 0.1, h, 0, z * 0.72, wood); s.box(w - 0.1, 0, w, h, 0, z * 0.72, wood);                  // the partitions
+      s.box(0.1, 0, w - 0.1, 0.09, 0, z * 0.5, wood);                                                      // the back board
+      s.box(0.1, h - 0.07, w - 0.1, h, 0, z * 0.36, wood);                                                 // the low front board
+      for (const x of [0, w - 0.14]) { s.box(x, h - 0.14, x + 0.14, h, 0, z, post); s.box(x - 0.01, h - 0.15, x + 0.15, h + 0.01, z, z + 1.6, M.solid(light(c.post, 0.25))); }   // corner posts with caps
+      s.box(w - 0.62, 0.14, w - 0.16, 0.5, 0, A(8), M.wood(shade(c.wood, 0.8), { pw: 3 }));                // a feed trough
+      s.box(w - 0.58, 0.18, w - 0.2, 0.46, A(8), A(8) + 0.8, M.hay(c.hay));
+    },
     hay(s, def, w, h) {
       const c = def.colors, z = A(def.height || 18), band = M.solid(c.band), straw = M.hay(c.hay);
       s.box(0.08, 0.12, w - 0.08, h - 0.12, 0, z, hh => {

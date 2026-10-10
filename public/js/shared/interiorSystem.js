@@ -85,7 +85,7 @@ class InteriorSystem {
 
   /** The grid of the room this player goes into at a site: the shared one, or (a player building) their own copy. */
   gridFor(id, site) {
-    if (!site.def.home) return Grids.room(site.index);
+    if (!site.def.home && !site.def.stable) return Grids.room(site.index);                   // (a home or a stable: every player has a room of their own)
     const key = this.server.playerKeys[id] || 'seat:' + id;                     // (a keyless test player: by seat)
     if (this.homes[key] === undefined) this.homes[key] = this.nextHome++;
     return Grids.room(site.index, this.homes[key]);

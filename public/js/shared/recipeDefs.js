@@ -38,7 +38,7 @@ const BASE_RECIPES = ({
   make_spear:         makeRecipe('make_spear', 'Spear', [ing('plank', 2), ing('stone', 1), ing('rope', 1)], [ing('spear', 1)], { station: 'crafting_table', tools: ['knife'] }),
   make_fishing_rod:   makeRecipe('make_fishing_rod', 'Fishing Rod', [ing('plank', 2), ing('rope', 2)], [ing('fishing_rod', 1)], { station: 'crafting_table', tools: ['knife'] }),
   make_brick_form:    makeRecipe('make_brick_form', 'Brick Form', [ing('plank', 4), ing('rope', 1)], [ing('brick_form', 1)], { station: 'crafting_table', tools: ['knife'] }),
-  make_stable:        makeRecipe('make_stable', 'Stable', [ing('plank', 12), ing('rope', 3), ing('string', 4)], [ing('stable', 1)], { station: 'crafting_table', tools: ['stone_hammer', 'knife'] }),
+  make_stable:        makeRecipe('make_stable', 'Pony Shelter', [ing('plank', 12), ing('rope', 3), ing('string', 4)], [ing('stable', 1)], { station: 'crafting_table', tools: ['stone_hammer', 'knife'] }),
   make_barn:          makeRecipe('make_barn', 'Barn', [ing('plank', 24), ing('rope', 6), ing('string', 6), ing('stone', 8)], [ing('barn', 1)], { station: 'crafting_table', tools: ['stone_hammer', 'knife'] }),
   make_clay_furnace:  makeRecipe('make_clay_furnace', 'Clay Furnace', [ing('brick', 8)], [ing('clay_furnace', 1)], { station: 'crafting_table' }),
   make_stockpile_wood:  makeRecipe('make_stockpile_wood', 'Wood Stockpile', [ing('plank', 10), ing('rope', 2)], [ing('stockpile_wood', 1)], { station: 'crafting_table', tools: ['stone_hammer'] }),
@@ -67,6 +67,6 @@ const COOK_RECIPES = Object.fromEntries(Foods.where(f => f.cooksInto && f.recipe
 const RecipeDefs = Object.freeze(Object.assign({}, BASE_RECIPES, COOK_RECIPES, WARDROBE_RECIPES));
 
 /** Display names of the stations. */
-const StationNames = Object.freeze({ crafting_table: 'Crafting Table', clay_furnace: 'Clay Furnace', campfire: 'Campfire', stable: 'Stable', barn: 'Barn' });
+const StationNames = Object.freeze({ crafting_table: 'Crafting Table', clay_furnace: 'Clay Furnace', campfire: 'Campfire', stable: 'Pony Shelter', barn: 'Barn' });
 /** A recipe's station can be one id or a list of alternatives. */
 const stationList = recipe => (Array.isArray(recipe.station) ? recipe.station : recipe.station ? [recipe.station] : []);

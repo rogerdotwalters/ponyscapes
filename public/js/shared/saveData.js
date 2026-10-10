@@ -138,7 +138,8 @@ const SaveData = {
       const grid = typeof q.grid === 'string' && Grids.valid(q.grid) ? q.grid : '';
       if (Math.abs(pet.x) > 500000 || Math.abs(pet.y) > 500000) { pet.x = Village.home.x0 - 1.5; pet.y = Village.home.y1 + 1.5; }   // (an older save's cave or room)
       const far = v => Math.abs(v) > 500000, hx = SaveData._num(q.hx, -1e7, 1e7, pet.x), hy = SaveData._num(q.hy, -1e7, 1e7, pet.y);
-      out.pets.push(Object.assign(pet, { key: q.key, grid, hx: far(hx) ? pet.x : hx, hy: far(hy) ? pet.y : hy }));
+      const stall = grid && SaveData._plain(q.stall) && typeof q.stall.k === 'string' && /^room:[0-9:]{1,24}\|\d{1,3},\d{1,3}$/.test(q.stall.k) ? { k: q.stall.k, x: SaveData._num(q.stall.x, -1e4, 1e4, pet.x), y: SaveData._num(q.stall.y, -1e4, 1e4, pet.y) } : undefined;
+      out.pets.push(Object.assign(pet, { key: q.key, grid, stall, hx: far(hx) ? pet.x : hx, hy: far(hy) ? pet.y : hy }));
     }
     for (const d of Array.isArray(data.drops) ? data.drops.slice(0, CONFIG.sim.drops.max) : []) {
       if (SaveData._plain(d) && ItemDefs[d.item] && Number.isFinite(d.x) && Number.isFinite(d.y) && Math.abs(d.x) < 500000 && Math.abs(d.y) < 500000)

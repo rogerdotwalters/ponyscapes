@@ -109,6 +109,26 @@ window.PONYSCAPES_INTERIORS = {
     ],
     "exit": [4, 7]
   },
+  "pony_stable": {
+    "name": "Stable",
+    "tiles": [
+      "WWVWWWWWWVWW",
+      "WhhhhhhhhhhW",
+      "WhhhhhhhhhhW",
+      "WddddddddddW",
+      "WhhhhhhhhhhW",
+      "WhhhhhhhhhhW",
+      "WddddddddddW",
+      "WddddddddddW",
+      "WWWWWmWWWWWW"
+    ],
+    "furniture": [
+      { "id": "stall", "x": 1, "y": 1, "rot": 0 }, { "id": "stall", "x": 3, "y": 1, "rot": 0 }, { "id": "stall", "x": 5, "y": 1, "rot": 0 }, { "id": "stall", "x": 7, "y": 1, "rot": 0 }, { "id": "stall", "x": 9, "y": 1, "rot": 0 },
+      { "id": "stall", "x": 1, "y": 4, "rot": 0 }, { "id": "stall", "x": 3, "y": 4, "rot": 0 }, { "id": "stall", "x": 5, "y": 4, "rot": 0 }, { "id": "stall", "x": 7, "y": 4, "rot": 0 }, { "id": "stall", "x": 9, "y": 4, "rot": 0 },
+      { "id": "lamp", "x": 1, "y": 7, "rot": 0 }, { "id": "lamp", "x": 10, "y": 7, "rot": 0 }, { "id": "hay_bale", "x": 2, "y": 7, "rot": 0 }, { "id": "hay_bale", "x": 9, "y": 7, "rot": 0 }
+    ],
+    "exit": [5, 8]
+  },
   "cottage": {
     "name": "Cottage",
     "tiles": [

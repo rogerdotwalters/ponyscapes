@@ -134,6 +134,10 @@ tools/bundle.py       packs the game into one self-contained HTML file
 * **Tools.** `python3 tools/make_retro_tools.py public/assets/items` paints every tool's icon and in-hand picture as outlined pixel art (registered in `js/content/customContent.js`).
 * `node tools/render-compare.js --scene stable|sleeping|inventory|ride_left ...` shoots these scenes.
 
+## The Stable
+
+The village **Stable** (`data/buildings/pony_stable.js`, inside the starter paddock) is a building you walk into, like a home: every player gets a stable of their OWN (`instance: 'player'`, `stable: true`), but anybody may enter. Inside (`pony_stable` in `content/interiors.js`) are ten **stalls** (`stall` furniture). Stand beside a stall and press the interact key: with one of your ponies with you (the one you ride, else the nearest of yours) it is put in the stall; beside a stall that holds one of yours it is taken out. A stalled pony stays put, does not follow you through doors, cannot be ridden until it is taken out, stays in the stable until you come back for it, and is saved with the world (`shared/stableSystem.js`). The stable also counts as shelter for taming a wild pony. The craftable 3 x 2 shelter that used to be called the Stable is now the **Pony Shelter** (it only shelters ponies you are taming; the Barn does too).
+
 ## Coins and the coin bag
 
 **The coin system** (`shared/coins.js`): ten kinds of coin. **Copper, silver, gold, platinum and titanium** are each worth ten of the one below; the **gem coins** (ruby, sapphire, emerald, amethyst, diamond) are each worth five of the one below (so a ruby is 5 titanium). Gold is still the unit every price in the game uses, and is worth 100 copper. The purse holds real coins (`Inventory.coins`: a count of each kind, copper first; `Inventory.purse` is their total in copper). Gaining coins merges any kind that reaches its ratio up into the next (10 silver become a gold); paying works out change; older saves count their coins as gold (77 gold open as 7 platinum and 7 gold).

@@ -70,6 +70,7 @@ class AnimalSystem {
       const a = this.animals[id], near = byGrid[gridOf(a)];
       if (a.shornUntil && tick >= a.shornUntil) a.shornUntil = 0;                       // its wool has grown back
       if (a.rider || !near || !near.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_ACTIVE_RADIUS)) continue;     // a ridden pony is steered by its rider
+      if (a.stall) { a.vx = a.vy = 0; a.state = 'idle'; if (a.stallAt) { a.x = a.stallAt.x; a.y = a.stallAt.y; } continue; }   // a pony in a stall (stableSystem.js) stays where it is
       const def = AnimalDefs[a.type];
       this.active = a;                                                                   // (what it does is shown on its grid: see GameServer's events)
       this._think(a, def, near, TICK_DT);
@@ -449,6 +450,7 @@ class AnimalSystem {
         if (a.grid) out[id].grid = a.grid;
         if (a.jumpLift) out[id].lift = Math.round(a.jumpLift * 100) / 100;                     // the Slime King mid-leap: how high (0..1; drawn like a flying pony's lift)
         if (a.main) out[id].main = true;
+        if (a.stall) out[id].stall = true;                                                    // in a stall of the stable: it stays put and cannot be ridden
         if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)
       }

@@ -52,7 +52,7 @@ Object.assign(GameServer.prototype, {
       if (!key || a.trial) continue;
       const friend = a.friends[a.owner] || a.parkedFriend;
       out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
-        x: a.x, y: a.y, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null }, this._exportPack(a)));
+        x: a.x, y: a.y, stall: a.stall ? { k: a.stall, x: a.stallAt ? a.stallAt.x : a.x, y: a.stallAt ? a.stallAt.y : a.y } : undefined, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null }, this._exportPack(a)));
     }
     return out;
   },
@@ -63,6 +63,7 @@ Object.assign(GameServer.prototype, {
       if (q.look && AnimalDefs[q.type].pony) pet.look = q.look;
       if (Number.isFinite(q.xp)) pet.xp = q.xp;
       if (q.main) pet.main = true;
+      if (q.stall) { pet.stall = q.stall.k; pet.stallAt = { x: q.stall.x, y: q.stall.y }; }          // (still in its stall in the stable)
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction)); pet.home = { x: q.hx, y: q.hy };
       if (q.friend) pet.parkedFriend = Friendship.decode(q.friend);
       this._restorePack(pet, q);

@@ -55,7 +55,7 @@ const Interactions = {
   extra: [],
   /** @returns {{kind:'pick'|'door'|'board'|'untie'|'pickup'|'drink'|'fill', label:string, dist:number, forage?, door?, boat?, water?}|null} */
   find(map, boats, p, heldItemId, animals = {}, selfId = p.id, npcs = {}, drops = {}) {
-    for (const finder of Interactions.extra) { const found = finder(map, p, heldItemId); if (found) return found; }
+    for (const finder of Interactions.extra) { const found = finder(map, p, heldItemId, animals, selfId); if (found) return found; }
     const mounted = !!p.mount;                           // in the saddle you can still pick, open and loot: only when there is nothing to do does the key get you off
     const primary = [];
     for (const id in animals) {                          // tied pets can be untied, small animals picked up
@@ -63,7 +63,7 @@ const Interactions = {
       const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
       if (!def || !sameGrid(a, p)) continue;                // (only what is on your grid)
       if (Wants.accepts(a, heldItemId) && d <= WANT_REACH + def.radius) primary.push({ kind: 'give', label: `Give ${ItemDefs[heldItemId].creature ? AnimalDefs[ItemDefs[heldItemId].creature].name : ItemDefs[heldItemId].name}`, dist: d - 0.8, animal: a });   // what it asks for (its bubble)
-      if (a.owner === selfId && !a.leashed && !a.rider && def.pony && !p.mount && d <= CONFIG.sim.ride.range) primary.push({ kind: 'ride', label: 'Ride', dist: d, animal: a });
+      if (a.owner === selfId && !a.leashed && !a.rider && !a.stall && def.pony && !p.mount && d <= CONFIG.sim.ride.range) primary.push({ kind: 'ride', label: 'Ride', dist: d, animal: a });
       else if (a.captor === selfId && d <= UNTIE_RANGE && ItemDB.isApple(heldItemId)) primary.push({ kind: 'feed', label: 'Feed ' + ItemDefs[heldItemId].name.toLowerCase(), dist: d - 1, animal: a });   // a caught wild pony: hold an apple and feed it (wins over a gate next to it)
       else if (def.carry && Wants.isQuestCreature(a.type) && d <= PICKUP_RANGE && a.state !== 'flee' && (!a.owner || a.owner === selfId)) primary.push({ kind: 'pickup', label: 'Pick up', dist: d, animal: a });
       if (canBefriendAnimal(a.type) && !a.captor && !a.rider && d <= CONFIG.sim.friendship.petReach) {            // make friends: a treat it likes, or a pet (which loses to riding / picking up when they compete)
