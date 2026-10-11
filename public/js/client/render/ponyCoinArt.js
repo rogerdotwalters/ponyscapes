@@ -1,58 +1,70 @@
 'use strict';
-/* CLIENT - the pony collector coins (data/items/ponyCoins.js) in chunky pixel art: a milled gold ring round a field in the variety's mane colour, with a
- * front-facing PONY FACE stamped on it: ears, a forelock, a pale blaze, dark eyes with a glint, a muzzle with nostrils, the mane framing both cheeks, and each
- * variety's own touch (leaves, flames, a crystal, stars, sprinkles, frost, a rainbow mane). The face is built once per variety from its coat and mane colours
- * (data/ponies/variants.js) on an 18 x 18 grid, then drawn with whole-pixel rectangles (image smoothing off), so a coin looks the same in your bag, in a
- * pop-up and on the Coin Poster. */
+/* CLIENT - the pony collector coins (data/items/ponyCoins.js) in pixel art: a milled gold ring round a field in the variety's mane colour, with a pony head
+ * in SIDE PROFILE (facing right) stamped on it: pricked ears, a flowing forelock, a long nose with a nostril, a dark eye with a glint, the jaw and throat, and
+ * the mane streaming down the back of the neck. The head is a few polygons (in a 24 x 24 design space) rasterised once per variety and coin size into whole pixels
+ * from its coat and mane colours (data/ponies/variants.js), shaded (a darker cheek and throat, a light brow, a pink muzzle) and ringed with an ink outline;
+ * each variety adds its own touch (leaves, flames, a crystal, stars, sprinkles, frost, a rainbow mane). Draw with image smoothing off: the same painter makes
+ * the item icons and the Coin Poster, so a coin looks the same in your bag and on the wall. */
 const PonyCoinArt = (() => {
-  const INK = '#1d120a', N = 18, memo = new Map();
+  const INK = '#1d120a', memo = new Map();
   const { shade, light, mix } = PixelCharacter.util;
   const look = id => {
     const V = PonyVariantTable.all().find(v => v.id === id), P = PonyPalette;
     return { coat: (V && V.coats ? V.coats : P.coats)[0], mane: (V && V.manes ? V.manes : P.manes)[0], accessory: V ? V.accessory : null };
   };
-  /** The face of a variety: an N x N grid of colours (null = empty), outline included. */
-  function face(id) {
-    if (memo.has(id)) return memo.get(id);
-    const L = look(id), g = Array.from({ length: N }, () => Array(N).fill(null));
-    const put = (x, y, c) => { if (x >= 0 && x < N && y >= 0 && y < N) g[y][x] = c; };
-    const both = (x, y, c) => { put(x, y, c); put(N - 1 - x, y, c); };                                  // mirrored about the middle
-    const mane = (y, x = 0) => L.mane[(Math.floor(y / 2) + x) % L.mane.length];
-    const coat = L.coat, dark = shade(coat, 0.8), pale = light(coat, 0.35), blaze = '#fbf7ef', pink = mix(coat, '#f2a1b0', 0.55), eye = '#2b1a2e';
-    // the mane framing the face (behind the head): a curtain down each cheek
-    for (let y = 4; y <= 13; y++) { const w = y < 6 ? 2 : y < 11 ? 2 : 2; for (let x = 1; x < 1 + w; x++) both(x, y, mane(y, x)); }
-    // the head, wide at the brow and narrowing to the muzzle
-    const half = [0, 0, 0, 4, 5, 6, 6, 6, 6, 5, 4, 4, 4, 4, 3, 0];                                      // half width on each row (rows 0..15), centred on x = 8.5
-    for (let y = 3; y <= 14; y++) { const h = half[y]; for (let x = 9 - h; x <= 8 + h; x++) put(x, y, y >= 10 ? pink : coat); }
-    for (let y = 9; y <= 14; y++) { both(9 - half[y], y, dark); }                                       // a shaded cheek
-    for (let y = 3; y <= 9; y++) { put(9 - half[y] + 1, y, dark); put(8 + half[y] - 1, y, coat); }       // (a touch of light from the upper right)
-    for (let y = 10; y <= 13; y++) for (let x = 6; x <= 11; x++) put(x, y, y === 10 ? mix(coat, pink, 0.4) : pink);   // the muzzle
-    // ears
-    for (const [y, w] of [[0, 1], [1, 2], [2, 2]]) for (let x = 0; x < w; x++) both(4 + x - (y === 0 ? 0 : 0), y, x === w - 1 && y > 0 ? pink : coat);
-    both(4, 3, coat);
-    // the blaze down the face, the forelock over the brow
-    for (let y = 5; y <= 11; y++) { put(8, y, blaze); put(9, y, blaze); }
-    for (let y = 2; y <= 5; y++) for (let x = 6; x <= 11; x++) { const edge = y === 5 ? (x === 8 || x === 9) : (y === 4 ? (x === 6 || x === 11) : false); if (!edge) put(x, y, mane(y, x)); }
-    put(7, 5, mane(5, 7)); put(10, 5, mane(5, 10));
-    // eyes (big, with a glint) and nostrils
-    for (const x of [4, 12]) { put(x, 7, eye); put(x + 1, 7, eye); put(x, 8, eye); put(x + 1, 8, eye); put(x + (x < 8 ? 0 : 1), 7, '#ffffff'); }
-    put(7, 12, shade(pink, 0.5)); put(10, 12, shade(pink, 0.5));
-    put(8, 14, shade(pink, 0.7)); put(9, 14, shade(pink, 0.7));
-    // the variety's own touch
+  /* the head, in a 24 x 24 design space, facing right */
+  const HEAD = [[10, 3], [13, 3.6], [15.5, 6], [18, 9.2], [20.2, 12.6], [21.8, 14.6], [22.2, 16.2], [21.4, 18.2], [19.6, 19.2], [17.2, 19.2], [15.2, 17.8], [12.6, 17.8], [11.4, 19.6], [11.4, 24], [2, 24], [3.2, 16], [5.5, 9], [7.5, 4.5]];
+  const EAR = [[9, 5], [10.4, -0.4], [13.6, 4.4]], FAR_EAR = [[7.4, 5.2], [7.8, 0.8], [10.4, 4.4]];
+  const MANE = [[5.6, 4.2], [10, 2.6], [11, 6], [9.6, 9.5], [9.2, 14], [10.2, 19.5], [9.6, 24], [0.6, 24], [2.4, 16], [3.8, 9.5]];
+  const FORELOCK = [[10.4, 3.2], [14.2, 4.2], [15.4, 7.6], [13.4, 7.2], [12.4, 5.8], [10.8, 5.4]];
+  const inside = (poly, x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+
+  /** The head of a variety as a G x G grid of colours (null = empty), outline included. */
+  function head(id, G) {
+    const key = id + ':' + G; if (memo.has(key)) return memo.get(key);
+    const Z = 0.88, L = look(id), k = G / 24, g = Array.from({ length: G }, () => Array(G).fill(null));
+    const coat = L.coat, dark = shade(coat, 0.8), deep = shade(coat, 0.66), pale = light(coat, 0.28), pink = mix(coat, '#f2a1b0', 0.6);
+    const maneC = (x, y) => L.mane[Math.abs(Math.floor((y * 0.55 + x * 0.35))) % L.mane.length];
     const A = L.accessory;
-    if (A === 'leaves') { both(3, 2, '#5fa44a'); both(2, 1, '#8fd16a'); both(3, 1, '#3d7a35'); }
-    else if (A === 'flames') { for (const [x, y, c] of [[8, 0, '#ffd740'], [9, 0, '#ff9100'], [8, 1, '#ff9100'], [9, 1, '#ffd740'], [7, 1, '#ff3d00'], [10, 1, '#ff3d00'], [5, 1, '#ff9100']]) put(x, y, c); }
-    else if (A === 'crystals' || A === 'stars') { for (const [x, y] of [[8, 3], [9, 3], [7, 4], [10, 4], [8, 4], [9, 4]]) put(x, y, A === 'crystals' ? '#9fe7ff' : '#fff2a8'); }
-    else if (A === 'sprinkles') { [[1, 6, '#ff4081'], [2, 9, '#00bfa5'], [15, 7, '#7c4dff'], [14, 10, '#ffeb3b'], [7, 3, '#ffffff'], [11, 3, '#ff4081']].forEach(([x, y, c]) => put(x, y, c)); }
-    else if (A === 'frost') { for (const [x, y] of [[4, 0], [13, 0], [2, 8], [15, 8], [8, 3]]) put(x, y, '#e8f6ff'); }
-    else if (A === 'rainbow') { for (let y = 4; y <= 13; y++) { const c = ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#2979ff', '#d500f9'][(y - 4) % 6]; for (let x = 1; x < 1 + (y < 6 ? 2 : y < 11 ? 3 : 2); x++) both(x, y, c); } }
-    // the 1-pixel ink outline round the whole head
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
+      const x = ((i + 0.5) / k - 12) / Z + 12, y = ((j + 0.5) / k - 12) / Z + 12 - 0.5;                                   // (the design is shrunk a little so the ears sit inside the ring)
+      let c = null;
+      if (inside(FAR_EAR, x, y)) c = deep;
+      if (inside(MANE, x, y)) c = A === 'rainbow' ? ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#2979ff', '#d500f9'][Math.abs(Math.floor(y * 0.6 - x * 0.2)) % 6] : maneC(x, y);
+      if (inside(HEAD, x, y) && !(inside(MANE, x, y) && x < 11)) {
+        c = coat;
+        if (y > 16.8 - Math.max(0, x - 14.5) * 0.9) c = dark;                                                       // the underside of the jaw and the throat in shade
+        else if (x < 12.2 && y > 12) c = shade(coat, 0.9);                                                           // the cheek turning away
+        if (x > 18.4 && y > 13) c = pink;                                                                           // the muzzle
+        else if (x > 19.6 && y > 11.2) c = pink;
+        const ridge = (x - 12) * 0.62 - (y - 4.6);                                                                  // a light brow / nose-bridge stripe near the front edge of the face
+        if (ridge > -1.1 && ridge < 0.5 && x > 11 && y < 14 && c === coat) c = pale;
+      }
+      if (inside(EAR, x, y)) c = (x > 10.4 && y > 1.8 && x < 12 && y < 4.2) ? mix(coat, '#f2a1b0', 0.55) : coat;
+      if (inside(FORELOCK, x, y)) c = L.mane[0];
+      g[j][i] = c;
+    }
+    const at = (x, y) => [Math.floor(((x - 12) * Z + 12) * k), Math.floor(((y + 0.5 - 12) * Z + 12) * k)];
+    const put = (x, y, c) => { const [i, j] = at(x, y); if (i >= 0 && i < G && j >= 0 && j < G) g[j][i] = c; };
+    // the eye, the nostril and the mouth
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) put(14.6 + dx / k, 9.2 + dy / k, '#2b1a2e');
+    put(14.6, 9.2, '#ffffff');
+    put(21.0, 15.4, shade(pink, 0.45)); put(21.0 + 1 / k, 15.4, shade(pink, 0.45));
+    for (let t = 0; t < 4; t++) put(20.4 - t / k, 18.0 - t * 0.1, shade(pink, 0.5));
+    // the variety's own touch
+    if (A === 'leaves') { put(10.2, 1.6, '#8fd16a'); put(11.2, 1.0, '#5fa44a'); put(9.4, 2.2, '#3d7a35'); }
+    else if (A === 'flames') { for (const [x, y, c] of [[11.4, 1.6, '#ff3d00'], [12.4, 1.0, '#ff9100'], [13.4, 2.2, '#ffd740'], [14.2, 3.2, '#ff9100'], [10.4, 1.4, '#ffd740']]) put(x, y, c); }
+    else if (A === 'crystals') { for (const [x, y] of [[13.6, 5.6], [14.6, 6.4], [13.2, 6.6], [14.2, 7.2]]) put(x, y, '#9fe7ff'); }
+    else if (A === 'stars') { for (const [x, y] of [[13.6, 5.6], [14.6, 4.8], [7, 10], [5.4, 16], [8.6, 21]]) put(x, y, '#fff2a8'); }
+    else if (A === 'sprinkles') { [[6, 9, '#ff4081'], [7.6, 14, '#00bfa5'], [5, 19, '#7c4dff'], [8.4, 21, '#ffeb3b'], [12.4, 4.6, '#ffffff'], [14.4, 6.4, '#ff4081']].forEach(([x, y, c]) => put(x, y, c)); }
+    else if (A === 'frost') { for (const [x, y] of [[10.2, 0.8], [6.2, 12], [4.4, 18], [16, 7.4]]) put(x, y, '#e8f6ff'); }
+    // the 1-pixel ink outline round the whole
     const out = g.map(r => r.slice());
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!g[y][x]) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < N && xx >= 0 && xx < N && g[yy][xx]) { out[y][x] = INK; break; } }
-    memo.set(id, out); return out;
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) if (!g[j][i]) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const jj = j + dy, ii = i + dx; if (jj >= 0 && jj < G && ii >= 0 && ii < G && g[jj][ii]) { out[j][i] = INK; break; } }
+    memo.set(key, out); return out;
   }
 
-  /** Draw the coin of `varietyId` centred at (x, y), radius r (whole pixels, 16+ shows the face best). `dim` paints an empty slot instead. */
+  /** Draw the coin of `varietyId` centred at (x, y), radius r (whole pixels, 16+ shows the head best). `dim` paints an empty slot instead. */
   function draw(g, x, y, r, varietyId, dim = false) {
     x = Math.round(x); y = Math.round(y); r = Math.round(r);
     const disc = (rad, color) => { g.fillStyle = color; for (let j = -rad; j <= rad; j++) { const w = Math.round(Math.sqrt(Math.max(0, rad * rad - j * j))); g.fillRect(x - w, y + j, w * 2 + 1, 1); } };
@@ -61,9 +73,8 @@ const PonyCoinArt = (() => {
     disc(r + 1, INK); disc(r, '#8a5a1a'); disc(r - 1, '#d9a23a'); disc(r - 2, '#f2cf6a'); disc(r - 3, '#c28a1a');          // inked, then a milled gold rim
     disc(r - 4, shade(L.mane[0], 0.5));                                                                                     // the field: a deep shade of the mane colour
     g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(x - r + 5, y - r + 5, Math.max(1, Math.round(r / 4)), 1);          // a glint on the rim
-    const f = face(varietyId), s = Math.max(1, Math.floor((r - 3) * 2 / N)), ox = x - Math.floor(N * s / 2), oy = y - Math.floor(N * s / 2) + Math.round(s / 2);
-    const lim = (r - 4 + 0.6) * (r - 4 + 0.6);
-    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { const c = f[j][i], cx = ox + (i + 0.5) * s - x, cy = oy + (j + 0.5) * s - y; if (c && cx * cx + cy * cy <= lim) { g.fillStyle = c; g.fillRect(ox + i * s, oy + j * s, s, s); } }
+    const G = 2 * (r - 4) + 1, f = head(varietyId, G), ox = x - r + 4, oy = y - r + 4, lim = (r - 4 + 0.5) * (r - 4 + 0.5);
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) { const c = f[j][i], cx = ox + i - x + 0.5, cy = oy + j - y + 0.5; if (c && cx * cx + cy * cy <= lim) { g.fillStyle = c; g.fillRect(ox + i, oy + j, 1, 1); } }
   }
   return { draw };
 })();
