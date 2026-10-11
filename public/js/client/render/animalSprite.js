@@ -42,6 +42,7 @@ class AnimalSprite {
     }
     else if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
     const tagY = drawn ? drawn.h + 10 : def.pony ? 64 : 40 * Math.max(1, scale);
+    if (view && view.hit > 0) { const h = tagY * 0.42, rx = Math.max(10, def.radius * 30) * Math.max(1, scale * 0.8); this.g.ellipse(sx, sy - h, rx, h, `rgba(255,40,40,${(0.55 * view.hit).toFixed(2)})`); }      // the red layer of a hit
     if (!animal.rider && ((animal.owner || animal.captor) || (view && view.near))) this._nameTag(animal, sx, sy, view, tagY);   // your pets carry their name; every animal shows its level up close
     const enemy = !animal.owner && !animal.captor && (def.hostile || def.boss), bar = enemy && view && (view.near || (def.boss && view.wantNear));
     if (bar) this._hpBar(animal, def, sx, sy - tagY - 13);                                  // an enemy's health, above its name

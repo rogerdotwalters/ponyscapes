@@ -8,7 +8,9 @@ const CLIENT_MAX_CHUNKS = (typeof navigator !== 'undefined' && navigator.deviceM
 class ClientGame {
   constructor(net) {
     this.net = net;
+    this.hitAt = {};                                   // when each animal was last struck (it flashes red for a moment: animalSprite.js)
     this.events = new EventBus();                      // 'inventoryChanged', 'selectedSlotChanged', 'builtChanged', 'chop', 'fell', 'gain', 'built', 'notice', ...
+    this.events.on('hit', e => { if (e.target) this.hitAt[e.target] = performance.now(); });
     this.map = null; this.myId = null;                   // map: the grid we stand on (the overworld, or a room / cave instance)
     this.worldMap = null; this.grids = null; this.grid = '';   // worldMap: the overworld, always kept (its buildings, trees and stockpiles keep updating)
     this.local = null; this.prevLocal = null;          // predicted local player (current / previous tick)

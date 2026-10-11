@@ -251,6 +251,7 @@ class Renderer {
       const close = Math.hypot(a.x - me.x, a.y - me.y), friend = this.game.friendOf(item.id);
       const view = { friend, invite: !friend && close < 2.8 && canBefriendAnimal(a.type) && !a.captor && a.state !== 'flee', near: close < 9, wantNear: close < (def.boss ? 16 : 9), holding: this.game.heldItemId(), ref: def.pony || def.tameable ? (lvs.horsemanship || 1) : (lvs.hunting || 1) };   // level colours compare with the skill you would use on it
       const lift = a.lift || 0;
+      view.hit = Math.max(0, 1 - (performance.now() - (this.game.hitAt[item.id] || -1e9)) / 280);               // a struck animal flashes red for a moment
       if (lift > 0) g.ellipse(sx, sy + 3, 20 * (1 - 0.3 * lift), 7 * (1 - 0.3 * lift), `rgba(0,0,0,${(0.3 * (1 - 0.4 * lift)).toFixed(2)})`);        // the shadow stays on the ground as the pair climbs
       this.animalSprite.draw(a, item.id, sx, sy - lift * FLY_HEIGHT, now, view);
       const holder = a.owner || a.captor;

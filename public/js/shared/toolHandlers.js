@@ -122,10 +122,12 @@ class DemolishHandler {
 }
 
 /** Damage an animal and hand out its drops. Shared by every weapon. */
+/** How far a hit shoves an animal, in tiles: heavier weapons shove further, and so do a hunter's Hunting and Strength levels. */
+function knockTiles(damage, lv) { return (0.3 + 0.05 * damage) * (1 + Math.min(1, 0.02 * (Skills._s(lv, 'hunting') - 1) + 0.01 * (Skills._a(lv, 'strength') - 1))); }
 function strikeAnimal(deps, id, animalId, damage) {
-  const lv = deps.getPlayer(id).lv;
-  const result = deps.animals.damage(animalId, damage + Skills.damageBonus(lv)), a = result.animal;
-  deps.emit({ type: 'hit', x: a.x, y: a.y, by: id });
+  const p = deps.getPlayer(id), lv = p.lv;
+  const result = deps.animals.damage(animalId, damage + Skills.damageBonus(lv), { fromX: p.x, fromY: p.y, tiles: knockTiles(damage, lv) }), a = result.animal;
+  deps.emit({ type: 'hit', x: a.x, y: a.y, by: id, target: animalId });
   deps.award(id, 'hunting', 8);
   if (!result.killed) return;
   deps.award(id, 'hunting', 12 * AnimalDefs[a.type].hp * AnimalLevels.xpFactor(a.level));          // tougher (higher-level) animals pay more

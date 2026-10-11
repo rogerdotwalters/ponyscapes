@@ -31,6 +31,7 @@ function lureFor(def, itemId, levels, buffs) {
   return { radius: LURE_RADIUS * charm, trust: TRUST_SECONDS, approach: 1.5 };
 }
 
+const KNOCK_SECONDS = 0.15;                                      // a knockback shove lasts this long
 class AnimalSystem {
   /** @param {{map, mapOf:(animal)=>World, rng, getTick, emit, damagePlayer:(id,amount)=>void, getLights:()=>Array}} deps  (map: the overworld) */
   constructor(deps) { Object.assign(this, deps); this.animals = {}; this.nodes = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; this.active = null; if (!this.mapOf) this.mapOf = () => this.map; }
@@ -192,6 +193,7 @@ class AnimalSystem {
     if (a.slowT > 0) { a.slowT -= dt; pace *= a.slowF || 1; }             // chilled by a Frost Nova
     accelerateToward(a, (a.tvx || 0) * pace, (a.tvy || 0) * pace, ANIMAL_ACCEL * dt);
     a.x += a.vx * dt; a.y += a.vy * dt;
+    if (a.kbT > 0) { const k = Math.min(dt, a.kbT); a.x += a.kbVx * k; a.y += a.kbVy * k; a.kbT -= dt; }      // a sword's knockback
     resolveCollisions(this.mapOf(a), a, def.radius);                    // water, trees, walls (of its own grid): animals stay out of them too
     if (Math.hypot(a.vx, a.vy) > 0.05) turnToward(a, Math.atan2(a.vy, a.vx), ANIMAL_TURN_RATE * dt);
   }
@@ -386,9 +388,18 @@ class AnimalSystem {
     return best;
   }
 
+  /** Shove an animal away from (knock.fromX, knock.fromY) by about knock.tiles over a moment (the shove is added to its own movement in _move; walls still stop it).
+   *  Bosses barely budge, and a creature in mid-leap is not moved. */
+  knockBack(a, def, { fromX, fromY, tiles }) {
+    if (a.jumpLift > 0) return;
+    const dx = a.x - fromX, dy = a.y - fromY, d = Math.hypot(dx, dy) || 1, t = tiles * (def.boss ? 0.25 : 1);
+    a.kbT = KNOCK_SECONDS; a.kbVx = dx / d * t / KNOCK_SECONDS; a.kbVy = dy / d * t / KNOCK_SECONDS;
+  }
+
   /** Hurts an animal. Returns { killed, drops:[{item,count}], animal }. */
-  damage(id, amount) {
+  damage(id, amount, knock) {
     const a = this.animals[id], def = AnimalDefs[a.type];
+    if (knock && knock.tiles > 0) this.knockBack(a, def, knock);
     a.hp -= amount; a.hurt = true; a.state = 'flee'; a.fleeT = def.fleeSeconds;
     if (a.hp > 0) return { killed: false, drops: [], animal: a };
     delete this.animals[id];
