@@ -219,6 +219,7 @@ const SaveData = {
       maps: (server.treasureMaps[id] || []).map(m => Object.assign({ key: m.key, tx: m.tx, ty: m.ty }, m.kind === 'dungeon' ? { kind: 'dungeon', ring: m.ring } : {})),
       looted: !!p.looted, appearance: p.appearance ? p.appearance.slice() : null,
       book: { types: Object.keys(server.everTamed[id] || {}), variants: Object.keys(server.everVariants[id] || {}).map(Number), leashed: Object.assign({}, server.leashLog[id]) },
+      poster: Object.keys(server.posterCoins[id] || {}),
       pets, friends: server.friendship.exportFor(id)                      // hearts with the villagers (hearts with a pet travel with the pet)
     };
   },
@@ -284,6 +285,7 @@ const SaveData = {
     server._applyLevels(id, server.progress.levels(id));
     p.hp = Math.min(c.hp, p.maxHp); p.hunger = c.hunger; p.thirst = c.thirst;
     server.treasureMaps[id] = c.maps; server.treasureRev[id]++;
+    server.posterCoins[id] = Object.fromEntries((Array.isArray(c.poster) ? c.poster : []).filter(v => PonyCoins.ids.includes(v)).map(v => [v, true]));
     server.leashLog[id] = Object.assign({}, c.book.leashed);
     server.everTamed[id] = Object.fromEntries(c.book.types.map(t => [t, true])); server.everVariants[id] = Object.fromEntries(c.book.variants.map(v => [v, true]));
     const spot = SaveData.safeSpot(server, c.x, c.y, p.slot);

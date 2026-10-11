@@ -231,12 +231,12 @@ class UiLayout {
     bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
 
     const P = L.panels;
-    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.stablePanel, P.gear], [dom.mapPanel, P.map], [dom.coinPanel, P.gear], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
+    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.posterPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.stablePanel, P.gear], [dom.mapPanel, P.map], [dom.coinPanel, P.gear], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
       el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
       el.style.setProperty('--slot', P.slot + 'px'); el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--pad', P.pad + 'px');
     }
-    for (const el of [dom.coinPanel, dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel, dom.controlsPanel, dom.dialoguePanel, dom.puzzlePanel, dom.stablePanel]) el.style.width = P.crafting.w + 'px';
-    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.townBody, dom.shopBody, dom.tradeBody, dom.stableBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
+    for (const el of [dom.coinPanel, dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.posterPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel, dom.controlsPanel, dom.dialoguePanel, dom.puzzlePanel, dom.stablePanel]) el.style.width = P.crafting.w + 'px';
+    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.posterBody, dom.townBody, dom.shopBody, dom.tradeBody, dom.stableBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.controlsBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.menuBody.style.maxHeight = dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';

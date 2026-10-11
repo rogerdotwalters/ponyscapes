@@ -119,6 +119,7 @@ class ClientGame {
   /** Put coins of one kind on the ground (item: 'silver_coin' ...), in front of you or (the coin bag) at the world spot x, y. */
   dropCoins(item, count, x, y) { this.net.sendCommand(Number.isFinite(x) && Number.isFinite(y) ? { type: 'dropCoins', item, count, x, y } : { type: 'dropCoins', item, count }); }
   /** The coin bag's exchange: break a coin into the kind below, or merge everything up. */
+  posterCoin(item) { this.net.sendCommand({ type: 'posterCoin', item }); }                          // press a pony coin onto the Coin Poster (shared/ponyPoster.js)
   coinChange(mode, item) { this.net.sendCommand({ type: 'coinChange', mode, item }); }
   /** Buy at the shop counter. `pay`: the coins you put on the counter, a count of each kind (coins.js); the shop gives change. */
   /** One job on one plot of a field (the garden window): op = till | dig | water | plant | cover | clear | harvest. The server checks it all (farming.js). */
@@ -394,7 +395,7 @@ class ClientGame {
     if (snapshot.pets) { this.pets = snapshot.pets; this.events.emit('petsChanged'); }
     if (snapshot.quests) this.questMarks = snapshot.quests;                       // lost young you have tracked: shown on the map
     if (snapshot.book) this.book = snapshot.book;
-    if (snapshot.varieties) this.varieties = snapshot.varieties;
+    if (snapshot.varieties) { this.varieties = snapshot.varieties; this.events.emit('varietiesChanged'); }
     this._followGrid(snapshot);                                                  // through a door / into a cave: switch to that grid first
     this._bufferForInterpolation(snapshot);
     this._reconcile(snapshot);

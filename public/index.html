@@ -186,6 +186,10 @@
   <header><span>Pony Book</span><button id="ponyClose" tabindex="-1">&#x2715;</button></header>
   <div id="ponyBody" class="scrollable"></div>
 </div>
+<div id="posterPanel" hidden>
+  <header><span>Coin Poster</span><button id="posterClose" tabindex="-1">&#x2715;</button></header>
+  <div id="posterBody" class="scrollable"></div>
+</div>
 <div id="townPanel" hidden>
   <header><span>Town</span><button id="townClose" tabindex="-1">&#x2715;</button></header>
   <div id="townBody" class="scrollable"></div>
@@ -276,6 +280,7 @@
 <script src="js/data/dungeons/castle_crypt.js" defer></script>
 <script src="js/data/ponies/registry.js" defer></script>
 <script src="js/data/ponies/variants.js" defer></script>
+<script src="js/data/items/ponyCoins.js" defer></script>
 <script src="js/data/ponies/abilities.js" defer></script>
 <script src="js/data/ponies/kinds.js" defer></script>
 <script src="js/data/ponies/skills.js" defer></script>
@@ -421,6 +426,7 @@
 <script src="js/shared/shopSystem.js" defer></script>
 <script src="js/shared/appleSystem.js" defer></script>
 <script src="js/shared/homeCrafts.js" defer></script>
+<script src="js/shared/ponyPoster.js" defer></script>
 <script src="js/shared/stableSystem.js" defer></script>
 <script src="js/shared/farming.js" defer></script>
 <script src="js/shared/weather.js" defer></script>
@@ -502,6 +508,7 @@
 <script src="js/client/render/renderer.js" defer></script>
 <script src="js/client/render/backend.js" defer></script>
 <script src="js/client/render/coinArt.js" defer></script>
+<script src="js/client/render/ponyCoinArt.js" defer></script>
 <script src="js/client/ui/itemIcons.js" defer></script>
 <script src="js/client/ui/slotView.js" defer></script>
 <script src="js/client/ui/toolbarUI.js" defer></script>
@@ -521,6 +528,7 @@
 <script src="js/client/ui/appleUI.js" defer></script>
 <script src="js/client/ui/wardrobeUI.js" defer></script>
 <script src="js/client/ui/ponyBookUI.js" defer></script>
+<script src="js/client/ui/posterUI.js" defer></script>
 <script src="js/client/ui/tradeUI.js" defer></script>
 <script src="js/client/ui/townUI.js" defer></script>
 <script src="js/client/ui/shopUI.js" defer></script>

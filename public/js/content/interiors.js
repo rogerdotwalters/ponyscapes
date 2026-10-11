@@ -105,7 +105,7 @@ window.PONYSCAPES_INTERIORS = {
     ],
     "furniture": [
       { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "worn_chest", "x": 2, "y": 1, "rot": 0 }, { "id": "wardrobe", "x": 5, "y": 1, "rot": 0 },
-      { "id": "torn_rug", "x": 3, "y": 4, "rot": 0 }
+      { "id": "coin_poster", "x": 3, "y": 1, "rot": 0 }, { "id": "torn_rug", "x": 3, "y": 4, "rot": 0 }
     ],
     "exit": [4, 7]
   },

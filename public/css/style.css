@@ -35,7 +35,7 @@ canvas{display:block}
 #inventoryPanel,#craftPanel,#settingsPanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;
   background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
 #inventoryPanel header,#craftPanel header,#settingsPanel header{display:flex;justify-content:space-between;align-items:center;height:calc(34px - 8px);margin-bottom:8px;font:600 15px Georgia,serif}
-#invClose,#craftClose,#settingsClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
+#invClose,#posterClose,#craftClose,#settingsClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
 #invBody{overflow-y:auto;touch-action:pan-y}
 .invgrid{display:grid;grid-template-columns:repeat(5,var(--slot,46px));gap:var(--gap,5px);justify-content:center;margin-bottom:4px}
 .invsec{display:flex;align-items:center;gap:6px;margin:6px 0 4px;font:600 12px Georgia,serif;color:#e9ddb8}
@@ -103,10 +103,10 @@ canvas{display:block}
 #emoteWheel{position:fixed;inset:0;z-index:9;background:rgba(5,10,20,.35)}
 .ebubble{position:absolute;border-radius:50%;border:2px solid rgba(227,194,122,.85);background:rgba(250,246,232,.96);padding:0;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .ebubble.etrade{background:rgba(227,194,122,.95);color:#10202f;font-family:Georgia,serif;font-weight:700}
-#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#stablePanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
-#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#stablePanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
+#gearPanel,#ponyPanel,#posterPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#stablePanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
+#gearPanel header,#ponyPanel header,#posterPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#stablePanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
 #gearClose,#tradeClose,#puzzleClose,#dialogueClose,#stableClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
-#gearBody,#ponyBody,#townBody,#tradeBody,#shopBody,#controlsBody{overflow-y:auto;touch-action:pan-y}
+#gearBody,#ponyBody,#posterBody,#townBody,#tradeBody,#shopBody,#controlsBody{overflow-y:auto;touch-action:pan-y}
 .shopTabs{display:flex;gap:6px;margin:0 0 8px}.shopTabs button{flex:1;padding:7px;border-radius:8px;border:1px solid rgba(227,194,122,.5);background:rgba(10,18,28,.6);color:#f4e6c1;font:600 14px Georgia,serif;cursor:pointer}.shopTabs button.on{background:rgba(227,194,122,.9);color:#10202f}
 .shophead{display:flex;align-items:center;gap:4px;margin:0 0 8px;font-size:13px}.shophead img{width:20px;height:20px}
 .shopbuy{height:30px;padding:0 12px;border-radius:6px;border:1.5px solid #ffd36a;background:rgba(110,80,20,.72);color:#fff3c4;font:700 12px Georgia,serif}.shopbuy:disabled{opacity:.35}
@@ -613,14 +613,14 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 :root{--oak:#3a281a;--oak2:#4a3322;--deep:#1d120a;--gold:#d9a441;--brass:#f2cf7a;--parch:#f1e0b4;--ink:#2a170c;--wine:#7a2a2a;--moss:#4f7a3a;
   --font-title:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif}
 /* stepped (pixel-cut) corners, a gold rule inside an iron frame, and a hard drop shadow */
-#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#stablePanel,#gardenWin,.lobbyCard{
+#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#posterPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#stablePanel,#gardenWin,.lobbyCard{
   border:3px solid var(--deep);border-radius:3px;color:var(--parch);
   background:
     repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 2px,transparent 2px 22px),
     linear-gradient(180deg,#46311f 0%,var(--oak) 60%,#2f2014 100%);
   box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px var(--deep),inset 0 0 0 5px rgba(242,207,122,.35),0 5px 0 rgba(0,0,0,.45),0 0 0 2px #000;
   }
-#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#stablePanel header,#gardenWin header{
+#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#posterPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#stablePanel header,#gardenWin header{
   font:700 17px var(--font-title);letter-spacing:2px;text-transform:uppercase;color:var(--brass);text-shadow:2px 2px 0 var(--deep);
   padding:0 0 5px;border-bottom:2px solid var(--gold);box-shadow:0 2px 0 var(--deep)}
 #invClose,#craftClose,#settingsClose,#gearClose,#gardenClose,#tradeClose,#puzzleClose,#dialogueClose,#journalClose,#menuClose,#mapClose{
@@ -797,6 +797,20 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
   #shopCounter{min-height:50px;padding:4px}
   .coinChip{font-size:12px}.coinChip img{width:20px;height:20px}
 }
+
+/* the Coin Poster (client/ui/posterUI.js): a parchment board of coin slots, and your pony coins to drag onto it */
+#posterBoard{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px;margin:2px 0 8px;background:#e8d9b0;border:4px solid #6d4c2f;box-shadow:inset 0 0 0 2px #b9a070,0 3px 0 #2a1a0c;border-radius:2px}
+#posterBoard .pslot{position:relative;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font:700 10px Georgia,serif;color:#5a3f1e;text-align:center;line-height:1.1;border-radius:2px}
+#posterBoard .pslot canvas{width:100%;height:auto;image-rendering:pixelated;max-width:56px}
+#posterBoard .pslot.have canvas{filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}
+#posterBoard .pslot.over{outline:2px dashed #c0392b;background:rgba(255,255,255,.35)}
+#posterHint{font:12px Georgia,serif;color:var(--parch);margin:2px 0 4px}
+#posterTray{display:flex;flex-wrap:wrap;gap:6px;min-height:50px;padding:6px;background:rgba(0,0,0,.25);border:2px solid var(--deep);border-radius:2px}
+#posterTray .pcoin{position:relative;width:46px;height:46px;touch-action:none;cursor:grab;border-radius:2px;background:#4a3320}
+#posterTray .pcoin.sel{outline:2px solid var(--gold)}
+#posterTray .pcoin img{width:100%;height:100%;image-rendering:pixelated;pointer-events:none}
+#posterTray .pcoin span{position:absolute;right:1px;bottom:0;font:700 11px Georgia,serif;color:#fff;text-shadow:0 1px 2px #000}
+#posterTray .empty{font:12px Georgia,serif;color:#cdb98a;align-self:center}
 
 /* ---- the stable's menu (stableUI.js) ---- */
 #stableBody{display:flex;flex-direction:column;gap:7px;overflow-y:auto}
