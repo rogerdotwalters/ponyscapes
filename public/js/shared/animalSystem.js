@@ -143,7 +143,12 @@ class AnimalSystem {
   /** A pony in a stall of the stable (stableSystem.js): it potters about inside its own pen and never leaves it, even through an open gate. */
   _thinkStalled(a, def, dt) {
     if (!a.stallBox) a.stallBox = Stable.boxOfKey(a.stall);
-    if (!a.stallBox) { a.vx = a.vy = 0; a.state = 'idle'; return; }
+    if (!a.stallBox) {                                                                                  // its stall is gone (the stable was laid out again): it is let out beside the doormat
+      const k = Stable.parseKey(a.stall), plan = k && Grids.plan(k.grid), ex = plan && plan.layout && plan.layout.exit;
+      delete a.stall; delete a.stallAt; delete a.stallBox; a.vx = a.vy = 0; a.state = 'idle'; a.leashed = false;
+      if (ex) { a.x = ex[0] + 0.5; a.y = ex[1] - 1.5; a.home = { x: a.x, y: a.y }; }
+      return;
+    }
     a.hurt = false; this._wander(a, def, dt);
   }
   /** Keep up with someone: trot after them, stop a little way off, and catch up at once if left far behind or stuck behind something. */
