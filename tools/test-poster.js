@@ -62,4 +62,22 @@ test('every pony kind and variety gives a coin when caught (a retired variety gi
   })()`);
   assert.strictEqual(r, '[]');
 });
+test('mounted, you can still feed the wild pony on your lasso', () => {
+  const r = run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A], inv = S.inventories[A];
+    for (const sl of inv.toJSON()) if (sl) inv.remove(sl.id, sl.count);
+    inv.add('apple', 3); P.held = 'apple'; P.sel = 0;
+    const mine = Object.values(S.animals.animals).find(a => a.owner === A);
+    S._mount(A, P, mine);
+    const wid = S.animals.spawn('pony_plain', P.x + 1, P.y, 0, { level: 1 });
+    S.animals.capture(wid, A);
+    const w = S.animals.animals[wid]; w.x = P.x + 1; w.y = P.y;
+    const act = Interactions.find(S.mapOf(P), {}, P, 'apple', S.animals.animals, A, {}, {});
+    const before = inv.count('apple');
+    S._interact(A, P);
+    return JSON.stringify({ kind: act && act.kind, spent: before - inv.count('apple'), mounted: !!P.mount });
+  })()`);
+  const o = JSON.parse(r);
+  assert.strictEqual(o.kind, 'feed'); assert.strictEqual(o.spent, 1); assert(o.mounted);
+});
 console.log(passed + ' passed');
