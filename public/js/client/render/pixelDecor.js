@@ -443,6 +443,13 @@ const PixelDecor = (() => {
     /** A stall: low plank partitions either side, a low board at the back and front, corner posts, straw underfoot and a feed trough (open above, so the pony inside shows). */
     stall(s, def, w, h) {
       const c = def.colors, z = A(def.height || 24), wood = M.wood(c.wood, { dir: 'v', pw: 4 }), post = M.wood(c.post, { dir: 'v', pw: 3 });
+      if (w >= 3 && h >= 3) {                                                                              // a roomy pen: the walls are the room's own, so only straw, a hay heap and a feed trough lie inside
+        s.box(0.04, 0.04, w - 0.04, h - 0.04, 0, 1.2, M.hay(c.hay));
+        s.box(w - 1.5, 0.18, w - 0.3, 0.62, 0, A(8), M.wood(shade(c.wood, 0.8), { pw: 3 }));                // the feed trough, at the back
+        s.box(w - 1.44, 0.24, w - 0.36, 0.56, A(8), A(8) + 0.8, M.hay(c.hay));
+        s.box(0.4, 0.3, 1.1, 0.95, 0, A(7), M.hay(shade(c.hay, 0.92)));                                     // a heap of hay in the back corner
+        return;
+      }
       s.box(0.05, 0.05, w - 0.05, h - 0.05, 0, 1.4, M.hay(c.hay));                                         // the straw
       s.box(0, 0, 0.1, h, 0, z * 0.72, wood); s.box(w - 0.1, 0, w, h, 0, z * 0.72, wood);                  // the partitions
       s.box(0.1, 0, w - 0.1, 0.09, 0, z * 0.5, wood);                                                      // the back board
@@ -450,6 +457,13 @@ const PixelDecor = (() => {
       for (const x of [0, w - 0.14]) { s.box(x, h - 0.14, x + 0.14, h, 0, z, post); s.box(x - 0.01, h - 0.15, x + 0.15, h + 0.01, z, z + 1.6, M.solid(light(c.post, 0.25))); }   // corner posts with caps
       s.box(w - 0.62, 0.14, w - 0.16, 0.5, 0, A(8), M.wood(shade(c.wood, 0.8), { pw: 3 }));                // a feed trough
       s.box(w - 0.58, 0.18, w - 0.2, 0.46, A(8), A(8) + 0.8, M.hay(c.hay));
+    },
+    /** A stall gate: a one-tile gate set in the pen's front wall. Shut (fill 0): two posts and rails across; open (fill 1): the leaf swung back against the left post. */
+    stall_gate(s, def, w, h, rot, f) {
+      const c = def.colors, z = A(def.height || 22), wood = M.wood(c.wood, { dir: 'h', pw: 4 }), post = M.wood(c.post, { dir: 'v', pw: 3 }), open = !!(f && f.fill > 0.5);
+      s.box(0, 0.4, 0.14, 0.6, 0, z + 2, post); s.box(w - 0.14, 0.4, w, 0.6, 0, z + 2, post);                  // the two gateposts
+      if (!open) { for (const [a, b] of [[0.2, 0.42], [0.55, 0.75]]) s.box(0.14, 0.45, w - 0.14, 0.55, z * a, z * b, wood); s.box(0.44, 0.45, 0.56, 0.55, 0, z * 0.75, wood); }
+      else { for (const [a, b] of [[0.2, 0.42], [0.55, 0.75]]) s.box(0.02, 0.62, 0.12, h - 0.02, z * a, z * b, wood); }
     },
     hay(s, def, w, h) {
       const c = def.colors, z = A(def.height || 18), band = M.solid(c.band), straw = M.hay(c.hay);

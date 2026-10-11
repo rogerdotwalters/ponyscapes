@@ -31,6 +31,9 @@ function lureFor(def, itemId, levels, buffs) {
   return { radius: LURE_RADIUS * charm, trust: TRUST_SECONDS, approach: 1.5 };
 }
 
+const ROAM_RADIUS = 16;                                     // how far a pony that was let out wanders from the stable door
+const def_radius = a => (AnimalDefs[a.type] ? AnimalDefs[a.type].radius : 0.3);
+
 class AnimalSystem {
   /** @param {{map, mapOf:(animal)=>World, rng, getTick, emit, damagePlayer:(id,amount)=>void, getLights:()=>Array}} deps  (map: the overworld) */
   constructor(deps) { Object.assign(this, deps); this.animals = {}; this.nodes = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; this.active = null; if (!this.mapOf) this.mapOf = () => this.map; }
@@ -70,7 +73,6 @@ class AnimalSystem {
       const a = this.animals[id], near = byGrid[gridOf(a)];
       if (a.shornUntil && tick >= a.shornUntil) a.shornUntil = 0;                       // its wool has grown back
       if (a.rider || !near || !near.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_ACTIVE_RADIUS)) continue;     // a ridden pony is steered by its rider
-      if (a.stall) { a.vx = a.vy = 0; a.state = 'idle'; if (a.stallAt) { a.x = a.stallAt.x; a.y = a.stallAt.y; } continue; }   // a pony in a stall (stableSystem.js) stays where it is
       const def = AnimalDefs[a.type];
       this.active = a;                                                                   // (what it does is shown on its grid: see GameServer's events)
       this._think(a, def, near, TICK_DT);
@@ -121,19 +123,28 @@ class AnimalSystem {
   }
 
   /** A tamed animal: on a leash it follows its owner; otherwise it potters about near the spot it was let go and never panics.
-   *  A CAUGHT wild pony (captor, not yet owner) follows the same way but is restless: it breaks free unless you get it to shelter. */
+   *  A CAUGHT wild pony (captor, not yet owner) follows the same way and the rope NEVER breaks: it is gentled by feeding it fruit (anywhere), while a rainbow bar fills. */
   _thinkPet(a, def, humans, dt) {
-    if (!a.owner) { this._tickCapture(a, dt); if (!a.captor) return; }                 // (it may just have broken free)
+    if (!a.owner) this._tickGentling(a, dt);                                           // (a caught pony: the taming timer runs; it may settle just now)
+    if (!a.owner && !a.captor) return;
+    if (a.stall) { this._thinkStalled(a, def, dt); return; }
+    if (a.roam) { a.hurt = false; this._wander(a, def, dt); return; }                  // let out to roam the village (stableSystem.js)
     const leaderId = a.owner || a.captor, owner = humans.find(h => h.id === leaderId);
     if (!a.leashed) {
       if (a.main && owner && !owner.boat) { this._follow(a, def, owner, dt, MAIN_PONY_FOLLOW_DISTANCE); a.home = { x: a.x, y: a.y }; return; }   // your main pony goes where you go
       a.hurt = false; this._wander(a, def, dt); return;
     }
-    if (!owner) {                                                                      // the leader is gone: let go where we stand
-      if (a.captor) this.releaseWild(a.id); else { a.leashed = false; a.home = { x: a.x, y: a.y }; }
+    if (!owner) {                                                                      // the leader is out of reach for now (another room, a boat): the rope holds, it waits where it stands
+      a.state = 'idle'; this._steerAlong(a, 0, 0, 0);
       return;
     }
     this._follow(a, def, owner, dt, LEASH_FOLLOW_DISTANCE);
+  }
+  /** A pony in a stall of the stable (stableSystem.js): it potters about inside its own pen and never leaves it, even through an open gate. */
+  _thinkStalled(a, def, dt) {
+    if (!a.stallBox) a.stallBox = Stable.boxOfKey(a.stall);
+    if (!a.stallBox) { a.vx = a.vy = 0; a.state = 'idle'; return; }
+    a.hurt = false; this._wander(a, def, dt);
   }
   /** Keep up with someone: trot after them, stop a little way off, and catch up at once if left far behind or stuck behind something. */
   _follow(a, def, owner, dt, distance) {
@@ -147,20 +158,20 @@ class AnimalSystem {
     this._steerAlong(a, owner.x - a.x, owner.y - a.y, d > distance ? Math.min(def.followSpeed || def.wanderSpeed * 3, 0.5 + d * 1.5) : 0);
   }
 
-  /** A caught pony settles inside shelter and frets outside it. */
-  _tickCapture(a, dt) {
-    const tick = this.getTick();
-    if (tick - a.shelterTick > 30) { a.shelter = Shelter.find(this.mapOf(a), a.x, a.y); a.shelterTick = tick; }
-    if (a.shelter) { a.captureT = Math.max(0, a.captureT - dt * 2); a.warned = false; return; }
-    a.captureT += dt;
-    if (!a.warned && a.captureT >= CAPTURE_BREAK_SECONDS * CAPTURE_WARN_FRACTION) {
-      a.warned = true; this.emit({ type: 'notice', to: a.captor, text: 'The pony is getting restless: lead it to a stable or a fenced pen' });
-    }
-    if (a.captureT >= CAPTURE_BREAK_SECONDS) {
-      const captor = a.captor, x = a.x, y = a.y;
-      this.releaseWild(a.id);
-      this.emit({ type: 'brokeFree', to: captor, x, y }); this.emit({ type: 'notice', to: captor, text: 'The pony broke free!' });
-    }
+  /** A caught pony: the more fruit it has eaten, the more of the taming bar it may fill. The bar fills with time (TAME_SECONDS_PER_FRUIT per fruit);
+   *  when it is full the pony settles in as its captor's pet. It never gets restless and the rope never breaks. */
+  _tickGentling(a, dt) {
+    if (!a.captor) return;
+    const per = AnimalLevels.TAME_SECONDS_PER_FRUIT, need = a.applesNeed || 0, fed = (a.trust || 0) * per;
+    if (!need || fed <= 0) return;                                                     // (nothing eaten yet: the bar waits for the first fruit)
+    a.tameT = Math.min(fed, (a.tameT || 0) + dt);
+    if (a.tameT >= need * per - 1e-6) this._settle(a);
+  }
+  /** The bar is full: the pony becomes the captor's own pet. */
+  _settle(a) {
+    const captor = a.captor;
+    a.owner = captor; a.captor = ''; a.leashed = false; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp; a.tameT = 0;
+    if (this.onSettled) this.onSettled(captor, a);
   }
 
   _chooseWanderTarget(a) {
@@ -172,7 +183,13 @@ class AnimalSystem {
       if (far) { tx = node.x + (a.x - node.x) * 0.5; ty = node.y + (a.y - node.y) * 0.5; }
       else if (nd > NODE_ROAM_RADIUS) { tx = node.x + nx / nd * NODE_ROAM_RADIUS; ty = node.y + ny / nd * NODE_ROAM_RADIUS; }
     }
-    if (a.owner && a.home) {                                                           // pets stay near home
+    if (a.stall && a.stallBox) { const b = a.stallBox, r = def_radius(a); tx = clamp(tx, b.x0 + r, b.x1 - r); ty = clamp(ty, b.y0 + r, b.y1 - r); }       // (a stalled pony keeps to its pen)
+    else if (a.roam) {                                                                 // a pony let out: it roams the village area only
+      const hx = tx - a.home.x, hy = ty - a.home.y, hd = Math.hypot(hx, hy);
+      if (hd > ROAM_RADIUS) { tx = a.home.x + hx / hd * ROAM_RADIUS; ty = a.home.y + hy / hd * ROAM_RADIUS; }
+      tx = clamp(tx, Village.area.x0 + 1, Village.area.x1 - 1); ty = clamp(ty, Village.area.y0 + 1, Village.area.y1 - 1);
+    }
+    else if (a.owner && a.home) {                                                      // pets stay near home
       const hx = tx - a.home.x, hy = ty - a.home.y, hd = Math.hypot(hx, hy);
       if (hd > PET_HOME_RADIUS) { tx = a.home.x + hx / hd * PET_HOME_RADIUS; ty = a.home.y + hy / hd * PET_HOME_RADIUS; }
     }
@@ -193,6 +210,8 @@ class AnimalSystem {
     accelerateToward(a, (a.tvx || 0) * pace, (a.tvy || 0) * pace, ANIMAL_ACCEL * dt);
     a.x += a.vx * dt; a.y += a.vy * dt;
     resolveCollisions(this.mapOf(a), a, def.radius);                    // water, trees, walls (of its own grid): animals stay out of them too
+    if (a.stall && a.stallBox) { const b = a.stallBox; a.x = clamp(a.x, b.x0 + def.radius, b.x1 - def.radius); a.y = clamp(a.y, b.y0 + def.radius, b.y1 - def.radius); }   // (never out of its pen)
+    else if (a.roam && !gridOf(a)) { const v = Village.area; a.x = clamp(a.x, v.x0 + 1, v.x1 - 1); a.y = clamp(a.y, v.y0 + 1, v.y1 - 1); }
     if (Math.hypot(a.vx, a.vy) > 0.05) turnToward(a, Math.atan2(a.vy, a.vx), ANIMAL_TURN_RATE * dt);
   }
 
@@ -281,7 +300,7 @@ class AnimalSystem {
     let best = null;
     for (const id in this.animals) {
       const a = this.animals[id], def = AnimalDefs[a.type];
-      if (!canBefriendAnimal(a.type) || !sameGrid(a, p) || a.captor || a.rider || (a.owner && (a.owner !== p.id || a.leashed))) continue;
+      if (!canBefriendAnimal(a.type) || !sameGrid(a, p) || a.captor || a.rider || a.stall || (a.owner && (a.owner !== p.id || a.leashed || def.pony))) continue;   // (your own ponies have the Leash button)
       const gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
       if (gap > reach) continue;
       if (aim) {                                                          // pointed at: the animal nearest the click wins
@@ -319,22 +338,28 @@ class AnimalSystem {
     a.owner = ownerId; a.leashed = true; a.home = { x: a.x, y: a.y }; a.state = 'idle'; a.fleeT = 0; a.hurt = false; a.hp = AnimalDefs[a.type].hp;
     return a;
   }
-  /** A wild pony is caught on the lasso: it follows you, but is not yours until it has eaten its apples in shelter. */
+  /** A wild pony is caught on the lasso: it follows you, but is not yours until it has been gentled with its fruit (and the rainbow bar is full). */
   capture(id, captorId) {
     const a = this.animals[id];
-    a.captor = captorId; a.leashed = true; a.trust = 0; a.captureT = 0; a.warned = false; a.shelter = null; a.shelterTick = -999;
+    a.captor = captorId; a.leashed = true; a.trust = 0; a.tameT = 0; a.captureT = 0; a.warned = false; a.shelter = null; a.shelterTick = -999;
+    a.applesNeed = AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count;
     a.state = 'idle'; a.fleeT = 0; a.hurt = false; a.trustT = 0;
     return a;
   }
-  /** One apple eaten. Returns { done, have, need }; at `need` apples the pony settles in as the captor's free pet. */
+  /** One fruit eaten (anywhere). Returns { done: false, have, need }: the bar then fills by itself and the pony settles once it is full. */
   feed(id, captorId, discount = 0) {
     const a = this.animals[id];
     if (!a || a.captor !== captorId) return null;
-    const need = a.applesNeed = Math.max(1, AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level) - discount);   // an upgraded stable settles it with fewer
+    const need = a.applesNeed = Math.max(1, AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count - discount);   // an upgraded stable settles it with fewer
     a.trust = Math.min(need, a.trust + 1);
-    if (a.trust < need) return { done: false, have: a.trust, need };
-    a.owner = captorId; a.captor = ''; a.leashed = false; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp;
-    return { done: true, have: a.trust, need };
+    if (a.tameT >= need * AnimalLevels.TAME_SECONDS_PER_FRUIT - 1e-6) this._settle(a);
+    return { done: false, have: a.trust, need };
+  }
+  /** How full the taming bar is, 0..1 (0 for a pony that is not being gentled). */
+  tameProgress(a) {
+    if (!a.captor) return 0;
+    const need = a.applesNeed || AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count;
+    return clamp((a.tameT || 0) / (need * AnimalLevels.TAME_SECONDS_PER_FRUIT), 0, 1);
   }
   /** Let a caught pony go: it bolts. Returns who held it. */
   releaseWild(id) {
@@ -368,8 +393,9 @@ class AnimalSystem {
       const a = this.animals[id];
       if (a.owner !== ownerId && a.captor !== ownerId) continue;
       if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; }
-      const gentling = a.captor ? { have: a.trust, need: a.applesNeed || AnimalLevels.applesNeeded(AnimalDefs[a.type], a.level), sheltered: !!a.shelter, restless: Math.round(100 * a.captureT / CAPTURE_BREAK_SECONDS) } : null;
-      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
+      const fruit = a.captor ? AnimalLevels.tameFruit(AnimalDefs[a.type], a.level) : null;
+      const gentling = a.captor ? { have: a.trust, need: a.applesNeed || fruit.count, item: fruit.item, progress: this.tameProgress(a) } : null;
+      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
     }
     return out;
   }
@@ -450,6 +476,7 @@ class AnimalSystem {
         if (a.grid) out[id].grid = a.grid;
         if (a.jumpLift) out[id].lift = Math.round(a.jumpLift * 100) / 100;                     // the Slime King mid-leap: how high (0..1; drawn like a flying pony's lift)
         if (a.main) out[id].main = true;
+        if (a.captor) out[id].tame = Math.round(this.tameProgress(a) * 100) / 100;               // a caught pony's rainbow taming bar (0..1)
         if (a.stall) out[id].stall = true;                                                    // in a stall of the stable: it stays put and cannot be ridden
         if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)

@@ -123,6 +123,15 @@ class InstanceWorld extends World {
   constructor(seed, grid, kind, plan) {
     super(seed, { seed: seed | 0, layers: NO_LAYERS, tile: (tx, ty) => plan.tileAt(tx, ty), biomeAt: () => 'normal', hasTree: () => false, appleTreeAt: () => false });
     this.grid = grid; this.kind = kind; this.plan = plan;
+    this.openGates = new Set();                                                          // the stable's gates that stand open ('tx,ty'): a shut gate is solid, an open one is not (stableSystem.js)
+  }
+  isGateOpen(tx, ty) { return this.openGates.has(tx + ',' + ty); }
+  /** Open or shut the gate on tile (tx, ty): it blocks while shut. */
+  setGate(tx, ty, open) {
+    const key = tx + ',' + ty;
+    if (open) this.openGates.add(key); else this.openGates.delete(key);
+    const chunk = this.chunkOfTile(tx, ty);
+    if (chunk && chunk.solid) chunk.solid[((ty & CHUNK_MASK) << CHUNK_SHIFT) | (tx & CHUNK_MASK)] = open ? 0 : 1;
   }
   generate(cx, cy) {
     const P = this.plan, x0 = cx * CHUNK_SIZE, y0 = cy * CHUNK_SIZE;
@@ -132,7 +141,7 @@ class InstanceWorld extends World {
     };
     for (let ly = 0; ly < CHUNK_SIZE; ly++) for (let lx = 0; lx < CHUNK_SIZE; lx++) {
       const tx = x0 + lx, ty = y0 + ly, li = (ly << CHUNK_SHIFT) | lx;
-      chunk.tiles[li] = P.tileAt(tx, ty); chunk.obj[li] = P.objAt(tx, ty); chunk.solid[li] = P.solidAt(tx, ty) ? 1 : 0;
+      chunk.tiles[li] = P.tileAt(tx, ty); chunk.obj[li] = P.objAt(tx, ty); chunk.solid[li] = P.solidAt(tx, ty) && !(this.openGates.size && this.openGates.has(tx + ',' + ty)) ? 1 : 0;
     }
     for (const { tile: [tx, ty], prop } of P.propsIn(cx, cy)) addChunkProp(chunk, ((ty - y0) << CHUNK_SHIFT) | (tx - x0), prop);
     return chunk;

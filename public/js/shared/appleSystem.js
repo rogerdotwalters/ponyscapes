@@ -34,11 +34,11 @@ const AppleRules = {
 
 Object.assign(GameServer.prototype, {
   /** The Apple button: give one `item` to your pony (see above). */
-  _giveApple(id, item) {
+  _giveApple(id, item, given) {
     const p = this.players[id], inventory = this.inventories[id];
     if (!p || p.down > 0 || p.hp <= 0 || p.asleep) return;
     if (!ItemDB.isApple(item) || !inventory.has(item, 1)) { this._notice(id, 'You have no apples'); return; }
-    const pony = AppleRules.target(this.animals.animals, p, id);
+    const pony = given || AppleRules.target(this.animals.animals, p, id);
     if (!pony) { this._notice(id, 'Ride your pony, or stand next to it, to give it an apple'); return; }
     const rule = AppleRules.of(item), hurt = pony.hp < pony.maxHp;
     if (!hurt && !AppleRules.special(item)) { this._notice(id, 'Your pony is already at full health'); return; }

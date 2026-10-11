@@ -49,6 +49,7 @@ class GameServer {
     this.lightCache = [];                                  // campfires + held torches, rebuilt every tick
     this.animals = new AnimalSystem({ map: this.map, mapOf: a => this.mapOf(a), rng: this.rng, getTick: () => this.tick, emit: e => this._emitFrom(this.animals.active, e),
       damagePlayer: (id, amount) => this._damagePlayer(id, amount), getLights: () => this.lightCache, onKilled: (a, def) => this.dungeons.onKilled(a, def) });
+    this.animals.onSettled = (ownerId, animal) => this._settled(ownerId, animal);                  // (a caught pony's taming bar is full: it becomes a pet)
     this.npcs = new NpcSystem({ map: this.map, rng: this.rng, server: this });                                    // the villagers (placed once the server is fully built, below)
     this.friendship = new FriendshipSystem(this);                                                   // the heart meter, for people and animals alike
     Object.assign(InteractionHandlers, {
@@ -278,6 +279,9 @@ class GameServer {
       case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
+      case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
+      case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
+      case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
       case 'questAccept': if (typeof cmd.quest === 'string') this.quests.accept(id, cmd.quest); break;       // at a villager's dialogue window (questSystem.js)
@@ -732,21 +736,26 @@ class GameServer {
     this.pendingEvents.push({ type: wasCaught ? 'letGo' : 'untied', to: id, x: animal.x, y: animal.y });
   }
 
-  /** Feed an apple to a pony you have caught. It only eats in a stable or a closed pen; enough apples and it settles in as your pet. */
+  /** Feed a pony you have caught, ANYWHERE: it takes the fruit its kind and level ask for (or a more exotic one). Each fruit buys a few seconds on the
+   *  rainbow taming bar; when the bar is full it settles in as your pet (animals.onSettled -> _settled). */
   _feedPony(id, animal) {
-    const p = this.players[id], inventory = this.inventories[id], def = AnimalDefs[animal.type];
-    if (!ItemDB.isApple(p.held) || !inventory.has(p.held, 1)) { this._notice(id, 'Hold an apple to feed it'); return; }
-    if (!Shelter.find(this.mapOf(animal), animal.x, animal.y)) { this._notice(id, 'It will not eat out here: lead it to a stable or a closed pen first'); return; }
+    const p = this.players[id], inventory = this.inventories[id], def = AnimalDefs[animal.type], want = AnimalLevels.tameFruit(def, animal.level);
+    if (!ItemDB.isApple(p.held) || !inventory.has(p.held, 1)) { this._notice(id, `Hold a ${ItemDefs[want.item].name} to feed it`); return; }
+    if (AnimalLevels.fruitRank(p.held) < AnimalLevels.fruitRank(want.item)) { this._notice(id, `A ${def.name} wants a ${ItemDefs[want.item].name} or better, not a ${ItemDefs[p.held].name}`); return; }
+    if ((animal.trust || 0) >= (animal.applesNeed || want.count)) { this._notice(id, 'It has had all it needs: wait for the bar to fill'); return; }
     inventory.remove(p.held, 1); this.inventoryRev[id]++;
     const result = this.animals.feed(animal.id, id, Buildings.appleDiscountAt(this.mapOf(animal), animal.x, animal.y));
     this.progress.award(id, 'horsemanship', 12);
     this.pendingEvents.push({ type: 'fed', to: id, x: animal.x, y: animal.y, have: result.have, need: result.need, id: animal.id });
-    if (!result.done) return;                                                  // (the client shows "Apple 1/2")
+  }
+
+  /** The taming bar filled up: the pony is yours. */
+  _settled(id, animal) {
     this._remember(id, animal);
     this._returnLasso(id, animal);                                                                        // (older saves only)
     animal.xp = PonyXp.xpFor(animal.level);                                                               // from now on it grows with you
     this.progress.award(id, 'horsemanship', 80);
-    this.pendingEvents.push({ type: 'tamed', to: id, x: animal.x, y: animal.y, animal: animal.type, id: animal.id });
+    this.pendingEvents.push({ type: 'tamed', to: id, x: animal.x, y: animal.y, animal: animal.type, id: animal.id, grid: gridOf(animal) });
   }
 
   /** A small animal (a rabbit) is simply picked up. */
@@ -822,6 +831,13 @@ class GameServer {
   }
 
   /* ---- riding ---- */
+  /** The Ride button: get on the nearest loose pony of yours. */
+  _rideNearest(id) {
+    const p = this.players[id];
+    if (!p || p.down > 0 || p.hp <= 0 || p.asleep || p.mount || p.boat || p.flying) return;
+    const found = findRide(p, this.animals.animals, id);
+    if (found) this._mount(id, p, found.animal); else this._notice(id, 'No pony of yours is close enough to ride (a leashed or stabled pony must be freed first)');
+  }
   _mount(id, p, animal) {
     const need = AnimalLevels.rideLevel(animal.type, animal.owner === id ? 1 : animal.level), have = Skills._s(p.lv, 'horsemanship');   // (your own pony never outgrows you as it levels up)
     if (have < need && !animal.trial) { this._notice(id, `A level ${animal.level} ${AnimalDefs[animal.type].name} needs Horsemanship ${need} to ride (you have ${have})`); return; }

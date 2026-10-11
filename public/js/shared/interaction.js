@@ -47,6 +47,19 @@ function findRelease(p, animals, selfId = p.id) {
   return best;
 }
 
+/** The pony the Ride button would put you on: your own, loose (not on a leash, not stabled), the nearest within riding range. { kind: 'ride', label: 'Ride', dist, animal } or null.
+ *  Riding has its OWN button and key, so it never shares the action button with picking, feeding, boarding and the rest. */
+function findRide(p, animals, selfId = p.id) {
+  if (p.mount || p.boat || p.asleep || p.down > 0) return null;
+  let best = null;
+  for (const id in animals) {
+    const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
+    if (!def || !def.pony || a.owner !== selfId || a.leashed || a.rider || a.stall || a.captor || !sameGrid(a, p) || d > CONFIG.sim.ride.range || (best && d >= best.dist)) continue;
+    best = { kind: 'ride', label: 'Ride', dist: d, animal: a };
+  }
+  return best;
+}
+
 /** What each extra kind of interaction DOES (server side): kind -> (server, playerId, player, action). Systems register here (caves do). */
 const InteractionHandlers = {};
 
@@ -63,12 +76,12 @@ const Interactions = {
       const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
       if (!def || !sameGrid(a, p)) continue;                // (only what is on your grid)
       if (Wants.accepts(a, heldItemId) && d <= WANT_REACH + def.radius) primary.push({ kind: 'give', label: `Give ${ItemDefs[heldItemId].creature ? AnimalDefs[ItemDefs[heldItemId].creature].name : ItemDefs[heldItemId].name}`, dist: d - 0.8, animal: a });   // what it asks for (its bubble)
-      if (a.owner === selfId && !a.leashed && !a.rider && !a.stall && def.pony && !p.mount && d <= CONFIG.sim.ride.range) primary.push({ kind: 'ride', label: 'Ride', dist: d, animal: a });
-      else if (a.captor === selfId && d <= UNTIE_RANGE && ItemDB.isApple(heldItemId)) primary.push({ kind: 'feed', label: 'Feed ' + ItemDefs[heldItemId].name.toLowerCase(), dist: d - 1, animal: a });   // a caught wild pony: hold an apple and feed it (wins over a gate next to it)
+      // (riding is its own button and key now: findRide below, so Ride never competes with Feed, Pick, Board...)
+      if (a.captor === selfId && d <= UNTIE_RANGE && ItemDB.isApple(heldItemId)) primary.push({ kind: 'feed', label: 'Feed ' + ItemDefs[heldItemId].name.toLowerCase(), dist: d - 1, animal: a });   // a caught wild pony: hold an apple and feed it (wins over a gate next to it)
       else if (def.carry && Wants.isQuestCreature(a.type) && d <= PICKUP_RANGE && a.state !== 'flee' && (!a.owner || a.owner === selfId)) primary.push({ kind: 'pickup', label: 'Pick up', dist: d, animal: a });
       if (canBefriendAnimal(a.type) && !a.captor && !a.rider && d <= CONFIG.sim.friendship.petReach) {            // make friends: a treat it likes, or a pet (which loses to riding / picking up when they compete)
         const opinion = Friendship.opinion(animalTastes(a.type), heldItemId);
-        const mineToRide = a.owner === selfId && def.pony && !a.leashed;                                  // your own pony: Ride comes first (feeding it is for when it is not rideable)
+        const mineToRide = false;
         if (opinion === 'liked' || opinion === 'loved') primary.push({ kind: 'treat', label: `Give ${ItemDefs[heldItemId].name}`, dist: mineToRide ? d + 0.3 : d - 0.3, animal: a });
         else primary.push({ kind: 'pet', label: `Pet ${def.name}`, dist: d + 0.6, animal: a });
       }

@@ -250,6 +250,19 @@ class ClientGame {
   setTimeOfDay(hour) { this.net.sendCommand({ type: 'admin', values: {}, hour }); }
   setSetting(key, value) { this.net.sendCommand({ type: 'setting', key, value: !!value }); }
   requestDismount() { this.net.sendCommand({ type: 'dismount' }); }
+  /* ---- ponies: Ride and Leash have their own buttons (and keys) ---- */
+  /** The Ride button's label when a pony of yours stands ready, else null. */
+  rideHint() { const L = this.local; if (!L || L.boat || Downed.isDown(L)) return null; const r = findRide(L, this.latestAnimals(), this.myId); return r ? 'Ride' : null; }
+  requestRide() { if (this.rideHint()) this.net.sendCommand({ type: 'ride' }); else this.events.emit('notice', { to: this.myId, text: 'No pony of yours is close enough to ride' }); }
+  /** Z: get off the pony you ride, else get on the one beside you. */
+  toggleRide() { if (this.local && this.local.mount) this.requestDismount(); else this.requestRide(); }
+  /** The Leash button shows when a loose pony of yours is within reach. */
+  leashHint() { const L = this.local; return L && !L.mount && !L.boat && Stable.leashTarget(this.latestAnimals(), L, this.myId, null) ? 'Leash' : null; }
+  leashPony() { if (this.local && !this.local.mount) this.net.sendCommand({ type: 'leashPony' }); }
+  /** Do you own a pony (the Apple button is for them)? */
+  hasPony() { return this.pets.some(p => !p.gentling); }
+  /** A choice in the stable's menu. */
+  stallPick(cmd) { this.net.sendCommand(Object.assign({ type: 'stallPick' }, cmd)); }
   _animalName(animal) { return animal.look ? PonyLook.describe(animal.look).name : AnimalDefs[animal.type].name; }
   /** Pressed the Let go button / U. Untying an animal you already own is safe; letting go of a catch opens the confirmation. */
   requestRelease() {
@@ -390,6 +403,11 @@ class ClientGame {
     applyForageStates(this.worldMap, snapshot.forage || {});
     if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
+    if (snapshot.gates && this.map && this.map.openGates) {                       // the stable's gates (stableSystem.js): the open ones of the room we are in
+      const want = new Set(snapshot.gates);
+      for (const key of [...this.map.openGates]) if (!want.has(key)) { const [x, y] = key.split(',').map(Number); this.map.setGate(x, y, false); }
+      for (const key of want) if (!this.map.openGates.has(key)) { const [x, y] = key.split(',').map(Number); this.map.setGate(x, y, true); }
+    }
     if (snapshot.farm) { this.worldMap.farm = snapshot.farm; Groves.sync(this.worldMap); Hedges.sync(this.worldMap); }      // (a sapling that has grown stands as a tree)                          // the fields (farming.js)
     if (snapshot.stockpiles) { Stockpiles.replaceAll(this.worldMap, snapshot.stockpiles); this.events.emit('stockpilesChanged'); }
     if (snapshot.inventory) { const coins = this.inventory.coins; this.inventory = Inventory.fromJSON(snapshot.inventory, this.local.carryStacks); this.inventory.setCoins(coins); this.events.emit('inventoryChanged'); }

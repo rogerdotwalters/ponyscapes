@@ -7,7 +7,7 @@
  *
  *   touch layout            ┌ toolbar (beside the system buttons, or on its own row if the screen is narrow) ┐ [Craft Bag ⛶ DBG]
  *                           │  panels (inventory / crafting) open in the free space between the two thumbs  │
- *                           └ left thumb: floating joystick      right thumb: [Let go Rot Board] / [Bag Use] ┘
+ *                           └ left thumb: floating joystick      right thumb: [Let go Ride Rot Board] / [Apple Leash Lasso Power] / [Bag Use] ┘
  */
 const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnCoins', w: 62 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
@@ -29,18 +29,19 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const rowY = useRect.y - g - small;                          // second row, above Use
   const board = makeRect(right - small, rowY, small, small);
   const rot = makeRect(board.x - g - small, rowY, small, small);
-  const release = makeRect(rot.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
+  const ride = makeRect(rot.x - g - small, rowY, small, small);            // Ride: its own button, so many actions never pile onto the Board button
+  const release = makeRect(ride.x - g - small, rowY, small, small);        // Let go / Untie: the far end of the row, away from the action button, so it is never hit by accident
   const ability = makeRect(right - small, rowY - g - small, small, small);   // the ridden pony's ability, above Board
   const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
-  const drop = makeRect(lasso.x - g - small, ability.y, small, small);       // drop what is in your hand, beside the lasso
-  const apple = makeRect(drop.x - g - small, ability.y, small, small);       // the Apple button (give your pony an apple), at the end of that row
-  const cluster = unionRect([useRect, bag, board, rot, release, ability, lasso, drop, apple]);
+  const leash = makeRect(lasso.x - g - small, ability.y, small, small);      // put your own pony on a leash (a lasso for a pony that is already yours)
+  const apple = makeRect(leash.x - g - small, ability.y, small, small);      // the Apple button (give your pony an apple), at the end of that row
+  const cluster = unionRect([useRect, bag, board, rot, ride, release, ability, lasso, leash, apple]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, bag, board, rot, release, ability, lasso, drop, apple, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, bag, board, rot, ride, release, ability, lasso, leash, apple, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -230,12 +231,12 @@ class UiLayout {
     bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
 
     const P = L.panels;
-    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.posterPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.mapPanel, P.map], [dom.coinPanel, P.gear], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
+    for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.gear], [dom.ponyPanel, P.gear], [dom.posterPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.stablePanel, P.gear], [dom.mapPanel, P.map], [dom.coinPanel, P.gear], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
       el.style.left = r.x + 'px'; el.style.top = r.y + 'px';
       el.style.setProperty('--slot', P.slot + 'px'); el.style.setProperty('--gap', P.gap + 'px'); el.style.setProperty('--pad', P.pad + 'px');
     }
-    for (const el of [dom.coinPanel, dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.posterPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel, dom.controlsPanel, dom.dialoguePanel, dom.puzzlePanel]) el.style.width = P.crafting.w + 'px';
-    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.posterBody, dom.townBody, dom.shopBody, dom.tradeBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
+    for (const el of [dom.coinPanel, dom.craftPanel, dom.settingsPanel, dom.gearPanel, dom.ponyPanel, dom.posterPanel, dom.journalPanel, dom.menuPanel, dom.sessionPanel, dom.townPanel, dom.shopPanel, dom.tradePanel, dom.controlsPanel, dom.dialoguePanel, dom.puzzlePanel, dom.stablePanel]) el.style.width = P.crafting.w + 'px';
+    for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.posterBody, dom.townBody, dom.shopBody, dom.tradeBody, dom.stableBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.controlsBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.menuBody.style.maxHeight = dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';
@@ -260,7 +261,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnBag', T.bag], ['btnBoard', T.board], ['btnRot', T.rot], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnDrop', T.drop]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnBag', T.bag], ['btnBoard', T.board], ['btnRot', T.rot], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnLeash', T.leash], ['btnRide', T.ride]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);
