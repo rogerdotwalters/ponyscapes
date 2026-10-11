@@ -108,7 +108,7 @@ const Interactions = {
     const boat = BoatSystem.findBoardable(boats, p);
     if (boat && !mounted) primary.push({ kind: 'board', label: 'Board', dist: Math.hypot(boat.x - p.x, boat.y - p.y), boat });
     if (primary.length) return primary.sort((a, b) => a.dist - b.dist)[0];
-    if (mounted) return { kind: 'dismount', label: 'Dismount', dist: 0 };
+    if (mounted) return null;                             // (getting off is the Ride button's job (Z), so the action button only shows what else there is to do from the saddle)
     if (!CONFIG.sim.vitals) return null;                  // no drinking or jug filling while hunger and thirst are off
     const water = findWaterSource(map, p);
     if (!water) return null;
