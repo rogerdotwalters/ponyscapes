@@ -14,7 +14,7 @@ class CoinBagUI {
     this.panel = panel; this.canvas = canvas; this.countEl = count; this.breakEl = breakdown; this.game = game; this.camera = camera;
     this.S = 3; this._fit();
     this.ctx = canvas.getContext('2d');
-    this.pay = null; this.offered = Coins.empty();                                                    // pay mode: { zone, onOffer } and the coins put down on the counter so far
+    this.pay = null; this.target = null; this.ponyOut = {}; this.lastPony = {}; this.offered = Coins.empty();                                                    // pay mode: { zone, onOffer } and the coins put down on the counter so far
     window.addEventListener('resize', () => this.isOpen && this._fit());
     this.coins = []; this.queue = []; this.drag = null; this.ghost = null; this.raf = 0; this.last = 0;
     this.pendingOut = Coins.empty(); this.pendingT = 0; this.lastCoins = Coins.empty(); this.hint = null; this.lastTap = null; this.hidden = 0;
@@ -30,11 +30,11 @@ class CoinBagUI {
    *  fits a phone). Paying: the shop window is a slim card (top left in landscape, across the top in portrait) and the bag takes the room that is left. */
   _fit() {
     const vw = window.innerWidth, vh = window.innerHeight, box = { l: 8, t: 8, r: vw - 8, b: vh - 8 };
-    if (this.pay) {
-      const card = document.getElementById('shopPanel'), s = card && !card.hidden ? card.getBoundingClientRect() : null;
+    if (this.pay || this.target) {
+      const card = document.getElementById(this.pay ? 'shopPanel' : 'posterPanel'), s = card && !card.hidden ? card.getBoundingClientRect() : null;
       if (s) { if (vw > vh * 1.15) box.l = Math.min(vw * 0.55, s.right + 8); else box.t = Math.min(vh * 0.6, s.bottom + 8); }
     }
-    const text = this.pay ? 34 : vh < 520 ? 84 : 124;                                                 // room for the total (and, outside a shop, the hint and Merge button)
+    const text = this.pay || this.target ? 34 : vh < 520 ? 84 : 124;                                                 // room for the total (and, outside a shop, the hint and Merge button)
     let css = Math.min((box.r - box.l) / CoinBagUI.W, (box.b - box.t - text) / CoinBagUI.H, 4);
     css = css >= 2 ? Math.floor(css) : Math.max(0.9, css);
     const k = Math.max(2, Math.min(4, Math.round(css)));                                              // (drawn at 2-4x, shown at css: crisp when they match)
@@ -54,6 +54,16 @@ class CoinBagUI {
     this.pay.zone.classList.remove('over'); this.pay = null; this.offered = Coins.empty(); this.panel.classList.remove('pay');
     if (this.isOpen) { this._fit(); this._reconcile(); }
   }
+  /* ---- poster mode (the Coin Poster at home): pony coins dragged onto `zone` are pinned on the poster; `onClose` runs when the bag is closed ---- */
+  startPoster({ zone, onClose }) {
+    this.target = { zone, onClose }; this.panel.classList.add('pay');
+    if (!this.isOpen) this.open(); else { this._fit(); this._reconcile(); }
+  }
+  endPoster() {
+    if (!this.target) return;
+    this.target.zone.classList.remove('over'); this.target = null; this.panel.classList.remove('pay');
+    if (this.isOpen) { this._fit(); this._reconcile(); }
+  }
   /** Take a coin back off the counter into the bag. */
   unoffer(t) { if (this.offered[t] > 0) { this.offered[t]--; this._reconcile(); if (this.pay) this.pay.onOffer(this.offered.slice()); } }
   /** The coins on the counter have been handed to the shop (the server will take them): they leave the bag for good once the purse catches up. */
@@ -64,14 +74,14 @@ class CoinBagUI {
   open() {
     const was = this.isOpen; this.panel.hidden = false; document.body.classList.add('coinsOpen');
     if (was) return;
-    this.coins = []; this.queue = []; this.pendingOut = Coins.empty(); this.hint = null; this.lastTap = null; this._fit();
+    this.coins = []; this.queue = []; this.pendingOut = Coins.empty(); this.ponyOut = {}; this.hint = null; this.lastTap = null; this._fit();
     if (!this.pay) this.offered = Coins.empty();
-    this.lastCoins = (this.game.inventory.coins || Coins.empty()).slice(); this._reconcile();
+    this.lastCoins = (this.game.inventory.coins || Coins.empty()).slice(); this.lastPony = this._ponyHave(); this._reconcile();
     this.last = performance.now(); this.raf = requestAnimationFrame(t => this._frame(t));
     if (typeof Sfx !== 'undefined' && Sfx.bag) Sfx.bag(true);
   }
   close() {
-    const was = this.isOpen; this.panel.hidden = true; document.body.classList.remove('coinsOpen'); this._endDrag(); cancelAnimationFrame(this.raf); this.raf = 0; this.endPay();
+    const was = this.isOpen; this.panel.hidden = true; document.body.classList.remove('coinsOpen'); this._endDrag(); cancelAnimationFrame(this.raf); this.raf = 0; this.endPay(); const t = this.target; this.endPoster(); if (t && t.onClose) t.onClose();
     if (was && typeof Sfx !== 'undefined' && Sfx.bag) Sfx.bag(false);
   }
 
@@ -87,6 +97,7 @@ class CoinBagUI {
     if (y < 135) return 56 + 4 * (y - 100) / 35;
     const k = (y - 135) / 30; return k >= 1 ? 0 : 60 * Math.sqrt(1 - k * k);
   }
+  static get PONY_R() { return 13; }                                                              // a pony coin is about the size of a gold coin
   static radiusOf(t) { return 8 + 0.9 * t; }                                                       // a bigger kind is a bigger coin
 
   /* ---- keeping the pile in step with the purse ---- */
@@ -97,30 +108,54 @@ class CoinBagUI {
     const out = want.map(n => (n ? Math.max(1, Math.floor(n * cap / sum)) : 0));
     this.hidden = sum - out.reduce((a, b) => a + b, 0); return out;
   }
+  /** The pony coins in your bag (they are ordinary bag items, one slot-stack per variety), by variety id. */
+  _ponyHave() { const out = {}; for (const id of PonyCoins.ids) { const n = this.game.inventory.count(PonyCoins.itemOf(id)); if (n > 0) out[id] = n; } return out; }
+  /** How many of each pony coin the bag should show: what you hold less those just dragged out, at most ~24 in all. */
+  _ponyWant() {
+    const have = this._ponyHave(), want = {}; let left = 24;
+    for (const id of PonyCoins.ids) { const n = Math.min(left, Math.max(0, (have[id] || 0) - (this.ponyOut[id] || 0))); if (n) want[id] = n; left -= n; }
+    return want;
+  }
   _purseChanged() {
     const now = this.game.inventory.coins || Coins.empty();
     for (let t = 0; t < Coins.N; t++) if (now[t] < this.lastCoins[t] && this.pendingOut[t] > 0) this.pendingOut[t] = Math.max(0, this.pendingOut[t] - (this.lastCoins[t] - now[t]));   // the server caught up with a drop
-    this.lastCoins = now.slice();
+    const pony = this._ponyHave();
+    for (const id of PonyCoins.ids) if ((pony[id] || 0) < (this.lastPony[id] || 0) && this.ponyOut[id] > 0) this.ponyOut[id] = Math.max(0, this.ponyOut[id] - ((this.lastPony[id] || 0) - pony[id]));
+    this.lastCoins = now.slice(); this.lastPony = pony;
     if (this.isOpen) this._reconcile();
   }
   _reconcile() {
     const want = this._desired(), inv = this.game.inventory;
     this.countEl.textContent = Coins.format(inv.coins || Coins.empty());
+    this._reconcilePony();
     this.breakEl.textContent = this.hidden ? `Showing ${(this._shown()).toLocaleString()} of your coins: merge them to see them all` : '';
     for (let t = 0; t < Coins.N; t++) {
-      const mine = this.coins.filter(c => c.t === t && !(this.drag && c === this.drag.coin)), queued = this.queue.filter(q => q.t === t).length, have = mine.length + queued;
+      const mine = this.coins.filter(c => c.t === t && !c.v && !(this.drag && c === this.drag.coin)), queued = this.queue.filter(q => q.t === t && !q.v).length, have = mine.length + queued;
       if (want[t] > have) for (let i = 0; i < want[t] - have; i++) this.queue.push({ t });
       else if (want[t] < have) {
         let drop = have - want[t];
-        for (let i = this.queue.length - 1; i >= 0 && drop > 0; i--) if (this.queue[i].t === t) { this.queue.splice(i, 1); drop--; }
+        for (let i = this.queue.length - 1; i >= 0 && drop > 0; i--) if (this.queue[i].t === t && !this.queue[i].v) { this.queue.splice(i, 1); drop--; }
         mine.sort((a, b) => a.y - b.y);                                                                  // from the top of the pile
         for (const c of mine) { if (drop-- <= 0) break; this.coins.splice(this.coins.indexOf(c), 1); }
       }
     }
   }
+  _reconcilePony() {
+    const want = this._ponyWant();
+    for (const id of PonyCoins.ids) {
+      const mine = this.coins.filter(c => c.v === id && !(this.drag && c === this.drag.coin)), queued = this.queue.filter(q => q.v === id).length, have = mine.length + queued, w = want[id] || 0;
+      if (w > have) for (let i = 0; i < w - have; i++) this.queue.push({ t: -1, v: id });
+      else if (w < have) {
+        let drop = have - w;
+        for (let i = this.queue.length - 1; i >= 0 && drop > 0; i--) if (this.queue[i].v === id) { this.queue.splice(i, 1); drop--; }
+        mine.sort((a, b) => a.y - b.y);
+        for (const c of mine) { if (drop-- <= 0) break; this.coins.splice(this.coins.indexOf(c), 1); }
+      }
+    }
+  }
   _shown() { return this.coins.length + this.queue.length + this.hidden; }
-  _spawn(t, x, y) {
-    const c = { x, y, px: x, py: y, vx: (Math.random() - 0.5) * 40, vy: 30 + Math.random() * 40, t, r: CoinBagUI.radiusOf(t), flip: Math.random() * 6, ang: Math.random() * 6 };
+  _spawn(t, x, y, v) {
+    const c = { x, y, px: x, py: y, vx: (Math.random() - 0.5) * 40, vy: 30 + Math.random() * 40, t, v, r: v ? CoinBagUI.PONY_R : CoinBagUI.radiusOf(t), flip: Math.random() * 6, ang: Math.random() * 6 };
     this.coins.push(c); return c;
   }
 
@@ -164,10 +199,10 @@ class CoinBagUI {
     if (!this.isOpen) return;
     const dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
     for (let n = 0; n < 3 && this.queue.length; n++) {                                                  // pour them in (or let them fall out of a coin that was just broken)
-      const q = this.queue.shift(), h = this.hint && this.hint.t === q.t && now < this.hint.until ? this.hint : null, cx = CoinBagUI.CX;
-      this._spawn(q.t, h ? h.x + (Math.random() - 0.5) * 8 : cx + (Math.random() - 0.5) * 14, h ? h.y : 26 + Math.random() * 4);
+      const q = this.queue.shift(), h = this.hint && !q.v && this.hint.t === q.t && now < this.hint.until ? this.hint : null, cx = CoinBagUI.CX;
+      this._spawn(q.t, h ? h.x + (Math.random() - 0.5) * 8 : cx + (Math.random() - 0.5) * 14, h ? h.y : 26 + Math.random() * 4, q.v);
     }
-    if (this.pendingOut.some(n => n > 0) && (this.pendingT += dt) > 2.5) { this.pendingOut = Coins.empty(); this.pendingT = 0; this._reconcile(); }   // (a drop the server never confirmed: show the truth)
+    if ((this.pendingOut.some(n => n > 0) || Object.values(this.ponyOut).some(n => n > 0)) && (this.pendingT += dt) > 2.5) { this.pendingOut = Coins.empty(); this.ponyOut = {}; this.pendingT = 0; this._reconcile(); }   // (a drop the server never confirmed: show the truth)
     for (let i = 0; i < 2; i++) this._step(dt / 2);
     this._draw();
     this.raf = requestAnimationFrame(t => this._frame(t));
@@ -189,7 +224,7 @@ class CoinBagUI {
     g.fillStyle = '#1d120a'; g.fillRect(cx - 26, 20, 52, 1); g.fillStyle = '#2a1a0e'; g.fillRect(cx - 17, 21, 34, 2);
     const order = [...this.coins].sort((a, b) => a.y - b.y);
     for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) this._shadow(g, c);
-    for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) CoinArt.draw(g, c.x, c.y, c.r, 0.5 + 0.36 * Math.abs(Math.cos(c.flip)), c.t, !!(this.drag && c === this.drag.coin));
+    for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) CoinArt.draw(g, c.x, c.y, c.r, 0.5 + 0.36 * Math.abs(Math.cos(c.flip)), c.v ? { pony: c.v } : c.t, !!(this.drag && c === this.drag.coin));
     g.imageSmoothingEnabled = false;                                                                   // the rope is drawn over the neck, in front of the coins pouring in
     g.fillStyle = '#1d120a'; g.fillRect(cx - 24, 33, 48, 6); g.fillStyle = '#d6be8c'; g.fillRect(cx - 23, 34, 46, 4); g.fillStyle = '#a08a5a'; for (let x = cx - 23; x < cx + 23; x += 3) g.fillRect(x, 36, 1, 2);
     g.fillStyle = '#1d120a'; g.fillRect(cx + 17, 36, 9, 12); g.fillStyle = '#d6be8c'; g.fillRect(cx + 18, 37, 3, 9); g.fillRect(cx + 22, 37, 3, 7);
@@ -220,18 +255,24 @@ class CoinBagUI {
     if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 5) d.moved = true;
     d.vx = (p.x - d.lx) / dtm * 1000 * 0.5 + d.vx * 0.5; d.vy = (p.y - d.ly) / dtm * 1000 * 0.5 + d.vy * 0.5; d.lx = p.x; d.ly = p.y; d.lt = now;
     d.coin.x = p.x; d.coin.y = p.y; d.coin.px = p.x; d.coin.py = p.y;
-    d.out = !p.in; this._ghostAt(d.out ? this._pt(e) : null, d.coin.t);
-    if (this.pay) this.pay.zone.classList.toggle('over', this._inZone(this._pt(e)));
+    d.out = !p.in; this._ghostAt(d.out ? this._pt(e) : null, d.coin.v ? { pony: d.coin.v } : d.coin.t, d.coin.r);
+    if (this.pay) this.pay.zone.classList.toggle('over', !d.coin.v && this._inZone(this._pt(e)));
+    if (this.target) this.target.zone.classList.toggle('over', !!d.coin.v && this._inZone(this._pt(e), this.target.zone));
   }
   _up(e, cancelled) {
     const d = this.drag; if (!d || e.pointerId !== d.id) return;
-    const p = this._local(e), c = d.coin, T = Coins.TIERS[c.t];
+    const p = this._local(e), c = d.coin, T = c.v ? null : Coins.TIERS[c.t];
     if (this.pay) this.pay.zone.classList.remove('over');
-    if (!cancelled && !p.in && d.moved && this.pay) {                                                   // paying: let go over the counter to put the coin down (anywhere else, it goes back in the bag)
+    if (this.target) this.target.zone.classList.remove('over');
+    if (c.v && !cancelled && !p.in && d.moved && this.target && this._inZone(this._pt(e), this.target.zone)) {          // a pony coin let go over the poster: pin it
+      this.coins.splice(this.coins.indexOf(c), 1); this.ponyOut[c.v] = (this.ponyOut[c.v] || 0) + 1; this.pendingT = 0;
+      this.game.posterCoin(PonyCoins.itemOf(c.v)); this._endDrag(); return;
+    }
+    if (!cancelled && !p.in && d.moved && this.pay && !c.v) {                                                   // paying: let go over the counter to put the coin down (anywhere else, it goes back in the bag)
       if (this._inZone(this._pt(e))) {
         this.coins.splice(this.coins.indexOf(c), 1); this.offered[c.t]++; this.pay.onOffer(this.offered.slice()); this._endDrag(); return;
       }
-    } else if (!cancelled && !p.in && d.moved) {                                                         // let go over the world: drop it there
+    } else if (!cancelled && !p.in && d.moved && !c.v) {                                                 // let go over the world (a pony coin goes back in the bag): drop it there
       const q = this._pt(e), w = this.camera.screenToWorld(q.x, q.y);
       this.game.dropCoins(T.id, 1, w.x, w.y);
       this.coins.splice(this.coins.indexOf(c), 1); this.pendingOut[c.t]++; this.pendingT = 0;
@@ -251,15 +292,16 @@ class CoinBagUI {
     if (cancelled || !p.in || !this._inside(c)) { c.x = CoinBagUI.CX + (Math.random() - 0.5) * 10; c.y = 26 + c.r; c.vx = 0; c.vy = 0; c.px = c.x; c.py = c.y; }   // out of bounds: back in through the neck
     this._endDrag();
   }
-  _inZone(q) { const r = this.pay.zone.getBoundingClientRect(); return q.x >= r.left && q.x <= r.right && q.y >= r.top && q.y <= r.bottom; }
+  _inZone(q, zone = this.pay.zone) { const r = zone.getBoundingClientRect(); return q.x >= r.left && q.x <= r.right && q.y >= r.top && q.y <= r.bottom; }
   _inside(c) { return c.y >= 22 && c.y <= 165 && Math.abs(c.x - CoinBagUI.CX) <= CoinBagUI.halfWidth(Math.min(c.y, 134)) + 2; }
   _endDrag() { this.drag = null; this.canvas.classList.remove('grabbing'); this._ghostAt(null); }
   /** The coin that follows the pointer once it has left the bag (so it can be seen on its way to the world or the counter): the same pixel coin, a canvas of its own. */
-  _ghostAt(e, t) {
+  _ghostAt(e, t, radius) {
     if (!e) { if (this.ghost) { this.ghost.remove(); this.ghost = null; } return; }
-    if (!this.ghost || this.ghost.tier !== t || this.ghost.k !== this.S) {
+    const key = typeof t === 'object' && t ? 'p' + t.pony : t;
+    if (!this.ghost || this.ghost.tier !== key || this.ghost.k !== this.S) {
       if (this.ghost) this.ghost.remove();
-      const r = CoinBagUI.radiusOf(t), c = CoinArt.canvas(t, r, this.S, 0.9); c.className = 'coinGhost'; c.tier = t; c.k = this.S; c.style.width = c.width / this.S * (parseFloat(this.canvas.style.width) / CoinBagUI.W) + 'px'; c.style.height = c.height / this.S * (parseFloat(this.canvas.style.width) / CoinBagUI.W) + 'px';
+      const r = radius || CoinBagUI.radiusOf(t), c = CoinArt.canvas(t, r, this.S, 0.9); c.className = 'coinGhost'; c.tier = key; c.k = this.S; c.style.width = c.width / this.S * (parseFloat(this.canvas.style.width) / CoinBagUI.W) + 'px'; c.style.height = c.height / this.S * (parseFloat(this.canvas.style.width) / CoinBagUI.W) + 'px';
       document.body.appendChild(c); this.ghost = c;
     }
     const gs = this.ghost.style; gs.left = e.x - parseFloat(gs.width) / 2 + 'px'; gs.top = e.y - parseFloat(gs.height) / 2 + 'px';

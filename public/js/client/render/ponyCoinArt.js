@@ -64,17 +64,21 @@ const PonyCoinArt = (() => {
     memo.set(key, out); return out;
   }
 
-  /** Draw the coin of `varietyId` centred at (x, y), radius r (whole pixels, 16+ shows the head best). `dim` paints an empty slot instead. */
-  function draw(g, x, y, r, varietyId, dim = false) {
-    x = Math.round(x); y = Math.round(y); r = Math.round(r);
-    const disc = (rad, color) => { g.fillStyle = color; for (let j = -rad; j <= rad; j++) { const w = Math.round(Math.sqrt(Math.max(0, rad * rad - j * j))); g.fillRect(x - w, y + j, w * 2 + 1, 1); } };
-    if (dim) { disc(r + 1, 'rgba(29,18,10,0.55)'); disc(r - 1, 'rgba(90,70,45,0.35)'); return; }
-    const L = look(varietyId);
-    disc(r + 1, INK); disc(r, '#8a5a1a'); disc(r - 1, '#d9a23a'); disc(r - 2, '#f2cf6a'); disc(r - 3, '#c28a1a');          // inked, then a milled gold rim
-    disc(r - 4, shade(L.mane[0], 0.5));                                                                                     // the field: a deep shade of the mane colour
-    g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(x - r + 5, y - r + 5, Math.max(1, Math.round(r / 4)), 1);          // a glint on the rim
-    const G = 2 * (r - 4) + 1, f = head(varietyId, G), ox = x - r + 4, oy = y - r + 4, lim = (r - 4 + 0.5) * (r - 4 + 0.5);
-    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) { const c = f[j][i], cx = ox + i - x + 0.5, cy = oy + j - y + 0.5; if (c && cx * cx + cy * cy <= lim) { g.fillStyle = c; g.fillRect(ox + i, oy + j, 1, 1); } }
+  /** The metal of a pony coin: a gold edge and a face in a deep shade of the variety's mane colour (CoinArt draws the coin itself, as it does for the money coins). */
+  function metal(id) {
+    const field = shade(look(id).mane[0], 0.5);
+    return { id: 'pony_coin_' + id, edge: ['#f0cd62', '#b98a2a'], face: [mix(field, '#ffffff', 0.28), field, shade(field, 0.6)], gem: null };
   }
-  return { draw };
+  /** Stamp the head on a coin's face: centred at (x, cy), the coin's face radius rx, squashed to `f` (a tumbling coin is thinner). */
+  function stamp(g, x, cy, rx, f, id) {
+    const G = Math.max(10, 2 * (rx - 4) + 1), grid = head(id, G), top = cy - Math.round(G * f / 2), lim = (rx - 3) * (rx - 3);
+    for (let j = 0; j < G; j++) for (let i = 0; i < G; i++) {
+      const c = grid[j][i]; if (!c) continue;
+      const px = x - Math.floor(G / 2) + i, py = top + Math.round(j * f);
+      const dx = px - x + 0.5, dy = (py - cy + 0.5) / Math.max(0.3, f);
+      if (dx * dx + dy * dy > lim) continue;
+      g.fillStyle = c; g.fillRect(px, py, 1, 1);
+    }
+  }
+  return { metal, stamp };
 })();

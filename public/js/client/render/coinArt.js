@@ -20,7 +20,7 @@ const CoinArt = (() => {
 
   /** Draw a coin of kind `tier` (index into Coins.TIERS) centred at (x, y) with radius r. f (0.5..1): how squashed it looks (a tumbling coin is thinner). */
   function draw(g, x, y, r, f, tier, lifted = false) {
-    const T = Coins.TIERS[tier]; x = Math.round(x); y = Math.round(y);
+    const pony = tier !== null && typeof tier === 'object', T = pony ? PonyCoinArt.metal(tier.pony) : Coins.TIERS[tier]; x = Math.round(x); y = Math.round(y);   // (a pony coin is { pony: varietyId })
     const rx = Math.round(r), ry = Math.max(3, Math.round(r * f)), th = Math.max(2, Math.round(r * 0.3));
     const cy = y - Math.round(th / 2);
     for (let d = th; d >= 0; d--) row(g, x, cy + d, rx + 1, ry + 1, INK);                         // the ink outline round the disc and its thickness
@@ -31,7 +31,8 @@ const CoinArt = (() => {
     g.fillStyle = T.face[0]; for (let k = -rx + 2; k < 0; k++) { const w = Math.sqrt(Math.max(0, 1 - (k * k) / (rx * rx))); g.fillRect(x + k, Math.round(cy - ry * w) + 1, 1, 1); }   // the lit rim, top left
     g.fillStyle = T.face[2]; const sr = Math.max(2, rx - 3), sy = Math.max(1, ry - 3);              // the stamped ring
     for (let a = 0; a < 40; a++) { const t = a / 40 * Math.PI * 2; g.fillRect(x + Math.round(Math.cos(t) * sr), cy + Math.round(Math.sin(t) * sy), 1, 1); }
-    if (T.gem) {                                                                                   // a cut stone in the middle: a diamond shape with a lit facet
+    if (pony) PonyCoinArt.stamp(g, x, cy, rx, f, tier.pony);
+    else if (T.gem) {                                                                                   // a cut stone in the middle: a diamond shape with a lit facet
       const gr = Math.max(3, Math.round(r * 0.42)), gy = Math.max(2, Math.round(gr * f));
       for (let j = -gy - 1; j <= gy + 1; j++) { const w = Math.max(0, Math.round((gr + 1) * (1 - Math.abs(j) / (gy + 1)))); g.fillStyle = INK; g.fillRect(x - w - 1, cy + j, w * 2 + 3, 1); }
       for (let j = -gy; j <= gy; j++) { const w = Math.round(gr * (1 - Math.abs(j) / (gy + 1))); g.fillStyle = T.gem; g.fillRect(x - w, cy + j, w * 2 + 1, 1); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(x - w, cy + j, Math.max(1, Math.round(w * 0.55)), 1); }
