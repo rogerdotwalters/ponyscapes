@@ -558,7 +558,7 @@ const ItemIcons = (() => {
   for (const f of Foods.all()) if (f.category === 'mushroom') painters[f.id] = mushroomPainter(f.color);
   /** The coin system's coins (coins.js): one big pixel coin of the kind (coinArt.js), so a shop's "x2 [coin]" is the coin you drag from the bag. */
   Coins.TIERS.forEach((t, i) => { painters[t.id] = ctx => { ctx.imageSmoothingEnabled = false; CoinArt.draw(ctx, 24, 25, 16, 0.9, i); }; });
-  for (const vid of PonyCoins.ids) painters['pony_coin_' + vid] = ctx => { ctx.imageSmoothingEnabled = false; PonyCoinArt.draw(ctx, 24, 25, 17, vid); };   // a collector coin per pony variety
+  for (const vid of PonyCoins.ids) painters['pony_coin_' + vid] = ctx => { ctx.imageSmoothingEnabled = false; PonyCoinArt.draw(ctx, 24, 24, 23, vid); };   // a collector coin per pony variety
   painters.stockpile_wood = ctx => stockpileIcon(ctx, 'wood');
   painters.stockpile_stone = ctx => stockpileIcon(ctx, 'stone');
   painters.stockpile_clay = ctx => stockpileIcon(ctx, 'clay');

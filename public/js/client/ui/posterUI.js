@@ -28,13 +28,13 @@ class PosterUI {
     const placed = new Set((this.game.varieties || []).filter(v => v.coin).map(v => v.id)), have = this._coins();
     this.sig = JSON.stringify([have, (this.game.varieties || []).map(v => v.coin ? 1 : 0)]);
     const names = Object.fromEntries(PonyVariantTable.all().map(v => [v.id, v.name]));
-    const slots = PonyCoins.ids.map(id => `<div class="pslot${placed.has(id) ? ' have' : ''}" data-v="${id}"><canvas width="26" height="26"></canvas>${names[id]}</div>`).join('');
+    const slots = PonyCoins.ids.map(id => `<div class="pslot${placed.has(id) ? ' have' : ''}" data-v="${id}"><canvas width="44" height="44"></canvas>${names[id]}</div>`).join('');
     const tray = have.length ? have.map(c => `<div class="pcoin${this.picked === c.id ? ' sel' : ''}" data-v="${c.id}" title="${names[c.id]} Pony Coin"><img alt="" src="${ItemIcons.url(PonyCoins.itemOf(c.id))}">${c.n > 1 ? `<span>${c.n}</span>` : ''}</div>`).join('')
       : '<span class="empty">No pony coins in your bag. Lasso a wild pony and it drops the coin of its kind.</span>';
     this.body.innerHTML = `<div id="posterBoard">${slots}</div><div id="posterHint">${placed.size} of ${PonyCoins.ids.length} coins pinned. Drag a coin from your bag onto the poster.</div><div id="posterTray">${tray}</div>`;
     this.body.querySelectorAll('.pslot canvas').forEach(cv => {
       const g = cv.getContext('2d'), id = cv.parentElement.dataset.v; g.imageSmoothingEnabled = false;
-      PonyCoinArt.draw(g, 13, 13, 11, id, !placed.has(id));
+      PonyCoinArt.draw(g, 22, 22, 20, id, !placed.has(id));
     });
     this.body.querySelectorAll('.pcoin').forEach(el => el.addEventListener('pointerdown', e => this._down(e, el.dataset.v)));
     this.body.querySelector('#posterBoard').addEventListener('pointerup', e => {                 // tap a coin, then tap the poster

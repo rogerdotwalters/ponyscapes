@@ -801,7 +801,7 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 /* the Coin Poster (client/ui/posterUI.js): a parchment board of coin slots, and your pony coins to drag onto it */
 #posterBoard{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:10px;margin:2px 0 8px;background:#e8d9b0;border:4px solid #6d4c2f;box-shadow:inset 0 0 0 2px #b9a070,0 3px 0 #2a1a0c;border-radius:2px}
 #posterBoard .pslot{position:relative;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;font:700 10px Georgia,serif;color:#5a3f1e;text-align:center;line-height:1.1;border-radius:2px}
-#posterBoard .pslot canvas{width:100%;height:auto;image-rendering:pixelated;max-width:48px}
+#posterBoard .pslot canvas{width:100%;height:auto;image-rendering:pixelated;max-width:56px}
 #posterBoard .pslot.have canvas{filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}
 #posterBoard .pslot.over{outline:2px dashed #c0392b;background:rgba(255,255,255,.35)}
 #posterHint{font:12px Georgia,serif;color:var(--parch);margin:2px 0 4px}
