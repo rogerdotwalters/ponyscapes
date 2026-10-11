@@ -67,14 +67,14 @@ const inStable = () => run(`(() => {
   globalThis.P1 = mk('pony_plain', 1); globalThis.P2 = mk('pony_earth', -1);
   return PA.grid;
 })()`);
-const stand = (x, y) => run(`PA.x = ${x}; PA.y = ${y}`);
+const stand = (x, y) => run(`PA.x = ${x}; PA.y = ${y}; for (const q of [P1, P2]) if (q && !q.stall && gridOf(q) === gridOf(PA)) { q.x = PA.x + 0.8; q.y = PA.y - 0.4; }`);                // (a pony that came in with you stays close: the stable is big now)
 const menu = () => run(`S.pendingEvents.filter(e => e.type === 'stallMenu').pop()`);
 
-test('the stable is big, with ten walled stalls and a gate each', () => {
+test('the stable is big: a main room and two wings with twelve walled stalls and a gate each', () => {
   inStable();
-  assert.strictEqual(run('S.mapOf(PA).plan.layout.w'), 26);
-  assert.strictEqual(run(`S.mapOf(PA).plan.layout.furniture.filter(f => f.id === 'stall').length`), 10);
-  assert.strictEqual(run(`S.mapOf(PA).plan.layout.furniture.filter(f => f.id === 'stall_gate').length`), 10);
+  assert.strictEqual(run('S.mapOf(PA).plan.layout.w'), 32);
+  assert.strictEqual(run(`S.mapOf(PA).plan.layout.furniture.filter(f => f.id === 'stall').length`), 12);
+  assert.strictEqual(run(`S.mapOf(PA).plan.layout.furniture.filter(f => f.id === 'stall_gate').length`), 12);
 });
 
 test('the Leash button leashes your own pony, and only a leashed pony can be stabled', () => {
