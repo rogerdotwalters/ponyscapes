@@ -27,5 +27,7 @@ FurnitureDefs.registerAll([
   { id: 'dye_press', name: 'Dye Press', size: [1, 1], solid: true, height: 34, style: 'press', press: true, colors: { wood: '#7a5233', light: '#a8763f', iron: '#5a5a66', tub: '#6d4c2f' } },
   /* ---- the stable (data/buildings/pony_stable.js, shared/stableSystem.js): a stall holds one pony; walk up and press the interact key ---- */
   { id: 'stall', name: 'Stall', size: [2, 2], solid: false, stall: true, height: 24, style: 'stall', colors: { wood: '#8a5f33', post: '#6d4c2f', hay: '#e0c46c' } },
+  /* ---- the Coin Poster (shared/ponyPoster.js): hangs on a wall; open it and press the pony coins you have found onto it, one per pony variety ---- */
+  { id: 'coin_poster', name: 'Coin Poster', size: [2, 1], solid: false, height: 64, style: 'poster', poster: true, colors: { frame: '#6d4c2f', paper: '#e8d9b0', ink: '#7a5a2a' } },
   { id: 'wool_bin', name: 'Wool Bin', size: [2, 1], solid: true, height: 20, style: 'bin', store: { item: 'wool', capacity: 500 }, colors: { wood: '#9a6a3c', band: '#5b3e24', fill: '#f2efe6' } }
 ]);

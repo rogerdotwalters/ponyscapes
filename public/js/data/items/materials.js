@@ -10,7 +10,6 @@ Materials.registerAll([
   { id: 'bone', name: 'Bone', maxStack: 20 },                                                                                                   // dogs love them (hunted animals drop them)
   { id: 'antler', name: 'Antler', maxStack: 10, rarity: 'uncommon', spawns: [{ biome: 'forest', rate: 1.5 }, { biome: 'jungle', rate: 1 }] },   // shed antlers lie about in the woods
   { id: 'gold_coin', name: 'Gold Coin', maxStack: 999, rarity: 'rare', spawns: [{ biome: 'beach', rate: 0.6 }] },                              // the odd coin washed up long ago
-  { id: 'pony_coin', name: 'Pony Coin', maxStack: 999, rarity: 'rare' },                                                                          // a keepsake a wild pony sheds when you lasso it (not money: it stays a normal item)
   { id: 'copper_coin', name: 'Copper Coin', maxStack: 999 },                                                                                      // the coin system (shared/coins.js): these live in the purse, and lie on the ground as piles
   { id: 'silver_coin', name: 'Silver Coin', maxStack: 999, rarity: 'uncommon' },
   { id: 'platinum_coin', name: 'Platinum Coin', maxStack: 999, rarity: 'rare' },

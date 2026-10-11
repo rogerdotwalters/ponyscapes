@@ -279,7 +279,8 @@ class LeashHandler {
       this.award(id, 'horsemanship', Math.round(40 * AnimalLevels.xpFactor(a.level)));
       const need = AnimalLevels.applesNeeded(def, a.level);
       this.onLeashed(id, a);
-      this.dropOnGround('pony_coin', 1, a.x, a.y, a.grid || '');                     // the frightened pony sheds a pony coin
+      const coin = PonyCoins.itemOf((PonyVariants[(a.look && a.look[4]) | 0] || PonyVariants[0]).id);
+      if (coin) this.dropOnGround(coin, 1, a.x, a.y, a.grid || '');                   // the frightened pony sheds the collector coin of its own variety
       this.emit({ type: 'caught', to: id, x: a.x, y: a.y, animal: a.type, id: a.id, need });
       this.emit({ type: 'notice', to: id, text: `Caught! Lead it to a stable or a fenced pen and feed it ${need} apples` });
       return;

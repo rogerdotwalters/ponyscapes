@@ -211,6 +211,23 @@ const PixelDecor = (() => {
       return sh(hash(Math.floor(u / 3), Math.floor(v / 5), 2) > 0.8 ? shade(panel, 0.93) : panel, h.k);
     };
   }
+  /** The Coin Poster's face: a wooden frame round parchment with two rows of coin rings (pinned coins show in the window, not in the world sprite). */
+  function posterMat(c) {
+    return h => {
+      const u = h.u, v = h.v, w = h.fw, vh = h.fh;
+      if (u < 2 || u > w - 2 || v < 2 || v > vh - 2) return sh(shade(c.frame, 0.85), h.k);
+      if (u < 3 || u > w - 3 || v < 3 || v > vh - 3) return sh(light(c.frame, 0.1), h.k);
+      if (v > vh - 9 && v < vh - 5 && u > 6 && u < w - 6) return sh(c.ink, h.k);                       // a title banner
+      const cols = 5, rows = 2, cw = (w - 8) / cols, rh = (vh - 22) / rows;
+      const ci = Math.floor((u - 4) / cw), ri = Math.floor((v - 4) / rh);
+      if (ci >= 0 && ci < cols && ri >= 0 && ri < rows) {
+        const cx = 4 + (ci + 0.5) * cw, cy = 4 + (ri + 0.5) * rh, d = Math.hypot(u - cx, v - cy);
+        if (d < 3.4 && d > 2.2) return sh(c.ink, h.k);
+        if (d <= 2.2) return sh(shade(c.paper, 0.9), h.k);
+      }
+      return sh(hash(Math.floor(u / 3), Math.floor(v / 3), 4) > 0.86 ? shade(c.paper, 0.93) : c.paper, h.k);
+    };
+  }
   /** A shelf front: boards and the goods standing on them. */
   function shelfMat(wood, goods, front, rows) {
     return h => {
@@ -290,6 +307,11 @@ const PixelDecor = (() => {
         const [x, y] = front === 'S' ? P(w / 2, h - 0.08, z * 0.55) : P(w - 0.07, h / 2, z * 0.55);
         rect(x - 1, y - 2, 3, 4, c.lock || '#d9b45a'); px(x, y, '#3a2a14');
       });
+    },
+    /** The Coin Poster: a flat framed board hanging on the wall behind the tile (against the north wall), above head height. */
+    poster(s, def, w, h) {
+      const c = def.colors, z0 = A(10), z1 = A(def.height || 64);
+      s.box(0.06, 0.0, w - 0.06, 0.12, z0, z1, M.faced('S', { front: posterMat(c), side: M.wood(c.frame, { dir: 'v', pw: 4 }), top: M.wood(c.frame, { pw: 4 }) }));
     },
     rug(s, def, w, h) {
       const c = def.colors, rx = w / 2, ry = h / 2;
