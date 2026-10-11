@@ -73,6 +73,7 @@ class GameServer {
     this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
     this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, castleRestored: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
+    this.posterCoins = {};                                 // ownerId -> { varietyId: true }: the pony coins pinned on the Coin Poster at home (ponyPoster.js)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
     this.tools = new ToolSystem({ handlers: this._createToolHandlers(), heldFor: (id, p, inventory, input) => this._heldFor(id, p, inventory, input),
@@ -225,7 +226,7 @@ class GameServer {
     [this.players, this.inputQueues, this.inventories, this.coinsSent, this.inventoryRev, this.inventorySentRev, this.packSent, this.packCheck, this.builtSentRev, this.floorsSentRev, this.stockSentRev, this.carryNoticeAt, this.progressSent, this.treasureMaps, this.treasureRev, this.treasureSent, this.rideAcc]
       .forEach(t => delete t[id]);
     delete this.ringsSentRev[id]; delete this.settingsSentRev[id]; delete this.interiors.versionsSent[id];
-    delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id]; delete this.leashLog[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
+    delete this.progress.data[id]; delete this.progress.rev[id]; delete this.everTamed[id]; delete this.everVariants[id]; delete this.posterCoins[id]; delete this.leashLog[id];   // (else the next person to sit here would inherit this one's skills and Pony Book)
   }
   /** Everyone playing: their ids, in seat order. */
   humanIds() { return Object.keys(this.inputQueues).sort(); }
@@ -283,6 +284,7 @@ class GameServer {
       case 'questDeliver': if (typeof cmd.quest === 'string') this.quests.deliver(id, cmd.quest); break;
       case 'puzzleSolve': if (typeof cmd.node === 'string') this.quests.solve(id, cmd.node, cmd.moves); break;   // the client played a puzzle: replay its moves
       case 'dropCoins': this._dropCoins(id, cmd.item, cmd.count, cmd.x, cmd.y); break;                                              // coins out of the purse onto the ground (serverOwned.js)
+      case 'posterCoin': this._posterCoin(id, cmd.item); break;                                            // press a pony coin from the bag onto the Coin Poster (ponyPoster.js)
       case 'coinChange': this._coinChange(id, cmd.mode, cmd.item); break;                                      // break a coin into smaller ones / merge them all up (the coin bag)
       case 'field': this._fieldOp(id, cmd); break;                                                          // one job on one plot of a field, from the garden window (farming.js)
       case 'moveSlot': this._handleMoveSlot(id, inventory, cmd); break;
@@ -795,7 +797,8 @@ class GameServer {
   varietiesFor(id) {
     const kept = this.everVariants[id] || {}, now = {};
     for (const pet of this.animals.petsOf(id, this.tick)) if (!pet.gentling && pet.look) { const v = pet.look[4] | 0; now[v] = (now[v] || 0) + 1; }
-    return PonyVariants.map((v, i) => ({ index: i, id: v.id, name: v.name, biome: v.biome, theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
+    const placed = this.posterCoins[id] || {};
+    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], index: i, id: v.id, name: v.name, biome: v.biome, theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
       .filter(v => !v.legacy || v.seen || v.owned);                                    // retired varieties only show if you already have one
   }
   bookFor(id) {
