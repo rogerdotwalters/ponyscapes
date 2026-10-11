@@ -144,7 +144,7 @@ function strikeAnimal(deps, id, animalId, damage) {
 /** The knife and the spear: melee against animals. Kills drop meat, hide, wool or antler straight into the hunter's inventory. */
 const SWEEP_HALF_ANGLE = 1.05;                 // a sword sweep covers a 120 degree fan in front of you
 class HuntHandler {
-  /** @param {{animals:AnimalSystem, getInventory, emit, markInventoryChanged}} deps  @param {{sweep:boolean}} opts sweep: hit EVERY animal in the fan, not just the nearest (swords). */
+  /** @param {{animals:AnimalSystem, dropOnGround, getInventory, emit, markInventoryChanged}} deps  @param {{sweep:boolean}} opts sweep: hit EVERY animal in the fan, not just the nearest (swords). */
   constructor(deps, { sweep = false } = {}) { Object.assign(this, deps); this.deps = deps; this.sweep = sweep; }
 
   find(p, tool) {
@@ -279,6 +279,7 @@ class LeashHandler {
       this.award(id, 'horsemanship', Math.round(40 * AnimalLevels.xpFactor(a.level)));
       const need = AnimalLevels.applesNeeded(def, a.level);
       this.onLeashed(id, a);
+      this.dropOnGround('pony_coin', 1, a.x, a.y, a.grid || '');                     // the frightened pony sheds a pony coin
       this.emit({ type: 'caught', to: id, x: a.x, y: a.y, animal: a.type, id: a.id, need });
       this.emit({ type: 'notice', to: id, text: `Caught! Lead it to a stable or a fenced pen and feed it ${need} apples` });
       return;

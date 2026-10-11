@@ -166,6 +166,14 @@ const ItemIcons = (() => {
         ctx.fillStyle = '#c28a1a'; ctx.font = 'bold 9px Georgia'; ctx.textAlign = 'center'; ctx.fillText('G', x, y + 3.2);
       }
     },
+    pony_coin(ctx) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = '#5a3a1c'; ctx.beginPath(); ctx.arc(24, 25, 15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#d9a23a'; ctx.beginPath(); ctx.arc(24, 25, 13, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f2cf6a'; ctx.beginPath(); ctx.arc(24, 25, 9.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#7a4a22';                                                                                              // a tiny pony head in profile
+      ctx.fillRect(19, 24, 9, 6); ctx.fillRect(26, 19, 4, 8); ctx.fillRect(28, 17, 2, 3); ctx.fillRect(18, 22, 4, 3); ctx.fillRect(30, 25, 3, 3);
+    },
     stable(ctx) {
       ctx.fillStyle = '#a97a45'; ctx.strokeStyle = '#5a3a1c'; ctx.lineWidth = 1.6; ctx.fillRect(9, 20, 30, 20); ctx.strokeRect(9, 20, 30, 20);
       ctx.fillStyle = '#c75b3c'; ctx.beginPath(); ctx.moveTo(5, 21); ctx.lineTo(24, 7); ctx.lineTo(43, 21); ctx.closePath(); ctx.fill(); ctx.stroke();
