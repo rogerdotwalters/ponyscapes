@@ -26,6 +26,17 @@ const AnimalLevels = {
   xpFactor: level => 1 + 0.2 * ((level || 1) - 1),
   /** Apples a caught pony of this level must eat before it settles. */
   applesNeeded: (def, level) => (def.tameApples || 2) + Math.floor(((level || 1) - 1) / 5),
+  /** The fruit ladder, plainest first: a caught pony is gentled with one of these (it takes more exotic fruit the rarer the kind and the higher the level). */
+  TAME_LADDER: ['apple', 'green_apple', 'pink_apple', 'golden_apple', 'russet_apple', 'crystal_apple'],
+  /** The fruit a pony of this kind and level must be fed: { item, count }. Kinds start higher up the ladder (def.tameTier) and every 8 levels climb one rung. */
+  tameFruit(def, level) {
+    const ladder = AnimalLevels.TAME_LADDER.filter(id => ItemDefs[id]), tier = Math.min(ladder.length - 1, ((def && def.tameTier) | 0) + Math.floor(((level || 1) - 1) / 8));
+    return { item: ladder[Math.max(0, tier)], count: AnimalLevels.applesNeeded(def, level) };
+  },
+  /** How exotic a fruit is on the ladder (any other apple counts as the plainest). A fruit at or above the rung a pony needs is accepted. */
+  fruitRank(item) { const i = AnimalLevels.TAME_LADDER.indexOf(item); return i >= 0 ? i : 0; },
+  /** Seconds of gentling one fruit buys (the rainbow bar fills this long per fruit). */
+  TAME_SECONDS_PER_FRUIT: 4,
   /** Horsemanship needed to ride a pony of this type and level. */
   rideLevel: (type, level) => (CONFIG.sim.ponyRideLevels[type] || 1) + Math.floor(((level || 1) - 1) / 3),
   rideSpeedFactor: level => 1 + Math.min(0.5, 0.012 * ((level || 1) - 1)),
