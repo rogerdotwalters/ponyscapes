@@ -44,7 +44,7 @@ class SessionUI {
     const players = info.players.map(p => {
       const you = host ? p.host : p.id === info.you, ping = p.rtt != null ? Math.round(p.rtt) + ' ms' : (you ? '' : '...');
       return `<div class="splayer"><i style="background:${CONFIG.sim.slotColors[p.slot]}"></i><span class="sn">${E(p.name)}</span><em>${p.host ? 'host' : ''}${you ? (p.host ? ', you' : 'you') : ''}</em><span class="sping" data-ping="${p.id}">${ping}</span>` +
-        `${host && !p.host && p.cid ? `<button data-act="kick" data-cid="${p.cid}" data-name="${E(p.name)}">Remove</button>` : ''}</div>`;
+        `${!you ? `<button data-act="tp" data-id="${p.id}" data-name="${E(p.name)}">Go to</button>` : ''}${host && !p.host && p.cid ? `<button data-act="kick" data-cid="${p.cid}" data-name="${E(p.name)}">Remove</button>` : ''}</div>`;
     }).join('');
     let html = '';
     if (info.online) html += `<div class="scodeRow"><span class="scode">${info.code}</span>${host ? '<button data-act="copylink">Copy invite link</button>' : ''}<button data-act="copycode">Copy code</button></div>` +
@@ -85,7 +85,8 @@ class SessionUI {
     if (act === 'copycode' || act === 'copylink') {
       const text = act === 'copycode' ? a.getSessionInfo().code : a.shareLink();
       (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => this.toasts.show(act === 'copycode' ? 'Code copied' : 'Invite link copied', 'ok'), () => window.prompt('Copy this:', text));
-    } else if (act === 'save') a.saveAll('manual');
+    } else if (act === 'tp') { this.game.teleportToPlayer(data.id); this.close(); }
+    else if (act === 'save') a.saveAll('manual');
     else if (act === 'clearhome') this.confirm.askCustom({ title: `Clear ${data.name}'s home?`, text: `${data.name} is away. Their home is emptied (chests and bins) and given up. Their character stays saved; they are given a new home if one is free when they come back.`, goLabel: 'Clear home', keepLabel: 'Keep', onGo: () => a.clearHome(data.key).then(ok => this.toasts.show(ok ? 'Home cleared' : 'They are playing right now', ok ? 'ok' : 'bad')) });
     else if (act === 'kick') this.confirm.askCustom({ title: `Remove ${data.name}?`, text: `${data.name} will be disconnected. Their character is saved first, and they can rejoin with the code.`, goLabel: 'Remove', keepLabel: 'Keep', onGo: () => a.kick(data.cid, 'Removed by the host') });
     else if (act === 'online') a.startOnline().then(() => this.render(), e => this.toasts.show(RemoteAdapter.explain(e.reason, e) , 'bad'));

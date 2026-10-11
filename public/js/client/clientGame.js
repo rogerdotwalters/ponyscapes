@@ -244,6 +244,7 @@ class ClientGame {
   setAdmin(values) { this.net.sendCommand({ type: 'admin', values }); }
   /** Host testing aid: jump the clock to an hour (0-24) of the current day, for everyone. */
   /** Host only: set the weather now (a type id from Weather.TYPES), or 'auto' to let the season's table choose again. */
+  teleportToPlayer(who) { this.net.sendCommand({ type: 'teleportTo', who }); }
   debugTeleport(to) { this.net.sendCommand({ type: 'debugTeleport', to }); }
   setWeather(id) { this.net.sendCommand({ type: 'weather', id }); }
   setTimeOfDay(hour) { this.net.sendCommand({ type: 'admin', values: {}, hour }); }

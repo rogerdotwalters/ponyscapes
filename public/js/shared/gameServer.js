@@ -103,6 +103,20 @@ class GameServer {
     if (this.castleSlimes) this.castleSlimes.enter(grid);                    // (the ruined castle fills with slimes the first time a room is entered)
   }
 
+  /** Jump to another player (their grid, a step beside them), so friends can be near each other. The pony and leashed pets come too. A short cooldown stops it being a free escape. */
+  teleportToPlayer(id, whoId) {
+    const p = this.players[id], t = this.players[whoId];
+    if (!p || !t || id === whoId || !this.humanIds().includes(whoId)) return;
+    if (p.down > 0) { this._notice(id, 'You cannot teleport while down'); return; }
+    if (this.tick < (p.tpReadyAt || 0)) { this._notice(id, 'Wait ' + Math.ceil((p.tpReadyAt - this.tick) * TICK_DT) + 's to teleport again'); return; }
+    if (p.boat) { const boat = this.boats[p.boat]; if (boat) boat.occupant = ''; p.boat = ''; }
+    this._dismount(id, p);
+    p.returnTo = t.returnTo ? Object.assign({}, t.returnTo) : null;
+    this._moveToGrid(id, p, gridOf(t), t.x + 1, t.y);
+    p.tpReadyAt = this.tick + Math.round(5 / TICK_DT);
+    this._notice(id, 'Teleported to ' + (t.name || 'your friend'));
+  }
+
   /** Three stockpiles in the home's yard, already holding some of what the testing kit used to put in your pack. */
   _buildStarterStockpiles() {
     const spots = [[18, 29], [18, 30], [18, 31], [19, 29], [19, 30], [13, 29], [13, 30], [13, 31]];
@@ -274,6 +288,7 @@ class GameServer {
           GameSettings.setClock(this.tick, Math.floor(GameSettings.totalHours(this.tick) / 24) * 24 + Math.min(23.99, Math.max(0, cmd.hour))); this.adminRev++;
         }
         break;   // the Admin page: speed, day split, time (sent to everyone)
+      case 'teleportTo': if (typeof cmd.who === 'string') this.teleportToPlayer(id, cmd.who); break;                         // any player: jump to a friend
       case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;

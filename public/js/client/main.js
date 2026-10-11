@@ -126,7 +126,7 @@ function launch(choice, query) {
     game.events.on('enteredCave', () => toasts.show('You descend into the cave...', 'info', 3000));
     game.events.on('dungeonChest', e => { DungeonState.opened.add(DungeonState.key(game.grid, e.tx, e.ty)); const prop = game.map.peekPropAt(e.tx, e.ty); if (prop) prop.opened = true; });       // (a dungeon chest somebody opened)
     let sessionUI = null;
-    if (game.session) sessionUI = new SessionUI({ panel: $('sessionPanel'), body: $('sessionBody'), closeButton: $('sessionClose'), badge: $('sessionBadge'), endOverlay: $('endOverlay'), adapter, toasts, confirm: confirmUI });
+    if (game.session) sessionUI = new SessionUI({ panel: $('sessionPanel'), body: $('sessionBody'), closeButton: $('sessionClose'), badge: $('sessionBadge'), endOverlay: $('endOverlay'), adapter, toasts, confirm: confirmUI, game });
     const dialogueUI = new DialogueUI({ panel: $('dialoguePanel'), title: $('dialogueTitle'), body: $('dialogueBody'), closeButton: $('dialogueClose'), game, requestOpen: () => panels.open('dialogue') });
     bus.on('talkTo', npc => { dialogueUI.talk(npc); worldSfx.talk(npc); });
     const puzzleUI = new PuzzleUI({ panel: $('puzzlePanel'), title: $('puzzleTitle'), body: $('puzzleBody'), closeButton: $('puzzleClose'), game, requestOpen: () => panels.open('puzzle') });

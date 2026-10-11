@@ -92,7 +92,7 @@ class HostAdapter extends LocalAdapter {
     const boats = {};
     for (const id in snap.boats) { const b = snap.boats[id]; if (Math.hypot(b.x - me.x, b.y - me.y) < 120) boats[id] = b; }
     const movedBoats = r.gates.boats.changed(D.quantize(boats)); if (movedBoats) out.boats = movedBoats;               // boats are only sent when one moves
-    const npcDelta = r.npcEnc.encode(D.quantize(snap.npcs)); if (Object.values(npcDelta).some(d => Object.keys(d).length)) out.npcs = npcDelta;      // the villagers: only the fields that changed, and only when something did
+    const npcDelta = r.npcEnc.encode(D.quantize(snap.npcs)), npcIds = Object.keys(snap.npcs).sort().join(','); if (npcIds !== r.npcIds || Object.values(npcDelta).some(d => Object.keys(d).length)) out.npcs = npcDelta; r.npcIds = npcIds;      // the villagers: only the fields that changed, and only when something did
     const trees = r.gates.trees.changed(snap.trees); if (trees) out.trees = trees;
     const forage = r.gates.forage.changed(snap.forage); if (forage) out.forage = forage;
     const drops = r.gates.drops.changed(snap.drops || {}); if (drops) out.drops = drops;                                // items on the ground: only when a pile changes
