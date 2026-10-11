@@ -112,5 +112,5 @@ const Village = (() => {
   /** Chunks that contain the lake / pond always get a boat. */
   const hasBoatFeature = (cx, cy) => (cx === (LAKE.cx >> CHUNK_SHIFT) && cy === (LAKE.cy >> CHUNK_SHIFT)) || (cx === (POND.cx >> CHUNK_SHIFT) && cy === (POND.cy >> CHUNK_SHIFT));
 
-  return { tile, obj, influence, blocksTrees, propAtTile, hasBoatFeature, spawns: SPAWNS, home: HOME, workshop: WORKSHOP, paddock: PADDOCK };
+  return { tile, obj, influence, blocksTrees, propAtTile, hasBoatFeature, spawns: SPAWNS, home: HOME, workshop: WORKSHOP, paddock: PADDOCK, area: AREA };
 })();

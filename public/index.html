@@ -91,7 +91,7 @@
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; always full speed (Dexterity and Animal Friendship let you get closer to animals) &middot; hold E / Space or the left mouse button: use the tool in your hand where you point &middot; right click: throw your lasso &middot; click a villager to talk, an animal to feed or pet it &middot; Menu &gt; Controls: rebind keys &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch ponies; rarer ponies need a better lasso) &middot; Z: get off your pony &middot; U: let go of a roped animal (it asks first) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; farming: a hoe tills grass or dirt, a watering can waters it each day, F with seeds plants (in their season), F at a ripe crop harvests &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K / Y / O: your pony's powers while riding (rarity abilities, then the skills it learns as it levels: Pony Book) &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
+<div id="hint">WASD move (screen-relative) &middot; always full speed (Dexterity and Animal Friendship let you get closer to animals) &middot; hold E / Space or the left mouse button: use the tool in your hand where you point &middot; right click: throw your lasso &middot; click a villager to talk, an animal to feed or pet it &middot; Menu &gt; Controls: rebind keys &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch a wild pony; the rope never breaks, then feed it its fruit: rarer ponies want rarer fruit) &middot; Z: ride the pony beside you / get off &middot; U: let go of a roped animal (it asks first) &middot; ;: leash your own pony (then F beside a stall to stable it) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; farming: a hoe tills grass or dirt, a watering can waters it each day, F with seeds plants (in their season), F at a ripe crop harvests &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K / Y / O: your pony's powers while riding (rarity abilities, then the skills it learns as it levels: Pony Book) &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
 <div id="portraitHint">Rotate your phone to landscape for the best view</div>
 
 <div id="toolbar"></div>
@@ -161,6 +161,10 @@
   <div id="confirmText"></div>
   <div id="confirmBtns"><button id="confirmGo" tabindex="-1">Let go</button><button id="confirmKeep" tabindex="-1">Keep it</button></div>
 </div>
+<div id="stablePanel" hidden>
+  <header><span id="stableTitle">Stable</span><button id="stableClose" tabindex="-1">&#x2715;</button></header>
+  <div id="stableBody"></div>
+</div>
 <div id="sessionPanel" hidden>
   <header><span>Session</span><button id="sessionClose" tabindex="-1">&#x2715;</button></header>
   <div id="sessionBody" class="scrollable"></div>
@@ -209,7 +213,8 @@
   <button class="pbtn danger" id="btnRelease" tabindex="-1" style="display:none">Let go</button>
   <button class="pbtn ability" id="btnAbility" tabindex="-1" style="display:none"></button>
   <button class="pbtn" id="btnLasso" tabindex="-1" title="Throw your lasso (L)">Lasso</button>
-  <button class="pbtn" id="btnDrop" tabindex="-1" title="Drop what is in your hand (X)">Drop</button>
+  <button class="pbtn" id="btnLeash" tabindex="-1" title="Put your own pony on a leash (;)">Leash</button>
+  <button class="pbtn" id="btnRide" tabindex="-1" style="display:none" title="Ride the pony beside you (Z)">Ride</button>
   <button class="pbtn" id="btnBag" tabindex="-1" title="Your bag (I)"><span class="bagIcon" aria-hidden="true"></span><span>Bag</span></button>
   <button class="pbtn" id="btnAct" tabindex="-1">Use</button>
 </div>
@@ -531,6 +536,7 @@
 <script src="js/client/ui/journalUI.js" defer></script>
 <script src="js/client/ui/menuUI.js" defer></script>
 <script src="js/client/ui/confirmUI.js" defer></script>
+<script src="js/client/ui/stableUI.js" defer></script>
 <script src="js/client/ui/lobbyUI.js" defer></script>
 <script src="js/client/ui/sessionUI.js" defer></script>
 <script src="js/client/ui/mapUI.js" defer></script>

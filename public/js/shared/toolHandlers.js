@@ -224,9 +224,9 @@ class FishingHandler {
   }
 }
 
-/** The lasso: THROW it at any friendly animal (not a monster or a guardian) up to 5+ tiles away (the one you click / tap, else inside a cone in front of you). A caught animal that is not a wild pony stays on the rope until you untie it; how many you can hold grows with your level (Skills.leashCap). It may miss: calm, lured animals
+/** The lasso: THROW it at any friendly animal (not a monster or a guardian) up to 5+ tiles away (the one you click / tap, else inside a cone in front of you). A caught animal that is not a wild pony stays on the rope until you untie it; how many you can hold grows with your level (Skills.leashCap). The rope NEVER breaks. It may miss: calm, lured animals
  *  are easy, running ones hard, and Horsemanship helps. A caught deer or sheep is simply yours; a caught wild PONY follows you
- *  on the rope but must be led to a stable or closed pen and fed apples before it settles and becomes your pet. */
+ *  on the rope and is gentled anywhere by feeding it the fruit its kind and level ask for (AnimalLevels.tameFruit) while a rainbow bar fills, then it becomes your pet. */
 class LeashHandler {
   /** @param {{animals:AnimalSystem, getInventory, emit, markInventoryChanged, getPlayer, award, rng, onTamed:(ownerId, animal)=>void}} deps */
   constructor(deps) { Object.assign(this, deps); }
@@ -277,12 +277,12 @@ class LeashHandler {
     if (def.pony && !mine) {
       this.animals.capture(target.ref, id);
       this.award(id, 'horsemanship', Math.round(40 * AnimalLevels.xpFactor(a.level)));
-      const need = AnimalLevels.applesNeeded(def, a.level);
+      const fruit = AnimalLevels.tameFruit(def, a.level);
       this.onLeashed(id, a);
       const coin = PonyCoins.itemOf((PonyVariants[(a.look && a.look[4]) | 0] || PonyVariants[0]).id);
       if (coin) this.dropOnGround(coin, 1, a.x, a.y, a.grid || '');                   // the frightened pony sheds the collector coin of its own variety
-      this.emit({ type: 'caught', to: id, x: a.x, y: a.y, animal: a.type, id: a.id, need });
-      this.emit({ type: 'notice', to: id, text: `Caught! Lead it to a stable or a fenced pen and feed it ${need} apples` });
+      this.emit({ type: 'caught', to: id, x: a.x, y: a.y, animal: a.type, id: a.id, need: fruit.count, item: fruit.item });
+      this.emit({ type: 'notice', to: id, text: `Caught! The rope holds. Hold a ${ItemDefs[fruit.item].name} and press Feed: it takes ${fruit.count}` });
       return;
     }
     const tamed = this.animals.tame(target.ref, id);

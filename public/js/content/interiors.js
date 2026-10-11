@@ -112,22 +112,35 @@ window.PONYSCAPES_INTERIORS = {
   "pony_stable": {
     "name": "Stable",
     "tiles": [
-      "WWVWWWWWWVWW",
-      "WhhhhhhhhhhW",
-      "WhhhhhhhhhhW",
-      "WddddddddddW",
-      "WhhhhhhhhhhW",
-      "WhhhhhhhhhhW",
-      "WddddddddddW",
-      "WddddddddddW",
-      "WWWWWmWWWWWW"
+      "WWWVWWWWVWWWWVWWWWVWWWWVWW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WWdWWWWdWWWWdWWWWdWWWWdWWW",
+      "WddddddddddddddddddddddddW",
+      "WddddddddddddddddddddddddW",
+      "WWWWWWWWWWWWWWWWWWWWWWWWWW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WhhhhWhhhhWhhhhWhhhhWhhhhW",
+      "WWdWWWWdWWWWdWWWWdWWWWdWWW",
+      "WddddddddddddddddddddddddW",
+      "WddddddddddddddddddddddddW",
+      "WddddddddddddddddddddddddW",
+      "WWWWWWWWWWWWmWWWWWWWWWWWWW"
     ],
     "furniture": [
-      { "id": "stall", "x": 1, "y": 1, "rot": 0 }, { "id": "stall", "x": 3, "y": 1, "rot": 0 }, { "id": "stall", "x": 5, "y": 1, "rot": 0 }, { "id": "stall", "x": 7, "y": 1, "rot": 0 }, { "id": "stall", "x": 9, "y": 1, "rot": 0 },
-      { "id": "stall", "x": 1, "y": 4, "rot": 0 }, { "id": "stall", "x": 3, "y": 4, "rot": 0 }, { "id": "stall", "x": 5, "y": 4, "rot": 0 }, { "id": "stall", "x": 7, "y": 4, "rot": 0 }, { "id": "stall", "x": 9, "y": 4, "rot": 0 },
-      { "id": "lamp", "x": 1, "y": 7, "rot": 0 }, { "id": "lamp", "x": 10, "y": 7, "rot": 0 }, { "id": "hay_bale", "x": 2, "y": 7, "rot": 0 }, { "id": "hay_bale", "x": 9, "y": 7, "rot": 0 }
+      { "id": "stall", "x": 1, "y": 1, "rot": 0 }, { "id": "stall", "x": 6, "y": 1, "rot": 0 }, { "id": "stall", "x": 11, "y": 1, "rot": 0 }, { "id": "stall", "x": 16, "y": 1, "rot": 0 },
+      { "id": "stall", "x": 21, "y": 1, "rot": 0 }, { "id": "stall", "x": 1, "y": 9, "rot": 0 }, { "id": "stall", "x": 6, "y": 9, "rot": 0 }, { "id": "stall", "x": 11, "y": 9, "rot": 0 },
+      { "id": "stall", "x": 16, "y": 9, "rot": 0 }, { "id": "stall", "x": 21, "y": 9, "rot": 0 }, { "id": "stall_gate", "x": 2, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 7, "y": 5, "rot": 0 },
+      { "id": "stall_gate", "x": 12, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 17, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 22, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 2, "y": 13, "rot": 0 },
+      { "id": "stall_gate", "x": 7, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 12, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 17, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 22, "y": 13, "rot": 0 },
+      { "id": "lamp", "x": 1, "y": 6, "rot": 0 }, { "id": "lamp", "x": 24, "y": 6, "rot": 0 }, { "id": "lamp", "x": 1, "y": 15, "rot": 0 }, { "id": "lamp", "x": 24, "y": 15, "rot": 0 },
+      { "id": "hay_bale", "x": 3, "y": 15, "rot": 0 }, { "id": "hay_bale", "x": 4, "y": 15, "rot": 0 }, { "id": "hay_bale", "x": 21, "y": 15, "rot": 0 }, { "id": "hay_bale", "x": 22, "y": 15, "rot": 0 }
     ],
-    "exit": [5, 8]
+    "exit": [12, 17]
   },
   "cottage": {
     "name": "Cottage",

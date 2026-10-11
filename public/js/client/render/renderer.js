@@ -255,6 +255,7 @@ class Renderer {
       this.animalSprite.draw(a, item.id, sx, sy - lift * FLY_HEIGHT, now, view);
       const holder = a.owner || a.captor;
       if (a.leashed && holder && this.players && this.players[holder]) this._drawLeash(sx, sy, a, this.players[holder]);
+      if (a.captor && a.tame !== undefined) this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.tame, now);
       return;
     }
     if (item.kind === 'npc') {                                                           // a villager: drawn with the same sprite as a player
@@ -392,6 +393,21 @@ class Renderer {
     if (PixelGround[d.item]) PixelGround[d.item](this.ctx, gx, gy, parseInt(d.id.slice(1), 10) || 0, lift);       // a log, a tuft of wool: pixel art lying on the ground
     else { this.ctx.save(); this.ctx.translate(0, -lift); this._drawLoot(gx, gy, { drop: d.item, x: d.x }, now); this.ctx.restore(); }
     if (d.count > 1) { const ctx = this.ctx; ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 11, gy - 2); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 11, gy - 2); }
+  }
+
+  /** The taming timer over a caught pony: a bar that fills with rainbow as it is gentled (0..1; it only grows once it has been fed the fruit it wants). */
+  _drawTameBar(sx, sy, fill, now) {
+    const ctx = this.ctx, w = 46, h = 9, x = Math.round(sx - w / 2), y = Math.round(sy - 58);
+    ctx.save();
+    ctx.fillStyle = 'rgba(8,14,24,.78)'; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+    if (fill > 0) {
+      const g = ctx.createLinearGradient(x, 0, x + w, 0), shift = (now / 900) % 1;
+      ['#ff5d5d', '#ffb04a', '#ffe45c', '#6fe07a', '#4ac3ff', '#9a7bff', '#ff7bd1'].forEach((c, i, all) => g.addColorStop(Math.min(1, Math.max(0, (i / (all.length - 1) + shift * 0.08))), c));
+      ctx.fillStyle = g; ctx.fillRect(x, y, Math.max(1, Math.round(w * Math.min(1, fill))), h);
+      ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(x, y, Math.max(1, Math.round(w * Math.min(1, fill))), 2);
+    }
+    ctx.strokeStyle = '#f2e6cf'; ctx.lineWidth = 1.5; ctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3);
+    ctx.restore();
   }
 
   _drawLeash(sx, sy, animal, owner) {
