@@ -226,6 +226,8 @@ class Renderer {
     for (const gr of this.nearGrass || []) moving.push({ kind: 'grass', depth: gr.depth, draw: gr.draw });   // the grass around people's feet
     const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
     if (farm) for (const item of this._farmItems(farm)) if (item.tx >= tiles.tx0 && item.tx <= tiles.tx1 && item.ty >= tiles.ty0 && item.ty <= tiles.ty1) moving.push(item);
+    this.frameState = state;
+    { const fx = this.coinFx || (this.coinFx = { sims: new Map(), base: null }); if (fx.base === null) { fx.base = 0; for (const id in (state.drops || {})) fx.base = Math.max(fx.base, parseInt(id.slice(1), 10) || 0); } }   // (piles already lying there when the game starts do not get thrown)
     for (const id in (state.drops || {})) { const d = state.drops[id]; moving.push({ kind: 'drop', depth: d.x + d.y - 0.3, gx: isoX(d.x, d.y), gy: isoY(d.x, d.y), drop: d }); }   // items dropped on the ground
     if (this.game.map.kind === 'world') for (const node of PuzzleNodes.all()) moving.push({ kind: 'puzzleNode', depth: node.x + node.y, gx: isoX(node.x, node.y), gy: isoY(node.x, node.y), node });   // the old stones (questSystem.js)
     for (const id in state.boats) { const boat = state.boats[id]; moving.push({ kind: 'boat', depth: boat.x + boat.y - 0.25, id, boat }); }   // under its rider
@@ -386,12 +388,40 @@ class Renderer {
     }
   }
 
+  /** A pile of dropped coins: up to 8 little pixel coins with physics (client-side only; the server just knows the pile). A new pile is THROWN from whoever is nearest
+   *  (or falls from above if nobody is): the coins arc, bounce on the ground, tumble and roll to a stop and then lie flat in a loose scatter. Piles that were already
+   *  there when you arrived lie flat at once. */
+  _drawCoinPile(d, now) {
+    const fx = this.coinFx, state = this.frameState || {};
+    let sim = fx.sims.get(d.id);
+    if (!sim) {
+      if (fx.sims.size > 300) fx.sims.clear();
+      const num = parseInt(d.id.slice(1), 10) || 0;
+      let thrower = null, best = 6;
+      for (const id in (state.players || {})) { const p = state.players[id], dist = Math.hypot(p.x - d.x, p.y - d.y); if (dist < best) { best = dist; thrower = p; } }
+      sim = CoinFx.make(d, num > fx.base ? thrower : null, num > fx.base, now);
+      fx.sims.set(d.id, sim);
+    } else if (sim.count !== d.count) CoinFx.resize(sim, d);
+    CoinFx.step(sim, now);
+    const ctx = this.ctx, tier = CoinFx.tierOf(d.item), order = sim.coins.slice().sort((a, b) => (a.x + a.y) - (b.x + b.y));
+    for (const c of order) {
+      if (c.hidden) continue;
+      const sx = isoX(c.x, c.y), sy = isoY(c.x, c.y), r = CoinFx.radius(d.item);
+      ctx.fillStyle = `rgba(0,0,0,${(0.3 * Math.max(0.25, 1 - c.z / 70)).toFixed(2)})`;                                         // a shadow that shrinks with height
+      ctx.beginPath(); ctx.ellipse(sx, sy, r * (1 - Math.min(0.4, c.z / 90)), r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.imageSmoothingEnabled = false;
+      CoinArt.draw(ctx, sx, sy - c.z - r * 0.5, r, c.f, tier);
+    }
+    if (d.count > 1) { const gx = isoX(d.x, d.y), gy = isoY(d.x, d.y); ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 13, gy - 4); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 13, gy - 4); }
+  }
+
   /** A pile someone dropped: the item bobbing on the ground like loot, with its count. */
   /** A pile on the ground. A new one arcs in and bounces (dropped from a hand, or a log off a felled tree); logs lie flat as pixel logs. */
   _drawDrop(gx, gy, d, now) {
     const seen = this.dropSeen || (this.dropSeen = new Map());
     if (!seen.has(d.id)) { if (seen.size > 600) seen.clear(); seen.set(d.id, now); }
     const t = (now - seen.get(d.id)) / 380, lift = t < 1 ? Math.abs(Math.sin(t * Math.PI * 1.5)) * 16 * (1 - t) : 0;
+    if (CoinFx.isCoin(d.item)) { this._drawCoinPile(d, now); return; }                                                     // coins are real little coins: thrown, bouncing, rolling to rest
     if (PixelGround[d.item]) PixelGround[d.item](this.ctx, gx, gy, parseInt(d.id.slice(1), 10) || 0, lift);       // a log, a tuft of wool: pixel art lying on the ground
     else { this.ctx.save(); this.ctx.translate(0, -lift); this._drawLoot(gx, gy, { drop: d.item, x: d.x }, now); this.ctx.restore(); }
     if (d.count > 1) { const ctx = this.ctx; ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 11, gy - 2); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 11, gy - 2); }
