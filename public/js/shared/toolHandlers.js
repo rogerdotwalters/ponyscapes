@@ -279,7 +279,7 @@ class LeashHandler {
       this.award(id, 'horsemanship', Math.round(40 * AnimalLevels.xpFactor(a.level)));
       const fruit = AnimalLevels.tameFruit(def, a.level);
       this.onLeashed(id, a);
-      const coin = PonyCoins.itemOf((PonyVariants[(a.look && a.look[4]) | 0] || PonyVariants[0]).id);
+      const coin = PonyCoins.itemOf((PonyVariants[(a.look && a.look[4]) | 0] || PonyVariants[0]).id) || PonyCoins.itemOf('meadow');   // (every pony gives one: a retired variety's gives the meadow coin)
       if (coin) this.dropOnGround(coin, 1, a.x, a.y, a.grid || '');                   // the frightened pony sheds the collector coin of its own variety
       this.emit({ type: 'caught', to: id, x: a.x, y: a.y, animal: a.type, id: a.id, need: fruit.count, item: fruit.item });
       this.emit({ type: 'notice', to: id, text: `Caught! The rope holds. Hold a ${ItemDefs[fruit.item].name} and press Feed: it takes ${fruit.count}` });
