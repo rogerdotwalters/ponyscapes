@@ -54,7 +54,7 @@ function findRide(p, animals, selfId = p.id) {
   let best = null;
   for (const id in animals) {
     const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
-    if (!def || !def.pony || a.owner !== selfId || a.leashed || a.rider || a.stall || a.captor || !sameGrid(a, p) || d > CONFIG.sim.ride.range || (best && d >= best.dist)) continue;
+    if (!def || !def.pony || a.owner !== selfId || a.rider || a.stall || a.captor || !sameGrid(a, p) || d > CONFIG.sim.ride.range || (best && d >= best.dist)) continue;
     best = { kind: 'ride', label: 'Ride', dist: d, animal: a };
   }
   return best;

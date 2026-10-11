@@ -171,7 +171,7 @@ function launch(choice, query) {
     game.events.on('confirmRelease', e => confirmUI.ask(e));
     game.events.on('stallMenu', e => stableUI.show(e));
     bus.on('leashPony', () => game.leashPony());                  // the Leash button: a lasso for a pony that is already yours
-    bus.on('ridePony', () => game.requestRide());                 // the Ride button: its own button, never shared with Board / Feed / Pick
+    bus.on('ridePony', () => game.toggleRide());                 // the Ride button: its own button, never shared with Board / Feed / Pick
     bus.on('toggleEmotes', () => emoteUI.toggle());
     game.events.on('gearChanged', () => layout.update());
     bus.on('toggleCrafting', () => panels.toggle('crafting'));

@@ -44,4 +44,22 @@ test('the poster takes a coin once, only at the poster, and it is saved', () => 
   assert.strictEqual(o.candy, 1, 'one pinned, the second refused'); assert.strictEqual(o.stone, 1);
   assert.deepStrictEqual(o.placed, ['candy']); assert.deepStrictEqual(o.seen, ['candy']);
 });
+test('every pony kind and variety gives a coin when caught (a retired variety gives the meadow coin)', () => {
+  const r = run(`(() => {
+    const out = [];
+    for (const type of ['pony_plain', 'pony_earth', 'pony_pegasus', 'pony_unicorn', 'pony_alicorn']) for (let v = 0; v < PonyVariants.length; v++) {
+      const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+      const id = S.animals.spawn(type, P.x + 1, P.y, 0, { level: 1, variant: v });
+      const L = new LeashHandler(Object.assign({}, S.toolDeps, { rng: () => 0 }));
+      const best = Object.values(ItemDefs).filter(d => d.lasso).sort((a, b) => b.lasso.tier - a.lasso.tier)[0].id;
+      P.held = best; P.lassoSwing = true; P.gear = P.gear || {}; P.gear.lasso = best;
+      S.animals.animals[id].level = 1; S.animals.animals[id].look[4] = v;
+      L.apply(A, { ref: id });
+      const drops = Object.values(S.drops).map(d => d.item);
+      if (drops.length !== 1 || !PonyCoins.varietyOf(drops[0])) out.push(type + ':' + v + ':' + drops.join());
+    }
+    return JSON.stringify(out);
+  })()`);
+  assert.strictEqual(r, '[]');
+});
 console.log(passed + ' passed');

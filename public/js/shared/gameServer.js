@@ -836,7 +836,7 @@ class GameServer {
     const p = this.players[id];
     if (!p || p.down > 0 || p.hp <= 0 || p.asleep || p.mount || p.boat || p.flying) return;
     const found = findRide(p, this.animals.animals, id);
-    if (found) this._mount(id, p, found.animal); else this._notice(id, 'No pony of yours is close enough to ride (a leashed or stabled pony must be freed first)');
+    if (found) this._mount(id, p, found.animal); else this._notice(id, 'No pony of yours is close enough to ride (a pony in a stall must be taken out first)');
   }
   _mount(id, p, animal) {
     const need = AnimalLevels.rideLevel(animal.type, animal.owner === id ? 1 : animal.level), have = Skills._s(p.lv, 'horsemanship');   // (your own pony never outgrows you as it levels up)
