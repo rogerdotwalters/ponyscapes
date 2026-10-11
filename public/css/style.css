@@ -103,9 +103,9 @@ canvas{display:block}
 #emoteWheel{position:fixed;inset:0;z-index:9;background:rgba(5,10,20,.35)}
 .ebubble{position:absolute;border-radius:50%;border:2px solid rgba(227,194,122,.85);background:rgba(250,246,232,.96);padding:0;touch-action:none;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 .ebubble.etrade{background:rgba(227,194,122,.95);color:#10202f;font-family:Georgia,serif;font-weight:700}
-#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
-#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
-#gearClose,#tradeClose,#puzzleClose,#dialogueClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
+#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#stablePanel{position:fixed;z-index:6;padding:var(--pad,12px);overflow:hidden;background:rgba(15,28,43,.93);border:2px solid rgba(227,194,122,.7);border-radius:12px;color:#f4e6c1}
+#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#stablePanel header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font:600 15px Georgia,serif}
+#gearClose,#tradeClose,#puzzleClose,#dialogueClose,#stableClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
 #gearBody,#ponyBody,#townBody,#tradeBody,#shopBody,#controlsBody{overflow-y:auto;touch-action:pan-y}
 .shopTabs{display:flex;gap:6px;margin:0 0 8px}.shopTabs button{flex:1;padding:7px;border-radius:8px;border:1px solid rgba(227,194,122,.5);background:rgba(10,18,28,.6);color:#f4e6c1;font:600 14px Georgia,serif;cursor:pointer}.shopTabs button.on{background:rgba(227,194,122,.9);color:#10202f}
 .shophead{display:flex;align-items:center;gap:4px;margin:0 0 8px;font-size:13px}.shophead img{width:20px;height:20px}
@@ -613,14 +613,14 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 :root{--oak:#3a281a;--oak2:#4a3322;--deep:#1d120a;--gold:#d9a441;--brass:#f2cf7a;--parch:#f1e0b4;--ink:#2a170c;--wine:#7a2a2a;--moss:#4f7a3a;
   --font-title:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif}
 /* stepped (pixel-cut) corners, a gold rule inside an iron frame, and a hard drop shadow */
-#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#gardenWin,.lobbyCard{
+#inventoryPanel,#craftPanel,#settingsPanel,#gearPanel,#ponyPanel,#townPanel,#shopPanel,#tradePanel,#journalPanel,#menuPanel,#mapPanel,#confirmPanel,#sessionPanel,#controlsPanel,#dialoguePanel,#puzzlePanel,#stablePanel,#gardenWin,.lobbyCard{
   border:3px solid var(--deep);border-radius:3px;color:var(--parch);
   background:
     repeating-linear-gradient(90deg,rgba(0,0,0,.07) 0 2px,transparent 2px 22px),
     linear-gradient(180deg,#46311f 0%,var(--oak) 60%,#2f2014 100%);
   box-shadow:inset 0 0 0 2px var(--gold),inset 0 0 0 4px var(--deep),inset 0 0 0 5px rgba(242,207,122,.35),0 5px 0 rgba(0,0,0,.45),0 0 0 2px #000;
   }
-#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#gardenWin header{
+#inventoryPanel header,#craftPanel header,#settingsPanel header,#gearPanel header,#ponyPanel header,#townPanel header,#shopPanel header,#tradePanel header,#journalPanel header,#menuPanel header,#mapPanel header,#confirmPanel header,#sessionPanel header,#controlsPanel header,#dialoguePanel header,#puzzlePanel header,#stablePanel header,#gardenWin header{
   font:700 17px var(--font-title);letter-spacing:2px;text-transform:uppercase;color:var(--brass);text-shadow:2px 2px 0 var(--deep);
   padding:0 0 5px;border-bottom:2px solid var(--gold);box-shadow:0 2px 0 var(--deep)}
 #invClose,#craftClose,#settingsClose,#gearClose,#gardenClose,#tradeClose,#puzzleClose,#dialogueClose,#journalClose,#menuClose,#mapClose{
@@ -797,3 +797,17 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
   #shopCounter{min-height:50px;padding:4px}
   .coinChip{font-size:12px}.coinChip img{width:20px;height:20px}
 }
+
+/* ---- the stable's menu (stableUI.js) ---- */
+#stableBody{display:flex;flex-direction:column;gap:7px;overflow-y:auto}
+#stableBody .stHint{font-size:13px;line-height:1.4;color:#f4e6c1;margin:0 0 2px}
+#stableBody .stRow{display:flex;gap:6px;align-items:stretch}
+#stableBody .stPony{flex:1;text-align:left;padding:9px 10px;border-radius:9px;border:1.5px solid rgba(227,194,122,.6);background:rgba(15,28,43,.55);color:#f4e6c1;font:700 14px Georgia,serif}
+#stableBody .stPony small{display:block;font:500 11px Georgia,serif;opacity:.8}
+#stableBody .stRoam{flex:0 0 auto;padding:9px 10px;border-radius:9px;border:1.5px solid #7cc66a;background:rgba(30,60,30,.6);color:#d8f5cc;font:700 12px Georgia,serif}
+#stableBody .stGate{padding:10px;border-radius:9px;border:1.5px solid #d9b45a;background:rgba(90,60,20,.6);color:#ffe9b8;font:700 14px Georgia,serif}
+#stableBody button:active{filter:brightness(1.25)}
+/* the rainbow taming bar over a pony that is being gentled is drawn on the canvas (renderer.js); this one is the bar in the Pony Book */
+.tameBar{height:10px;border-radius:5px;background:rgba(0,0,0,.45);overflow:hidden;border:1px solid rgba(255,255,255,.35);margin:4px 0}
+.tameBar>i{display:block;height:100%;background:linear-gradient(90deg,#ff5d5d,#ffb04a,#ffe45c,#6fe07a,#4ac3ff,#9a7bff,#ff7bd1)}
+#btnLeash,#btnRide{font-size:12px}

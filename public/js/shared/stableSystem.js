@@ -105,7 +105,7 @@ Object.assign(GameServer.prototype, {
     if (this.animals.leashedCount(id) >= cap) { this._notice(id, `Your rope is full: ${cap} animals at most. Untie one first`); return; }
     a.leashed = true; delete a.roam; a.home = { x: a.x, y: a.y }; a.state = 'idle';
     this._logLeash(id, a);
-    this.pendingEvents.push({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: true, by: id, item: p.gear && p.gear.lasso || 'rope_lasso', leash: true });
+    this.pendingEvents.push({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: true, by: id, item: (p.gear && p.gear.lasso) || 'leash', leash: true });
     this._notice(id, `${Stable.nameOf(a)} is on a leash`);
   },
 

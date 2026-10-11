@@ -17,7 +17,7 @@ class PonyBookUI {
   /** What the panel actually shows: positions are NOT part of it, so ponies wandering about never rebuild the buttons under a finger. */
   _signature() {
     const g = this.game;
-    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.xp && p.xp.into, p.main]), g.book, g.varieties]);
+    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.xp && p.xp.into, p.main, p.stalled, p.roam]), g.book, g.varieties]);
   }
   _refreshSoon() {                                      // pets arrive every snapshot: redraw only when what is shown changed (a rebuild in the middle of a tap loses the tap)
     const sig = this._signature();
@@ -35,10 +35,12 @@ class PonyBookUI {
   }
 
   static status(pet) {
-    if (pet.gentling) {                                                          // a caught wild pony
-      const g = pet.gentling, apples = `${g.have}/${g.need} apples`;
-      return g.sheltered ? `Calm in shelter: ${apples}. Hold an apple and press Feed.` : `Wild, on your lasso (${apples}). Lead it to a stable or closed pen${g.restless >= 50 ? ' - it is getting restless!' : ''}`;
+    if (pet.gentling) {                                                          // a caught wild pony: the rope holds; fruit fills the rainbow bar
+      const g = pet.gentling, fruit = g.item && ItemDefs[g.item] ? ItemDefs[g.item].name : 'apple';
+      return `The rope holds. Hold a ${fruit} (or a rarer fruit) and press Feed anywhere: ${g.have}/${g.need} fed.<div class="tameBar" title="Taming"><i style="width:${Math.round((g.progress || 0) * 100)}%"></i></div>`;
     }
+    if (pet.stalled) return 'Resting in its stall in the stable';
+    if (pet.roam) return 'Out roaming the village';
     if (pet.riding) return pet.main ? '\u2605 Your main pony: carrying you' : 'Carrying you (make it your main pony in the bag: I)';
     if (pet.main) return '\u2605 Your main pony: follows you everywhere';
     if (pet.leashed) return 'Following you on a leash';

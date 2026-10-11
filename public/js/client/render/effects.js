@@ -60,10 +60,9 @@ class Effects {
     game.events.on('released', e => { this._burst(e.x, e.y, 8, HEART_COLORS, 12); this._float(e, 'Released'); });
     game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, look: lassoLook(e.item), age: 0 }));
     game.events.on('caught', e => this._burst(e.x, e.y, 12, HEART_COLORS, 24));        // (the server's notice already says what to do next)
-    game.events.on('fed', e => { this._burst(e.x, e.y, 10, HEART_COLORS, 26); this._float(e, `Apple ${e.have}/${e.need}`); });
+    game.events.on('fed', e => { this._burst(e.x, e.y, 10, HEART_COLORS, 26); this._float(e, `Fed ${e.have}/${e.need}`); });
     game.events.on('letGo', e => { this._burst(e.x, e.y, 8, DUST_COLORS, 12); this._float(e, 'It ran off'); });
-    game.events.on('brokeFree', e => { this._burst(e.x, e.y, 10, DUST_COLORS, 12); this._float(e, 'It broke free!'); });
-    game.events.on('xp', e => this._float(e, `+${e.amount} ${SkillDefs[e.skill].name} XP`, 'xp'));
+        game.events.on('xp', e => this._float(e, `+${e.amount} ${SkillDefs[e.skill].name} XP`, 'xp'));
     game.events.on('levelup', e => { this._float(e, `${e.name} level ${e.level}!`, 'levelup'); this._burst(this.game.local.x, this.game.local.y, 14, GOLD_COLORS, 40); });
     game.events.on('treasure', e => { this._burst(e.x, e.y, 30, GOLD_COLORS, 22); this._float(e, 'Treasure!', 'levelup'); });
     game.events.on('opened', e => this._float(e, 'The bottle holds a map'));

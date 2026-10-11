@@ -136,7 +136,16 @@ tools/bundle.py       packs the game into one self-contained HTML file
 
 ## The Stable
 
-The village **Stable** (`data/buildings/pony_stable.js`, inside the starter paddock) is a building you walk into, like a home: every player gets a stable of their OWN (`instance: 'player'`, `stable: true`), but anybody may enter. Inside (`pony_stable` in `content/interiors.js`) are ten **stalls** (`stall` furniture). Stand beside a stall and press the interact key: with one of your ponies with you (the one you ride, else the nearest of yours) it is put in the stall; beside a stall that holds one of yours it is taken out. A stalled pony stays put, does not follow you through doors, cannot be ridden until it is taken out, stays in the stable until you come back for it, and is saved with the world (`shared/stableSystem.js`). The stable also counts as shelter for taming a wild pony. The craftable 3 x 2 shelter that used to be called the Stable is now the **Pony Shelter** (it only shelters ponies you are taming; the Barn does too).
+The village **Stable** (`data/buildings/pony_stable.js`, inside the starter paddock) is a building you walk into, like a home: every player gets a stable of their OWN (`instance: 'player'`, `stable: true`), but anybody may enter. Inside (`pony_stable` in `content/interiors.js`, 26 x 18 tiles) are ten walled **stalls** (`stall` furniture, a 4 x 4 pen each) with a **gate** (`stall_gate` furniture, solid while shut) in each front wall. All of it is in `shared/stableSystem.js`:
+
+* **Leash** (button, or `;`): a lasso for a pony that is already yours. A leashed pony follows you, and **only a leashed pony can be stabled**. (The Lasso only catches *wild* ponies now.)
+* **Stabling**: stand beside an empty stall and press the interact key. A menu pops up with every pony you have on a leash (and a button to open or shut the stall's gate); pick one and it goes in.
+* **Unstabling**: beside a stall that holds a pony of yours the key opens a menu of the ponies in this stable. **Take out** puts the pony in the aisle in front of its gate; **Let out** sends it into the village, where it roams the village area only (`Village.area`).
+* **Feeding**: walk up to a stabled pony holding an apple and press the interact key.
+* A stalled pony keeps to its own pen and potters about in it (even through an open gate), does not follow you through doors, cannot be ridden until it is taken out, and is saved with the world (a roaming one saves as `roam`). The gates' open/closed state lives on the room's world (`InstanceWorld.openGates`) and reaches clients with the snapshot (`snapshot.gates`).
+* **Ride** has its own button and key (**Z**: ride the pony beside you, or get off), so it never shares the action button with picking, feeding or boarding (`findRide` in `shared/interaction.js`).
+
+The craftable 3 x 2 shelter that used to be called the Stable is now the **Pony Shelter** (it only shelters ponies you are taming; the Barn does too).
 
 ## Coins and the coin bag
 
@@ -304,6 +313,7 @@ younger testers out, not real security: the code is in `js/client/ui/settingsUI.
   `CONFIG.sim.ponySpeed.curve` (editable in editor.html > Settings). A wild pony flees at `wildFleeFactor` (0.92) of its own top speed, so to catch a pegasus
   you first raise your earth pony to about level 18 (`js/shared/ponyProgress.js`).
 * **Ponies level up** from distance ridden, tasks done in the saddle (chopping, hunting, lassoing...), treats (more for food they love) and grooming.
+* **Taming** (`shared/animalSystem.js`, `AnimalLevels.tameFruit`; `npm run test:taming`): **L** throws the lasso at a *wild* pony. **The rope never breaks.** A caught pony follows you and is gentled **anywhere** (no stable or pen needed) by feeding it fruit (hold it, press the action button): a **rainbow bar** over its head fills as it is fed, and when the bar is full it is yours. Kinds and levels want rarer fruit up a ladder (`AnimalLevels.TAME_LADDER`: apple, green, pink lady, golden, russet, crystal; a pony kind starts at its `tameTier` and climbs one rung every 8 levels; a more exotic fruit than asked is fine) and more of it (`tameApples`).
 * **Lasso slot** (Gear, **G**): **L** (or the Lasso button) throws whatever lasso is in it. Rope Lasso (tier 1: ponies, earth ponies) → Silk (2: pegasi) →
   Golden (3: unicorns) → Starlight (4: alicorns), each crafted from the one before at the crafting table.
 * **Your main pony** (★ on its name) follows you everywhere when you are not riding it: around the world, into buildings and caves, and it

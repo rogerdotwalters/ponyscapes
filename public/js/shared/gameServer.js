@@ -278,6 +278,7 @@ class GameServer {
       case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
+      case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
       case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
@@ -827,6 +828,13 @@ class GameServer {
   }
 
   /* ---- riding ---- */
+  /** The Ride button: get on the nearest loose pony of yours. */
+  _rideNearest(id) {
+    const p = this.players[id];
+    if (!p || p.down > 0 || p.hp <= 0 || p.asleep || p.mount || p.boat || p.flying) return;
+    const found = findRide(p, this.animals.animals, id);
+    if (found) this._mount(id, p, found.animal); else this._notice(id, 'No pony of yours is close enough to ride (a leashed or stabled pony must be freed first)');
+  }
   _mount(id, p, animal) {
     const need = AnimalLevels.rideLevel(animal.type, animal.owner === id ? 1 : animal.level), have = Skills._s(p.lv, 'horsemanship');   // (your own pony never outgrows you as it levels up)
     if (have < need && !animal.trial) { this._notice(id, `A level ${animal.level} ${AnimalDefs[animal.type].name} needs Horsemanship ${need} to ride (you have ${have})`); return; }

@@ -26,7 +26,7 @@ class ConfirmUI {
     this.animalId = id;
     this.title.textContent = `Let ${name} go?`;
     this.text.textContent = `${name} is still wild. If you let go it will bolt and you will have to catch it all over again.` +
-      (need ? ` Lead it to a stable and feed it ${need} apples to keep it.` : '');
+      (need ? ` Feed it ${need} of its fruit to keep it (anywhere: the rope never breaks).` : '');
   }
   open() { this.panel.hidden = false; }
   close() { this.panel.hidden = true; this.animalId = ''; if (this.kind === 'custom') this.onGo = null; }
