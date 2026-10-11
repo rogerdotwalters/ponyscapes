@@ -41,6 +41,7 @@ class Renderer {
         const def = FurnitureDefs.get(prop.id);
         if (def && !def.height && !def.solid) depth -= (prop.w + prop.h) / 2 + 0.01;
         else if (def && def.stall && prop.w >= 3 && prop.h >= 3) depth -= (prop.w + prop.h) / 2 - 0.05;        // a roomy pen is a low straw floor with a trough and a hay heap at its back: it sorts by its back corner, so people and ponies standing in it are drawn over the straw
+        else if (def && def.poster) depth -= prop.h / 2 - 0.06;                         // a wall poster sorts by the wall it hangs on (the back edge of its tile), so anyone standing in front of it is drawn over it
       }
       items.push({ kind: 'prop', depth, prop, key: tileKey(Math.floor(prop.x), Math.floor(prop.y)), gx: isoX(prop.x, prop.y), gy: isoY(prop.x, prop.y) });
     }
