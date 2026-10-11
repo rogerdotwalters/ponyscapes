@@ -40,6 +40,7 @@ class Renderer {
       if (prop.t === 'furniture') {                                                      // a rug lies flat: it sorts by its back corner, so it is never drawn over someone standing on its near half
         const def = FurnitureDefs.get(prop.id);
         if (def && !def.height && !def.solid) depth -= (prop.w + prop.h) / 2 + 0.01;
+        else if (def && def.stall && prop.w >= 3 && prop.h >= 3) depth -= (prop.w + prop.h) / 2 - 0.05;        // a roomy pen is a low straw floor with a trough and a hay heap at its back: it sorts by its back corner, so people and ponies standing in it are drawn over the straw
       }
       items.push({ kind: 'prop', depth, prop, key: tileKey(Math.floor(prop.x), Math.floor(prop.y)), gx: isoX(prop.x, prop.y), gy: isoY(prop.x, prop.y) });
     }
@@ -219,7 +220,7 @@ class Renderer {
     const moving = [];
     const target = this.game.buildTarget;
     if (target) moving.push({ kind: 'ghost', depth: target.tx + target.ty + 1, target, gx: (target.tx - target.ty) * TILE_HALF_W, gy: (target.tx + target.ty + 1) * TILE_HALF_H });
-    for (const id in state.animals) { const a = state.animals[id]; moving.push({ kind: 'animal', depth: a.x + a.y + (a.rider ? (SpriteRegistry.dirOf(a.facing) === 'down' ? 0.05 : -0.05) : 0) + (a.lift || 0) * 4 + (a.stall ? 1.1 : 0), id, animal: a }); }   // a ridden pony is drawn just under its rider (but over it when it faces the camera: its head and chest come before the rider)
+    for (const id in state.animals) { const a = state.animals[id]; moving.push({ kind: 'animal', depth: a.x + a.y + (a.rider ? (SpriteRegistry.dirOf(a.facing) === 'down' ? 0.05 : -0.05) : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider (but over it when it faces the camera: its head and chest come before the rider)
     for (const id in (state.npcs || {})) { const n = state.npcs[id]; moving.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
     for (const gr of this.nearGrass || []) moving.push({ kind: 'grass', depth: gr.depth, draw: gr.draw });   // the grass around people's feet
     const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
