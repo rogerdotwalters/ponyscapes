@@ -101,7 +101,7 @@ function launch(choice, query) {
     const stableUI = new StableUI({ panel: $('stablePanel'), title: $('stableTitle'), body: $('stableBody'), closeButton: $('stableClose'), game, requestOpen: () => panels.open('stable') });
     const menuUI = new MenuUI({ panel: $('menuPanel'), body: $('menuBody'), closeButton: $('menuClose'), game, onPick: section => openSection(section) });
     const ponyUI = new PonyBookUI({ panel: $('ponyPanel'), body: $('ponyBody'), closeButton: $('ponyClose'), game });
-    const posterUI = new PosterUI({ panel: $('posterPanel'), body: $('posterBody'), closeButton: $('posterClose'), game });
+    const posterUI = new PosterUI({ panel: $('posterPanel'), body: $('posterBody'), closeButton: $('posterClose'), game, coinBag: coinBagUI });
     const townUI = new TownUI({ panel: $('townPanel'), body: $('townBody'), closeButton: $('townClose'), game });
     const shopUI = new ShopUI({ panel: $('shopPanel'), body: $('shopBody'), closeButton: $('shopClose'), game, coinBag: coinBagUI, requestOpen: () => panels.open('shop') });
     const tradeUI = new TradeUI({ panel: $('tradePanel'), body: $('tradeBody'), closeButton: $('tradeClose'), game, requestOpen: () => panels.open('trade') });
