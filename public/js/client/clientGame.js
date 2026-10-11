@@ -215,7 +215,7 @@ class ClientGame {
   /** The animal the Let go / Untie button would act on right now (or null). */
   releaseTarget() { return this.local ? findRelease(this.local, this.latestAnimals(), this.myId) : null; }
   /** The second thumb button: Let go / Untie, or - on a pony with something else to do nearby - Dismount (Z). */
-  releaseHint() { const t = this.releaseTarget(); if (t) return t.label; return this.local && this.local.mount && this.interactHint() !== 'Dismount' ? 'Dismount' : null; }
+  releaseHint() { const t = this.releaseTarget(); return t ? t.label : null; }
   /** Your bond with an animal or villager: { level, into } or null if you have not made friends. */
   friendOf(id) { const e = this.friends[id]; return e ? { level: e[0], into: e[1] } : null; }
 
@@ -252,7 +252,7 @@ class ClientGame {
   requestDismount() { this.net.sendCommand({ type: 'dismount' }); }
   /* ---- ponies: Ride and Leash have their own buttons (and keys) ---- */
   /** The Ride button's label when a pony of yours stands ready, else null. */
-  rideHint() { const L = this.local; if (!L || L.boat || Downed.isDown(L)) return null; const r = findRide(L, this.latestAnimals(), this.myId); return r ? 'Ride' : null; }
+  rideHint() { const L = this.local; if (!L || L.boat || Downed.isDown(L)) return null; if (L.mount) return 'Dismount'; const r = findRide(L, this.latestAnimals(), this.myId); return r ? 'Ride' : null; }   // (in the saddle the same button reads Dismount)
   requestRide() { if (this.rideHint()) this.net.sendCommand({ type: 'ride' }); else this.events.emit('notice', { to: this.myId, text: 'No pony of yours is close enough to ride' }); }
   /** Z: get off the pony you ride, else get on the one beside you. */
   toggleRide() { if (this.local && this.local.mount) this.requestDismount(); else this.requestRide(); }
