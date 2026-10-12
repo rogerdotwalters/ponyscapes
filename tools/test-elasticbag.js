@@ -22,16 +22,19 @@ const pour = (n, t, secs = 6, weightScale = 1) => JSON.parse(run(`(() => {
     maxSag = Math.max(maxSag, ui.bag.sag);
   }
   const b = ui.bag, belly = (b.off[0][12] + b.off[1][12]) / 2, out = ui.coins.filter(c => c.y > b.bottom() + 1 || Math.abs(c.x - 95) > 100).length;
-  return JSON.stringify({ belly, neck: (b.off[0][1] + b.off[1][1]) / 2, sag: b.sag, maxOff, minOff, maxSag, growth: b.growth, out, n: ui.coins.length });
+  const lowY = b.bottom() - 25, len = b.bottom() - 22, low = b.edge(lowY, 0) + b.edge(lowY, 1), high = b.edge(60, 0) + b.edge(60, 1);
+  return JSON.stringify({ len, low, high, fill: b.fill, belly, neck: (b.off[0][1] + b.off[1][1]) / 2, sag: b.sag, maxOff, minOff, maxSag, growth: b.growth, out, n: ui.coins.length });
 })()`));
 
-test('an empty bag is its own shape; a fuller one is bigger', () => {
+test('an empty bag is a limp short teardrop; a fuller one is longer and wider in its lower half', () => {
   const e = pour(0, 0, 2), few = pour(6, 0, 4), many = pour(40, 0, 6), lots = pour(64, 4, 6);
-  console.log('       belly stretch: empty', e.belly.toFixed(1), ' 6 copper', few.belly.toFixed(1), ' 40 copper', many.belly.toFixed(1), ' 64 titanium', lots.belly.toFixed(1), '| sag', many.sag.toFixed(1), lots.sag.toFixed(1));
-  assert(Math.abs(e.belly) < 0.5, 'empty bag at its shape');
-  assert(few.belly > e.belly && many.belly > few.belly && lots.belly >= many.belly, 'it grows with the weight');
-  assert(many.sag > few.sag, 'the bottom sags more');
-  assert(many.neck < many.belly * 0.4, 'the neck hardly stretches: ' + many.neck);
+  const show = (n, r) => n + ' length ' + r.len.toFixed(0) + ' lower width ' + r.low.toFixed(0) + ' upper width ' + r.high.toFixed(0);
+  console.log('       ' + [show('empty', e), show('6 copper', few), show('40 copper', many), show('64 titanium', lots)].join('\n       '));
+  assert(e.fill < 0.01 && e.len < 110, 'the empty bag is short: ' + e.len);
+  assert(few.len > e.len && many.len > few.len && lots.len >= many.len, 'it lengthens with the weight');
+  assert(few.low > e.low && many.low > few.low && lots.low >= many.low, 'its lower half widens');
+  assert((lots.low - e.low) > 2 * (lots.high - e.high), 'the lower half widens more than the upper: ' + (lots.low - e.low) + ' vs ' + (lots.high - e.high));
+  assert(many.neck < 4, 'the neck hardly stretches: ' + many.neck);
 });
 test('the stretch stays between the minimum and maximum, however hard it is stuffed', () => {
   const r = pour(200, 6, 8, 5), cfg = JSON.parse(run('JSON.stringify(ElasticBag.CONFIG)'));

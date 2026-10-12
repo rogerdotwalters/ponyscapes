@@ -2,7 +2,7 @@
 /* CLIENT - the coin bag: the Coins button floats a cutaway (vertically sliced) sack over the world, with no window round it (tap outside to close). It holds
  * ALL your coins, real ones of ten kinds (coins.js: copper, silver, gold, platinum, titanium, then the gem coins), drawn as big pixel-art medieval coins
  * (coinArt.js) that move on a small physics world: gravity, coins stacking and sliding on each other and on the bag's walls, tumbling when they fall.
- * The leather is ELASTIC (elasticBag.js): the bag grows with the weight of the coins in it, its walls bulge where the coins push on them and spring back, within
+ * The leather is ELASTIC (elasticBag.js): an empty bag is a limp little teardrop; with coins in it the teardrop lengthens and its lower part widens, its walls bulge where the coins push on them and spring back, within
  * a minimum and maximum stretch, pulling harder the further they are stretched.
  *   - at a SHOP counter the bag opens beside the shop window in PAY mode (startPay): you hold a coin and drag it onto the counter tray; the coins you
  *     put down count towards the price, and the shop gives change
@@ -92,8 +92,6 @@ class CoinBagUI {
   static get W() { return 190; }                                                                    // (room for the bag at its fullest: the walls stretch out and the bottom sags)
   static get H() { return 192; }
   static get CX() { return 95; }
-  /** Half the inside width of the EMPTY sack at height y: a narrow neck, flaring into a round belly. */
-  static halfWidth(y) { return y > 135 ? 60 * Math.sqrt(Math.max(0, 1 - Math.pow((y - 135) / 30, 2))) : ElasticBag.base(y); }
   /** Leather colours, [outer wall, inner wall][how stretched, 0..8]: a stretched hide goes paler and shinier. */
   static get LEATHER() {
     if (!CoinBagUI._leather) {
@@ -168,7 +166,7 @@ class CoinBagUI {
 
   /* ---- the physics: position based (each coin is moved by gravity, then pushed out of whatever it overlaps), several passes a frame ---- */
   _step(dt) {
-    const G = 560, C = this.coins, drag = this.drag && this.drag.coin, iters = 6, cx = CoinBagUI.CX, bag = this.bag, B = ElasticBag.BELLY;
+    const G = 560, C = this.coins, drag = this.drag && this.drag.coin, iters = 6, cx = CoinBagUI.CX, bag = this.bag, B = bag.belly;
     for (const c of C) { if (c === drag) continue; c.vy += G * dt; c.px = c.x; c.py = c.y; c.x += c.vx * dt; c.y += c.vy * dt; }
     for (let it = 0; it < iters; it++) {
       for (let i = 0; i < C.length; i++) {
@@ -186,7 +184,7 @@ class CoinBagUI {
         const m = Math.pow(c.r / 8, 2), live = c !== drag;
         const top = 22 + c.r; if (live && c.y < top) { c.y = top; if (c.vy < 0) c.vy = 0; }
         if (c.y > B - 0.01) {                                                                           // the round bottom: keep inside the ellipse (it widens and sags with the bag)
-          const oL = bag._at(0, B), oR = bag._at(1, B), a = 60 + (oL + oR) / 2, mid = cx + (oR - oL) / 2, b = 30 + bag.sag;
+          const oL = bag._at(0, B), oR = bag._at(1, B), a = bag.wide + (oL + oR) / 2, mid = cx + (oR - oL) / 2, b = 30 + bag.sag;
           const ex = (c.x - mid) / Math.max(1, a - c.r), ey = (c.y - B) / Math.max(1, b - c.r), l = Math.hypot(ex, ey);
           if (l > 1) {
             const nx = mid + (c.x - mid) / l, ny = B + (c.y - B) / l;
@@ -313,7 +311,7 @@ class CoinBagUI {
     this._endDrag();
   }
   _inZone(q, zone = this.pay.zone) { const r = zone.getBoundingClientRect(); return q.x >= r.left && q.x <= r.right && q.y >= r.top && q.y <= r.bottom; }
-  _inside(c) { const y = Math.min(c.y, ElasticBag.BELLY - 1), dx = c.x - CoinBagUI.CX; return c.y >= 22 && c.y <= this.bag.bottom() && dx >= -this.bag.edge(y, 0) - 2 && dx <= this.bag.edge(y, 1) + 2; }
+  _inside(c) { const y = Math.min(c.y, this.bag.belly - 1), dx = c.x - CoinBagUI.CX; return c.y >= 22 && c.y <= this.bag.bottom() && dx >= -this.bag.edge(y, 0) - 2 && dx <= this.bag.edge(y, 1) + 2; }
   _endDrag() { this.drag = null; this.canvas.classList.remove('grabbing'); this._ghostAt(null); }
   /** The coin that follows the pointer once it has left the bag (so it can be seen on its way to the world or the counter): the same pixel coin, a canvas of its own. */
   _ghostAt(e, t, radius) {
