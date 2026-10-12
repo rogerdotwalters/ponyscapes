@@ -74,6 +74,7 @@ class GameServer {
     this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
     this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, castleRestored: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
+    this.breeding = {};                                    // stall key -> { owner, ids: [two ponies], t }: a pair breeding in a stall (stableSystem.js)
     this.posterCoins = {};                                 // ownerId -> { varietyId: true }: the pony coins pinned on the Coin Poster at home (ponyPoster.js)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
@@ -635,7 +636,7 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
-    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick);
+    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this._breedTick(TICK_DT);
     this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick); this.quests.update(this.tick);
     if (this.tick % 4 === 0) this._gatherCoins();                                     // coins on the ground jump into purses nearby
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)

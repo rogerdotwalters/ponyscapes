@@ -46,7 +46,7 @@ test('feeding works anywhere (no stable or pen), takes the right fruit, and the 
   assert(later > half, 'the bar fills with time: ' + half + ' -> ' + later);
   assert.strictEqual(run('PONY.owner'), '', 'not yet tamed');
   for (let i = 1; i < need; i++) feed('apple');
-  ticks(30 * 4 * need + 60);
+  ticks(30 * run('AnimalLevels.TAME_SECONDS_PER_FRUIT') * need + 60);
   assert.strictEqual(run('PONY.owner'), run('A'), 'tamed once the bar is full'); assert.strictEqual(run('PONY.captor'), '');
   assert(run(`S.pendingEvents.some(e => e.type === 'tamed') || true`));
 });

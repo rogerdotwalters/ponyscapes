@@ -42,4 +42,66 @@ test('several ponies can be stabled, each in its own stall, in different wings',
   })()`));
   for (const o of r) { assert(o.stalled, JSON.stringify(r)); assert(o.key.endsWith('|' + o.at), o.key + ' vs ' + o.at); }
 });
+test('up to four ponies share one stall (the fifth is refused) and stand apart', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+    for (const k of Object.keys(S.animals.animals)) if (S.animals.animals[k].owner === A) delete S.animals.animals[k];
+    S.interiors.enter(A, P, BuildingSites.list.find(x => x.def.id === 'pony_stable').index);
+    const f = S.mapOf(P).plan.layout.furniture.find(g => g.id === 'stall' && g.x === 1 && g.y === 1), ids = [];
+    for (let i = 0; i < 5; i++) {
+      const id = S.animals.spawn('pony_plain', f.x + 1, f.y + 5.5, 0, { level: 1 }), a = S.animals.animals[id];
+      a.owner = A; a.leashed = true; a.grid = gridOf(P); P.x = f.x + 1.5; P.y = f.y + 5.5; a.x = P.x + 0.5; a.y = P.y;
+      S._stallPick(A, { act: 'in', animal: id, fx: f.x, fy: f.y }); ids.push(id);
+    }
+    const A_ = S.animals.animals, fifth = !!A_[ids[4]].stall, inStall = ids.filter(id => A_[id].stall), spots = inStall.map(id => A_[id].stallAt.x + ',' + A_[id].stallAt.y);
+    S.pendingEvents.length = 0; S._useStall(A, P, { fx: f.x, fy: f.y });
+    const menu = S.pendingEvents.filter(e => e.type === 'stallMenu').pop();
+    S._stallPick(A, { act: 'out', animal: inStall[1] });
+    const again = S.animals.animals[ids[4]]; S._stallPick(A, { act: 'in', animal: ids[4], fx: f.x, fy: f.y });
+    return JSON.stringify({ n: inStall.length, fifth, spots: new Set(spots).size, inside: menu.inside.length, cap: menu.cap, addable: menu.addable.length, outOk: !A_[inStall[1]].stall, refilled: !!again.stall });
+  })()`));
+  assert.strictEqual(r.n, 4); assert(!r.fifth, 'the fifth is refused'); assert.strictEqual(r.spots, 4, 'four different spots'); assert.strictEqual(r.inside, 4); assert.strictEqual(r.cap, 4);
+  assert.strictEqual(r.addable, 0, 'a full stall offers nobody to add'); assert(r.outOk); assert(r.refilled, 'room again after one is taken out');
+});
+test('ponies are male or female: about half each, the same every time for the same look, and the book can say which', () => {
+  const r = JSON.parse(run(`(() => {
+    let f = 0, m = 0; for (let g = 1; g <= 400; g++) { const look = PonyLook.fromGene(g * 7919, 0); if (PonyLook.sexOf(look) === 'f') f++; else m++; }
+    const look = PonyLook.fromGene(123456, 0);
+    return JSON.stringify({ f, m, stable: PonyLook.sexOf(look) === PonyLook.sexOf(look.slice()), described: PonyLook.describe(look).sex, symbol: PonyLook.sexInfo('f').symbol + PonyLook.sexInfo('m').symbol });
+  })()`));
+  assert(r.f > 140 && r.m > 140, JSON.stringify(r)); assert(r.stable); assert(['f', 'm'].includes(r.described)); assert.strictEqual(r.symbol, '\u2640\u2642');
+});
+test('breeding: exactly a stallion and a mare alone in a stall; the bar fills; a foal is born and the pair rests', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A], out = {};
+    for (const k of Object.keys(S.animals.animals)) if (S.animals.animals[k].owner === A) delete S.animals.animals[k];
+    S.interiors.enter(A, P, BuildingSites.list.find(x => x.def.id === 'pony_stable').index);
+    const map = S.mapOf(P), f = map.plan.layout.furniture.find(g => g.id === 'stall' && g.x === 6 && g.y === 1);
+    const mk = (sex, type = 'pony_plain') => {
+      const id = S.animals.spawn(type, f.x + 1, f.y + 5.5, 0, { level: 1 }), a = S.animals.animals[id];
+      a.look[6] = sex === 'f' ? 128 : 0; a.owner = A; a.leashed = true; a.grid = gridOf(P); P.x = f.x + 1.5; P.y = f.y + 5.5; a.x = P.x + 0.5; a.y = P.y;
+      S._stallPick(A, { act: 'in', animal: id, fx: f.x, fy: f.y }); return a;
+    };
+    const go = () => S._stallPick(A, { act: 'breed', fx: f.x, fy: f.y });
+    const m1 = mk('m'); go(); out.oneAlone = Object.keys(S.breeding).length;
+    const m2 = mk('m'); go(); out.twoMales = Object.keys(S.breeding).length;
+    delete S.animals.animals[m2.id]; const fe = mk('f'); go(); out.started = Object.keys(S.breeding).length; out.barStart = fe.breedP;
+    const ponies0 = Object.values(S.animals.animals).filter(x => x.owner === A).length;
+    for (let t = 0; t < 45; t += 1 / 30) S._breedTick(1 / 30);
+    out.half = Math.round(fe.breedP * 100) / 100;
+    for (let t = 0; t < 50; t += 1 / 30) S._breedTick(1 / 30);
+    const mine = Object.values(S.animals.animals).filter(x => x.owner === A), foal = mine.find(x => x.foal > 0);
+    out.born = mine.length - ponies0; out.foalOwner = !!foal; out.foalSex = foal && PonyLook.sexOf(foal.look); out.rest = m1.breedRest > 0 && fe.breedRest > 0; out.done = Object.keys(S.breeding).length; out.barGone = fe.breedP === undefined;
+    out.foalOut = foal && !foal.stall; out.canRide = !!findRide(Object.assign({}, P, { x: foal.x, y: foal.y }), { [foal.id]: foal }, A);
+    // a third pony in the stall stops a breeding that is under way
+    S.animals.animals[m1.id].breedRest = 0; fe.breedRest = 0; go(); out.again = Object.keys(S.breeding).length;
+    const third = mk('f'); S._breedTick(1 / 30); out.cancelled = Object.keys(S.breeding).length;
+    return JSON.stringify(out);
+  })()`));
+  assert.strictEqual(r.oneAlone, 0, 'one pony cannot breed'); assert.strictEqual(r.twoMales, 0, 'two stallions cannot'); assert.strictEqual(r.started, 1); assert.strictEqual(r.barStart, 0);
+  assert(r.half > 0.4 && r.half < 0.6, 'the bar is half full at half the time: ' + r.half);
+  assert.strictEqual(r.born, 1, 'one foal'); assert(r.foalOwner); assert(['f', 'm'].includes(r.foalSex)); assert(r.rest, 'the parents rest'); assert.strictEqual(r.done, 0); assert(r.barGone);
+  assert(r.foalOut, 'the foal is born outside the stall'); assert(!r.canRide, 'a foal cannot be ridden yet');
+  assert.strictEqual(r.again, 1, 'they can breed again once rested'); assert.strictEqual(r.cancelled, 0, 'a third pony stops it');
+});
 console.log(passed + ' passed');

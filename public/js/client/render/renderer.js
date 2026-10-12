@@ -256,10 +256,13 @@ class Renderer {
       const view = { friend, invite: !friend && close < 2.8 && canBefriendAnimal(a.type) && !a.captor && a.state !== 'flee', near: close < 9, wantNear: close < (def.boss ? 16 : 9), holding: this.game.heldItemId(), ref: def.pony || def.tameable ? (lvs.horsemanship || 1) : (lvs.hunting || 1) };   // level colours compare with the skill you would use on it
       const lift = a.lift || 0;
       if (lift > 0) g.ellipse(sx, sy + 3, 20 * (1 - 0.3 * lift), 7 * (1 - 0.3 * lift), `rgba(0,0,0,${(0.3 * (1 - 0.4 * lift)).toFixed(2)})`);        // the shadow stays on the ground as the pair climbs
+      if (a.foal > 0) { const k = 0.62 + 0.38 * (1 - a.foal); this.ctx.save(); this.ctx.translate(sx, sy); this.ctx.scale(k, k); this.ctx.translate(-sx, -sy); }          // a foal is smaller until it has grown
       this.animalSprite.draw(a, item.id, sx, sy - lift * FLY_HEIGHT, now, view);
+      if (a.foal > 0) this.ctx.restore();
       const holder = a.owner || a.captor;
       if (a.leashed && holder && this.players && this.players[holder]) this._drawLeash(sx, sy, a, this.players[holder]);
       if (a.captor && a.tame !== undefined) this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.tame, now);
+      else if (a.breed !== undefined) this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.breed, now);                      // breeding in a stall: the same rainbow bar
       return;
     }
     if (item.kind === 'npc') {                                                           // a villager: drawn with the same sprite as a player
