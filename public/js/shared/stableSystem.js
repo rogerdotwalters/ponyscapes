@@ -12,6 +12,9 @@
 const Stable = {
   REACH: 2.6,                                               // how close to a stall (tiles, from its edge) the key reaches it
   GATE_REACH: 1.25,                                         // ... and to a gate
+  CAPACITY: 4,                                              // ponies that can share one stall
+  /** Where the ponies in a pen stand (the four corners of the middle of a 4 x 4 pen), as offsets from the stall's top-left corner. */
+  SLOTS: [[1.0, 1.7], [3.0, 1.7], [1.0, 3.1], [3.0, 3.1]],
   FEED_REACH: 1.9,                                          // how close to the pony itself, holding an apple, the key feeds it
   LEASH_RANGE: 8,                                           // how far away a pony of yours can be to be put on a leash
   /** Distance from p to the rectangle of a furniture piece. */
@@ -41,14 +44,21 @@ const Stable = {
   /** The pen of a stall: the box a pony in it keeps to. */
   box: f => ({ x0: f.x, y0: f.y, x1: f.x + f.w, y1: f.y + f.h }),
   boxOfKey(key) { const f = Stable.pieceOfKey(key); return f ? Stable.box(f) : null; },
-  /** Where a pony stands when it is put in a stall (the middle of the pen). */
-  spot: f => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 }),
+  /** Where a pony stands when it is put in a stall: the first free corner of the pen (given the ponies already in it), else the middle. */
+  spot(f, others = []) {
+    const slots = Stable.SLOTS.map(([dx, dy]) => ({ x: f.x + dx * f.w / 4, y: f.y + dy * f.h / 4 }));
+    const free = slots.find(sl => !others.some(o => Math.hypot((o.stallAt || o).x - sl.x, (o.stallAt || o).y - sl.y) < 0.9));
+    return free || { x: f.x + f.w / 2, y: f.y + f.h / 2 };
+  },
   /** Where a pony taken out is put: in the aisle, just in front of the stall's gate. */
-  front: f => ({ x: f.x + 1.5, y: f.y + f.h + 1.6 }),
+  front: (f, k = 0) => ({ x: f.x + 1.0 + (k % 4) * 0.8, y: f.y + f.h + 1.4 + (Math.floor(k / 4) % 2) * 0.5 }),
   /** The pony standing in this stall (an animal with `stall` set, inside it), or null. */
-  occupant(animals, p, f) {
-    for (const id in animals) { const a = animals[id]; if (a.stall && sameGrid(a, p) && a.x >= f.x && a.x <= f.x + f.w && a.y >= f.y && a.y <= f.y + f.h) return a; }
-    return null;
+  occupant(animals, p, f) { return Stable.occupants(animals, p, f)[0] || null; },
+  /** Every pony standing in this stall (up to CAPACITY of them). */
+  occupants(animals, p, f) {
+    const out = [];
+    for (const id in animals) { const a = animals[id]; if (a.stall && sameGrid(a, p) && a.x >= f.x && a.x <= f.x + f.w && a.y >= f.y && a.y <= f.y + f.h) out.push(a); }
+    return out;
   },
   /** Every pony of yours in a stall of this room. */
   stalledHere(animals, p, selfId) {
@@ -78,7 +88,7 @@ const Stable = {
   },
   nameOf: a => (a.look && typeof PonyLook !== 'undefined' ? PonyLook.describe(a.look).name : AnimalDefs[a.type].name),
   /** What a menu shows for a pony. */
-  describe: a => ({ id: a.id, name: Stable.nameOf(a), level: a.level || 1, type: a.type })
+  describe: a => ({ id: a.id, name: Stable.nameOf(a), level: a.level || 1, type: a.type, sex: a.look ? PonyLook.sexOf(a.look) : '' })
 };
 
 /** What the interact key does in a stable (client + server): feed a stabled pony you hold an apple for, else a stall's menu. */
@@ -86,9 +96,10 @@ function findStall(map, p, heldItemId, animals = {}, selfId = p.id) {
   if (p.asleep || !Stable.layoutOf(map)) return null;
   const [hit] = Stable.stallsNear(map, p);
   if (!hit) return null;
-  const occ = Stable.occupant(animals, p, hit.f);
-  if (occ && occ.owner === selfId && ItemDB.isApple(heldItemId) && Math.hypot(occ.x - p.x, occ.y - p.y) <= Stable.FEED_REACH) return { kind: 'stallFeed', label: `Feed ${Stable.nameOf(occ)}`, dist: hit.dist - 0.5, animal: occ };
-  return { kind: 'stall', mode: occ ? 'out' : 'in', label: occ ? 'Take a pony out' : 'Stable a pony', dist: hit.dist, fx: hit.f.x, fy: hit.f.y };
+  const occs = Stable.occupants(animals, p, hit.f), occ = occs.filter(o => o.owner === selfId).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+  if (occ && ItemDB.isApple(heldItemId) && Math.hypot(occ.x - p.x, occ.y - p.y) <= Stable.FEED_REACH) return { kind: 'stallFeed', label: `Feed ${Stable.nameOf(occ)}`, dist: hit.dist - 0.5, animal: occ };
+  const label = !occs.length ? 'Stable a pony' : occs.length < Stable.CAPACITY ? 'Stall: add or take out' : 'Take a pony out';
+  return { kind: 'stall', mode: occs.length ? 'out' : 'in', label, dist: hit.dist, fx: hit.f.x, fy: hit.f.y };
 }
 Interactions.extra.push(findStall);
 InteractionHandlers.stall = (server, id, p, action) => server._useStall(id, p, action);
@@ -112,10 +123,13 @@ Object.assign(GameServer.prototype, {
   /** The interact key at a stall: send the menu (the gate, and the ponies you could put in, or the ponies you could take out). */
   _useStall(id, p, action) {
     const hit = this._roomPiece(p, action, d => d.stall); if (!hit) return;
-    const f = hit.f, animals = this.animals.animals, occ = Stable.occupant(animals, p, f), gate = Stable.gateOf(this.mapOf(p), f);
+    const f = hit.f, animals = this.animals.animals, inside = Stable.occupants(animals, p, f), gate = Stable.gateOf(this.mapOf(p), f);
     if (Stable.rectDist(f, p) > Stable.REACH + 0.4) return;
-    const mode = occ ? 'out' : 'in', list = occ ? Stable.stalledHere(animals, p, id) : Stable.leashed(animals, p, id);
-    this.pendingEvents.push({ type: 'stallMenu', to: id, mode, fx: f.x, fy: f.y, gate: gate ? { open: gate.open } : null, options: list.map(Stable.describe) });
+    const mode = inside.length ? 'out' : 'in', list = inside.length ? Stable.stalledHere(animals, p, id) : Stable.leashed(animals, p, id);
+    const addable = inside.length < Stable.CAPACITY ? Stable.leashed(animals, p, id) : [];
+    // (options / mode: the old single menu; inside / addable / cap: the whole stall at once, for the shared stall's menu)
+    this.pendingEvents.push({ type: 'stallMenu', to: id, mode, fx: f.x, fy: f.y, gate: gate ? { open: gate.open } : null, options: list.map(Stable.describe),
+      inside: inside.filter(a => a.owner === id).map(Stable.describe), others: inside.filter(a => a.owner !== id).length, addable: addable.map(Stable.describe), cap: Stable.CAPACITY });
   },
 
   /** A choice in the stall menu: act = 'in' (put the pony in the stall at fx, fy), 'out' (take it out in front of its gate) or 'roam' (let it out into the village). */
@@ -128,9 +142,10 @@ Object.assign(GameServer.prototype, {
     if (cmd.act === 'in') {
       const f = map.plan.layout.furniture.find(g => g.x === (cmd.fx | 0) && g.y === (cmd.fy | 0) && (FurnitureDefs.get(g.id) || {}).stall);
       if (!f || Stable.rectDist(f, p) > Stable.REACH + 0.8) { this._notice(id, 'Stand beside the stall'); return; }
-      if (Stable.occupant(animals, p, f)) { this._notice(id, 'That stall is taken'); return; }
+      const sharing = Stable.occupants(animals, p, f);
+      if (sharing.length >= Stable.CAPACITY) { this._notice(id, `That stall is full (${Stable.CAPACITY} ponies)`); return; }
       if (!Stable.leashed(animals, p, id).includes(a)) { this._notice(id, 'Only a pony on a leash can be stabled'); return; }
-      const at = Stable.spot(f);
+      const at = Stable.spot(f, sharing);
       Object.assign(a, { stall: Stable.key(grid, f), stallAt: at, stallBox: Stable.box(f), x: at.x, y: at.y, vx: 0, vy: 0, leashed: false, rider: '', home: at, state: 'idle', facing: Math.PI / 2 });
       delete a.roam;
       this._notice(id, `${Stable.nameOf(a)} settles into the stall`);
@@ -147,7 +162,7 @@ Object.assign(GameServer.prototype, {
       this.pendingEvents.push({ type: 'unstalled', to: id, animal: a.id, x: p.x, y: p.y, grid, roam: true });
       return;
     }
-    const at = f ? Stable.front(f) : { x: p.x, y: p.y };
+    const at = f ? Stable.front(f, Math.floor(this.rng() * 8)) : { x: p.x, y: p.y };
     Object.assign(a, { x: at.x, y: at.y, home: { x: at.x, y: at.y } });
     this._notice(id, `${name} is out of the stall`);
     this.pendingEvents.push({ type: 'unstalled', to: id, animal: a.id, x: at.x, y: at.y, grid });

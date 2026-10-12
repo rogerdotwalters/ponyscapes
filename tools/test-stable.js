@@ -42,4 +42,33 @@ test('several ponies can be stabled, each in its own stall, in different wings',
   })()`));
   for (const o of r) { assert(o.stalled, JSON.stringify(r)); assert(o.key.endsWith('|' + o.at), o.key + ' vs ' + o.at); }
 });
+test('up to four ponies share one stall (the fifth is refused) and stand apart', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+    for (const k of Object.keys(S.animals.animals)) if (S.animals.animals[k].owner === A) delete S.animals.animals[k];
+    S.interiors.enter(A, P, BuildingSites.list.find(x => x.def.id === 'pony_stable').index);
+    const f = S.mapOf(P).plan.layout.furniture.find(g => g.id === 'stall' && g.x === 1 && g.y === 1), ids = [];
+    for (let i = 0; i < 5; i++) {
+      const id = S.animals.spawn('pony_plain', f.x + 1, f.y + 5.5, 0, { level: 1 }), a = S.animals.animals[id];
+      a.owner = A; a.leashed = true; a.grid = gridOf(P); P.x = f.x + 1.5; P.y = f.y + 5.5; a.x = P.x + 0.5; a.y = P.y;
+      S._stallPick(A, { act: 'in', animal: id, fx: f.x, fy: f.y }); ids.push(id);
+    }
+    const A_ = S.animals.animals, fifth = !!A_[ids[4]].stall, inStall = ids.filter(id => A_[id].stall), spots = inStall.map(id => A_[id].stallAt.x + ',' + A_[id].stallAt.y);
+    S.pendingEvents.length = 0; S._useStall(A, P, { fx: f.x, fy: f.y });
+    const menu = S.pendingEvents.filter(e => e.type === 'stallMenu').pop();
+    S._stallPick(A, { act: 'out', animal: inStall[1] });
+    const again = S.animals.animals[ids[4]]; S._stallPick(A, { act: 'in', animal: ids[4], fx: f.x, fy: f.y });
+    return JSON.stringify({ n: inStall.length, fifth, spots: new Set(spots).size, inside: menu.inside.length, cap: menu.cap, addable: menu.addable.length, outOk: !A_[inStall[1]].stall, refilled: !!again.stall });
+  })()`));
+  assert.strictEqual(r.n, 4); assert(!r.fifth, 'the fifth is refused'); assert.strictEqual(r.spots, 4, 'four different spots'); assert.strictEqual(r.inside, 4); assert.strictEqual(r.cap, 4);
+  assert.strictEqual(r.addable, 0, 'a full stall offers nobody to add'); assert(r.outOk); assert(r.refilled, 'room again after one is taken out');
+});
+test('ponies are male or female: about half each, the same every time for the same look, and the book can say which', () => {
+  const r = JSON.parse(run(`(() => {
+    let f = 0, m = 0; for (let g = 1; g <= 400; g++) { const look = PonyLook.fromGene(g * 7919, 0); if (PonyLook.sexOf(look) === 'f') f++; else m++; }
+    const look = PonyLook.fromGene(123456, 0);
+    return JSON.stringify({ f, m, stable: PonyLook.sexOf(look) === PonyLook.sexOf(look.slice()), described: PonyLook.describe(look).sex, symbol: PonyLook.sexInfo('f').symbol + PonyLook.sexInfo('m').symbol });
+  })()`));
+  assert(r.f > 140 && r.m > 140, JSON.stringify(r)); assert(r.stable); assert(['f', 'm'].includes(r.described)); assert.strictEqual(r.symbol, '\u2640\u2642');
+});
 console.log(passed + ' passed');

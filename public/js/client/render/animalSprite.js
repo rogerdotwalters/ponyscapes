@@ -117,8 +117,8 @@ class AnimalSprite {
     const look = def.pony ? this._look(animal.look) : null, rarity = look ? look.rarity : rarityOf(def.rarity);
     let label = '';
     const boss = def.boss ? '\u2605 ' : '';
-    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
-    else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name}` : def.name);
+    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' ' + PonyLook.sexInfo(look.sex).symbol + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name + ' ' + PonyLook.sexInfo(look.sex).symbol : def.name);
+    else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name} ${PonyLook.sexInfo(look.sex).symbol}` : def.name);
     const threat = AnimalLevels.threat(lv, view ? view.ref : 1), color = { easy: '#8be28b', even: '#ffe08a', hard: '#ffab6b', deadly: '#ff6b6b' }[threat];
     const marker = !mine && (def.hostile || def.boss) && view ? AnimalLevels.marker(lv, view.ref) : null, mw = marker ? 15 : 0;          // enemies: how its level compares with yours
     const font = 'bold 11px Georgia, serif', badge = 'Lv ' + lv, bw = SpriteCache.textWidth(font, badge) + 8, tw = SpriteCache.textWidth(font, label) + 8, width = mw + tw + bw + 4, y = sy - height;
