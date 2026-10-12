@@ -19,7 +19,8 @@ function createPlayer(slot, spawn) {
     abilities: [], abilityCd: [0, 0, 0, 0], dashT: 0, dashBoost: 0,          // the ridden pony's powers (rarity abilities, then skills: H K Y O), their cooldowns, and a running Dash
     regenT: 0, regenRate: 0,                                                  // health regeneration from an apple (appleSystem.js): seconds left, hp a second
     down: 0, downHp: 0, downMax: 0, graceT: 0,                               // downed in a dungeon (downed.js): seconds until you get up (0 = on your feet), health stored by snacks, the wait you began with, and the safe moment after
-    asleep: false, sleepT: 0, sleepForced: false                             // sleeping in the bed at home (sleepSystem.js): seconds asleep, and whether the night forced it
+    energy: CONFIG.sim.energy.max,                                           // tiredness (vitalsSystem.js): drains awake, sleeping and a little eating fill it
+    asleep: false, sleepT: 0, camping: false                                 // sleeping (sleepSystem.js): in your bed at home or camping outdoors: seconds asleep
   };
 }
 const noBuffs = () => ({ movement: 0, health: 0, luck: 0, friendship: 0, carry: 0 });
@@ -73,8 +74,9 @@ function stepPlayer(p, input, dt, map) {
   const modeOf = mode => C.vitalModes[mode] || C.vitalModes.normal;          // unknown / missing mode = normal
   const starving = p.hunger <= 0 && modeOf(p.hungerMode).penalty;           // 'superficial' / 'off' modes never hurt
   const parched = p.thirst <= 0 && modeOf(p.thirstMode).penalty;
-  const weak = starving || parched;                            // no sprinting, slower walk
-  const slowdown = (starving ? C.hunger.starvingSpeedFactor : 1) * (parched ? C.thirst.slowFactor : 1);
+  const exhausted = p.energy <= 0;
+  const weak = starving || parched || exhausted;                           // no sprinting, slower walk
+  const slowdown = (starving ? C.hunger.starvingSpeedFactor : 1) * (parched ? C.thirst.slowFactor : 1) * (exhausted ? C.energy.exhaustedSpeedFactor : 1);
   const riding = !!p.mount, R = C.ride, flying = riding && !!p.flying;                    // in the air: no wading, a little faster, and only barriers and cave walls stop you
   const wading = !flying && map.tile(Math.floor(p.x), Math.floor(p.y)) === TILE.SHALLOW ? C.wadeSpeedFactor : 1;                                    // on a pony: faster, a little wider, scaled by Horsemanship
   const boost = (1 + ((p.buffs && p.buffs.movement) || 0) / 100) * (p.dashT > 0 ? 1 + (p.dashBoost || 0) / 100 : 1);   // pony buffs, and a Dash

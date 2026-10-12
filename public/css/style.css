@@ -84,6 +84,8 @@ canvas{display:block}
 .vital{position:fixed;z-index:4;border-radius:8px;overflow:hidden;background:rgba(15,28,43,.6);border:1.5px solid rgba(227,194,122,.55)}
 .vital .fill{position:absolute;left:0;top:0;bottom:0;background:#6dbb5b;transition:width .4s,background .4s}
 .vital.water .fill{background:#4f9bd9}
+.vital.energy .fill{background:#e8c53a}
+.vital.energy.resting .fill{background:#8f9bff}
 .vital.low .fill{background:#e0a23a}
 .vital.starving .fill{background:#d8483f}
 .vital.starving{animation:pulse 1s infinite}
@@ -697,6 +699,8 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 #hint,#portraitHint{font-family:var(--font-title);background:rgba(29,18,10,.82)}
 .vital .fill{background:linear-gradient(#8bd05c,#4f9a2c)}
 .vital.water .fill{background:linear-gradient(#7fc0f0,#3d86c8)}
+.vital.energy .fill{background:linear-gradient(#f6dc6a,#cfa21c)}
+.vital.energy.resting .fill{background:linear-gradient(#aab2ff,#6670d8)}
 .vital.health .fill{background:linear-gradient(#e86a6a,#b02a2a)}
 .vital.low .fill{background:linear-gradient(#f0b84a,#c8882a)}
 .vlabel{font-family:var(--font-title);text-shadow:1px 1px 0 #000}
@@ -788,7 +792,7 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 @media (max-width:640px){#gardenMain{flex-direction:column}#gardenSeeds{width:auto}#gardenSeedList{flex-direction:row;max-height:none;overflow-x:auto;overflow-y:hidden;touch-action:pan-x}.seedPack{min-width:118px}}
 
 /* phones: while the coin bag is open the thumb controls and the tool belt step out of the way; paying turns the shop window into a slim card */
-body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsOpen #healthBar,body.coinsOpen #hungerBar,body.coinsOpen #thirstBar,body.coinsOpen #btnEmote,body.coinsOpen #hint{visibility:hidden}
+body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsOpen #healthBar,body.coinsOpen #hungerBar,body.coinsOpen #thirstBar,body.coinsOpen #energyBar,body.coinsOpen #btnEmote,body.coinsOpen #hint{visibility:hidden}
 #coinPanel.small #coinTotal{font-size:15px}
 #coinPanel.small #coinBreakdown{font-size:11px}
 #coinPanel.small #coinHint{display:none}

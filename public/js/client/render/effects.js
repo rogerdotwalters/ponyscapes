@@ -22,7 +22,7 @@ class Effects {
     game.events.on('burn', e => { this._burst(e.x, e.y, 3, ['#ff9a2a', '#ffd24a', '#ff5a1a'], 8); this._burst(e.x, e.y, 1, ['#6b6b72', '#8a8a92'], 22); });   // the little fire it leaves
     game.events.on('gain', e => this._onGain(e));
     game.events.on('pick', e => { if (e.prop === 'bush') this.shakeStart[e.key] = performance.now(); this._burst(e.x, e.y, 9, e.prop === 'stone' ? DUST_COLORS : LEAF_COLORS, 12); });   // (a picked bush shakes like a chopped tree)
-    game.events.on('eat', e => this._float(e, `Yum! +${e.hunger} hunger`));
+    game.events.on('eat', e => this._float(e, e.hunger > 0 ? `Yum! +${e.hunger} hunger` : `Yum! +${e.energy} energy`));
     game.events.on('drink', e => this._float(e, `+${e.thirst} thirst`));
     game.events.on('fill', e => this._float(e, 'Jug filled'));
     game.events.on('arrow', e => this.arrows.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 24, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 14, age: 0 }));

@@ -76,15 +76,23 @@ const CONFIG = {
       normal:   { drain: 1,   penalty: true,  label: 'Normal' },
       hard:     { drain: 2,   penalty: true,  label: 'Hard' }
     },
-    /** Sleep (sleepSystem.js): you may go to bed (your bed at home) from tiredHour until wakeHour; anyone still up at forceHour falls asleep, and everybody wakes at wakeHour.
-     *  When EVERYONE playing is asleep (fallAsleepSeconds after lying down) the night is skipped; while anyone is awake time passes as usual. */
-    sleep: { tiredHour: 22, forceHour: 2, wakeHour: 6, bedReach: 1.6, fallAsleepSeconds: 2 },
+    /** Energy (vitalsSystem.js): every character has an energy bar. It drains while awake (always on, whatever the hunger / thirst switch says); sleeping fills it, and eating
+     *  fills it a little (food restores `eatPerHunger` x its hunger value, but eating alone never lifts you past `eatMax`). Below `tiredBelow` you may sleep; at 0 you are exhausted and slow. */
+    energy: { max: 100, decayPerSecond: 0.05, tiredBelow: 70, lowThreshold: 25, exhaustedSpeedFactor: 0.8, eatMax: 60, eatPerHunger: 1.2 },   // full -> empty in ~33 minutes (about three and a half days)
+    /** Sleep (sleepSystem.js): there is no forced bedtime. Whenever your energy is below energy.tiredBelow you may lie down in your bed at home (`bedReach` tiles from it) or CAMP in the
+     *  woods (at least `campTrees` trees within `campRadius` tiles, nothing hostile within `campHostileRange`). Sleeping gives back `bedRest` energy a second in a bed, `campRest` camping
+     *  (`campFireRest` beside a campfire); you wake when you are rested, or press the button to get up. When EVERYONE playing is asleep (fallAsleepSeconds after lying down) between
+     *  nightHour and wakeHour the rest of the night is skipped; while anyone is awake time passes as usual. */
+    sleep: { nightHour: 22, wakeHour: 6, bedReach: 1.6, fallAsleepSeconds: 2, bedRest: 2.5, campRest: 1.5, campFireRest: 2, campTrees: 3, campRadius: 4, campHostileRange: 12 },
+    /** Night events (nightEvents.js): each night, every player outdoors may be visited by a MOON PONY, super rare: it keeps to the dark, spawns `spawnMin`..`spawnMax` tiles away
+     *  and fades with the dawn unless somebody has caught it. Fireflies drift over the grass at night (client only: client/render/fireflies.js). */
+    night: { moonPonyChance: 0.04, spawnMin: 16, spawnMax: 34, fireflies: 46 },
     /** Weather (weather.js): a spell lasts minHours..maxHours of in-game time; the layers ease at rampPerSecond. Rain fills a field plot by `waterPerSecond` x its intensity each
      *  second (watered at 1). Lightning strikes every strikeSeconds (longest at the weakest storm, shortest at the strongest), `strikeMin..strikeMax` tiles from a player (nearChance:
      *  right next to one). A strike hurts what is within strikeRadius (strikeDamage 0 = never); `fires` leave a short fire that hurts (fireDamage) and heavy rain puts out. */
     weather: { minHours: 3, maxHours: 12, rampPerSecond: 0.12, waterPerSecond: 1 / 12, strikeSecondsMax: 18, strikeSecondsMin: 4, strikeMin: 6, strikeMax: 30, nearChance: 0.06,
       strikeDamage: 12, strikeRadius: 1.6, fires: true, fireSeconds: 9, fireDamage: 3 },
-    time: { dayLengthSeconds: 480, startHour: 9 }                                                            // one day = 8 real minutes
+    time: { dayLengthSeconds: 576, startHour: 9 }                                                            // one day = 9.6 real minutes (the original 8, made 20% longer)
   },
   view: {
     tileW: 64 * TILE_SCALE, tileH: 32 * TILE_SCALE,

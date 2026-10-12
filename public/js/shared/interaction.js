@@ -112,9 +112,8 @@ const Interactions = {
     if (boat && !mounted) primary.push({ kind: 'board', label: 'Board', dist: Math.hypot(boat.x - p.x, boat.y - p.y), boat });
     if (primary.length) return primary.sort((a, b) => a.dist - b.dist)[0];
     if (mounted) return null;                             // (getting off is the Ride button's job (Z), so the action button only shows what else there is to do from the saddle)
-    if (!CONFIG.sim.vitals) return null;                  // no drinking or jug filling while hunger and thirst are off
-    const water = findWaterSource(map, p);
-    if (!water) return null;
+    const water = CONFIG.sim.vitals ? findWaterSource(map, p) : null;      // (no drinking or jug filling while hunger and thirst are off)
+    if (!water) { const camp = Sleep.find(map, p, heldItemId, animals); return camp && camp.kind === 'camp' ? camp : null; }   // nothing else to do here: tired in the woods, you may camp
     const fill = heldItemId === 'jug';                    // an empty jug gets filled
     return { kind: fill ? 'fill' : 'drink', label: fill ? 'Fill' : 'Drink', dist: water.dist, water };
   }

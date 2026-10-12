@@ -46,7 +46,7 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
 
 /**
  * @param {{w:number, h:number, insets?:{top,right,bottom,left}, touch:boolean, host?:boolean}} screen  CSS pixels
- * @returns {{k, topButtons, toolbar, health, hunger, thirst, clock, season, emote, touch, panels, debug, hint}} every rect is { x, y, w, h }
+ * @returns {{k, topButtons, toolbar, health, hunger, thirst, energy, clock, season, emote, touch, panels, debug, hint}} every rect is { x, y, w, h }
  */
 function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0 }, touch, host = false }) {
   const k = clamp(Math.min(w, h) / 380, 0.8, 1.25);          // phones ~1, tablets / desktop a little larger
@@ -93,12 +93,13 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   }
 
   /* ---- the vitals row (health | hunger | thirst | clock) ---- */
-  const vitalsH = Math.round(16 * k), clockW = 0, barW4 = Math.floor((toolbar.w - 2 * gap) / 3);         // (the clock lives beside the season bar now: the bars share the row)
+  const vitalsH = Math.round(16 * k), clockW = 0, barW4 = Math.floor((toolbar.w - 3 * gap) / 4);         // (the clock lives beside the season bar now: the bars share the row)
   const vitalsY = touch ? toolbar.y + toolbar.h + gap : toolbar.y - gap - vitalsH;
   const health = makeRect(toolbar.x, vitalsY, barW4, vitalsH);
   let hunger = makeRect(toolbar.x + (barW4 + gap), vitalsY, barW4, vitalsH);
   let thirst = makeRect(toolbar.x + 2 * (barW4 + gap), vitalsY, barW4, vitalsH);
-  if (!CONFIG.sim.vitals) { health.w = toolbar.w; hunger = thirst = null; }       // hunger and thirst are off: health takes their room
+  const energy = makeRect(toolbar.x + 3 * (barW4 + gap), vitalsY, barW4, vitalsH);                       // (energy is always there: health | hunger | thirst | energy)
+  if (!CONFIG.sim.vitals) { const half = Math.floor((toolbar.w - gap) / 2); health.w = half; energy.x = toolbar.x + half + gap; energy.w = toolbar.w - half - gap; hunger = thirst = null; }       // hunger and thirst are off: health and energy share their room
   const clock = makeRect(toolbar.x + toolbar.w, vitalsY, clockW, vitalsH);
   let topUsed = (touch ? Math.max(vitalsY + vitalsH, systemBar.y + systemBar.h) : systemBar.y + systemBar.h) + m;   // y where free space starts
 
@@ -189,7 +190,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
 
   /* ---- the Apple button: touch has its own place in the thumb cluster; on desktop it sits beside the emote button ---- */
   const appleRect = touch ? touchLayout.apple : [emote.x + ub + gap, emote.x - ub - gap].map(x => makeRect(x, emote.y, ub, ub)).find(r => r.x >= left && r.x + r.w <= right) || makeRect(emote.x, emote.y - 2 * (gap + ub), ub, ub);
-  return { k, w, h, buttonScale: sys.shrink, apple: appleRect, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  return { k, w, h, buttonScale: sys.shrink, apple: appleRect, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, energy, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -244,7 +245,7 @@ class UiLayout {
     dom.confirmPanel.style.width = P.confirm.w + 'px';
     dom.mapPanel.style.width = P.map.w + 'px'; dom.mapBody.style.maxHeight = Math.max(80, P.map.h - P.header - 2 * P.pad - 6) + 'px';        // the tab row takes some of the room
 
-    place(dom.health, L.health); place(dom.clock, L.clock);
+    place(dom.health, L.health); place(dom.clock, L.clock); if (dom.energy) place(dom.energy, L.energy);
     if (dom.season) { place(dom.season, L.season); dom.season.style.fontSize = Math.round(12 * L.k) + 'px'; dom.season.classList.toggle('compact', L.season.compact); dom.season.classList.toggle('tiny', L.season.tiny); }
     for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
     place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';

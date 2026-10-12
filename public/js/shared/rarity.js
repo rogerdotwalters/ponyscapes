@@ -112,7 +112,7 @@ const BuffDefs = Object.freeze({
 });
 
 /** Which ability suits which pony: a biome variety or species gets its own ability more often than chance. */
-const AbilityAffinity = Object.freeze({ ember: 'flame_breath', frost: 'frost_nova', starlit: 'night_light', crystal: 'night_light', pony_pegasus: 'dash', pony_alicorn: 'night_light' });
+const AbilityAffinity = Object.freeze({ ember: 'flame_breath', frost: 'frost_nova', starlit: 'night_light', crystal: 'night_light', moon: 'night_light', pony_pegasus: 'dash', pony_alicorn: 'night_light' });
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 
