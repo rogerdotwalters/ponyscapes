@@ -233,21 +233,52 @@ class CoinBagUI {
     const hw = (y, side, grow = 0) => Math.round(bag.edge(y, side) + grow);
     const rows = (y0, y1, grow, color) => { g.fillStyle = color; for (let y = y0; y <= y1; y++) { const l = hw(y, 0, grow), r = hw(y, 1, grow); if (l > 0 && r > 0) g.fillRect(cx - l, y, l + r, 1); } };
     const leather = (y0, y1, grow, level) => { for (let y = y0; y <= y1; y++) { const l = hw(y, 0, grow), r = hw(y, 1, grow), k = Math.round(8 * Math.max(bag.strain(y, 0), bag.strain(y, 1))); if (l > 0 && r > 0) { g.fillStyle = CoinBagUI.LEATHER[level][k]; g.fillRect(cx - l, y, l + r, 1); } } };
-    rows(12, bot + 1, 6, '#1d120a');                                                                   // ink outline
-    leather(13, bot, 5, 0);                                                                            // the leather wall (cut through: it has thickness); it pales and shines as it stretches
-    leather(13, bot, 2, 1);
-    g.fillStyle = '#6a4222'; for (let y = 14; y < bot; y++) { g.fillRect(cx - hw(y, 0, 5), y, 1, 1); g.fillRect(cx + hw(y, 1, 4), y, 1, 1); }
-    rows(14, bot - 1, 0, '#24160b');                                                                   // the inside of the bag
+    rows(22, bot + 1, 6, '#1d120a');                                                                   // ink outline
+    leather(22, bot, 5, 0);                                                                            // the leather wall (cut through: it has thickness); it pales and shines as it stretches
+    leather(22, bot, 2, 1);
+    g.fillStyle = '#6a4222'; for (let y = 22; y < bot; y++) { g.fillRect(cx - hw(y, 0, 5), y, 1, 1); g.fillRect(cx + hw(y, 1, 4), y, 1, 1); }
+    rows(22, bot - 1, 0, '#24160b');                                                                   // the inside of the bag
     for (let y = 22; y < bot - 1; y++) { g.fillStyle = y < 70 ? '#1c1109' : '#2c1b0e'; g.fillRect(cx - hw(y, 0), y, 1, 1); g.fillRect(cx + hw(y, 1) - 1, y, 1, 1); }
-    g.fillStyle = '#c9a86a'; for (let y = 20; y < bot - 5; y += 5) { g.fillRect(cx - hw(y, 0, 3), y, 1, 2); g.fillRect(cx + hw(y, 1, 2), y, 1, 2); }   // stitching down the cut edges (the stitches spread as it stretches)
-    g.fillStyle = '#1d120a'; g.fillRect(cx - 28, 14, 56, 7); g.fillStyle = '#9a6a38'; g.fillRect(cx - 27, 15, 54, 5); g.fillStyle = '#b98550'; g.fillRect(cx - 27, 15, 54, 1);   // the folded rim of the neck
-    g.fillStyle = '#1d120a'; g.fillRect(cx - 26, 20, 52, 1); g.fillStyle = '#2a1a0e'; g.fillRect(cx - 17, 21, 34, 2);
+    g.fillStyle = '#c9a86a'; for (let y = 24; y < bot - 5; y += 5) { g.fillRect(cx - hw(y, 0, 3), y, 1, 2); g.fillRect(cx + hw(y, 1, 2), y, 1, 2); }   // stitching down the cut edges (the stitches spread as it stretches)
+    g.drawImage(this._mouth(), 0, 0, W, 40);                                                            // the soft, ruffled mouth of the sack
     const order = [...this.coins].sort((a, b) => a.y - b.y);
     for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) this._shadow(g, c);
     for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) CoinSpin.blit(g, c.x, c.y, c.r, c.v ? { pony: c.v } : c.t, c.o, !!(this.drag && c === this.drag.coin), c);
     g.imageSmoothingEnabled = false;                                                                   // the rope is drawn over the neck, in front of the coins pouring in
-    g.fillStyle = '#1d120a'; g.fillRect(cx - 24, 33, 48, 6); g.fillStyle = '#d6be8c'; g.fillRect(cx - 23, 34, 46, 4); g.fillStyle = '#a08a5a'; for (let x = cx - 23; x < cx + 23; x += 3) g.fillRect(x, 36, 1, 2);
-    g.fillStyle = '#1d120a'; g.fillRect(cx + 17, 36, 9, 12); g.fillStyle = '#d6be8c'; g.fillRect(cx + 18, 37, 3, 9); g.fillRect(cx + 22, 37, 3, 7);
+    this._rope(g, cx);
+  }
+  /** The mouth of the sack, painted once (a pixel at a time into a small canvas of its own): the cloth flares out above the drawstring and its edge is a ruffled, uneven lip with
+   *  soft folds, so the top reads as a drawstring bag and not a jar's rigid rim. */
+  _mouth() {
+    if (this._mouthC) return this._mouthC;
+    const c = document.createElement('canvas'); c.width = CoinBagUI.W; c.height = 40; const g = c.getContext('2d'), cx = CoinBagUI.CX;
+    const outer = y => 23 + 13 * Math.pow(Math.max(0, (26 - y) / 18), 1.4);                                // half the width of the outside at y: 23 at the neck, flaring to ~36 at the lip
+    const lip = x => 7 + Math.round(1.7 * Math.sin(x * 0.55 + 0.7) + 1.1 * Math.sin(x * 1.35)) + Math.floor(Math.abs(x) / 13);   // the ruffled top edge, drooping at the sides
+    const inside = (x, y) => y >= lip(x) && Math.abs(x) <= outer(y) && y <= 26;
+    for (let x = -42; x <= 42; x++) for (let y = 3; y <= 27; y++) {
+      let col = null;
+      if (inside(x, y)) {
+        const ax = Math.abs(x), yt = lip(x);
+        if (ax <= outer(y) - 5 && y >= yt + 3) col = '#1c1109';                                            // the dark inside of the open mouth
+        else if (y < yt + 2) col = '#c18f58';                                                              // the lit edge of the lip
+        else col = (x * 5 + y * 3) % 13 === 0 ? '#6a4222' : (x + 2 * y) % 17 === 0 ? '#b98550' : ax > 26 ? '#8a5a30' : '#9a6a38';   // the leather, with soft folds
+      } else if (inside(x - 1, y) || inside(x + 1, y) || inside(x, y - 1) || inside(x, y + 1)) col = '#1d120a';
+      if (col) { g.fillStyle = col; g.fillRect(cx + x, y, 1, 1); }
+    }
+    return (this._mouthC = c);
+  }
+  /** The drawstring cinched round the neck, in front of the coins pouring in: a twisted cord, tied in a bow with two loops and two frayed tails. */
+  _rope(g, cx) {
+    const ink = '#1d120a', cord = '#d6be8c', twist = '#a08a5a', ell = (x, y, rx, ry, col) => { g.fillStyle = col; for (let j = -ry; j <= ry; j++) { const w = Math.round(rx * Math.sqrt(1 - (j * j) / ((ry + 0.5) * (ry + 0.5)))); g.fillRect(x - w, y + j, w * 2 + 1, 1); } };
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = ink; g.fillRect(cx - 26, 32, 52, 7); g.fillStyle = cord; g.fillRect(cx - 25, 33, 50, 5); g.fillStyle = twist; for (let x = cx - 25; x < cx + 25; x += 3) { g.fillRect(x, 33 + (x % 2), 1, 2); g.fillRect(x + 1, 36, 1, 2); }
+    g.fillStyle = '#f0e2bc'; g.fillRect(cx - 25, 33, 50, 1);
+    for (const dx of [-1, 1]) { const x = cx + 21 + dx * 6; ell(x, 29, 7, 5, ink); ell(x, 29, 6, 4, cord); ell(x, 29, 3, 2, '#24160b'); ell(x, 28, 5, 1, '#f0e2bc'); }   // the two loops of the bow
+    g.fillStyle = ink; g.fillRect(cx + 18, 33, 7, 8); g.fillStyle = cord; g.fillRect(cx + 19, 34, 5, 6); g.fillStyle = twist; g.fillRect(cx + 19, 37, 5, 1);    // the knot
+    for (const [x, len, lean] of [[cx + 19, 15, -1], [cx + 23, 12, 1]]) {                                  // the two tails, hanging and fraying
+      for (let i = 0; i < len; i++) { const tx = x + Math.round(lean * i * 0.12); g.fillStyle = ink; g.fillRect(tx - 1, 40 + i, 4, 1); g.fillStyle = i % 4 === 3 ? twist : cord; g.fillRect(tx, 40 + i, 2, 1); }
+      g.fillStyle = twist; g.fillRect(x - 1 + Math.round(lean * len * 0.12), 40 + len, 1, 2); g.fillRect(x + 2 + Math.round(lean * len * 0.12), 40 + len, 1, 1);
+    }
   }
   _shadow(g, c) {                                                                                       // a dark pixel ellipse under the coin
     g.fillStyle = 'rgba(0,0,0,.3)'; const rx = Math.round(c.r), ry = Math.max(2, Math.round(c.r * 0.5)), cx = Math.round(c.x) + 1, cy = Math.round(c.y + c.r * 0.35) + 2;
