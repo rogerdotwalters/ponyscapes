@@ -101,7 +101,7 @@ class LobbyUI {
   /** The character screen: prince or princess, six hair styles each, and four colours. A big pixel preview you can turn and set walking,
    *  the three views beside it, and little pictures on the body and hair buttons, all in your colours as you choose them. */
   _showCreator(first = false) {
-    const P = CharacterPalette, T = this, canvas = this.$('#charPreview'), DIRS = ['down', 'left', 'up', 'right'];
+    const P = CharacterPalette, T = this, canvas = this.$('#charPreview'), DIRS = ['down', 'down_left', 'left', 'up_left', 'up', 'up_right', 'right', 'down_right'];   // (a full turn, eight steps)
     const thumb = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
     const swatches = (id, colors, slot, names) => {
       const el = this.$('#' + id); el.innerHTML = '';
@@ -137,8 +137,8 @@ class LobbyUI {
       T.root.querySelectorAll('.charViews canvas').forEach(c => renderCharacterPortrait(c, l, 0, 1000, {}, { dir: c.dataset.view }));
     };
     this.dirIdx = 0; this.walking = true;
-    this.$('#charTurnL').onclick = () => { this.dirIdx = (this.dirIdx + 1) % 4; };
-    this.$('#charTurnR').onclick = () => { this.dirIdx = (this.dirIdx + 3) % 4; };
+    this.$('#charTurnL').onclick = () => { this.dirIdx = (this.dirIdx + 1) % 8; };
+    this.$('#charTurnR').onclick = () => { this.dirIdx = (this.dirIdx + 7) % 8; };
     const walk = this.$('#charWalk'); walk.textContent = 'Stand'; walk.onclick = () => { this.walking = !this.walking; walk.textContent = this.walking ? 'Stand' : 'Walk'; };
     this.$('#charRandom').onclick = () => { this.look = CharacterLook.random(); refresh(); };
     this.$('#charDone').onclick = () => {

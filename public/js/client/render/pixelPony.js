@@ -1,7 +1,8 @@
 'use strict';
 /* CLIENT - retro pixel-art ponies, in the same style as the pixel characters (pixelCharacter.js): painted pixel by pixel in the pony's own
  * coat, mane and cutie-mark colours (PonyLook), outlined, cached, and drawn scaled up with hard edges.
- * Views: 'right' (the profile; 'left' is its mirror), 'down' (walking towards the camera), 'up' (walking away).
+ * Views: 'right' (the profile; 'left' is its mirror), 'down' (walking towards the camera), 'up' (walking away), and the four diagonals 'dq' / 'uq'
+ * (three quarters, leaning right; the front / back turned and lengthened, see TurnView in spriteRegistry.js; the left-hand ones are mirrors).
  * Animations: a 4-frame trot tied to the distance walked; standing, the tail swishes, the ears flick and the eyes blink.
  * Every pony kind uses it: pegasi and alicorns get feathered wings (folded on the ground, beating in the air), unicorns and alicorns a spiral horn,
  * mystical ponies circling sparkles, and each biome variety its own effect (fire, frost, leaves, gem shards, stars, sprinkles, a flower crown,
@@ -388,7 +389,8 @@ const PixelPony = (() => {
 
   /** Live, uncached effects: embers rising off a fiery mane; snowflakes drifting down and a frosty breath. Drawn in art pixels. */
   function drawFx(ctx, look, dir, view, sx, top, now, seed, kind = {}, moving = false) {
-    const left = dir === 'left', w = W * PX;
+    const left = SpriteRegistry.lean(dir) < 0, w = W * PX, turned = TURNED[view], headDx = turned ? turned.turn.head : 0;     // (a turned pony: its fx follow the front / back picture, the head moved over)
+    if (turned) view = turned.from;
     const dot = (ax, ay, color, a) => { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = color; ctx.fillRect(left ? sx + w / 2 - (Math.round(ax) + 1) * PX : sx - w / 2 + Math.round(ax) * PX, top + Math.round(ay) * PX, PX, PX); };
     const plus = (ax, ay, color, a, big) => { dot(ax, ay, '#ffffff', a); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(ax + dx, ay + dy, color, a); if (big) for (const [dx, dy] of [[2, 0], [-2, 0], [0, 2], [0, -2]]) dot(ax + dx, ay + dy, color, a * 0.6); };
     const acc = look.accessory, side = view === 'right';
@@ -396,7 +398,7 @@ const PixelPony = (() => {
       const a = now / 900 + i * 1.6, x = CX + Math.cos(a) * (side ? 24 : 16), y = 20 + Math.sin(a * 1.3) * 15;
       plus(x, y, look.mane[i % look.mane.length], 0.55 + 0.45 * Math.sin(now / 260 + i * 2), false);
     }
-    if (kind.horn) { const [hx, hy] = side ? [44, -8] : [CX, -8]; plus(hx, hy, '#fff2a8', 0.5 + 0.5 * Math.abs(Math.sin(now / 250)), Math.sin(now / 250) > 0.6); }   // the horn glints
+    if (kind.horn) { const [hx, hy] = side ? [44, -8] : [CX + headDx, -8]; plus(hx, hy, '#fff2a8', 0.5 + 0.5 * Math.abs(Math.sin(now / 250)), Math.sin(now / 250) > 0.6); }   // the horn glints
     if (acc === 'bubbles') for (let i = 0; i < 4; i++) {                                          // marsh: bubbles rising
       const t = ((now / 1900) + i / 4 + seed) % 1, x = 12 + i * 8 + Math.sin(now / 500 + i) * 1.5, y = 30 - t * 30;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(x + dx, y + dy, '#d2faff', 0.85 * (1 - t));
@@ -435,12 +437,20 @@ const PixelPony = (() => {
   }
 
   /** One pony frame, painted live (the old way): the body, the outline round it, then frost's twinkles over that. */
+  /** The diagonal views: the picture they turn, and how (TurnView.quarter). Seen at an angle a pony is longer than from the front: the body is
+   *  stretched backwards from its leading side while the head swings toward the way it leans. */
+  const TURNED = {
+    dq: { from: 'down', turn: { sign: 1, cx: CX, split: TOP + 22, head: 4, body: 2, scale: 1.4, anchor: 8 } },
+    uq: { from: 'up', turn: { sign: 1, cx: CX, split: TOP + 22, head: 3, body: 2, scale: 1.4, anchor: 8 } },
+  };
   function renderLive(C, view, F, blink) {
-    const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d'), P = painter(ctx);
-    P.at(0, TOP, () => { if (view === 'up') back(P, C, F); else if (view === 'down') front(P, C, F, blink); else side(P, C, F, blink); });
+    let canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+    const turned = TURNED[view], base = turned ? turned.from : view, P = painter(canvas.getContext('2d'));
+    P.at(0, TOP, () => { if (base === 'up') back(P, C, F); else if (base === 'down') front(P, C, F, blink); else side(P, C, F, blink); });
+    if (turned) canvas = TurnView.quarter(canvas, turned.turn);
+    const ctx = canvas.getContext('2d');
     outline(ctx, C.outline, W, H);
-    if (C.fx === 'frost') twinkles(P, C, view, F);
+    if (C.fx === 'frost') twinkles(painter(ctx), C, base, F);
     return canvas;
   }
   function twinkles(P, C, view, F) {
@@ -465,7 +475,7 @@ const PixelPony = (() => {
   }
   /** A frame built from the pack in this pony's colours, or null when the pack lacks it (or this pony's colours would not build exactly). */
   function renderPacked(C, view, F, blink, pose) {
-    if (!ArtPack.loaded || C.liveOnly) return null;
+    if (!ArtPack.loaded || C.liveOnly || TURNED[view]) return null;                              // (the pack has no diagonal views: they are painted live)
     const key = stateKey(C, view, pose, blink), A = ArtPack.sprite('pony', key + '|A');
     if (!A) return null;
     const B = view === 'right' ? ArtPack.sprite('pony', key + '|B') : null, T = C.fx === 'frost' ? ArtPack.sprite('pony', key + '|C') : null;
@@ -536,7 +546,7 @@ const PixelPony = (() => {
   function markerFigure(look, view, F, blink, pose, st) {
     if (!ArtPack.loaded) return null;
     let C = figPal.get(look); if (!C) { C = palette(look); figPal.set(look, C); }
-    if (C.liveOnly) return null;
+    if (C.liveOnly || TURNED[view]) return null;
     C.wings = st.wings; C.horn = st.horn; C.flying = st.flying; C.wf = st.wf; C.ruffle = !st.flying && st.moving && st.frame % 2 === 1; C.ff = st.ff; C.tw = st.tw;
     const skey = stateKey(C, view, pose, blink), A = ArtPack.sprite('pony', skey + '|A');
     if (!A) return null;
@@ -556,7 +566,7 @@ const PixelPony = (() => {
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((now / 420 + anim.seed) % 4);
     const pose = flying ? 'S0' : (anim.moving ? 'T' : 'S') + frame, F = POSES[pose];
     const blink = !anim.moving && ((now + anim.seed * 1311) % 4200) < 150;
-    const view = dir === 'left' ? 'right' : dir;
+    const lean = SpriteRegistry.lean(dir), mirror = lean < 0, view = SpriteRegistry.isDiagonal(dir) ? (dir.startsWith('up') ? 'uq' : 'dq') : mirror ? 'right' : dir;   // (a pony is drawn facing right; left is its mirror)
     const ff = Math.floor(now / 120) % 4, tw = Math.floor(now / 350) % 8;                           // flame flicker, frost twinkle
     const fxFrame = fx === 'flames' ? ff : fx === 'frost' || fx === 'stars' ? tw : 0;
     const key = `${lookKey(look)}|${fx}${fxFrame}|${wings ? 'w' + (flying ? wf : 'f') : ''}${horn ? 'h' : ''}|${view}|${anim.moving ? 't' : 's'}${frame}|${blink ? 1 : 0}`;
@@ -564,8 +574,8 @@ const PixelPony = (() => {
       const fig = markerFigure(look, view, F, blink, pose, { wings, horn, flying, wf, ff, tw, moving: anim.moving, frame });
       if (fig) {
         const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
-        if (!anim.lift) SpriteCache.shadow(ctx, sx, sy + 1, view === 'right' ? 20 : 11, 6, 0.24);
-        ctx.figure({ frame: fig.frame, lut: fig.lut, wash: 0, mirror: dir === 'left', dx: sx - w / 2, dy: top, dw: w, dh: h });
+        if (!anim.lift) SpriteCache.shadow(ctx, sx, sy + 1, view === 'right' ? 20 : TURNED[view] ? 16 : 11, 6, 0.24);
+        ctx.figure({ frame: fig.frame, lut: fig.lut, wash: 0, mirror, dx: sx - w / 2, dy: top, dw: w, dh: h });
         drawFx(ctx, look, dir, view, sx, top + TOP * PX, anim.now, anim.seed, kind, anim.moving);
         return { top: top + TOP * PX, h: (GROUND + 1) * PX };
       }
@@ -579,9 +589,9 @@ const PixelPony = (() => {
       cache.set(key, canvas);
     }
     const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
-    if (!anim.lift) SpriteCache.shadow(ctx, sx, sy + 1, view === 'right' ? 20 : 11, 6, 0.24);
+    if (!anim.lift) SpriteCache.shadow(ctx, sx, sy + 1, view === 'right' ? 20 : TURNED[view] ? 16 : 11, 6, 0.24);
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(dir === 'left' ? SpriteCache.mirror(key, canvas) : canvas, sx - w / 2, top, w, h);   // (facing left: a mirrored copy, made once)
+    ctx.drawImage(mirror ? SpriteCache.mirror(key, canvas) : canvas, sx - w / 2, top, w, h);   // (facing left: a mirrored copy, made once)
     ctx.imageSmoothingEnabled = smooth;
     drawFx(ctx, look, dir, view, sx, top + TOP * PX, anim.now, anim.seed, kind, anim.moving);
     return { top: top + TOP * PX, h: (GROUND + 1) * PX };

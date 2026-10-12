@@ -8,15 +8,18 @@ Nothing needs a picture: anything you leave empty is drawn by the game's own pro
 ```
 assets/
   items/        icons, "on the ground", "in the hand", "built" and "worn" pictures
-  creatures/    ponies and animals, four directions each
-  characters/   the prince and princess bodies, four directions each
+  creatures/    ponies and animals, up to eight directions each
+  characters/   the prince and princess bodies, up to eight directions each
 ```
 
 ## Directions
 
-Creatures and characters have four slots: **up** (walking away from the camera), **down** (walking towards it), **left** and **right**.
-An empty direction borrows another: up uses right (then left), down uses left (then right), and left / right mirror each other.
-So one side view is enough to start with; add the others when you have them.
+Creatures and characters have eight slots: **up** (walking away from the camera), **down** (walking towards it), **left**, **right**, and the four
+diagonals **up_left**, **up_right**, **down_left**, **down_right**. (In the isometric view a step along a world axis is a screen diagonal and a step
+along a world diagonal is a straight screen direction, so the game walks all eight; `direction-demo.html` shows them.)
+An empty direction borrows another: a diagonal uses the other diagonal on the opposite side (mirrored), then the side view it leans to (right, then
+left), then up / down; up uses right (then left), down uses left (then right), and left / right mirror each other.
+So one side view is enough to start with; add the others when you have them, the diagonals last. Worn items take the same eight slots.
 
 The game itself has no up / down artwork yet either: `AnimalSprite._drawUp` / `_drawDown` and `PlayerSprite._drawUp` / `_drawDown`
 (in `js/client/render/`) are the boilerplate hooks, and for now they draw the side view.

@@ -1,5 +1,5 @@
 'use strict';
-/* CLIENT - creatures. Each is drawn facing one of four screen directions (SpriteRegistry.dirOf): up, down, left, right.
+/* CLIENT - creatures. Each is drawn facing one of eight screen directions (SpriteRegistry.dirOf): up, down, left, right and the four diagonals.
  *   - If you gave the creature images (editor.html), those are drawn.
  *   - Otherwise the procedural artwork (CreatureSprites, from the creature's data): a profile mirrored for left / right. The UP and DOWN views
  *     are boilerplate for now (_drawUp / _drawDown reuse the profile) until they are drawn, either as images or here.
@@ -37,7 +37,7 @@ class AnimalSprite {
     if (!drawn && PixelPony.covers(animal.type)) this._drawPixelPony(animal, st, dir, sx, sy, speed, now, seed);
     else if (!drawn && PixelCreatures.has((def.sprite && def.sprite.kind) || 'sheep')) {                // the retro pixel-art creatures (pixelCreatures.js)
       const spec = this._spec(def);
-      PixelCreatures.draw(ctx, spec, sx, sy, st.flip, { moving: speed > 0.2, phase: st.phase, now, seed: (seed % 7) * 0.13, hunting: animal.state === 'chase',
+      PixelCreatures.draw(ctx, spec, sx, sy, st.flip, { dir, moving: speed > 0.2, phase: st.phase, now, seed: (seed % 7) * 0.13, hunting: animal.state === 'chase',
         extra: spec.kind === 'deer' && seed % 2 === 0 ? 'stag' : animal.shorn ? 'shorn' : '' });
     }
     else if (!drawn) { ctx.save(); ctx.translate(sx, sy); this._drawFacing(dir, animal, st, speed, now, seed); ctx.restore(); }
@@ -65,6 +65,7 @@ class AnimalSprite {
 
   /** The procedural artwork for one screen direction. */
   _drawFacing(dir, animal, st, speed, now, seed) {
+    dir = SpriteRegistry.view4(dir);                                      // (the coded drawings below know the old four views: a diagonal is the side it leans to)
     if (dir === 'up') return this._drawUp(animal, st, speed, now, seed);
     if (dir === 'down') return this._drawDown(animal, st, speed, now, seed);
     return this._drawSide(animal, st, speed, now, seed);
@@ -314,7 +315,10 @@ class AnimalSprite {
 }
 
 /** A world facing angle that shows each screen direction (for portraits and the editor's previews). */
-const FACING_FOR_DIR = Object.freeze({ right: Math.PI / 4 - Math.PI / 2, left: Math.PI * 3 / 4, up: -Math.PI * 3 / 4, down: Math.PI / 4 });
+const FACING_FOR_DIR = Object.freeze({
+  right: -Math.PI / 4, down_right: 0, down: Math.PI / 4, down_left: Math.PI / 2,
+  left: Math.PI * 3 / 4, up_left: Math.PI, up: -Math.PI * 3 / 4, up_right: -Math.PI / 2,
+});
 
 /** Draws one animal into a small canvas (the Pony Book portraits, the editor). `dir` picks the screen direction. */
 function renderAnimalPortrait(canvas, type, look, dir = 'right', opts = {}) {
@@ -322,7 +326,7 @@ function renderAnimalPortrait(canvas, type, look, dir = 'right', opts = {}) {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height);
   const scale = canvas.height / 70;
   ctx.setTransform(scale, 0, 0, scale, canvas.width / 2 - 2 * scale, canvas.height - 6 * scale);
-  const facing = dir === 'right' ? 0 : FACING_FOR_DIR[dir];
+  const facing = FACING_FOR_DIR[dir] === undefined ? FACING_FOR_DIR.right : FACING_FOR_DIR[dir];
   if (dir === 'up' || dir === 'down') sprite.state.portrait = { phase: 0, last: 1234, flip: 1 };          // (front / back views stand in as the profile facing right)
   sprite.draw({ type, look, facing, vx: 0, vy: 0, owner: '', state: 'idle' }, 'portrait', 0, 0, 1234, null, opts);
   ctx.setTransform(1, 0, 0, 1, 0, 0);

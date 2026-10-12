@@ -1,7 +1,8 @@
 'use strict';
 /* CLIENT - retro pixel-art characters. Each frame is painted pixel by pixel into a tiny canvas (W x H art pixels) in the character's own
  * colours (hair, skin, outfit, trim from the character screen; crown, dress and cape from the wardrobe), given a dark outline, cached, and
- * drawn scaled up with hard edges. Views: 'down' (facing the camera), 'up' (the back), 'left' ('right' is the mirror).
+ * drawn scaled up with hard edges. Views: 'down' (facing the camera), 'up' (the back), 'left' ('right' is the mirror), and the four diagonals
+ * 'dq' / 'uq' (down / up, three quarters, leaning left: the front / back turned, see TurnView in spriteRegistry.js; the right-hand ones are mirrors).
  * Animations: 'walk' (4 frames, stepped by the distance walked), 'idle' (a slow breath, and a blink now and then).
  * PIXEL_BODIES says which bodies use it (both: the princess in her dresses, the prince in tunic, trousers and boots). */
 const PIXEL_BODIES = { princess: true, prince: true };
@@ -587,11 +588,17 @@ const PixelCharacter = (() => {
   const paintFigure = (P, C, dir, F, blink) => P.at(0, TOP, () => { if (C.prince) { if (dir === 'up') backPrince(P, C, F); else if (dir === 'down') frontPrince(P, C, F, blink); else sidePrince(P, C, F); } else if (dir === 'up') back(P, C, F); else if (dir === 'down') front(P, C, F, blink); else side(P, C, F); });
 
   /* ---- one frame, painted live ---- */
-  function renderLive(C, dir, F, blink, hurt, skip) {
-    const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d'), P = painter(ctx, null, skip);
-    paintFigure(P, C, dir, F, blink);
-    outline(ctx, C.outline);
+  /** The diagonal views: which picture they turn, and how (TurnView.quarter; they lean left, the right-hand ones are mirrored when drawn). */
+  const TURNED = {
+    dq: { from: 'down', turn: { sign: -1, cx: CX, split: TOP + 16, head: 2, body: 1, scale: 0.84 } },
+    uq: { from: 'up', turn: { sign: -1, cx: CX, split: TOP + 16, head: 1, body: 1, scale: 0.84 } },
+  };
+  function renderLive(C, view, F, blink, hurt, skip) {
+    let canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
+    const turned = TURNED[view], P = painter(canvas.getContext('2d'), null, skip);
+    paintFigure(P, C, turned ? turned.from : view, F, blink);
+    if (turned) canvas = TurnView.quarter(canvas, turned.turn);                                       // (before the outline: it is drawn round the turned picture)
+    outline(canvas.getContext('2d'), C.outline);
     return hurt ? hurtWash(canvas) : canvas;
   }
 
@@ -614,7 +621,7 @@ const PixelCharacter = (() => {
   }
   /** A frame built from the pack in this character's colours, or null when the pack lacks a layer of it. */
   function renderPacked(C, view, F, blink, hurt, pose, skip) {
-    if (!ArtPack.loaded) return null;
+    if (!ArtPack.loaded || !SEQ[view]) return null;                                                       // (the pack has no diagonal views: they are painted live)
     const layers = [];
     for (const name of SEQ[view]) {
       if (skip && skip.has(name)) continue;
@@ -660,7 +667,7 @@ const PixelCharacter = (() => {
   };
 
   /**
-   * Draws a character. L: CharacterLook.describe(...); wardrobe: { crown, outfit, cape } looks; dir: 'up'|'down'|'left'|'right';
+   * Draws a character. L: CharacterLook.describe(...); wardrobe: { crown, outfit, cape } looks; dir: one of the eight SpriteRegistry.DIRS;
    * anim: { moving, phase (walk phase, radians), now, seed, hurt, crouch (world px pressed down), cut (art rows hidden from the bottom: riding) }.
    * Returns { top, headY, torsoTop } in screen space so tools, name tags and emotes line up.
    */
@@ -677,7 +684,7 @@ const PixelCharacter = (() => {
   const figPal = new LruCache(300);                                                                 // figureKey -> palette
   /** { frame: { key, make() }, lut: { key, make() } }, or null when the pack lacks a layer of this figure. `cut`: art rows hidden from the bottom (riding). */
   function markerFigure(L, wardrobe, view, pose, blink, cut, skip) {
-    if (!ArtPack.loaded) return null;
+    if (!ArtPack.loaded || !SEQ[view]) return null;
     const fk = figureKey(L, wardrobe); let C = figPal.get(fk);
     if (!C) { C = palette(L, wardrobe); figPal.set(fk, C); }
     const layers = [], keys = [];
@@ -700,14 +707,16 @@ const PixelCharacter = (() => {
     const two = Math.PI * 2, phase = ((anim.phase % two) + two) % two;
     const frame = anim.moving ? Math.floor(phase / (Math.PI / 2)) % 4 : Math.floor((anim.now / 650 + anim.seed) % 2);
     const blink = !anim.moving && ((anim.now + anim.seed * 977) % 3600) < 130;
-    const view = dir === 'right' ? 'left' : dir, hurt = !!anim.hurt;
-    const hide = anim.hideArm | 0, skip = hide ? new Set([view === 'left' ? 'armS' : hide < 0 ? 'armL' : 'armR']) : null;   // (a hand holding a tool: the game's own arm is drawn instead, see playerSprite.js)
+    const lean = SpriteRegistry.lean(dir), mirror = lean > 0, diagonal = SpriteRegistry.isDiagonal(dir);
+    const view = diagonal ? (dir.startsWith('up') ? 'uq' : 'dq') : mirror ? 'left' : dir, hurt = !!anim.hurt;
+    const hide = anim.hideArm | 0, seen = mirror ? -hide : hide;                                   // (a mirrored picture has its arms the other way round)
+    const skip = hide ? new Set([view === 'left' ? 'armS' : seen < 0 ? 'armL' : 'armR']) : null;   // (a hand holding a tool: the game's own arm is drawn instead, see playerSprite.js)
     const pose = (anim.moving ? 'w' : 'i') + frame, key = `${figureKey(L, wardrobe)}|${view}|${pose}|${blink ? 1 : 0}|${hurt ? 1 : 0}|${hide}`;
     if (typeof ctx.figureOk === 'function' && ctx.figureOk()) {                                    // (the Pixi backend: the frame is drawn by a shader, see above)
       const cut = Math.max(0, anim.cut | 0), fig = markerFigure(L, wardrobe, view, pose, blink, cut, skip);
       if (fig) {
         const w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
-        ctx.figure({ frame: fig.frame, lut: fig.lut, wash: hurt ? 1 : 0, mirror: dir === 'right', dx: sx - w / 2, dy: top, dw: w, dh: h });
+        ctx.figure({ frame: fig.frame, lut: fig.lut, wash: hurt ? 1 : 0, mirror, dx: sx - w / 2, dy: top, dw: w, dh: h });
         return { top, headY: top + (TOP + 9) * PX, torsoTop: top + (TOP + 17) * PX };
       }
     }
@@ -720,7 +729,7 @@ const PixelCharacter = (() => {
     }
     const cut = Math.max(0, anim.cut | 0), w = W * PX, h = (H - cut) * PX, top = sy - H * PX + (anim.crouch || 0);
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(dir === 'right' ? SpriteCache.mirror(key, canvas) : canvas, 0, 0, W, H - cut, sx - w / 2, top, w, h);   // (facing right: a mirrored copy, made once)
+    ctx.drawImage(mirror ? SpriteCache.mirror(key, canvas) : canvas, 0, 0, W, H - cut, sx - w / 2, top, w, h);   // (facing right: a mirrored copy, made once)
     ctx.imageSmoothingEnabled = smooth;
     return { top, headY: top + (TOP + 9) * PX, torsoTop: top + (TOP + 17) * PX };
   }
@@ -744,7 +753,7 @@ const PixelCharacter = (() => {
   function riderLegs(ctx, L, wardrobe, dir, sx, hipY, part, anim) {
     const C = palette(L, wardrobe), tr = C.trousers, bt = C.boot, ol = C.outline, swing = anim && anim.moving ? Math.sin(anim.now / 140) * 0.8 : 0;
     const R = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(sx + x * PX), Math.round(hipY + y * PX), Math.max(1, Math.round(w * PX)), Math.max(1, Math.round(h * PX))); };
-    const side = dir === 'left' || dir === 'right', f = dir === 'right' ? 1 : -1, back = dir === 'up';
+    const side = dir === 'left' || dir === 'right', f = dir === 'right' ? 1 : -1;      // (the diagonals sit astride like the front and back views)
     const leg = (shape, dark) => {
       const T = dark ? tr.d : tr.b, B = dark ? bt.d : bt.b;
       for (const r of shape.rows) R(r.x - 1, r.y - 1, r.w + 2, 3, ol);

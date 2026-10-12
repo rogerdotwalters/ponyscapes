@@ -9,8 +9,10 @@
   const DRAFT_AT_KEY = 'ponyscapes.contentDraftAt';
   const $ = id => document.getElementById(id);
   const isPlain = ContentPack.isPlain, clone = v => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
-  const DIRS = ['up', 'down', 'left', 'right'], DIR_LABEL = { up: 'Up (walking away)', down: 'Down (towards you)', left: 'Left', right: 'Right' };
-  const DIR_FALLBACK = { up: ['right', 'left'], down: ['left', 'right'], left: ['right'], right: ['left'] };
+  const DIRS = ['up', 'down', 'left', 'right', 'up_left', 'up_right', 'down_left', 'down_right'];   // (the four straight ones first: the diagonals are optional extras)
+  const DIR_LABEL = { up: 'Up (walking away)', down: 'Down (towards you)', left: 'Left', right: 'Right',
+    up_left: 'Up-left (away, to the left)', up_right: 'Up-right (away, to the right)', down_left: 'Down-left (towards you, to the left)', down_right: 'Down-right (towards you, to the right)' };
+  const DIR_FALLBACK = Object.fromEntries(DIRS.map(d => [d, SpriteRegistry.FALLBACK[d].slice(1)]));      // (what the game uses when a direction is empty: the registry's own order)
   const BIOMES = Biomes.ids(), CHARACTER_IDS = ['prince', 'princess'];
   const FILE_HEADER = `'use strict';
 /* YOUR CONTENT, written by editor.html. Loaded before the game's own definitions: everything here is merged over (or added to)
@@ -220,7 +222,7 @@
       frames: getPath(cur, opts.framesPath || path + '.frames') || 1,
       sibling: () => {                                                         // an empty direction shows what the game will use instead
         const s = set();
-        for (const d of DIR_FALLBACK[dir]) if (s[d]) { const mirror = (dir === 'left' && d === 'right') || (dir === 'right' && d === 'left'); return { src: s[d], mirror, label: d + (mirror ? ' (mirrored)' : '') }; }
+        for (const d of DIR_FALLBACK[dir]) if (s[d]) { const mirror = SpriteRegistry.MIRRORS[dir] === d; return { src: s[d], mirror, label: d + (mirror ? ' (mirrored)' : '') }; }
         return null;
       },
       fallback: canvas => { opts.art(canvas, dir); return (dir === 'up' || dir === 'down') && !opts.turns ? 'Empty: the game draws its side view here for now' : 'Empty: the game draws it'; }

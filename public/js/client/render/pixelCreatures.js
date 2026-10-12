@@ -100,6 +100,8 @@ const PixelCreatures = (() => {
   const has = kindId => !!kinds[kindId];
 
   /** Draws a creature at its footprint. sprite: the data's sprite { kind, color, variant, scale, antlers }. flip: 1 faces right, -1 left. */
+  /** Creatures are painted in profile only. Turned away from the side (a diagonal, or straight up / down the screen) the profile is drawn narrower. */
+  const FORESHORTEN = { up: 0.78, down: 0.78, up_left: 0.9, up_right: 0.9, down_left: 0.9, down_right: 0.9 };
   function draw(ctx, sprite, sx, sy, flip, anim) {
     const k = kinds[sprite.kind], base = `${sprite.kind}|${sprite.variant || ''}|${sprite.color || ''}|${sprite.antlers || ''}`;
     let C = palettes.get(base);                                                                      // (the palettes only read the sprite's own fields: worked out once per look)
@@ -116,13 +118,13 @@ const PixelCreatures = (() => {
     const [srx, sry] = k.shadow || [k.W * 0.3, 3], lifted = k.flying ? k.flying(F) : 0;
     SpriteCache.shadow(ctx, sx, sy + 1, srx * u, sry * u, 0.26);
     const top = sy - (k.ground + 1) * u - lifted * u, left = -k.anchor * u, d = Math.max(1, Math.round(m)) * PX;   // (live sparks and flames: art-pixel sized, on the same grid)
-    const dw = canvas.width * PX, dh = canvas.height * PX, smooth = ctx.imageSmoothingEnabled;
+    const fs = FORESHORTEN[anim.dir] || 1, dw = canvas.width * PX, dh = canvas.height * PX, smooth = ctx.imageSmoothingEnabled;
     ctx.imageSmoothingEnabled = false;
     if (!k.live) {                                                                                   // (most creatures: one drawImage; facing left, a mirrored copy made once)
-      if (flip < 0) ctx.drawImage(SpriteCache.mirror(key, canvas), sx - left - dw, top, dw, dh); else ctx.drawImage(canvas, sx + left, top, dw, dh);
+      if (flip < 0) ctx.drawImage(SpriteCache.mirror(key, canvas), sx - (left + dw) * fs, top, dw * fs, dh); else ctx.drawImage(canvas, sx + left * fs, top, dw * fs, dh);
       ctx.imageSmoothingEnabled = smooth;
     } else {
-      ctx.save(); ctx.translate(sx, 0); ctx.scale(flip < 0 ? -1 : 1, 1);
+      ctx.save(); ctx.translate(sx, 0); ctx.scale((flip < 0 ? -1 : 1) * fs, 1);
       ctx.drawImage(canvas, left, top, dw, dh);
       k.live(ctx, C, F, anim, (ax, ay, color, a = 1) => { ctx.globalAlpha = Math.max(0, Math.min(1, a)); ctx.fillStyle = color; ctx.fillRect(left + Math.round(ax * m) * PX, top + Math.round(ay * m) * PX, d, d); ctx.globalAlpha = 1; });
       ctx.restore();

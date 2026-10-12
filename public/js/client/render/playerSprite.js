@@ -1,6 +1,6 @@
 'use strict';
 /* CLIENT - draws a player: shadow, facing arrow, body, held axe with swing animation, name tag.
- * The body faces one of four screen directions (SpriteRegistry.dirOf). With images for the body type (editor.html > Characters) those are
+ * The body faces one of eight screen directions (SpriteRegistry.dirOf; pose.view is the old four-way family of it). With images for the body type (editor.html > Characters) those are
  * drawn; otherwise the procedural body below, which already turns (no face when walking away). Worn items with images of their own are
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
@@ -16,7 +16,7 @@ const LASSO_LOOKS = {
   lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
 };
 const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
-const SADDLE_HEIGHT = 15, SEAT_LIFT = { down: 9, up: 2, left: 0, right: 0 };                        // how far above the pony's footprint a rider sits
+const SADDLE_HEIGHT = 15, SEAT_LIFT = { down: 9, up: 2, left: 0, right: 0, down_left: 5, down_right: 5, up_left: 1, up_right: 1 };                        // how far above the pony's footprint a rider sits
 
 class PlayerSprite {
   constructor(g) { this.g = g; this.walkPhase = {}; this.looks = new LruCache(100); }
@@ -36,7 +36,7 @@ class PlayerSprite {
     const pose = this._computePose(p, id, sx, sy, now, riding, rowPhase);
     if (!p.boat && !(p.down > 0) && this._holding(p)) pose.hideArm = pose.ux >= 0 ? 1 : -1;                  // the hand holding a tool is the game's coded arm (toolPose.js): the baked one is left out
     if (!riding) this._drawGroundMarkers(p, sx, sy, pose);
-    const holds = !p.boat && !(p.down > 0), behind = holds && pose.dir === 'up' && !opts.procedural && PIXEL_BODIES[this._look(p.appearance).princess ? 'princess' : 'prince'];
+    const holds = !p.boat && !(p.down > 0), behind = holds && pose.view === 'up' && !opts.procedural && PIXEL_BODIES[this._look(p.appearance).princess ? 'princess' : 'prince'];
     if (behind) {                                                                                         // facing away, the arm and tool reach out in front of the character: they go behind the body
       const at = PixelCharacter.layout(sy, riding ? pose.crouch : pose.crouch * 0.5);
       pose.headY = at.headY; pose.torsoTop = at.torsoTop; pose.figTop = at.top; pose.pixelBody = true;
@@ -66,8 +66,8 @@ class PlayerSprite {
     const drawn = !opts.procedural && SpriteRegistry.drawCharacter(this.g.ctx, body, pose.dir, sx, sy - pose.crouch * 0.5, moving, now);
     if (drawn) pose.headY = sy - drawn.h + 6;                                           // (the name tag and emote sit above the picture)
     else if (PIXEL_BODIES[body]) this._drawPixel(p, sx, sy, pose, riding, now, L);
-    else if (pose.dir === 'up') this._drawUp(p, sx, sy, pose, riding);
-    else if (pose.dir === 'down') this._drawDown(p, sx, sy, pose, riding);
+    else if (pose.view === 'up') this._drawUp(p, sx, sy, pose, riding);
+    else if (pose.view === 'down') this._drawDown(p, sx, sy, pose, riding);
     else this._drawSide(p, sx, sy, pose, riding);
     if (!opts.procedural) this._drawWorn(p, sx, sy, pose, moving, now);
   }
@@ -114,7 +114,7 @@ class PlayerSprite {
     const torsoTop = sy - 33 + crouch - bob, dir = SpriteRegistry.dirOf(p.facing);
     const gear = Object.assign({}, p.gear || {});                                   // gear with its own worn images is not drawn procedurally
     for (const slot of WORN_ORDER) if (gear[slot] && SpriteRegistry.wornImage(gear[slot], dir)) gear[slot] = '';
-    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, gear, phase: walk.phase };
+    return { crouch, legSwing, fx, fy, ux: px / len, uy: py / len, torsoTop, headY: torsoTop - 6, sy, dir, view: SpriteRegistry.view4(dir), gear, phase: walk.phase };
   }
 
   _drawGroundMarkers(p, sx, sy, pose) {
@@ -329,7 +329,7 @@ class PlayerSprite {
     const ctx = this.g.ctx, kind = hold.kind, moving = p.state !== 'idle' && !p.mount;
     const smp = ToolPose.sample(kind, p.swingT, hold.tool);
     if (moving) smp.h += Math.sin(pose.phase) * 0.8;                                                   // the carried tool bobs with the stride
-    const R = ToolPose.rig(kind, smp, sx, pose, pose.dir), [handX, handY] = R.H, [dirX, dirY] = R.dir, [perpX, perpY] = R.perp, side = R.side;
+    const R = ToolPose.rig(kind, smp, sx, pose, pose.view), [handX, handY] = R.H, [dirX, dirY] = R.dir, [perpX, perpY] = R.perp, side = R.side;
     const img = SpriteRegistry.itemImage(hold.id, 'held');
     ctx.lineCap = 'round';
     if (img) {                                                                                         // a tool with its own picture: grip near the bottom, turned to point where the pose says
