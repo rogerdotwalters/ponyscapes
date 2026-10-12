@@ -160,19 +160,20 @@ class CoinBagUI {
   }
   _shown() { return this.coins.length + this.queue.length + this.hidden; }
   _spawn(t, x, y, v) {
-    const c = { x, y, px: x, py: y, vx: (Math.random() - 0.5) * 40, vy: 30 + Math.random() * 40, t, v, r: v ? CoinBagUI.PONY_R : CoinBagUI.radiusOf(t), flip: Math.random() * 6, ang: Math.random() * 6 };
+    const c = { x, y, px: x, py: y, vx: (Math.random() - 0.5) * 40, vy: 30 + Math.random() * 40, t, v, r: v ? CoinBagUI.PONY_R : CoinBagUI.radiusOf(t), o: CoinSpin.random(), w: [(Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 6] };
     this.coins.push(c); return c;
   }
 
   /* ---- the physics: position based (each coin is moved by gravity, then pushed out of whatever it overlaps), several passes a frame ---- */
   _step(dt) {
     const G = 560, C = this.coins, drag = this.drag && this.drag.coin, iters = 6, cx = CoinBagUI.CX, bag = this.bag, B = bag.belly;
+    for (const c of C) c.flat = Math.max(0, Math.min(1, (Math.abs(CoinSpin.facing(c.o)) - 0.7) / 0.28));      // 1 = lying flat (face up or flipped), 0 = tilted or on its edge
     for (const c of C) { if (c === drag) continue; c.vy += G * dt; c.px = c.x; c.py = c.y; c.x += c.vx * dt; c.y += c.vy * dt; }
     for (let it = 0; it < iters; it++) {
       for (let i = 0; i < C.length; i++) {
         const a = C[i];
         for (let j = i + 1; j < C.length; j++) {
-          const b = C[j], dx = b.x - a.x, dy = b.y - a.y, min = (a.r + b.r) * 0.97;
+          const b = C[j], dx = b.x - a.x, dy = b.y - a.y, min = (a.r + b.r) * (0.97 - 0.3 * Math.min(a.flat, b.flat));                  // (two coins lying flat stack up: they overlap, the lower one in front)
           if (Math.abs(dx) > min || Math.abs(dy) > min) continue;
           const d2 = dx * dx + dy * dy; if (d2 >= min * min) continue;
           const d = Math.sqrt(d2) || 0.001, push = (min - d) / d, wa = a === drag ? 0 : 1, wb = b === drag ? 0 : 1, w = wa + wb; if (!w) continue;
@@ -199,12 +200,16 @@ class CoinBagUI {
     }
     bag.update(dt, this.weight, iters);
     for (const c of C) {
-      if (c === drag) continue;
+      if (c === drag) { c.o = CoinSpin.spin(c.o, c.w, dt); c.w = c.w.map(v => v * Math.exp(-3 * dt)); continue; }
+      const ovx = c.vx, ovy = c.vy;
       c.vx = (c.x - c.px) / dt * 0.985; c.vy = (c.y - c.py) / dt * 0.985;                              // (a little loss each step: the coins settle)
       if (Math.abs(c.vx) < 4) c.vx *= 0.8;
-      const sp = Math.hypot(c.vx, c.vy);
-      if (sp > 45) c.flip += sp * dt * 0.035 * (c.vx >= 0 ? 1 : -1); else c.flip += (Math.round(c.flip / Math.PI) * Math.PI - c.flip) * Math.min(1, dt * 6);   // tumbling while it moves, lying flat when it stops
-      c.ang += c.vx * dt * 0.04;
+      const sp = Math.hypot(c.vx, c.vy), kick = Math.hypot(c.vx - ovx, c.vy - ovy) * 0.012;           // (a bump sets it spinning: the bigger the bump, the harder)
+      if (kick > 0.02) { c.w[0] += (Math.random() - 0.5) * kick * 6; c.w[1] += (Math.random() - 0.5) * kick * 6; c.w[2] += (Math.random() - 0.5) * kick * 3; }
+      if (sp > 45) { const k = 0.5 / c.r, wx = -c.vy * k, wy = c.vx * k, e = Math.min(1, dt * 3); c.w[0] += (wx - c.w[0]) * e; c.w[1] += (wy - c.w[1]) * e; }   // rolling along: it turns about the axis across its path
+      const damp = Math.exp(-(sp > 45 ? 0.8 : 3) * dt); c.w = c.w.map(v => v * damp);
+      c.o = CoinSpin.spin(c.o, c.w, dt);
+      if (sp <= 45) c.o = CoinSpin.settle(c.o, 5, dt);                                                  // at rest it comes to lie flat (face up, or flipped over)
     }
   }
 
@@ -239,7 +244,7 @@ class CoinBagUI {
     g.fillStyle = '#1d120a'; g.fillRect(cx - 26, 20, 52, 1); g.fillStyle = '#2a1a0e'; g.fillRect(cx - 17, 21, 34, 2);
     const order = [...this.coins].sort((a, b) => a.y - b.y);
     for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) this._shadow(g, c);
-    for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) CoinArt.draw(g, c.x, c.y, c.r, 0.5 + 0.36 * Math.abs(Math.cos(c.flip)), c.v ? { pony: c.v } : c.t, !!(this.drag && c === this.drag.coin));
+    for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) CoinSpin.blit(g, c.x, c.y, c.r, c.v ? { pony: c.v } : c.t, c.o, !!(this.drag && c === this.drag.coin), c);
     g.imageSmoothingEnabled = false;                                                                   // the rope is drawn over the neck, in front of the coins pouring in
     g.fillStyle = '#1d120a'; g.fillRect(cx - 24, 33, 48, 6); g.fillStyle = '#d6be8c'; g.fillRect(cx - 23, 34, 46, 4); g.fillStyle = '#a08a5a'; for (let x = cx - 23; x < cx + 23; x += 3) g.fillRect(x, 36, 1, 2);
     g.fillStyle = '#1d120a'; g.fillRect(cx + 17, 36, 9, 12); g.fillStyle = '#d6be8c'; g.fillRect(cx + 18, 37, 3, 9); g.fillRect(cx + 22, 37, 3, 7);
@@ -262,14 +267,14 @@ class CoinBagUI {
     try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* (the pointer is already gone) */ }
     const now = performance.now();
     this.drag = { coin: best, id: e.pointerId, sx: e.clientX, sy: e.clientY, t: now, moved: false, out: false, vx: 0, vy: 0, lx: p.x, ly: p.y, lt: now };
-    best.vx = best.vy = 0; this.canvas.classList.add('grabbing');
+    best.vx = best.vy = 0; best.w = [0, 0, 0]; this.canvas.classList.add('grabbing');
   }
   _move(e) {
     const d = this.drag; if (!d || e.pointerId !== d.id) return;
     const p = this._local(e), now = performance.now(), dtm = Math.max(1, now - d.lt);
     if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 5) d.moved = true;
     d.vx = (p.x - d.lx) / dtm * 1000 * 0.5 + d.vx * 0.5; d.vy = (p.y - d.ly) / dtm * 1000 * 0.5 + d.vy * 0.5; d.lx = p.x; d.ly = p.y; d.lt = now;
-    d.coin.x = p.x; d.coin.y = p.y; d.coin.px = p.x; d.coin.py = p.y;
+    d.coin.x = p.x; d.coin.y = p.y; d.coin.px = p.x; d.coin.py = p.y; d.coin.w = [-d.vy * 0.04, d.vx * 0.04, 0].map(v => Math.max(-14, Math.min(14, v)));   // (carried about, it tilts and spins with the hand)
     d.out = !p.in; this._ghostAt(d.out ? this._pt(e) : null, d.coin.v ? { pony: d.coin.v } : d.coin.t, d.coin.r);
     if (this.pay) { const slot = d.coin.v ? -1 : this.pay.slotAt(this._pt(e)); this.pay.onOver(slot); this.pay.zone.classList.toggle('over', !d.coin.v && slot < 0 && this._inZone(this._pt(e))); }
     if (this.target) this.target.zone.classList.toggle('over', !!d.coin.v && this._inZone(this._pt(e), this.target.zone));
@@ -304,7 +309,7 @@ class CoinBagUI {
         this.game.coinChange('break', T.id); this._endDrag(); return;
       }
       this.lastTap = { tier: c.t, time: now, x: p.x, y: p.y };
-      c.vy = -80; c.vx = (Math.random() - 0.5) * 40;
+      c.vy = -80; c.vx = (Math.random() - 0.5) * 40; c.w = [(Math.random() - 0.5) * 18, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 8];
       for (const o of this.coins) if (o !== c && Math.hypot(o.x - c.x, o.y - c.y) < 22) { o.vy -= 55; o.vx += (o.x - c.x) * 3; }
     } else if (!cancelled && p.in) { c.vx = Math.max(-320, Math.min(320, d.vx)); c.vy = Math.max(-320, Math.min(320, d.vy)); }
     if (cancelled || !p.in || !this._inside(c)) { c.x = CoinBagUI.CX + (Math.random() - 0.5) * 10; c.y = 26 + c.r; c.vx = 0; c.vy = 0; c.px = c.x; c.py = c.y; }   // out of bounds: back in through the neck
