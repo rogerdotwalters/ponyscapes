@@ -75,6 +75,17 @@ test('coins in the bag turn in full 3D while they fall and bump, then lie flat (
   assert(r.edgeOn > 20 && r.minFace < 0.2, 'they turn right over onto their edges while falling: ' + JSON.stringify(r));
   assert(r.flatMin > 0.97, 'they end lying flat: ' + r.flatMin); assert(r.normOk, 'orientations stay unit quaternions');
 });
+test('coins lying flat stack closer together than coins that are tumbling', () => {
+  const r = JSON.parse(run(`(() => {
+    const ui = Object.create(CoinBagUI.prototype); ui.bag = new ElasticBag(); ui.drag = null; ui.weight = 30; ui.coins = [];
+    for (let i = 0; i < 30; i++) ui.coins.push({ x: 95 + (Math.random() - 0.5) * 20, y: 30 + i * 3, px: 0, py: 0, vx: 0, vy: 0, t: 1, r: 9, o: CoinSpin.random(), w: [0, 0, 0] });
+    for (let f = 0; f < 900; f++) { ui._step(1 / 120); ui._step(1 / 120); }
+    let closest = 9, overlapped = 0, n = 0;
+    for (let i = 0; i < ui.coins.length; i++) for (let j = i + 1; j < ui.coins.length; j++) { const a = ui.coins[i], b = ui.coins[j]; const d = Math.hypot(a.x - b.x, a.y - b.y) / (a.r + b.r); if (d < 0.9) overlapped++; closest = Math.min(closest, d); n++; }
+    return JSON.stringify({ closest, overlapped, flat: ui.coins.every(c => Math.abs(CoinSpin.facing(c.o)) > 0.97), minFlat: Math.min(...ui.coins.map(c => Math.abs(CoinSpin.facing(c.o)))), out: ui.coins.filter(c => c.y > ui.bag.bottom() + 1).length });
+  })()`));
+  assert(r.flat && r.overlapped > 3 && r.closest >= 0.66 && r.closest < 0.8, 'flat coins overlap but never sink into each other: ' + JSON.stringify(r)); assert.strictEqual(r.out, 0);
+});
 test('CoinSpin: spinning about each axis, settling and facing behave', () => {
   const r = JSON.parse(run(`(() => {
     let o = CoinSpin.identity(); const f0 = CoinSpin.facing(o);

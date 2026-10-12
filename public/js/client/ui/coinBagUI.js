@@ -167,12 +167,13 @@ class CoinBagUI {
   /* ---- the physics: position based (each coin is moved by gravity, then pushed out of whatever it overlaps), several passes a frame ---- */
   _step(dt) {
     const G = 560, C = this.coins, drag = this.drag && this.drag.coin, iters = 6, cx = CoinBagUI.CX, bag = this.bag, B = bag.belly;
+    for (const c of C) c.flat = Math.max(0, Math.min(1, (Math.abs(CoinSpin.facing(c.o)) - 0.7) / 0.28));      // 1 = lying flat (face up or flipped), 0 = tilted or on its edge
     for (const c of C) { if (c === drag) continue; c.vy += G * dt; c.px = c.x; c.py = c.y; c.x += c.vx * dt; c.y += c.vy * dt; }
     for (let it = 0; it < iters; it++) {
       for (let i = 0; i < C.length; i++) {
         const a = C[i];
         for (let j = i + 1; j < C.length; j++) {
-          const b = C[j], dx = b.x - a.x, dy = b.y - a.y, min = (a.r + b.r) * 0.97;
+          const b = C[j], dx = b.x - a.x, dy = b.y - a.y, min = (a.r + b.r) * (0.97 - 0.3 * Math.min(a.flat, b.flat));                  // (two coins lying flat stack up: they overlap, the lower one in front)
           if (Math.abs(dx) > min || Math.abs(dy) > min) continue;
           const d2 = dx * dx + dy * dy; if (d2 >= min * min) continue;
           const d = Math.sqrt(d2) || 0.001, push = (min - d) / d, wa = a === drag ? 0 : 1, wb = b === drag ? 0 : 1, w = wa + wb; if (!w) continue;
