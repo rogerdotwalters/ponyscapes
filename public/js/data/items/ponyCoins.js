@@ -10,6 +10,8 @@ const PonyCoins = (() => {
   return Object.freeze({
     /** The variety ids that have a coin, in poster order. */
     ids,
+    /** The most coins one poster slot keeps. */
+    MAX_PINNED: 999999,
     itemOf: varietyId => (ids.includes(varietyId) ? 'pony_coin_' + varietyId : null),
     /** The variety id a coin item stands for (or null if it is not a pony coin). */
     varietyOf: item => (typeof item === 'string' && item.startsWith('pony_coin_') && ids.includes(item.slice(10)) ? item.slice(10) : null)

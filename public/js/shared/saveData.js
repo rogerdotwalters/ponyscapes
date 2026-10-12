@@ -20,6 +20,12 @@ const SaveData = {
   /* ---------------------------------- helpers ---------------------------------- */
   _num(v, lo, hi, fallback) { return typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback; },
   _int(v, lo, hi, fallback) { return typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fallback; },
+  /** The poster's saved coins: { variety: count } (an older save has just a list of the varieties pinned, one coin each). */
+  _poster(raw) {
+    const out = {}, add = (v, n) => { n = Math.min(PonyCoins.MAX_PINNED, Math.floor(+n) || 0); if (n > 0 && PonyCoins.ids.includes(v)) out[v] = n; };
+    if (Array.isArray(raw)) raw.forEach(v => add(v, 1)); else if (raw !== null && typeof raw === 'object') for (const v of Object.keys(raw)) add(v, raw[v]);
+    return out;
+  },
   _plain: v => v !== null && typeof v === 'object' && !Array.isArray(v),
   /** One plot of a field (farming.js). `legacy`: a half-tile plot of an older save (a crop in it was planted and covered). */
   _plot(f, legacy) {
@@ -220,7 +226,7 @@ const SaveData = {
       maps: (server.treasureMaps[id] || []).map(m => Object.assign({ key: m.key, tx: m.tx, ty: m.ty }, m.kind === 'dungeon' ? { kind: 'dungeon', ring: m.ring } : {})),
       looted: !!p.looted, appearance: p.appearance ? p.appearance.slice() : null,
       book: { types: Object.keys(server.everTamed[id] || {}), variants: Object.keys(server.everVariants[id] || {}).map(Number), leashed: Object.assign({}, server.leashLog[id]) },
-      poster: Object.keys(server.posterCoins[id] || {}),
+      poster: Object.assign({}, server.posterCoins[id]),
       pets, friends: server.friendship.exportFor(id)                      // hearts with the villagers (hearts with a pet travel with the pet)
     };
   },
@@ -286,7 +292,7 @@ const SaveData = {
     server._applyLevels(id, server.progress.levels(id));
     p.hp = Math.min(c.hp, p.maxHp); p.hunger = c.hunger; p.thirst = c.thirst;
     server.treasureMaps[id] = c.maps; server.treasureRev[id]++;
-    server.posterCoins[id] = Object.fromEntries((Array.isArray(c.poster) ? c.poster : []).filter(v => PonyCoins.ids.includes(v)).map(v => [v, true]));
+    server.posterCoins[id] = SaveData._poster(c.poster);
     server.leashLog[id] = Object.assign({}, c.book.leashed);
     server.everTamed[id] = Object.fromEntries(c.book.types.map(t => [t, true])); server.everVariants[id] = Object.fromEntries(c.book.variants.map(v => [v, true]));
     const spot = SaveData.safeSpot(server, c.x, c.y, p.slot);

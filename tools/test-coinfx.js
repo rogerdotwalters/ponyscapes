@@ -21,5 +21,17 @@ test('a pile that was already there lies flat at once, and big piles show at mos
   const r = JSON.parse(run(`(() => { const s = CoinFx.make({ id: 'd9', item: 'copper_coin', count: 500, x: 3, y: 4 }, null, false, 0); return JSON.stringify({ rest: s.rest, n: s.coins.length, z: s.coins.map(c => c.z) }); })()`));
   assert(r.rest); assert.strictEqual(r.n, 8); assert(r.z.every(z => z === 0));
 });
+test('every other item lies in the world with the same physics: thrown, bouncing, up to 3 pieces, no edge-on tumbling, still at rest', () => {
+  const r = JSON.parse(run(`(() => {
+    const d = { id: 'd5', item: 'log', count: 9, x: 10, y: 10 }, sim = CoinFx.make(d, { x: 8, y: 9.5 }, true, 0);
+    let t = 0, maxZ = 0, minF = 1, maxRot = 0;
+    for (; t < 6000 && !sim.rest; t += 16) { CoinFx.step(sim, t); for (const c of sim.coins) { maxZ = Math.max(maxZ, c.z); minF = Math.min(minF, c.f); maxRot = Math.max(maxRot, Math.abs(c.rot)); } }
+    const still = CoinFx.make({ id: 'd9', item: 'apple', count: 2, x: 3, y: 4 }, null, false, 0);
+    return JSON.stringify({ rest: sim.rest, n: sim.coins.length, maxZ, minF, maxRot, restRot: sim.coins.map(c => c.rot), far: Math.max(...sim.coins.map(c => Math.hypot(c.x - 10, c.y - 10))), stillRest: still.rest, stillN: still.coins.length });
+  })()`));
+  assert(r.rest && r.n === 3, JSON.stringify(r)); assert(r.maxZ > 20, 'it flew'); assert.strictEqual(r.minF, 1, 'items do not squash like a spinning coin');
+  assert(r.maxRot > 0.05 && r.maxRot <= 0.5, 'it wobbled in the air: ' + r.maxRot); assert(r.restRot.every(x => x === 0), 'and lies still'); assert(r.far < 0.9);
+  assert(r.stillRest && r.stillN === 2);
+});
 test('pony coins count as coins too', () => assert(run(`CoinFx.isCoin('pony_coin_candy') && CoinFx.isCoin('gold_coin') && !CoinFx.isCoin('log')`)));
 console.log(passed + ' passed');

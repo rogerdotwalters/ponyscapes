@@ -75,7 +75,7 @@ class GameServer {
     this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, castleRestored: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.breeding = {};                                    // stall key -> { owner, ids: [two ponies], t }: a pair breeding in a stall (stableSystem.js)
-    this.posterCoins = {};                                 // ownerId -> { varietyId: true }: the pony coins pinned on the Coin Poster at home (ponyPoster.js)
+    this.posterCoins = {};                                 // ownerId -> { varietyId: how many }: the pony coins pinned on the Coin Poster at home (ponyPoster.js)
     this.everVariants = {};                                // ownerId -> { variantIndex: true }: ...and every biome variety
     this.populatedChunks = new Set();                      // chunks whose animal group has been spawned (killed ones are replaced by respawns, not by regeneration)
     this.tools = new ToolSystem({ handlers: this._createToolHandlers(), heldFor: (id, p, inventory, input) => this._heldFor(id, p, inventory, input),
@@ -808,7 +808,7 @@ class GameServer {
     const kept = this.everVariants[id] || {}, now = {};
     for (const pet of this.animals.petsOf(id, this.tick)) if (!pet.gentling && pet.look) { const v = pet.look[4] | 0; now[v] = (now[v] || 0) + 1; }
     const placed = this.posterCoins[id] || {};
-    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], index: i, id: v.id, name: v.name, biome: v.biome, theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
+    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
       .filter(v => !v.legacy || v.seen || v.owned);                                    // retired varieties only show if you already have one
   }
   bookFor(id) {

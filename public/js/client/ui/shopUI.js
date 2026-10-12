@@ -1,8 +1,9 @@
 'use strict';
 /* CLIENT - the Shop window: opens at a shop counter (the General Store's: shopSystem.js). What is for sale and what it costs, as the COINS the shop asks
- * for ("x2" beside the coin's picture, the same coin you have in your coin bag). Press Buy and the coin bag opens beside the window: HOLD a coin and drag
- * it over the counter to put it down. The coins on the counter count towards the price (a bigger coin is worth more, and the shop gives change); when
- * there is enough, the shop takes them and hands over the goods. Click a coin on the counter to take it back. It closes when you walk away from the
+ * for ("x2" beside the coin's picture, the same coin you have in your coin bag). Press Buy and the coin bag opens beside the window, and the counter has a SLOT
+ * for every kind of coin the price asks for, with how many it needs beside it ("0 / 5"). HOLD a coin and drag it onto its slot: it has to be the right kind (to pay
+ * 5 copper put in 5 copper coins; break or merge coins in the bag to get the kinds you need). When every slot is full the shop takes the coins and hands over the
+ * goods. Click a slot to take a coin back. It closes when you walk away from the
  * counter. The server decides (shopSystem.js). */
 class ShopUI {
   constructor({ panel, body, closeButton, game, requestOpen, coinBag }) {
@@ -53,7 +54,15 @@ class ShopUI {
     this.paying = { item: id, copper, offered: Coins.empty(), sent: false };
     this.panel.classList.add('paying');
     this.refresh();
-    this.coinBag.startPay({ zone: this.body.querySelector('#shopCounter'), onOffer: offered => this._offered(offered) });
+    const zone = this.body.querySelector('#shopCounter'), need = Coins.fromTotal(copper);
+    this.coinBag.startPay({
+      zone, onOffer: offered => this._offered(offered),
+      slotAt: q => { for (const el of zone.querySelectorAll('[data-slot]')) { const r = el.getBoundingClientRect(); if (q.x >= r.left - 6 && q.x <= r.right + 6 && q.y >= r.top - 6 && q.y <= r.bottom + 6) return Number(el.dataset.slot); } return -1; },
+      hasSlot: t => need[t] > 0,
+      accepts: t => need[t] > 0 && this.paying && this.paying.offered[t] < need[t],
+      onReject: (t, slot) => this._reject(t, slot),
+      onOver: slot => zone.querySelectorAll('[data-slot]').forEach(el => el.classList.toggle('over', Number(el.dataset.slot) === slot))
+    });
   }
   _stopPaying() { if (this.paying) { this.paying = null; this.coinBag.endPay(); } this.panel.classList.remove('paying'); }
   _offered(offered) {
@@ -67,13 +76,24 @@ class ShopUI {
     }
     this._drawPay();
   }
+  /** A coin was let go over the wrong slot (or one that is full / not asked for): it goes back in the bag, and the counter says why. */
+  _reject(t, slot) {
+    const pay = this.paying, note = this.body.querySelector('#shopPaid'); if (!pay || !note) return;
+    const name = Coins.TIERS[t].name, need = Coins.fromTotal(pay.copper);
+    pay.note = slot >= 0 && slot !== t ? `That slot takes ${Coins.TIERS[slot].name} coins. Break or merge coins in your bag to get the right kind.`
+      : need[t] > 0 ? `You have already put down all the ${name} coins it asks for.` : `This price does not use ${name} coins. Break or merge coins in your bag to get the kinds it asks for.`;
+    note.textContent = pay.note; note.classList.add('warn'); clearTimeout(pay.noteTimer); pay.noteTimer = setTimeout(() => { if (this.paying === pay) { pay.note = ''; this._drawPay(); } }, 3200);
+  }
   _drawPay() {
     const pay = this.paying, zone = this.body.querySelector('#shopCounter'); if (!pay || !zone) return;
-    const put = Coins.total(pay.offered);
-    this.body.querySelector('#shopAsk').innerHTML = ShopUI.askChips(pay.copper, pay.offered);
-    const chips = []; for (let t = Coins.N - 1; t >= 0; t--) if (pay.offered[t]) chips.push(`<span class="coinChip have" data-take="${t}" title="Take it back">x${pay.offered[t]}<img alt="${Coins.TIERS[t].name}" src="${ItemIcons.url(Coins.TIERS[t].id)}"></span>`);
-    zone.innerHTML = pay.sent ? 'Paying...' : chips.join('') || 'Drag coins from your bag onto the counter';
-    this.body.querySelector('#shopPaid').textContent = pay.sent ? '' : `On the counter: ${put ? Coins.format(pay.offered) : 'nothing yet'}`;
+    const need = Coins.fromTotal(pay.copper), slots = [];
+    for (let t = Coins.N - 1; t >= 0; t--) if (need[t]) {
+      const got = pay.offered[t], full = got >= need[t];
+      slots.push(`<div class="paySlot${full ? ' full' : ''}${got ? ' has' : ''}" data-slot="${t}"${got ? ` data-take="${t}" title="Take one back"` : ''}><img alt="${Coins.TIERS[t].name}" src="${ItemIcons.url(Coins.TIERS[t].id)}"><span class="slotName">${Coins.TIERS[t].name}</span><b class="slotCount">${got} / ${need[t]}</b></div>`);
+    }
+    zone.innerHTML = pay.sent ? '<span class="paying">Paying...</span>' : slots.join('');
+    const note = this.body.querySelector('#shopPaid'); note.classList.toggle('warn', !!pay.note);
+    note.textContent = pay.sent ? '' : pay.note || 'Drag each coin onto its slot';
   }
 
   refresh() {
@@ -81,8 +101,8 @@ class ShopUI {
     if (this.paying) {                                                                  // the counter: what the shop asks for, and where the coins go
       const id = this.paying.item, def = ItemDefs[id];
       this.body.innerHTML = `<div class="payTitle"><img alt="" src="${ItemIcons.url(id)}"><span>${def.name}</span><small>${site ? site.def.name : 'Shop'}</small></div>` +
-        `<div class="shopPay"><div class="askLine"><span>The shop asks for:</span><span class="askRow" id="shopAsk"></span></div><div id="shopCounter"></div><div class="paidRow" id="shopPaid"></div>` +
-        `<div class="gempty">Hold a coin in your coin bag and drag it over the counter. A bigger coin is worth more, and the shop gives change.</div><div class="payBtns"><button class="tbig alt" data-cancel>Cancel</button></div></div>`;
+        `<div class="shopPay"><div class="askLine"><span>Put down:</span></div><div id="shopCounter"></div><div class="paidRow" id="shopPaid"></div>` +
+        `<div class="gempty">Hold a coin in your coin bag and drag it onto the slot of its own kind. Double-tap a coin to break it into smaller ones; Merge coins makes bigger ones.</div><div class="payBtns"><button class="tbig alt" data-cancel>Cancel</button></div></div>`;
       this._drawPay(); return;
     }
     if (this.tab === 'sell' && !(site && site.def.buys)) this.tab = 'buy';

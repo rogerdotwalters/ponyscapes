@@ -371,9 +371,9 @@ class Renderer {
 
   /** An item lying in the world: its `ground` image, or its icon, bobbing gently over a glow in its rarity's colour. */
   _drawLoot(gx, gy, prop, now) {
-    const ctx = this.ctx, rarity = ItemDB.rarity(prop.drop), bob = Math.sin(now / 420 + prop.x * 3) * 2;
+    const ctx = this.ctx, rarity = ItemDB.rarity(prop.drop), bob = prop.air ? 0 : Math.sin(now / 420 + prop.x * 3) * 2;
     const img = SpriteRegistry.itemImage(prop.drop, 'ground') || ItemIcons.image(prop.drop);
-    this.g.ellipse(gx, gy, 11, 5, rarity.order ? rarity.color + '66' : 'rgba(0,0,0,.25)');
+    if (!prop.air) this.g.ellipse(gx, gy, 11, 5, rarity.order ? rarity.color + '66' : 'rgba(0,0,0,.25)');
     if (img) { const size = 26, h = size * img.naturalHeight / img.naturalWidth; ctx.drawImage(img, gx - size / 2, gy - h - 2 + bob, size, h); }
     if (rarity.order) { ctx.fillStyle = rarity.color; ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(now / 300)); ctx.beginPath(); ctx.arc(gx + 9, gy - 22 + bob, 2, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
   }
@@ -395,17 +395,7 @@ class Renderer {
    *  (or falls from above if nobody is): the coins arc, bounce on the ground, tumble and roll to a stop and then lie flat in a loose scatter. Piles that were already
    *  there when you arrived lie flat at once. */
   _drawCoinPile(d, now) {
-    const fx = this.coinFx, state = this.frameState || {};
-    let sim = fx.sims.get(d.id);
-    if (!sim) {
-      if (fx.sims.size > 300) fx.sims.clear();
-      const num = parseInt(d.id.slice(1), 10) || 0;
-      let thrower = null, best = 6;
-      for (const id in (state.players || {})) { const p = state.players[id], dist = Math.hypot(p.x - d.x, p.y - d.y); if (dist < best) { best = dist; thrower = p; } }
-      sim = CoinFx.make(d, num > fx.base ? thrower : null, num > fx.base, now);
-      fx.sims.set(d.id, sim);
-    } else if (sim.count !== d.count) CoinFx.resize(sim, d);
-    CoinFx.step(sim, now);
+    const sim = this._pileSim(d, now);
     const ctx = this.ctx, tier = CoinFx.tierOf(d.item), order = sim.coins.slice().sort((a, b) => (a.x + a.y) - (b.x + b.y));
     for (const c of order) {
       if (c.hidden) continue;
@@ -417,17 +407,43 @@ class Renderer {
     }
     if (d.count > 1) { const gx = isoX(d.x, d.y), gy = isoY(d.x, d.y); ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 13, gy - 4); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 13, gy - 4); }
   }
+  /** The physics state of a pile (made the first time it is seen; a bigger or smaller stack adds or removes pieces) and stepped to `now`. */
+  _pileSim(d, now) {
+    const fx = this.coinFx, state = this.frameState || {};
+    let sim = fx.sims.get(d.id);
+    if (!sim) {
+      if (fx.sims.size > 300) fx.sims.clear();
+      const num = parseInt(d.id.slice(1), 10) || 0;
+      let thrower = null, best = 6;
+      for (const id in (state.players || {})) { const p = state.players[id], dist = Math.hypot(p.x - d.x, p.y - d.y); if (dist < best) { best = dist; thrower = p; } }
+      sim = CoinFx.make(d, num > fx.base ? thrower : null, num > fx.base, now);
+      fx.sims.set(d.id, sim);
+    } else if (sim.count !== d.count) CoinFx.resize(sim, d);
+    CoinFx.step(sim, now);
+    return sim;
+  }
 
-  /** A pile someone dropped: the item bobbing on the ground like loot, with its count. */
-  /** A pile on the ground. A new one arcs in and bounces (dropped from a hand, or a log off a felled tree); logs lie flat as pixel logs. */
+  /** A stack of any other item on the ground (logs, fruit, wool ...): up to 3 pieces with the same physics as coins (coinFx.js). A new one is thrown from whoever is nearest
+   *  (or falls from above, as a log off a felled tree does): it arcs, bounces, wobbles, rolls on and lies still. Stacks already there when you arrive lie still at once. */
+  _drawItemPile(d, now) {
+    const sim = this._pileSim(d, now), ctx = this.ctx, order = sim.coins.slice().sort((a, b) => (a.x + a.y) - (b.x + b.y)), seed = parseInt(d.id.slice(1), 10) || 0;
+    const rarity = ItemDB.rarity(d.item);
+    for (const c of order) {
+      if (c.hidden) continue;
+      const sx = isoX(c.x, c.y), sy = isoY(c.x, c.y);
+      ctx.fillStyle = `rgba(0,0,0,${(0.25 * Math.max(0.25, 1 - c.z / 70)).toFixed(2)})`;
+      ctx.beginPath(); ctx.ellipse(sx, sy, 10 * (1 - Math.min(0.4, c.z / 90)), 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      if (rarity.order) this.g.ellipse(sx, sy, 11, 5, rarity.color + '44');
+      ctx.save(); ctx.translate(sx, sy - c.z); ctx.rotate(c.rot || 0);
+      if (PixelGround[d.item]) PixelGround[d.item](ctx, 0, 0, seed, 0); else this._drawLoot(0, 0, { drop: d.item, x: d.x, air: true }, now);
+      ctx.restore();
+    }
+    if (d.count > 1) { const gx = isoX(d.x, d.y), gy = isoY(d.x, d.y); ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 11, gy - 2); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 11, gy - 2); }
+  }
+
+  /** A pile on the ground, coins or anything else: it is thrown or dropped in, bounces and comes to rest (coinFx.js). */
   _drawDrop(gx, gy, d, now) {
-    const seen = this.dropSeen || (this.dropSeen = new Map());
-    if (!seen.has(d.id)) { if (seen.size > 600) seen.clear(); seen.set(d.id, now); }
-    const t = (now - seen.get(d.id)) / 380, lift = t < 1 ? Math.abs(Math.sin(t * Math.PI * 1.5)) * 16 * (1 - t) : 0;
-    if (CoinFx.isCoin(d.item)) { this._drawCoinPile(d, now); return; }                                                     // coins are real little coins: thrown, bouncing, rolling to rest
-    if (PixelGround[d.item]) PixelGround[d.item](this.ctx, gx, gy, parseInt(d.id.slice(1), 10) || 0, lift);       // a log, a tuft of wool: pixel art lying on the ground
-    else { this.ctx.save(); this.ctx.translate(0, -lift); this._drawLoot(gx, gy, { drop: d.item, x: d.x }, now); this.ctx.restore(); }
-    if (d.count > 1) { const ctx = this.ctx; ctx.font = '600 10px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.strokeText('x' + d.count, gx + 11, gy - 2); ctx.fillStyle = '#fff'; ctx.fillText('x' + d.count, gx + 11, gy - 2); }
+    if (CoinFx.isCoin(d.item)) this._drawCoinPile(d, now); else this._drawItemPile(d, now);
   }
 
   /** The taming timer over a caught pony: a bar that fills with rainbow as it is gentled (0..1; it only grows once it has been fed the fruit it wants). */
