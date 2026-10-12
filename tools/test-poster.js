@@ -24,7 +24,7 @@ test('catching a pony drops the coin of its variety', () => {
   })()`);
   assert.strictEqual(JSON.stringify(r), '["pony_coin_candy"]');
 });
-test('the poster takes a coin once, only at the poster, and it is saved', () => {
+test('the poster adds up its coins, only at the poster, and it is saved', () => {
   const r = run(`(() => {
     const S = new GameServer(7), A = S.addPlayer(), inv = S.inventories[A], P = S.players[A];
     for (const sl of inv.toJSON()) if (sl) inv.remove(sl.id, sl.count);
@@ -37,12 +37,16 @@ test('the poster takes a coin once, only at the poster, and it is saved', () => 
     const act = findPoster(S.mapOf(P), P);
     S._posterCoin(A, 'pony_coin_candy'); S._posterCoin(A, 'pony_coin_candy'); S._posterCoin(A, 'stone');
     const saved = SaveData.exportCharacter ? 1 : 0;
-    return JSON.stringify({ outside, act: act && act.kind, candy: inv.count('pony_coin_candy'), stone: inv.count('stone'), placed: Object.keys(S.posterCoins[A]), seen: S.varietiesFor(A).filter(v => v.coin).map(v => v.id) });
+    return JSON.stringify({ outside, act: act && act.kind, candy: inv.count('pony_coin_candy'), stone: inv.count('stone'), placed: S.posterCoins[A], seen: S.varietiesFor(A).filter(v => v.coin).map(v => v.id) });
   })()`);
   const o = JSON.parse(r);
   assert.strictEqual(o.outside, 2); assert.strictEqual(o.act, 'coin_poster');
-  assert.strictEqual(o.candy, 1, 'one pinned, the second refused'); assert.strictEqual(o.stone, 1);
-  assert.deepStrictEqual(o.placed, ['candy']); assert.deepStrictEqual(o.seen, ['candy']);
+  assert.strictEqual(o.candy, 0, 'both pinned: the slot keeps adding up'); assert.strictEqual(o.stone, 1);
+  assert.deepStrictEqual(o.placed, { candy: 2 }); assert.deepStrictEqual(o.seen, ['candy']);
+});
+test('the poster is saved as counts, and a save from before counts (a list of varieties) still loads', () => {
+  const r = JSON.parse(run(`JSON.stringify([SaveData._poster({ candy: 7, ember: 1, nope: 3, meadow: -2 }), SaveData._poster(['candy', 'ember', 'nope']), SaveData._poster(null), SaveData._poster({ candy: 1e12 })])`));
+  assert.deepStrictEqual(r[0], { candy: 7, ember: 1 }); assert.deepStrictEqual(r[1], { candy: 1, ember: 1 }); assert.deepStrictEqual(r[2], {}); assert.strictEqual(r[3].candy, 999999);
 });
 test('every pony kind and variety gives a coin when caught (a retired variety gives the meadow coin)', () => {
   const r = run(`(() => {

@@ -2,6 +2,8 @@
 /* CLIENT - the coin bag: the Coins button floats a cutaway (vertically sliced) sack over the world, with no window round it (tap outside to close). It holds
  * ALL your coins, real ones of ten kinds (coins.js: copper, silver, gold, platinum, titanium, then the gem coins), drawn as big pixel-art medieval coins
  * (coinArt.js) that move on a small physics world: gravity, coins stacking and sliding on each other and on the bag's walls, tumbling when they fall.
+ * The leather is ELASTIC (elasticBag.js): the bag grows with the weight of the coins in it, its walls bulge where the coins push on them and spring back, within
+ * a minimum and maximum stretch, pulling harder the further they are stretched.
  *   - at a SHOP counter the bag opens beside the shop window in PAY mode (startPay): you hold a coin and drag it onto the counter tray; the coins you
  *     put down count towards the price, and the shop gives change
  *   - press a coin and drag it: inside the bag it shoves the others about; let go over the game world to DROP it there (the server puts it on the ground
@@ -14,9 +16,10 @@ class CoinBagUI {
     this.panel = panel; this.canvas = canvas; this.countEl = count; this.breakEl = breakdown; this.game = game; this.camera = camera;
     this.S = 3; this._fit();
     this.ctx = canvas.getContext('2d');
-    this.pay = null; this.target = null; this.ponyOut = {}; this.lastPony = {}; this.offered = Coins.empty();                                                    // pay mode: { zone, onOffer } and the coins put down on the counter so far
+    this.pay = null; this.target = null; this.ponyOut = {}; this.lastPony = {}; this.offered = Coins.empty();                                                    // pay mode: { zone, onOffer, slotAt, accepts, onReject, onOver: see shopUI.js } and the coins put down on the counter so far
     window.addEventListener('resize', () => this.isOpen && this._fit());
     this.coins = []; this.queue = []; this.drag = null; this.ghost = null; this.raf = 0; this.last = 0;
+    this.bag = new ElasticBag(); this.weight = 0;                                                                                                  // the stretchy walls, and the weight of all the coins (sets how big the bag is)
     this.pendingOut = Coins.empty(); this.pendingT = 0; this.lastCoins = Coins.empty(); this.hint = null; this.lastTap = null; this.hidden = 0;
     mergeButton.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); game.coinChange('merge'); });
     canvas.addEventListener('pointerdown', e => this._down(e));
@@ -34,7 +37,7 @@ class CoinBagUI {
       const card = document.getElementById(this.pay ? 'shopPanel' : 'posterPanel'), s = card && !card.hidden ? card.getBoundingClientRect() : null;
       if (s) { if (vw > vh * 1.15) box.l = Math.min(vw * 0.55, s.right + 8); else box.t = Math.min(vh * 0.6, s.bottom + 8); }
     }
-    const text = this.pay || this.target ? 34 : vh < 520 ? 84 : 124;                                                 // room for the total (and, outside a shop, the hint and Merge button)
+    const text = this.pay ? 64 : this.target ? 34 : vh < 520 ? 84 : 124;                                                 // room for the total (and, outside a shop, the hint and Merge button)
     let css = Math.min((box.r - box.l) / CoinBagUI.W, (box.b - box.t - text) / CoinBagUI.H, 4);
     css = css >= 2 ? Math.floor(css) : Math.max(0.9, css);
     const k = Math.max(2, Math.min(4, Math.round(css)));                                              // (drawn at 2-4x, shown at css: crisp when they match)
@@ -45,8 +48,8 @@ class CoinBagUI {
   }
 
   /* ---- pay mode (the shop): coins dragged onto `zone` (an element) are put down on the counter instead of dropped on the world ---- */
-  startPay({ zone, onOffer }) {
-    this.pay = { zone, onOffer }; this.offered = Coins.empty(); this.panel.classList.add('pay');
+  startPay(pay) {
+    this.pay = Object.assign({ slotAt: () => -1, accepts: () => false, onReject: () => {}, onOver: () => {} }, pay); this.offered = Coins.empty(); this.panel.classList.add('pay');
     if (!this.isOpen) this.open(); else { this._fit(); this._reconcile(); }
   }
   endPay() {
@@ -56,12 +59,12 @@ class CoinBagUI {
   }
   /* ---- poster mode (the Coin Poster at home): pony coins dragged onto `zone` are pinned on the poster; `onClose` runs when the bag is closed ---- */
   startPoster({ zone, onClose }) {
-    this.target = { zone, onClose }; this.panel.classList.add('pay');
+    this.target = { zone, onClose }; this.panel.classList.add('pay', 'poster');
     if (!this.isOpen) this.open(); else { this._fit(); this._reconcile(); }
   }
   endPoster() {
     if (!this.target) return;
-    this.target.zone.classList.remove('over'); this.target = null; this.panel.classList.remove('pay');
+    this.target.zone.classList.remove('over'); this.target = null; this.panel.classList.remove('pay', 'poster');
     if (this.isOpen) { this._fit(); this._reconcile(); }
   }
   /** Take a coin back off the counter into the bag. */
@@ -85,17 +88,19 @@ class CoinBagUI {
     if (was && typeof Sfx !== 'undefined' && Sfx.bag) Sfx.bag(false);
   }
 
-  /* ---- the bag's shape (art units; the canvas is 140 x 170 of them, drawn at 4x) ---- */
-  static get W() { return 140; }
-  static get H() { return 170; }
-  static get CX() { return 70; }
-  /** Half the inside width of the sack at height y: a narrow neck, flaring into a round belly. */
-  static halfWidth(y) {
-    if (y < 22) return 18;
-    if (y < 40) return 18 + (y - 22) / 18 * 2;
-    if (y < 100) { const t = (y - 40) / 60; return 20 + 36 * (t * t * (3 - 2 * t)); }
-    if (y < 135) return 56 + 4 * (y - 100) / 35;
-    const k = (y - 135) / 30; return k >= 1 ? 0 : 60 * Math.sqrt(1 - k * k);
+  /* ---- the bag's shape (art units; the canvas is 190 x 192 of them, drawn at 2-4x) ---- */
+  static get W() { return 190; }                                                                    // (room for the bag at its fullest: the walls stretch out and the bottom sags)
+  static get H() { return 192; }
+  static get CX() { return 95; }
+  /** Half the inside width of the EMPTY sack at height y: a narrow neck, flaring into a round belly. */
+  static halfWidth(y) { return y > 135 ? 60 * Math.sqrt(Math.max(0, 1 - Math.pow((y - 135) / 30, 2))) : ElasticBag.base(y); }
+  /** Leather colours, [outer wall, inner wall][how stretched, 0..8]: a stretched hide goes paler and shinier. */
+  static get LEATHER() {
+    if (!CoinBagUI._leather) {
+      const mix = (a, b, t) => '#' + [0, 2, 4].map(i => Math.round(parseInt(a.substr(1 + i, 2), 16) * (1 - t) + parseInt(b.substr(1 + i, 2), 16) * t).toString(16).padStart(2, '0')).join('');
+      CoinBagUI._leather = [['#7a4e2a', '#d2a064'], ['#8a5a30', '#e0b476']].map(([a, b]) => Array.from({ length: 9 }, (_, k) => mix(a, b, k / 8 * 0.7)));
+    }
+    return CoinBagUI._leather;
   }
   static get PONY_R() { return 13; }                                                              // a pony coin is about the size of a gold coin
   static radiusOf(t) { return 8 + 0.9 * t; }                                                       // a bigger kind is a bigger coin
@@ -127,6 +132,8 @@ class CoinBagUI {
   _reconcile() {
     const want = this._desired(), inv = this.game.inventory;
     this.countEl.textContent = Coins.format(inv.coins || Coins.empty());
+    this.weight = 0; (inv.coins || []).forEach((n, t) => { this.weight += Math.max(0, n - this.pendingOut[t] - this.offered[t]) * Math.pow(CoinBagUI.radiusOf(t) / 8, 2); });   // (every coin counts, shown or not)
+    for (const id of PonyCoins.ids) this.weight += Math.max(0, (this._ponyHave()[id] || 0) - (this.ponyOut[id] || 0)) * Math.pow(CoinBagUI.PONY_R / 8, 2);
     this._reconcilePony();
     this.breakEl.textContent = this.hidden ? `Showing ${(this._shown()).toLocaleString()} of your coins: merge them to see them all` : '';
     for (let t = 0; t < Coins.N; t++) {
@@ -161,7 +168,7 @@ class CoinBagUI {
 
   /* ---- the physics: position based (each coin is moved by gravity, then pushed out of whatever it overlaps), several passes a frame ---- */
   _step(dt) {
-    const G = 560, C = this.coins, drag = this.drag && this.drag.coin, iters = 6, cx = CoinBagUI.CX;
+    const G = 560, C = this.coins, drag = this.drag && this.drag.coin, iters = 6, cx = CoinBagUI.CX, bag = this.bag, B = ElasticBag.BELLY;
     for (const c of C) { if (c === drag) continue; c.vy += G * dt; c.px = c.x; c.py = c.y; c.x += c.vx * dt; c.y += c.vy * dt; }
     for (let it = 0; it < iters; it++) {
       for (let i = 0; i < C.length; i++) {
@@ -176,15 +183,23 @@ class CoinBagUI {
         }
       }
       for (const c of C) {
-        if (c === drag) continue;
-        const top = 22 + c.r; if (c.y < top) { c.y = top; if (c.vy < 0) c.vy = 0; }
-        const hw = CoinBagUI.halfWidth(c.y) - c.r;
-        if (c.y > 135 - 0.01) {                                                                         // the round bottom: keep inside the ellipse (60 x 30 around y 135)
-          const ex = (c.x - cx) / Math.max(1, 60 - c.r), ey = (c.y - 135) / Math.max(1, 30 - c.r), l = Math.hypot(ex, ey);
-          if (l > 1) { c.x = cx + (c.x - cx) / l; c.y = 135 + (c.y - 135) / l; }
-        } else if (c.x < cx - hw) c.x = cx - hw; else if (c.x > cx + hw) c.x = cx + hw;
+        const m = Math.pow(c.r / 8, 2), live = c !== drag;
+        const top = 22 + c.r; if (live && c.y < top) { c.y = top; if (c.vy < 0) c.vy = 0; }
+        if (c.y > B - 0.01) {                                                                           // the round bottom: keep inside the ellipse (it widens and sags with the bag)
+          const oL = bag._at(0, B), oR = bag._at(1, B), a = 60 + (oL + oR) / 2, mid = cx + (oR - oL) / 2, b = 30 + bag.sag;
+          const ex = (c.x - mid) / Math.max(1, a - c.r), ey = (c.y - B) / Math.max(1, b - c.r), l = Math.hypot(ex, ey);
+          if (l > 1) {
+            const nx = mid + (c.x - mid) / l, ny = B + (c.y - B) / l;
+            bag.push(B, c.x < mid ? 0 : 1, Math.abs(c.x - nx) * m); bag.pushFloor(Math.max(0, c.y - ny) * m);
+            if (live) { c.x = nx; c.y = ny; }
+          }
+        } else {
+          const wl = cx - bag.edge(c.y, 0) + c.r, wr = cx + bag.edge(c.y, 1) - c.r;
+          if (c.x < wl) { bag.push(c.y, 0, (wl - c.x) * m); if (live) c.x = wl; } else if (c.x > wr) { bag.push(c.y, 1, (c.x - wr) * m); if (live) c.x = wr; }
+        }
       }
     }
+    bag.update(dt, this.weight, iters);
     for (const c of C) {
       if (c === drag) continue;
       c.vx = (c.x - c.px) / dt * 0.985; c.vy = (c.y - c.py) / dt * 0.985;                              // (a little loss each step: the coins settle)
@@ -210,16 +225,18 @@ class CoinBagUI {
 
   /* ---- drawing ---- */
   _draw() {
-    const g = this.ctx, S = this.S, W = CoinBagUI.W, H = CoinBagUI.H, cx = CoinBagUI.CX, hw = CoinBagUI.halfWidth;
+    const g = this.ctx, S = this.S, W = CoinBagUI.W, H = CoinBagUI.H, cx = CoinBagUI.CX, bag = this.bag, bot = Math.ceil(bag.bottom());
     g.setTransform(S, 0, 0, S, 0, 0); g.clearRect(0, 0, W, H); g.imageSmoothingEnabled = false;
-    const rows = (y0, y1, grow, color) => { g.fillStyle = color; for (let y = y0; y <= y1; y++) { const h = Math.round(hw(y) + grow); if (h > 0 || grow > 0) g.fillRect(cx - h, y, h * 2, 1); } };
-    rows(12, 166, 6, '#1d120a');                                                                       // ink outline
-    rows(13, 165, 5, '#7a4e2a');                                                                       // the leather wall (cut through: it has thickness)
-    rows(13, 165, 2, '#8a5a30');
-    g.fillStyle = '#6a4222'; for (let y = 14; y < 165; y++) { const h = Math.round(hw(y)); g.fillRect(cx - h - 5, y, 1, 1); g.fillRect(cx + h + 4, y, 1, 1); }
-    rows(14, 164, 0, '#24160b');                                                                       // the inside of the bag
-    for (let y = 22; y < 164; y++) { const h = Math.round(hw(y)); g.fillStyle = y < 70 ? '#1c1109' : '#2c1b0e'; g.fillRect(cx - h, y, 1, 1); g.fillRect(cx + h - 1, y, 1, 1); }
-    g.fillStyle = '#c9a86a'; for (let y = 20; y < 160; y += 5) { const h = Math.round(hw(y)); g.fillRect(cx - h - 3, y, 1, 2); g.fillRect(cx + h + 2, y, 1, 2); }   // stitching down the cut edges
+    const hw = (y, side, grow = 0) => Math.round(bag.edge(y, side) + grow);
+    const rows = (y0, y1, grow, color) => { g.fillStyle = color; for (let y = y0; y <= y1; y++) { const l = hw(y, 0, grow), r = hw(y, 1, grow); if (l > 0 && r > 0) g.fillRect(cx - l, y, l + r, 1); } };
+    const leather = (y0, y1, grow, level) => { for (let y = y0; y <= y1; y++) { const l = hw(y, 0, grow), r = hw(y, 1, grow), k = Math.round(8 * Math.max(bag.strain(y, 0), bag.strain(y, 1))); if (l > 0 && r > 0) { g.fillStyle = CoinBagUI.LEATHER[level][k]; g.fillRect(cx - l, y, l + r, 1); } } };
+    rows(12, bot + 1, 6, '#1d120a');                                                                   // ink outline
+    leather(13, bot, 5, 0);                                                                            // the leather wall (cut through: it has thickness); it pales and shines as it stretches
+    leather(13, bot, 2, 1);
+    g.fillStyle = '#6a4222'; for (let y = 14; y < bot; y++) { g.fillRect(cx - hw(y, 0, 5), y, 1, 1); g.fillRect(cx + hw(y, 1, 4), y, 1, 1); }
+    rows(14, bot - 1, 0, '#24160b');                                                                   // the inside of the bag
+    for (let y = 22; y < bot - 1; y++) { g.fillStyle = y < 70 ? '#1c1109' : '#2c1b0e'; g.fillRect(cx - hw(y, 0), y, 1, 1); g.fillRect(cx + hw(y, 1) - 1, y, 1, 1); }
+    g.fillStyle = '#c9a86a'; for (let y = 20; y < bot - 5; y += 5) { g.fillRect(cx - hw(y, 0, 3), y, 1, 2); g.fillRect(cx + hw(y, 1, 2), y, 1, 2); }   // stitching down the cut edges (the stitches spread as it stretches)
     g.fillStyle = '#1d120a'; g.fillRect(cx - 28, 14, 56, 7); g.fillStyle = '#9a6a38'; g.fillRect(cx - 27, 15, 54, 5); g.fillStyle = '#b98550'; g.fillRect(cx - 27, 15, 54, 1);   // the folded rim of the neck
     g.fillStyle = '#1d120a'; g.fillRect(cx - 26, 20, 52, 1); g.fillStyle = '#2a1a0e'; g.fillRect(cx - 17, 21, 34, 2);
     const order = [...this.coins].sort((a, b) => a.y - b.y);
@@ -256,21 +273,24 @@ class CoinBagUI {
     d.vx = (p.x - d.lx) / dtm * 1000 * 0.5 + d.vx * 0.5; d.vy = (p.y - d.ly) / dtm * 1000 * 0.5 + d.vy * 0.5; d.lx = p.x; d.ly = p.y; d.lt = now;
     d.coin.x = p.x; d.coin.y = p.y; d.coin.px = p.x; d.coin.py = p.y;
     d.out = !p.in; this._ghostAt(d.out ? this._pt(e) : null, d.coin.v ? { pony: d.coin.v } : d.coin.t, d.coin.r);
-    if (this.pay) this.pay.zone.classList.toggle('over', !d.coin.v && this._inZone(this._pt(e)));
+    if (this.pay) { const slot = d.coin.v ? -1 : this.pay.slotAt(this._pt(e)); this.pay.onOver(slot); this.pay.zone.classList.toggle('over', !d.coin.v && slot < 0 && this._inZone(this._pt(e))); }
     if (this.target) this.target.zone.classList.toggle('over', !!d.coin.v && this._inZone(this._pt(e), this.target.zone));
   }
   _up(e, cancelled) {
     const d = this.drag; if (!d || e.pointerId !== d.id) return;
     const p = this._local(e), c = d.coin, T = c.v ? null : Coins.TIERS[c.t];
-    if (this.pay) this.pay.zone.classList.remove('over');
+    if (this.pay) { this.pay.zone.classList.remove('over'); this.pay.onOver(-1); }
     if (this.target) this.target.zone.classList.remove('over');
     if (c.v && !cancelled && !p.in && d.moved && this.target && this._inZone(this._pt(e), this.target.zone)) {          // a pony coin let go over the poster: pin it
       this.coins.splice(this.coins.indexOf(c), 1); this.ponyOut[c.v] = (this.ponyOut[c.v] || 0) + 1; this.pendingT = 0;
       this.game.posterCoin(PonyCoins.itemOf(c.v)); this._endDrag(); return;
     }
-    if (!cancelled && !p.in && d.moved && this.pay && !c.v) {                                                   // paying: let go over the counter to put the coin down (anywhere else, it goes back in the bag)
-      if (this._inZone(this._pt(e))) {
-        this.coins.splice(this.coins.indexOf(c), 1); this.offered[c.t]++; this.pay.onOffer(this.offered.slice()); this._endDrag(); return;
+    if (!cancelled && !p.in && d.moved && this.pay && !c.v) {                                                   // paying: let go over a slot (or the counter) to put the coin down (anywhere else, it goes back in the bag)
+      const q = this._pt(e), slot = this.pay.slotAt(q);
+      if (slot >= 0 || this._inZone(q)) {
+        const to = slot >= 0 ? slot : c.t;                                                                     // (over the counter but not a slot: its own slot, if there is one)
+        if (to === c.t && this.pay.accepts(c.t)) { this.coins.splice(this.coins.indexOf(c), 1); this.offered[c.t]++; this.pay.onOffer(this.offered.slice()); this._endDrag(); return; }
+        this.pay.onReject(c.t, slot);
       }
     } else if (!cancelled && !p.in && d.moved && !c.v) {                                                 // let go over the world (a pony coin goes back in the bag): drop it there
       const q = this._pt(e), w = this.camera.screenToWorld(q.x, q.y);
@@ -293,7 +313,7 @@ class CoinBagUI {
     this._endDrag();
   }
   _inZone(q, zone = this.pay.zone) { const r = zone.getBoundingClientRect(); return q.x >= r.left && q.x <= r.right && q.y >= r.top && q.y <= r.bottom; }
-  _inside(c) { return c.y >= 22 && c.y <= 165 && Math.abs(c.x - CoinBagUI.CX) <= CoinBagUI.halfWidth(Math.min(c.y, 134)) + 2; }
+  _inside(c) { const y = Math.min(c.y, ElasticBag.BELLY - 1), dx = c.x - CoinBagUI.CX; return c.y >= 22 && c.y <= this.bag.bottom() && dx >= -this.bag.edge(y, 0) - 2 && dx <= this.bag.edge(y, 1) + 2; }
   _endDrag() { this.drag = null; this.canvas.classList.remove('grabbing'); this._ghostAt(null); }
   /** The coin that follows the pointer once it has left the bag (so it can be seen on its way to the world or the counter): the same pixel coin, a canvas of its own. */
   _ghostAt(e, t, radius) {

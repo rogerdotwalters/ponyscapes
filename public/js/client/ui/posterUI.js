@@ -1,6 +1,6 @@
 'use strict';
 /* CLIENT - the Coin Poster window (opened at the poster on your home's wall, shared/ponyPoster.js): a parchment board with a slot for the collector coin of
- * every pony variety (pony coins are dropped by wild ponies when you lasso them, data/items/ponyCoins.js). Opening it also opens your COIN BAG beside it
+ * every pony variety, with the number you have pinned beside it (every coin you press on is added, so the count keeps growing) (pony coins are dropped by wild ponies when you lasso them, data/items/ponyCoins.js). Opening it also opens your COIN BAG beside it
  * (as the shop does), where the pony coins you carry tumble about with the money: DRAG one out of the bag and let go over the poster to pin it in its own
  * slot (a tap on the poster does nothing). The server decides (ponyPoster.js). Pony coins are ordinary bag items too: they take a bag slot. */
 class PosterUI {
@@ -21,18 +21,18 @@ class PosterUI {
     this.coinBag.endPoster(); this.coinBag.close();
   }
   _refreshSoon() {
-    const sig = JSON.stringify((this.game.varieties || []).map(v => v.coin ? 1 : 0));
+    const sig = JSON.stringify((this.game.varieties || []).map(v => v.coins | 0));
     if (sig !== this.sig) this.refresh();
   }
   /** Walked out of the house: close. */
   tick() { if (this.isOpen && this.game.grid !== this.grid) this.close(); }
 
   refresh() {
-    const placed = new Set((this.game.varieties || []).filter(v => v.coin).map(v => v.id));
-    this.sig = JSON.stringify((this.game.varieties || []).map(v => v.coin ? 1 : 0));
+    const count = Object.fromEntries((this.game.varieties || []).map(v => [v.id, v.coins | 0])), placed = new Set(Object.keys(count).filter(id => count[id] > 0)), total = Object.values(count).reduce((a, b) => a + b, 0);
+    this.sig = JSON.stringify((this.game.varieties || []).map(v => v.coins | 0));
     const names = Object.fromEntries(PonyVariantTable.all().map(v => [v.id, v.name]));
-    const slots = PonyCoins.ids.map(id => `<div class="pslot${placed.has(id) ? ' have' : ''}" data-v="${id}"><canvas width="48" height="48"></canvas>${names[id]}</div>`).join('');
-    this.body.innerHTML = `<div id="posterBoard">${slots}</div><div id="posterHint">${placed.size} of ${PonyCoins.ids.length} coins pinned. Drag a pony coin out of your coin bag onto this poster.</div>`;
+    const slots = PonyCoins.ids.map(id => `<div class="pslot${placed.has(id) ? ' have' : ''}" data-v="${id}"><canvas width="48" height="48"></canvas>${names[id]}<b class="pcount">${placed.has(id) ? 'x' + count[id].toLocaleString() : 'x0'}</b></div>`).join('');
+    this.body.innerHTML = `<div id="posterBoard">${slots}</div><div id="posterHint">${total.toLocaleString()} coin${total === 1 ? '' : 's'} pinned, ${placed.size} of ${PonyCoins.ids.length} kinds. Drag any pony coin out of your coin bag onto this poster: they keep adding up.</div>`;
     this.body.querySelectorAll('.pslot canvas').forEach(cv => {
       const g = cv.getContext('2d'), id = cv.parentElement.dataset.v; g.imageSmoothingEnabled = false;
       if (placed.has(id)) CoinArt.draw(g, 24, 25, 19, 0.9, { pony: id });
