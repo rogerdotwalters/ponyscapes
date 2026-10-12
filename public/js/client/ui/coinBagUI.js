@@ -231,15 +231,22 @@ class CoinBagUI {
     const g = this.ctx, S = this.S, W = CoinBagUI.W, H = CoinBagUI.H, cx = CoinBagUI.CX, bag = this.bag, bot = Math.ceil(bag.bottom());
     g.setTransform(S, 0, 0, S, 0, 0); g.clearRect(0, 0, W, H); g.imageSmoothingEnabled = false;
     const hw = (y, side, grow = 0) => Math.round(bag.edge(y, side) + grow);
-    const rows = (y0, y1, grow, color) => { g.fillStyle = color; for (let y = y0; y <= y1; y++) { const l = hw(y, 0, grow), r = hw(y, 1, grow); if (l > 0 && r > 0) g.fillRect(cx - l, y, l + r, 1); } };
-    const leather = (y0, y1, grow, level) => { for (let y = y0; y <= y1; y++) { const l = hw(y, 0, grow), r = hw(y, 1, grow), k = Math.round(8 * Math.max(bag.strain(y, 0), bag.strain(y, 1))); if (l > 0 && r > 0) { g.fillStyle = CoinBagUI.LEATHER[level][k]; g.fillRect(cx - l, y, l + r, 1); } } };
-    rows(22, bot + 1, 6, '#1d120a');                                                                   // ink outline
-    leather(22, bot, 5, 0);                                                                            // the leather wall (cut through: it has thickness); it pales and shines as it stretches
-    leather(22, bot, 2, 1);
-    g.fillStyle = '#6a4222'; for (let y = 22; y < bot; y++) { g.fillRect(cx - hw(y, 0, 5), y, 1, 1); g.fillRect(cx + hw(y, 1, 4), y, 1, 1); }
+    const rows = (y0, y1, grow, color) => { g.fillStyle = color; for (let y = y0; y <= y1; y++) { const gr = typeof grow === 'function' ? grow(y) : grow, l = hw(y, 0, gr), r = hw(y, 1, gr); if (l > 0 && r > 0) g.fillRect(cx - l, y, l + r, 1); } };
+    const leather = (y0, y1, grow, level) => { for (let y = y0; y <= y1; y++) { const gr = typeof grow === 'function' ? grow(y) : grow, l = hw(y, 0, gr), r = hw(y, 1, gr), k = Math.round(8 * Math.max(bag.strain(y, 0), bag.strain(y, 1))); if (l > 0 && r > 0) { g.fillStyle = CoinBagUI.LEATHER[level][k]; g.fillRect(cx - l, y, l + r, 1); } } };
+    const gather = y => { const pinch = 2.4 * Math.exp(-Math.pow((y - 36) / 5, 2)), frill = 3.2 * Math.exp(-Math.pow((y - 50) / 10, 2)) * (0.5 + 0.5 * Math.sin(y * 1.15)) + 1.6 * Math.exp(-Math.pow((y - 27) / 3.5, 2)) * (0.5 + 0.5 * Math.sin(y * 1.6 + 1));
+      return frill - pinch; };                                                                          // the leather is cinched in at the cord and puckers into little frills above and below it
+    rows(22, bot + 1, y => 6 + gather(y), '#1d120a');                                                                   // ink outline
+    leather(22, bot, y => 5 + gather(y), 0);                                                                            // the leather wall (cut through: it has thickness); it pales and shines as it stretches
+    leather(22, bot, y => 2 + gather(y) * 0.5, 1);
+    g.fillStyle = '#6a4222'; for (let y = 22; y < bot; y++) { g.fillRect(cx - hw(y, 0, 5 + gather(y)), y, 1, 1); g.fillRect(cx + hw(y, 1, 4 + gather(y)), y, 1, 1); }
+    for (const side of [0, 1]) for (let k = 0; k < 5; k++) {                                            // the gathers: creases fanning out from the cord, lit on one side and shaded on the other
+      const dir = side ? 1 : -1, xs = hw(36, side, 3 + gather(36)) - k * 1;
+      for (let i = 0; i < 17; i++) { const y = 40 + i, x = cx + dir * (hw(y, side, 4 + gather(y)) - 4 + ((i * (k - 2)) >> 3)); if (i < 17 - k * 2) { g.fillStyle = k % 2 ? '#b98550' : '#5a3a1e'; g.fillRect(x, y, 1, 1); } }
+      for (let i = 0; i < 7; i++) { const y = 32 - i, x = cx + dir * (hw(y, side, 4 + gather(y)) - 4 + ((i * (2 - k)) >> 2)); g.fillStyle = k % 2 ? '#b98550' : '#5a3a1e'; g.fillRect(x, y, 1, 1); }
+    }
     rows(22, bot - 1, 0, '#24160b');                                                                   // the inside of the bag
     for (let y = 22; y < bot - 1; y++) { g.fillStyle = y < 70 ? '#1c1109' : '#2c1b0e'; g.fillRect(cx - hw(y, 0), y, 1, 1); g.fillRect(cx + hw(y, 1) - 1, y, 1, 1); }
-    g.fillStyle = '#c9a86a'; for (let y = 24; y < bot - 5; y += 5) { g.fillRect(cx - hw(y, 0, 3), y, 1, 2); g.fillRect(cx + hw(y, 1, 2), y, 1, 2); }   // stitching down the cut edges (the stitches spread as it stretches)
+    g.fillStyle = '#c9a86a'; for (let y = 24; y < bot - 5; y += 5) { g.fillRect(cx - hw(y, 0, 3 + gather(y)), y, 1, 2); g.fillRect(cx + hw(y, 1, 2 + gather(y)), y, 1, 2); }   // stitching down the cut edges (the stitches spread as it stretches)
     g.drawImage(this._mouth(), 0, 0, W, 40);                                                            // the soft, ruffled mouth of the sack
     const order = [...this.coins].sort((a, b) => a.y - b.y);
     for (const c of order) if (!(this.drag && c === this.drag.coin && this.drag.out)) this._shadow(g, c);
@@ -271,8 +278,8 @@ class CoinBagUI {
   _rope(g, cx) {
     const ink = '#1d120a', cord = '#d6be8c', twist = '#a08a5a', ell = (x, y, rx, ry, col) => { g.fillStyle = col; for (let j = -ry; j <= ry; j++) { const w = Math.round(rx * Math.sqrt(1 - (j * j) / ((ry + 0.5) * (ry + 0.5)))); g.fillRect(x - w, y + j, w * 2 + 1, 1); } };
     g.imageSmoothingEnabled = false;
-    g.fillStyle = ink; g.fillRect(cx - 26, 32, 52, 7); g.fillStyle = cord; g.fillRect(cx - 25, 33, 50, 5); g.fillStyle = twist; for (let x = cx - 25; x < cx + 25; x += 3) { g.fillRect(x, 33 + (x % 2), 1, 2); g.fillRect(x + 1, 36, 1, 2); }
-    g.fillStyle = '#f0e2bc'; g.fillRect(cx - 25, 33, 50, 1);
+    g.fillStyle = ink; g.fillRect(cx - 24, 32, 48, 7); g.fillStyle = cord; g.fillRect(cx - 23, 33, 46, 5); g.fillStyle = twist; for (let x = cx - 23; x < cx + 23; x += 3) { g.fillRect(x, 33 + (x % 2), 1, 2); g.fillRect(x + 1, 36, 1, 2); }
+    g.fillStyle = '#f0e2bc'; g.fillRect(cx - 23, 33, 46, 1);
     for (const dx of [-1, 1]) { const x = cx + 21 + dx * 6; ell(x, 29, 7, 5, ink); ell(x, 29, 6, 4, cord); ell(x, 29, 3, 2, '#24160b'); ell(x, 28, 5, 1, '#f0e2bc'); }   // the two loops of the bow
     g.fillStyle = ink; g.fillRect(cx + 18, 33, 7, 8); g.fillStyle = cord; g.fillRect(cx + 19, 34, 5, 6); g.fillStyle = twist; g.fillRect(cx + 19, 37, 5, 1);    // the knot
     for (const [x, len, lean] of [[cx + 19, 15, -1], [cx + 23, 12, 1]]) {                                  // the two tails, hanging and fraying
