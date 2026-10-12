@@ -155,6 +155,7 @@ const SaveData = {
     const x = N(q.x, -1e7, 1e7, NaN), y = N(q.y, -1e7, 1e7, NaN);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     return Object.assign({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
+      foal: Number.isFinite(q.foal) && q.foal > 0 ? N(q.foal, 0, Stable.FOAL_SECONDS, 0) : undefined, breedRest: Number.isFinite(q.breedRest) && q.breedRest > 0 ? N(q.breedRest, 0, Stable.BREED_REST, 0) : undefined,
       friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null }, SaveData._pack(q, look));
   },
   /** A pony's saved bags and pack, cleaned: { bags: [bag id | ''], pack: [slot] } (only pony bags, no more bags than it has slots for, and a pack

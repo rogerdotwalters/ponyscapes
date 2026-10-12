@@ -824,3 +824,5 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .tameBar{height:10px;border-radius:5px;background:rgba(0,0,0,.45);overflow:hidden;border:1px solid rgba(255,255,255,.35);margin:4px 0}
 .tameBar>i{display:block;height:100%;background:linear-gradient(90deg,#ff5d5d,#ffb04a,#ffe45c,#6fe07a,#4ac3ff,#9a7bff,#ff7bd1)}
 #btnLeash,#btnRide{font-size:12px}
+#stableBody .stBreed{border-color:#f08cae;background:rgba(120,30,60,.55);color:#ffd6e6}
+#stableBody .stBreed.off{opacity:.55;filter:grayscale(.5)}

@@ -400,7 +400,7 @@ class AnimalSystem {
       if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; }
       const fruit = a.captor ? AnimalLevels.tameFruit(AnimalDefs[a.type], a.level) : null;
       const gentling = a.captor ? { have: a.trust, need: a.applesNeed || fruit.count, item: fruit.item, progress: this.tameProgress(a) } : null;
-      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
+      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, foalMin: a.foal > 0 ? Math.ceil(a.foal / 60) : 0, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null });
     }
     return out;
   }
@@ -482,6 +482,8 @@ class AnimalSystem {
         if (a.jumpLift) out[id].lift = Math.round(a.jumpLift * 100) / 100;                     // the Slime King mid-leap: how high (0..1; drawn like a flying pony's lift)
         if (a.main) out[id].main = true;
         if (a.captor) out[id].tame = Math.round(this.tameProgress(a) * 100) / 100;               // a caught pony's rainbow taming bar (0..1)
+        if (a.breedP !== undefined) out[id].breed = Math.round(a.breedP * 100) / 100;           // breeding in a stall: the same rainbow bar (0..1)
+        if (a.foal > 0) out[id].foal = Math.round(a.foal / Stable.FOAL_SECONDS * 100) / 100;     // a foal: how much of its growing up is left (1 = just born)
         if (a.stall) out[id].stall = true;                                                    // in a stall of the stable: it stays put and cannot be ridden
         if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)

@@ -36,7 +36,7 @@ const AnimalLevels = {
   /** How exotic a fruit is on the ladder (any other apple counts as the plainest). A fruit at or above the rung a pony needs is accepted. */
   fruitRank(item) { const i = AnimalLevels.TAME_LADDER.indexOf(item); return i >= 0 ? i : 0; },
   /** Seconds of gentling one fruit buys (the rainbow bar fills this long per fruit). */
-  TAME_SECONDS_PER_FRUIT: 4,
+  TAME_SECONDS_PER_FRUIT: 12,                                       // (the rainbow bar fills slowly: three times as long as it first did)
   /** Horsemanship needed to ride a pony of this type and level. */
   rideLevel: (type, level) => (CONFIG.sim.ponyRideLevels[type] || 1) + Math.floor(((level || 1) - 1) / 3),
   rideSpeedFactor: level => 1 + Math.min(0.5, 0.012 * ((level || 1) - 1)),

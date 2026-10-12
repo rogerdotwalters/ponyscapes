@@ -12,6 +12,10 @@
 const Stable = {
   REACH: 2.6,                                               // how close to a stall (tiles, from its edge) the key reaches it
   GATE_REACH: 1.25,                                         // ... and to a gate
+  BREED_SECONDS: 90,                                        // how long the rainbow bar takes to fill when two ponies breed
+  BREED_REST: 240,                                          // seconds a pony needs to rest after a foal
+  FOAL_SECONDS: 300,                                        // how long a foal takes to grow up (it is smaller, and cannot be ridden, until then)
+  PET_CAP: 30,                                              // the most ponies one person can keep (foals included)
   CAPACITY: 4,                                              // ponies that can share one stall
   /** Where the ponies in a pen stand (the four corners of the middle of a 4 x 4 pen), as offsets from the stall's top-left corner. */
   SLOTS: [[1.0, 1.7], [3.0, 1.7], [1.0, 3.1], [3.0, 3.1]],
@@ -129,7 +133,8 @@ Object.assign(GameServer.prototype, {
     const addable = inside.length < Stable.CAPACITY ? Stable.leashed(animals, p, id) : [];
     // (options / mode: the old single menu; inside / addable / cap: the whole stall at once, for the shared stall's menu)
     this.pendingEvents.push({ type: 'stallMenu', to: id, mode, fx: f.x, fy: f.y, gate: gate ? { open: gate.open } : null, options: list.map(Stable.describe),
-      inside: inside.filter(a => a.owner === id).map(Stable.describe), others: inside.filter(a => a.owner !== id).length, addable: addable.map(Stable.describe), cap: Stable.CAPACITY });
+      inside: inside.filter(a => a.owner === id).map(Stable.describe), others: inside.filter(a => a.owner !== id).length, addable: addable.map(Stable.describe), cap: Stable.CAPACITY,
+      breed: this._breedInfo(id, p, f, inside) });
   },
 
   /** A choice in the stall menu: act = 'in' (put the pony in the stall at fx, fy), 'out' (take it out in front of its gate) or 'roam' (let it out into the village). */
@@ -138,6 +143,7 @@ Object.assign(GameServer.prototype, {
     if (!p || !Stable.layoutOf(map) || p.asleep) return;
     const grid = gridOf(p);
     if (cmd.act === 'gate') { this._useGate(id, p, map, cmd); return; }
+    if (cmd.act === 'breed' || cmd.act === 'breedStop') { this._breedPick(id, p, map, cmd); return; }
     if (!a || a.owner !== id || (!sameGrid(a, p) && !a.stall)) return;
     if (cmd.act === 'in') {
       const f = map.plan.layout.furniture.find(g => g.x === (cmd.fx | 0) && g.y === (cmd.fy | 0) && (FurnitureDefs.get(g.id) || {}).stall);
@@ -166,6 +172,74 @@ Object.assign(GameServer.prototype, {
     Object.assign(a, { x: at.x, y: at.y, home: { x: at.x, y: at.y } });
     this._notice(id, `${name} is out of the stall`);
     this.pendingEvents.push({ type: 'unstalled', to: id, animal: a.id, x: at.x, y: at.y, grid });
+  },
+
+  /* ---------------------------------------- breeding: two ponies alone in a stall, a stallion and a mare ---------------------------------------- */
+  /** Can the ponies in this stall breed now? { can, reason, pct } (pct: how far the rainbow bar is, or null when nothing is going on). Needs exactly two ponies of yours: a stallion and a mare. */
+  _breedInfo(id, p, f, inside) {
+    const key = Stable.key(gridOf(p), f), going = (this.breeding || {})[key];
+    if (going) return { can: false, busy: true, reason: 'Breeding', pct: Math.round(going.t / Stable.BREED_SECONDS * 100) };
+    if (inside.length !== 2 || inside.some(a => a.owner !== id)) return { can: false, reason: 'Breeding needs exactly two of your ponies in the stall: a stallion and a mare' };
+    const [a, b] = inside, sexes = [PonyLook.sexOf(a.look), PonyLook.sexOf(b.look)].sort().join('');
+    if (sexes !== 'fm') return { can: false, reason: 'It takes a stallion and a mare' };
+    const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal` };
+    const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first` };
+    const mine = Object.values(this.animals.animals).filter(x => x.owner === id && AnimalDefs[x.type].pony).length;
+    if (mine >= Stable.PET_CAP) return { can: false, reason: `You already keep ${Stable.PET_CAP} ponies` };
+    return { can: true, reason: '' };
+  },
+  /** The Breed button (and Stop) in a stall's menu. */
+  _breedPick(id, p, map, cmd) {
+    const f = map.plan.layout.furniture.find(g => g.x === (cmd.fx | 0) && g.y === (cmd.fy | 0) && (FurnitureDefs.get(g.id) || {}).stall);
+    if (!f || Stable.rectDist(f, p) > Stable.REACH + 0.8) { this._notice(id, 'Stand beside the stall'); return; }
+    const key = Stable.key(gridOf(p), f), going = (this.breeding = this.breeding || {})[key];
+    if (cmd.act === 'breedStop') { if (going && going.owner === id) this._breedEnd(key, 'The ponies settle down again'); return; }
+    if (going) return;
+    const inside = Stable.occupants(this.animals.animals, p, f), info = this._breedInfo(id, p, f, inside);
+    if (!info.can) { this._notice(id, info.reason); return; }
+    this.breeding[key] = { owner: id, ids: inside.map(a => a.id), t: 0 };
+    for (const a of inside) a.breedP = 0;
+    this._notice(id, 'The pair nuzzle each other... the bar fills as they bond');
+    this.pendingEvents.push({ type: 'breedStart', to: id, x: f.x + f.w / 2, y: f.y + f.h / 2, grid: gridOf(p) });
+  },
+  _breedEnd(key, why) {
+    const going = this.breeding && this.breeding[key]; if (!going) return;
+    for (const aid of going.ids) { const a = this.animals.animals[aid]; if (a) delete a.breedP; }
+    delete this.breeding[key];
+    if (why && this.players[going.owner]) this._notice(going.owner, why);
+  },
+  /** Every tick: the bars fill, a pair that is no longer alone in its stall stops, a full bar brings a foal; foals grow and tired ponies rest. */
+  _breedTick(dt) {
+    const animals = this.animals.animals;
+    for (const aid in animals) { const a = animals[aid]; if (a.foal > 0) a.foal = Math.max(0, a.foal - dt); if (a.breedRest > 0) a.breedRest = Math.max(0, a.breedRest - dt); }
+    for (const key of Object.keys(this.breeding || {})) {
+      const going = this.breeding[key], k = Stable.parseKey(key), f = Stable.pieceOfKey(key), pair = going.ids.map(i => animals[i]);
+      const inside = f && k ? Stable.occupants(animals, { grid: k.grid }, f) : [];
+      if (!f || pair.some(a => !a) || inside.length !== 2 || !pair.every(a => inside.includes(a))) { this._breedEnd(key, 'The breeding stops: the stall must hold just the two ponies'); continue; }
+      going.t += dt;
+      for (const a of pair) a.breedP = Math.min(1, going.t / Stable.BREED_SECONDS);
+      if (going.t >= Stable.BREED_SECONDS) { this._breedEnd(key); this._bornFoal(going.owner, pair[0], pair[1], f, k.grid); }
+    }
+  },
+  /** A foal from a stallion and a mare: it gets its looks from them (each trait from either one, now and then something new), their variety, and a rarity at least as good as the better parent. */
+  _foalLook(a, b) {
+    const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B, variant = pickParent[4] | 0;
+    const V = variant ? PonyVariants[variant] : null, P = PonyPalette, size = { 0: V ? V.coats.length : P.coats.length, 1: V ? V.manes.length : P.manes.length, 2: V ? V.marks.length : P.marks.length, 3: V ? V.names.length : P.names.length };
+    const same = [A, B].filter(l => (l[4] | 0) === variant);
+    const trait = i => (r() < 0.1 ? Math.floor(r() * size[i]) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[i] | 0) < size[i] ? l[i] | 0 : Math.floor(r() * size[i]); })());
+    const look = [trait(0), trait(1), trait(2), Math.floor(r() * size[3]), variant];
+    look.push(Math.min(RarityOrder.length - 1, Math.max(A[5] | 0, B[5] | 0) + (r() < 0.12 ? 1 : 0)), Math.floor(r() * 65536));
+    return look;
+  },
+  _bornFoal(owner, a, b, f, grid) {
+    const mares = [a, b].filter(x => PonyLook.sexOf(x.look) === 'f'), kinds = [a.type, b.type], type = a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : kinds[Math.floor(this.rng() * 2)];
+    const at = Stable.front(f, Math.floor(this.rng() * 8)), foal = this.animals.release(type, at.x, at.y, owner, undefined, { level: 1, variant: 0, grid });
+    foal.look = this._foalLook(a, b); foal.foal = Stable.FOAL_SECONDS; foal.home = { x: at.x, y: at.y }; foal.leashed = false;
+    for (const x of [a, b]) x.breedRest = Stable.BREED_REST;
+    if (this.players[owner]) this._remember(owner, foal);
+    const info = PonyLook.sexInfo(PonyLook.sexOf(foal.look)), name = Stable.nameOf(foal);
+    if (this.players[owner]) this._notice(owner, `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name})`);
+    this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name });
   },
 
   /** Open or shut the gate of the stall at (fx, fy) (from its menu). */

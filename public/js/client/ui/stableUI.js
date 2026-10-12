@@ -27,6 +27,11 @@ class StableUI {
     let html = '';
     if (menu.gate) html += `<button class="stGate" data-act="gate">${menu.gate.open ? 'Close the gate' : 'Open the gate'}</button>`;
     if (inside.length) html += `<p class="stHint">In this stall: take one out</p>` + inside.map(o => row(o, 'out')).join('');
+    const br = menu.breed;
+    if (br && (inside.length || br.busy)) {                       // breeding: exactly two of your ponies, a stallion and a mare, alone in the stall
+      if (br.busy) html += `<p class="stHint">Breeding... ${br.pct}% (the bar over the ponies)</p><button class="stGate" data-act="breedStop">Stop breeding</button>`;
+      else html += `<button class="stGate stBreed${br.can ? '' : ' off'}" data-act="breed"${br.can ? '' : ' disabled'}>\u2764 Breed these two</button>` + (br.can ? '' : `<p class="stHint">${br.reason}</p>`);
+    }
     if (addable.length) html += `<p class="stHint">${inside.length ? 'Add another pony (up to ' + cap + ' share a stall)' : 'Which pony goes in this stall?'}</p>` + addable.map(o => row(o, 'in')).join('');
     else if (!inside.length) html += '<p class="stHint">No pony of yours is on a leash. Press Leash beside a pony of yours, then come back.</p>';
     else if (inside.length + (menu.others || 0) >= cap) html += `<p class="stHint">This stall is full (${cap} ponies).</p>`;
