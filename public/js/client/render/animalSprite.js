@@ -117,20 +117,23 @@ class AnimalSprite {
     const look = def.pony ? this._look(animal.look) : null, rarity = look ? look.rarity : rarityOf(def.rarity);
     let label = '';
     const boss = def.boss ? '\u2605 ' : '';
-    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name : def.name);
-    else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name}` : def.name);
+    if (mine) label = animal.captor ? '\u2022 ' + look.name + ' ' + PonyLook.sexInfo(look.sex).symbol + ' (wild)' : (animal.main ? '\u2605 ' : animal.leashed ? '\u2665 ' : '') + (look ? look.name + ' ' + PonyLook.sexInfo(look.sex).symbol : def.name);
+    else label = boss + (rarity.order ? rarity.name + ' ' : '') + (look ? `${look.variantName} ${def.name} ${PonyLook.sexInfo(look.sex).symbol}` : def.name);
+    if (animal.foal > 0) label += ' (foal)';
+    const tamed = def.pony && !!animal.owner && !animal.captor, tm = tamed ? 13 : 0;                              // a tamed pony wears a little heart badge on its tag
     const threat = AnimalLevels.threat(lv, view ? view.ref : 1), color = { easy: '#8be28b', even: '#ffe08a', hard: '#ffab6b', deadly: '#ff6b6b' }[threat];
     const marker = !mine && (def.hostile || def.boss) && view ? AnimalLevels.marker(lv, view.ref) : null, mw = marker ? 15 : 0;          // enemies: how its level compares with yours
-    const font = 'bold 11px Georgia, serif', badge = 'Lv ' + lv, bw = SpriteCache.textWidth(font, badge) + 8, tw = SpriteCache.textWidth(font, label) + 8, width = mw + tw + bw + 4, y = sy - height;
+    const font = 'bold 11px Georgia, serif', badge = 'Lv ' + lv, bw = SpriteCache.textWidth(font, badge) + 8, tw = SpriteCache.textWidth(font, label) + 8, width = tm + mw + tw + bw + 4, y = sy - height;
     const textColor = rarity.order ? rarity.color : '#ffd6e8';
-    SpriteCache.stamp(ctx, `a|${label}|${badge}|${color}|${textColor}|${marker ? marker.kind + marker.count : ''}`, width, 14, width / 2, 7, g2 => {                // (the tag is painted once, then stamped)
+    SpriteCache.stamp(ctx, `a|${tamed ? 'T' : ''}|${label}|${badge}|${color}|${textColor}|${marker ? marker.kind + marker.count : ''}`, width, 14, width / 2, 7, g2 => {                // (the tag is painted once, then stamped)
       const c = g2.ctx, x0 = -width / 2;
       c.font = font; c.textAlign = 'left'; c.textBaseline = 'middle';
       g2.roundRect(x0, -7, width, 14, 6); c.fillStyle = 'rgba(10,18,28,.62)'; c.fill();
-      if (marker) AnimalSprite.drawMarker(c, marker, x0 + 2, -6);
-      g2.roundRect(x0 + mw + tw + 2, -6, bw, 12, 5); c.fillStyle = color; c.fill();
-      c.fillStyle = textColor; c.fillText(label, x0 + mw + 4, 0);
-      c.fillStyle = '#10202f'; c.fillText(badge, x0 + mw + tw + 6, 0);
+      if (tamed) { c.fillStyle = '#1d120a'; c.fillRect(x0 + 2, -5, 9, 10); c.fillStyle = '#ffd36a'; c.fillRect(x0 + 3, -4, 7, 8); c.fillStyle = '#d6336c'; for (const [hx, hy, hw] of [[4, -3, 2], [7, -3, 2], [4, -2, 5], [4, -1, 5], [5, 0, 3], [6, 1, 1]]) c.fillRect(x0 + hx, hy, hw, 1); }    // (a gold token with a red heart)
+      if (marker) AnimalSprite.drawMarker(c, marker, x0 + tm + 2, -6);
+      g2.roundRect(x0 + tm + mw + tw + 2, -6, bw, 12, 5); c.fillStyle = color; c.fill();
+      c.fillStyle = textColor; c.fillText(label, x0 + tm + mw + 4, 0);
+      c.fillStyle = '#10202f'; c.fillText(badge, x0 + tm + mw + tw + 6, 0);
     }, sx, y);
   }
 

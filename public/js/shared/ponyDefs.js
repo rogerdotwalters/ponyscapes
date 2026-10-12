@@ -34,11 +34,15 @@ const PonyLook = {
   /** The same pony at another rarity (the starter pony of the testing version is made rare, so its abilities can be tried at once). */
   withRarity(look, rarity) { const out = look.slice(); out[5] = Math.max(out[5] | 0, rarityOf(rarity).order); return out; },
   variantOf(biome) { return PonyVariantOfBiome[biome] || 0; },
+  /** Ponies are male or female: a bit of the look's trait seed decides (so a herd's mix is stable, saved ponies keep theirs, and nothing new has to be stored). 'f' | 'm' */
+  sexOf(look) { return (((look && look[6]) | 0) >> 7) & 1 ? 'f' : 'm'; },
+  /** Symbol and word of a sex: { symbol: '\u2640', word: 'Mare' }. */
+  sexInfo(sex) { return sex === 'f' ? { symbol: '\u2640', word: 'Mare', name: 'Female' } : { symbol: '\u2642', word: 'Stallion', name: 'Male' }; },
   /** Indices -> things to draw. */
   describe(look) {
     const P = PonyPalette, l = look || [0, 0, 0, 0, 0], v = l[4] | 0, V = v ? PonyVariants[v] : null;
-    const rarity = RarityDefs[RarityOrder[clamp(l[5] | 0, 0, RarityOrder.length - 1)]];
-    if (!V) return { coat: P.coats[l[0]], mane: P.manes[l[1]], mark: P.marks[l[2]], name: P.names[l[3]], variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: null, glow: null, rarity };
-    return { coat: V.coats[l[0]], mane: V.manes[l[1]], mark: V.marks[l[2]], name: V.names[l[3]], variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory, glow: V.glow, rarity };
+    const rarity = RarityDefs[RarityOrder[clamp(l[5] | 0, 0, RarityOrder.length - 1)]], sex = PonyLook.sexOf(l);
+    if (!V) return { sex, coat: P.coats[l[0]], mane: P.manes[l[1]], mark: P.marks[l[2]], name: P.names[l[3]], variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: null, glow: null, rarity };
+    return { sex, coat: V.coats[l[0]], mane: V.manes[l[1]], mark: V.marks[l[2]], name: V.names[l[3]], variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory, glow: V.glow, rarity };
   }
 };
