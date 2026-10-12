@@ -116,6 +116,7 @@ class Renderer {
   _drawEffects(frameMs) { this.effects.draw(this.g, frameMs); }
   /** The sky (weatherFx.js), painted in screen space on whatever surface is on top now. */
   _drawWeather(frameMs) {
+    (this.fireflies || (this.fireflies = new Fireflies(this.game))).draw(this.ctx, this.canvas.width, this.canvas.height, performance.now(), this.camera);      // (night only: fireflies.js)
     const fx = this.effects.weather; if (!fx) return;
     fx.draw(this.ctx, this.canvas.width, this.canvas.height, frameMs / 1000, this.camera.dpr, this.camera);
     this.camera.applyTransform(this.ctx);
@@ -340,6 +341,7 @@ class Renderer {
     const box = (x, y, w, h, c) => { R(x - 1, y - 1, w + 2, h + 2, O); R(x, y, w, h, c); };          // an outlined block
     const hair = L.hair, skin = L.skin, blanket = p.color || L.outfit || '#5b7fb5', trim = L.trim || '#f2c14e';
     g.ellipse(sx, sy + 3, 20, 7, 'rgba(0,0,0,.2)');
+    if (p.camping) { box(-17, -4, 36, 11, '#8a6a43'); R(-17, -4, 36, 1, '#a98558'); R(-16, 5, 34, 1, '#6e5233'); R(19, -3, 2, 9, '#5d452b'); }       // camping: a bedroll on the ground
     box(-15, -3, 11, 6, '#f3eee2'); R(-15, -3, 11, 1, '#fffaf0');                                    // the pillow
     box(-13, -9, 8, 8, skin);                                                                         // the head (outlined as a whole)
     R(-13, -9, 8, 3, hair); R(-13, -9, 8, 1, U.light(hair, 0.22)); R(-13, -6, 2, 4, U.shade(hair, 0.9));   // hair over the top and down the back of the head

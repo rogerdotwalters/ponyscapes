@@ -41,3 +41,8 @@ PonyVariantTable.register({ id: 'candy', name: 'Candy', biome: 'candy', accessor
 PonyVariantTable.register({ id: 'rainbow', name: 'Rainbow', biome: 'rainbow', accessory: 'rainbow', glow: '#ffffff',
   coats: ['#ffffff', '#f4eef7', '#e8f5ff', '#fff4e6'], manes: [['#ff1744', '#ff9100', '#ffea00', '#00e676'], ['#2979ff', '#651fff', '#d500f9', '#ff4081'], ['#00e5ff', '#69f0ae', '#ffff00']],
   marks: ['star', 'cloud', 'drop'], names: ['Prismatic', 'Iris', 'Spectrum', 'Arco', 'Skylark', 'Halo', 'Aurora', 'Dazzle'] });
+
+/* Moon ponies (nightEvents.js): born under the moon, never in any biome. Always the LAST variety: saved ponies point at this table by index. */
+PonyVariantTable.register({ id: 'moon', name: 'Moon', biome: null, accessory: 'stars', glow: '#cfe0ff',
+  coats: ['#dfe6ff', '#c9d3f5', '#e9edff', '#b9c4ee'], manes: [['#3b4a9a', '#9fb3ff', '#e8eeff'], ['#26307a', '#6f86e8'], ['#5c6bc0', '#cfd8ff', '#ffffff']],
+  marks: ['moon', 'star', 'cloud'], names: ['Luna', 'Selene', 'Nocturne', 'Lumen', 'Crescent', 'Moonbeam', 'Silvermist', 'Twilight'] });

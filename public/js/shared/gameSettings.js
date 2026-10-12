@@ -11,7 +11,7 @@ const GameSettings = (() => {
   const LIVE = ['globalSpeed', 'dayShare', 'gameHoursPerRealHour', 'seasonDays', 'animalSense', 'senseLevelScale', 'fleeLevelScale', 'stealthDex', 'stealthFriend', 'stealthCap'];
   const LIMITS = { globalSpeed: [1, 100], dayShare: [10, 90], gameHoursPerRealHour: [1, 5000], seasonDays: [1, 365],
     animalSense: [10, 300], senseLevelScale: [0, 20], fleeLevelScale: [0, 10], stealthDex: [0, 50], stealthFriend: [0, 50], stealthCap: [0, 90] };
-  const DEFAULTS = Object.freeze({ globalSpeed: 100, dayShare: 54, gameHoursPerRealHour: 180, seasonDays: 20,
+  const DEFAULTS = Object.freeze({ globalSpeed: 100, dayShare: 54, gameHoursPerRealHour: 150, seasonDays: 20,
     animalSense: 100, senseLevelScale: 3, fleeLevelScale: 2, stealthDex: 10, stealthFriend: 15, stealthCap: 60, trees: {}, crops: {}, biomes: {} });   // animals' senses and your approach (animalSystem.js: AnimalSenses)   // crops: { cropId: days to grow } (else the crop's own)
   const BIOME_ID = /^[a-z][a-z0-9_]{0,39}$/;
   const BIOME_RARITIES = Object.freeze(['common', 'uncommon', 'rare', 'ultra', 'never']);          // (the weights: BIOME_RARITY in js/data/biomes/registry.js)
