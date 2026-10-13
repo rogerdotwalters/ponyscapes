@@ -842,3 +842,36 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 #btnLeash,#btnRide{font-size:12px}
 #stableBody .stBreed{border-color:#f08cae;background:rgba(120,30,60,.55);color:#ffd6e6}
 #stableBody .stBreed.off{opacity:.55;filter:grayscale(.5)}
+/* stable menu v2: pony cards, sex markers, coloured actions, phone-friendly sheet */
+#stableBody{gap:8px;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
+#stableBody button{min-height:44px;cursor:pointer;touch-action:manipulation;border-radius:9px;border:1.5px solid;font:700 14px Georgia,serif;padding:8px 12px}
+#stableBody .stHead{margin:6px 0 0;font:700 12px Georgia,serif;letter-spacing:1.5px;text-transform:uppercase;color:#f2cf7a;border-bottom:1px solid rgba(242,207,122,.35);padding-bottom:3px}
+#stableBody .stCard{display:flex;flex-direction:column;gap:8px;padding:9px 10px;border-radius:10px;background:rgba(10,18,28,.55);border:1.5px solid rgba(227,194,122,.35);border-left:6px solid #9aa;}
+#stableBody .stCard.m{border-left-color:#4aa8ff}
+#stableBody .stCard.f{border-left-color:#ff6fae}
+#stableBody .stInfo{display:flex;align-items:center;gap:10px}
+#stableBody .stName{font:700 15px Georgia,serif;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+#stableBody .stName small{display:block;font:500 12px Georgia,serif;opacity:.8}
+#stableBody .stSex{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font:700 18px/1 Georgia,serif;color:#fff;border:2px solid rgba(0,0,0,.45)}
+#stableBody .stSex.m{background:#2d86e0}
+#stableBody .stSex.f{background:#e0458f}
+#stableBody .stActs{display:flex;gap:8px}
+#stableBody .stActs button{flex:1}
+#stableBody .stTake{border-color:#e3b04a;background:rgba(140,95,20,.7);color:#fff0c8}
+#stableBody .stRoam{border-color:#7cc66a;background:rgba(30,80,30,.7);color:#d8f5cc}
+#stableBody .stAdd{border-color:#5aa9e6;background:rgba(25,70,120,.7);color:#d6ecff}
+#stableBody .stGate{border-color:#d9b45a;background:rgba(110,70,20,.7);color:#ffe9b8}
+#stableBody .stGate.open{border-color:#c9776a;background:rgba(110,35,30,.7);color:#ffd9d3}
+#stableBody .stBreedBox{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:10px;background:rgba(90,20,55,.35);border:1.5px solid rgba(240,140,174,.6)}
+#stableBody .stPair{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;font:700 14px Georgia,serif}
+#stableBody .stPair i{font-style:normal;color:#ff5c8a;font-size:20px}
+#stableBody .stBreed{font-size:16px}
+#stableBody .stStop{border-color:#d86a6a;background:rgba(120,30,30,.7);color:#ffd6d6}
+#stableBody .stProg{height:12px;border-radius:6px;background:rgba(0,0,0,.45);overflow:hidden;border:1px solid rgba(255,255,255,.3)}
+#stableBody .stProg>i{display:block;height:100%;background:linear-gradient(90deg,#ff7bb0,#ff4d8d)}
+#stableBody button:disabled{cursor:default}
+@media (max-width:700px),(max-height:560px){
+  #stablePanel:not([hidden]){left:8px !important;top:8px !important;width:calc(100vw - 16px) !important;max-width:460px;max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);display:flex;flex-direction:column;box-sizing:border-box}
+  #stablePanel #stableBody{max-height:none !important;flex:1 1 auto;min-height:0}
+  #stablePanel #stableClose{width:40px;height:40px;font-size:18px}
+}
