@@ -15,6 +15,14 @@ const SkillEffectDefs = Object.freeze({
   cloud_scare:  new Effect({ id: 'cloud_scare',  name: 'Mist',         kind: 'scare',  radius: 4.5, shape: 'circle', target: 'wild',   color: '#e8eef5' }),
   apple_gift:   new Effect({ id: 'apple_gift',   name: 'Bounty',       kind: 'gift',   value: 2, item: 'apple', shape: 'self', target: 'self', color: '#d9382b' }),
   drop_heal:    new Effect({ id: 'drop_heal',    name: 'Dewdrop',      kind: 'heal',   value: 30, shape: 'self', target: 'self', color: '#8fd0ff' }),
+  tide_heal:    new Effect({ id: 'tide_heal',    name: 'Tidal Wash',   kind: 'heal',   value: 28, radius: 4.2, shape: 'circle', target: 'allies', color: '#7fc8ff' }),
+  tide_slow:    new Effect({ id: 'tide_slow',    name: 'Undertow',     kind: 'slow',   value: 55, radius: 3.8, duration: 3, shape: 'circle', target: 'wild', color: '#9fd8ff' }),
+  bolt_damage:  new Effect({ id: 'bolt_damage',  name: 'Bolt',         kind: 'damage', value: 11, radius: 5, shape: 'cone',   target: 'hostile', color: '#ffe94d' }),
+  bolt_scare:   new Effect({ id: 'bolt_scare',   name: 'Thunderclap',  kind: 'scare',  radius: 5, shape: 'cone',   target: 'wild',    color: '#fff7a0' }),
+  sun_damage:   new Effect({ id: 'sun_damage',   name: 'Sunbeam',      kind: 'damage', value: 9, radius: 4, shape: 'circle', target: 'hostile', color: '#ffd54f' }),
+  sun_glow:     new Effect({ id: 'sun_glow',     name: 'Daylight',     kind: 'light',  radius: 8, shape: 'self', target: 'self', color: '#fff0a0' }),
+  star_fall:    new Effect({ id: 'star_fall',    name: 'Starfall',     kind: 'damage', value: 10, radius: 4.6, shape: 'circle', target: 'hostile', color: '#fff5b0' }),
+  star_heal:    new Effect({ id: 'star_heal',    name: 'Wish',         kind: 'heal',   value: 18, radius: 4.6, shape: 'circle', target: 'allies', color: '#d6c8ff' }),
   note_slow:    new Effect({ id: 'note_slow',    name: 'Lullaby',      kind: 'slow',   value: 70, radius: 4, duration: 4, shape: 'circle', target: 'wild', color: '#c9b3ff' })
 });
 
@@ -27,6 +35,10 @@ const SkillAbilityDefs = Object.freeze({
   mark_cloud:   new Ability({ id: 'mark_cloud',   name: 'Mist Veil',       description: 'A billow of mist scares the wild animals nearby',                 cooldown: 12, effects: ['cloud_scare'],  glyph: '☁',       color: '#e8eef5' }),
   mark_apple:   new Ability({ id: 'mark_apple',   name: 'Apple Bounty',    description: 'Shakes a couple of apples loose into your bag',                   cooldown: 45, effects: ['apple_gift'],   glyph: '🍎', color: '#d9382b' }),
   mark_drop:    new Ability({ id: 'mark_drop',    name: 'Dewdrop',         description: 'A cool drop of dew heals you',                                     cooldown: 15, effects: ['drop_heal'],    glyph: '💧', color: '#8fd0ff' }),
+  tidal_wash:   new Ability({ id: 'tidal_wash',   name: 'Tidal Wash',      description: 'A wave of water heals you and friends beside you and slows the wild animals round you', cooldown: 14, effects: ['tide_heal', 'tide_slow'], glyph: '🌊', color: '#7fc8ff' }),
+  lightning_strike: new Ability({ id: 'lightning_strike', name: 'Lightning Strike', description: 'A bolt ahead hurts hostile creatures and sends other wild animals bolting', cooldown: 9, effects: ['bolt_damage', 'bolt_scare'], glyph: '⚡', color: '#ffe94d' }),
+  sunbeam:      new Ability({ id: 'sunbeam',      name: 'Sunbeam',         description: 'A burst of sunlight burns hostile creatures round you and lights the dark', cooldown: 10, effects: ['sun_damage', 'sun_glow'], glyph: '☀', color: '#ffd54f' }),
+  starfall:     new Ability({ id: 'starfall',     name: 'Starfall',        description: 'Stars rain down on hostile creatures round you, and a wish heals your friends', cooldown: 12, effects: ['star_fall', 'star_heal'], glyph: '✨', color: '#fff5b0' }),
   mark_note:    new Ability({ id: 'mark_note',    name: 'Lullaby',         description: 'A soft tune slows the wild animals around you',                   cooldown: 14, effects: ['note_slow'],    glyph: '♪',       color: '#c9b3ff' })
 });
 /** Any power by id: a rarity ability or a skill. */

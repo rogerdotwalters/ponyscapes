@@ -3,7 +3,7 @@
  * A wild pony sheds the coin of its own variety when you lasso it (data/ponies/variants.js). They are not money: bring them home and press them onto the
  * Coin Poster on your wall (data/furniture/basic.js, shared/ponyPoster.js). Retired (legacy) varieties have no coin. */
 const PonyCoins = (() => {
-  const RARITY = { meadow: 'common', moss: 'uncommon', frost: 'uncommon', jungle: 'uncommon', orchard: 'uncommon', candy: 'rare', crystal: 'rare', ember: 'rare', starlit: 'epic', rainbow: 'legendary' };
+  const RARITY = { meadow: 'common', moss: 'uncommon', frost: 'uncommon', jungle: 'uncommon', orchard: 'uncommon', candy: 'rare', crystal: 'rare', ember: 'rare', starlit: 'epic', rainbow: 'legendary', water: 'rare', sun: 'rare', lightning: 'epic', star: 'legendary' };
   const varieties = PonyVariantTable.all().filter(v => !v.legacy);
   for (const v of varieties) Materials.register({ id: 'pony_coin_' + v.id, name: v.name + ' Pony Coin', maxStack: 99, rarity: RARITY[v.id] || 'rare', ponyCoin: v.id });
   const ids = varieties.map(v => v.id);

@@ -42,7 +42,21 @@ PonyVariantTable.register({ id: 'rainbow', name: 'Rainbow', biome: 'rainbow', ac
   coats: ['#ffffff', '#f4eef7', '#e8f5ff', '#fff4e6'], manes: [['#ff1744', '#ff9100', '#ffea00', '#00e676'], ['#2979ff', '#651fff', '#d500f9', '#ff4081'], ['#00e5ff', '#69f0ae', '#ffff00']],
   marks: ['star', 'cloud', 'drop'], names: ['Prismatic', 'Iris', 'Spectrum', 'Arco', 'Skylark', 'Halo', 'Aurora', 'Dazzle'] });
 
-/* Moon ponies (nightEvents.js): born under the moon, never in any biome. Always the LAST variety: saved ponies point at this table by index. */
+/* Moon ponies (nightEvents.js): born under the moon, never in any biome. (Saved ponies point at this table by index, so varieties are only ever added at the END: after the moon come the SKY ponies.) */
 PonyVariantTable.register({ id: 'moon', name: 'Moon', biome: null, accessory: 'stars', glow: '#cfe0ff',
   coats: ['#dfe6ff', '#c9d3f5', '#e9edff', '#b9c4ee'], manes: [['#3b4a9a', '#9fb3ff', '#e8eeff'], ['#26307a', '#6f86e8'], ['#5c6bc0', '#cfd8ff', '#ffffff']],
   marks: ['moon', 'star', 'cloud'], names: ['Luna', 'Selene', 'Nocturne', 'Lumen', 'Crescent', 'Moonbeam', 'Silvermist', 'Twilight'] });
+
+/* SKY ponies (skyPonies.js, shared/skyEvents.js): they step out only in the right sky: water ponies in the rain, lightning ponies in thunderstorms, sun ponies under a full sun, star ponies at the peak of the night. */
+PonyVariantTable.register({ id: 'water', name: 'Water', biome: null, accessory: 'bubbles', glow: '#8fd0ff',
+  coats: ['#9fd4f5', '#7ec0ea', '#bfe4fa', '#6fb3d9'], manes: [['#1e88e5', '#64b5f6', '#bbdefb'], ['#00acc1', '#4dd0e1'], ['#3949ab', '#7986cb', '#c5cae9']],
+  marks: ['drop', 'cloud', 'note'], names: ['Tide', 'Brine', 'Splash', 'Coral', 'Drizzle', 'Cascade', 'Pearl', 'Rill'] });
+PonyVariantTable.register({ id: 'lightning', name: 'Lightning', biome: null, accessory: 'sparks', glow: '#ffe94d',
+  coats: ['#d8d4f0', '#c3bde8', '#e8e4ff', '#b0aadc'], manes: [['#ffd600', '#fff59d', '#ffffff'], ['#7c4dff', '#ffea00'], ['#00e5ff', '#ffffff', '#ffd600']],
+  marks: ['star', 'flame', 'cloud'], names: ['Bolt', 'Volt', 'Static', 'Ampere', 'Tempest', 'Zap', 'Thunder', 'Flash'] });
+PonyVariantTable.register({ id: 'sun', name: 'Sun', biome: null, accessory: 'rays', glow: '#ffd54f',
+  coats: ['#ffe9a8', '#ffd77a', '#fff3c7', '#ffc86b'], manes: [['#ff9800', '#ffca28', '#fff176'], ['#ff5722', '#ffb74d'], ['#ffd600', '#ffffff']],
+  marks: ['sun', 'heart', 'flower'], names: ['Sol', 'Dawn', 'Helia', 'Amber', 'Solstice', 'Ray', 'Aurelia', 'Marigold'] });
+PonyVariantTable.register({ id: 'star', name: 'Star', biome: null, accessory: 'stars', glow: '#fff5b0',
+  coats: ['#1a1f4d', '#262c6a', '#14183d', '#2d2a66'], manes: [['#fff176', '#ffffff', '#b39ddb'], ['#80deea', '#e1bee7', '#ffffff'], ['#ffd54f', '#ffffff']],
+  marks: ['star', 'moon', 'gem'], names: ['Stella', 'Astra', 'Zenith', 'Vega', 'Polaris', 'Sirius', 'Altair', 'Nebula'] });
