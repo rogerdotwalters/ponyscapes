@@ -78,21 +78,21 @@ class HostAdapter extends LocalAdapter {
 
   _sendSnapshot() {
     const ids = this.server.humanIds(), snaps = SnapshotBuilder.snapshotsFor(this.server, ids);     // ONE call: drains the events and personalises for everybody
-    const wire = JSON.stringify(snaps[this.id]);
-    this._deliver('down', () => { const snap = JSON.parse(wire); if (this.callback) this.callback(snap); else this.backlog.push(snap); });
-    const items = [];
-    for (const cid in this.remotes) { const r = this.remotes[cid]; if (r.ready && snaps[r.id]) items.push({ cid, body: JSON.stringify(this._encodeFor(r, snaps[r.id])) }); }
+    const snap = SnapshotBuilder.copyForLocal(snaps[this.id], this.localMemo || (this.localMemo = {}));
+    this._deliver('down', () => { if (this.callback) this.callback(snap); else this.backlog.push(snap); });
+    const items = [], shared = new Map();                                       // (shared: each player / villager is rounded once, however many friends there are)
+    for (const cid in this.remotes) { const r = this.remotes[cid]; if (r.ready && snaps[r.id]) items.push({ cid, body: JSON.stringify(this._encodeFor(r, snaps[r.id], shared)) }); }
     if (items.length) this._sendFrames(items);
   }
 
   /** A remote player's version of a snapshot: rounded, with animals as deltas and the long shared lists only when they changed. */
-  _encodeFor(r, snap) {
+  _encodeFor(r, snap, shared = new Map()) {
     const me = this.server.players[r.id], D = DeltaCodec;
-    const out = { t: 'snapshot', tick: snap.tick, players: r.playerEnc.encode(D.quantize(snap.players)), events: D.quantize(snap.events, 2), animals: r.animalEnc.encode(snap.animals, me) };
+    const out = { t: 'snapshot', tick: snap.tick, players: r.playerEnc.encode(D.quantizeEntities(snap.players, shared)), events: D.quantize(snap.events, 2), animals: r.animalEnc.encode(snap.animals, me) };
     const boats = {};
     for (const id in snap.boats) { const b = snap.boats[id]; if (Math.hypot(b.x - me.x, b.y - me.y) < 120) boats[id] = b; }
     const movedBoats = r.gates.boats.changed(D.quantize(boats)); if (movedBoats) out.boats = movedBoats;               // boats are only sent when one moves
-    const npcDelta = r.npcEnc.encode(D.quantize(snap.npcs)); if (Object.values(npcDelta).some(d => Object.keys(d).length)) out.npcs = npcDelta;      // the villagers: only the fields that changed, and only when something did
+    const npcDelta = r.npcEnc.encode(D.quantizeEntities(snap.npcs, shared)); if (Object.values(npcDelta).some(d => Object.keys(d).length)) out.npcs = npcDelta;      // the villagers: only the fields that changed, and only when something did
     const trees = r.gates.trees.changed(snap.trees); if (trees) out.trees = trees;
     const forage = r.gates.forage.changed(snap.forage); if (forage) out.forage = forage;
     const drops = r.gates.drops.changed(snap.drops || {}); if (drops) out.drops = drops;                                // items on the ground: only when a pile changes

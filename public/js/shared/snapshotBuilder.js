@@ -20,6 +20,17 @@ const SnapshotBuilder = {
     };
   },
 
+  /** The local player's own copy of a snapshot (deep, so the game can keep it). The long felled-tree / picked-bush lists are not copied: they are
+   *  the same read-only objects until something changes, and `treesSame` / `forageSame` tell the game it already has them. `memo` is kept between calls. */
+  copyForLocal(snap, memo) {
+    const { trees, forage } = snap, rest = Object.assign({}, snap); delete rest.trees; delete rest.forage;
+    const copy = JSON.parse(JSON.stringify(rest));
+    copy.trees = trees; copy.forage = forage;
+    copy.treesSame = trees === memo.trees; copy.forageSame = forage === memo.forage;
+    memo.trees = trees; memo.forage = forage;
+    return copy;
+  },
+
   /** Take ONE broadcast snapshot (this drains the server's events) and make a personal copy for each id. */
   snapshotsFor(server, ids) {
     const base = server.takeSnapshot(), out = {};

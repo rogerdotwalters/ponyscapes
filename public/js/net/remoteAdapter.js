@@ -13,7 +13,11 @@ class RemoteAdapter extends NetAdapter {
     this.decoder = new AnimalDeltaDecoder(); this.playerDecoder = new PlayerDeltaDecoder(); this.npcDecoder = new PlayerDeltaDecoder(); this.trees = {}; this.forage = {}; this.boats = {}; this.drops = {}; this.parts = new RelayProtocol.Reassembler();
     this.roster = []; this.rtt = null; this.code = RelayProtocol.normalizeCode(options.code); this.listeners = [];
     this.pending = null; this.welcomed = false; this.ended = false;
+    this.lastSnapshotAt = 0; this.jitterMs = 0; this.interpDelay = RemoteAdapter.MIN_DELAY;      // adaptive interpolation delay (see _trackJitter)
   }
+
+  static get MIN_DELAY() { return 5; }                                  // ticks: the smallest buffer behind the host (a steady connection)
+  static get MAX_DELAY() { return 12; }                                 // ticks: the most we will ever hold back for a bad one (0.4 s)
 
   static explain(reason, detail = {}) {
     return ({
@@ -26,7 +30,7 @@ class RemoteAdapter extends NetAdapter {
   }
 
   connect() {
-    CONFIG.net.interpDelayTicks = 5;                                      // snapshots arrive over the internet: buffer a little more
+    CONFIG.net.interpDelayTicks = RemoteAdapter.MIN_DELAY;                // snapshots arrive over the internet: buffer a little more (and more still if they turn out to be jittery: _trackJitter)
     const base = this.o.base || RelayConnection.baseUrl();
     return new Promise((resolve, reject) => {
       this.pending = { resolve, reject };
@@ -87,6 +91,8 @@ class RemoteAdapter extends NetAdapter {
   _onSnapshot(msg) {
     if (!this.welcomed) return;
     delete msg.t;
+    this._trackJitter();
+    msg.treesSame = !msg.trees; msg.forageSame = !msg.forage;                                     // (the host sends these long lists only when they change: tell the game so it does not re-apply an identical copy 15 times a second)
     msg.players = this.playerDecoder.decode(msg.players);
     msg.animals = this.decoder.decode(msg.animals);
     if (msg.npcs) msg.npcs = this.npcDecoder.decode(msg.npcs);                                   // (absent = nobody moved: the game keeps the last ones)
@@ -95,6 +101,20 @@ class RemoteAdapter extends NetAdapter {
     if (msg.trees) this.trees = msg.trees;    msg.trees = this.trees;       // (the game treats a missing list as "everything regrew": always hand it the latest full one)
     if (msg.forage) this.forage = msg.forage; msg.forage = this.forage;
     if (this.callback) this.callback(msg); else this.backlog.push(msg);
+  }
+
+  /** Measures how unevenly snapshots arrive and sizes the interpolation buffer to match: a steady link keeps the small delay, a jittery one
+   *  holds back more so a late snapshot is absorbed instead of freezing everybody and then jumping. Grows fast, shrinks slowly. */
+  _trackJitter() {
+    const now = performance.now(), expected = CONFIG.net.snapshotEvery * TICK_MS;
+    if (this.lastSnapshotAt) {
+      const dev = Math.abs(now - this.lastSnapshotAt - expected);
+      this.jitterMs = dev > this.jitterMs ? this.jitterMs + (dev - this.jitterMs) * 0.5 : this.jitterMs * 0.99;       // a spike registers at once, then fades over ~5 s
+      const want = Math.min(RemoteAdapter.MAX_DELAY, Math.max(RemoteAdapter.MIN_DELAY, CONFIG.net.snapshotEvery + 1 + Math.ceil(2 * this.jitterMs / TICK_MS)));
+      this.interpDelay += want > this.interpDelay ? Math.min(1, want - this.interpDelay) : -Math.min(0.05, this.interpDelay - want);
+      CONFIG.net.interpDelayTicks = this.interpDelay;
+    }
+    this.lastSnapshotAt = now;
   }
 
   _finish(reason, detail) {

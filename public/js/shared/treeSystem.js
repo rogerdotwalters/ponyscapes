@@ -9,6 +9,7 @@ const treeAt = (map, tx, ty) => { const p = map.propAt(tx, ty); return p && p.t 
 function setTreeState(map, tx, ty, hp, alive) {
   const key = tileKey(tx, ty);
   if (alive && hp >= TreeDef.maxHp) delete map.treeStates[key]; else map.treeStates[key] = { hp, alive };
+  map.treeRev = (map.treeRev || 0) + 1;
   const tree = map.peekPropAt(tx, ty);
   if (tree && tree.t === 'tree') { tree.hp = hp; tree.alive = alive; }
 }
@@ -23,7 +24,13 @@ function applyTreeStates(map, states) {
 }
 
 /** Server side: only trees that differ from "healthy" are sent (a delta-friendly snapshot). */
-const collectTreeStates = map => JSON.parse(JSON.stringify(map.treeStates));
+/** (The very same object comes back until a tree changes, so a snapshot costs nothing when the forest is quiet, and a ChangeGate can tell by identity. Treat it as read-only.) */
+const collectTreeStates = map => {
+  const c = map.treeCache;
+  if (c && c.src === map.treeStates && c.rev === (map.treeRev || 0)) return c.copy;
+  map.treeCache = { src: map.treeStates, rev: map.treeRev || 0, copy: JSON.parse(JSON.stringify(map.treeStates)) };
+  return map.treeCache.copy;
+};
 
 const FACING_PREFERENCE = 0.35;   // among trees in reach, prefer the one the player is facing
 
