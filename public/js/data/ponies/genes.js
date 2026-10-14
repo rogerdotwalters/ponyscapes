@@ -32,4 +32,11 @@ PonyGeneTable.register({ id: 'headShape', part: 'head', name: 'Head and snout', 
 /* Hair patterns (added after the first genes, so they sit at the end). The classic one is what every pony had: the variety's own colours in stripes. */
 PonyGeneTable.register({ id: 'manePattern', part: 'mane', name: 'Mane pattern', kind: 'shape', alleles: shapes(['Striped', 40], ['Solid', 34], ['Multicolor', 26]) });
 PonyGeneTable.register({ id: 'tailPattern', part: 'tail', name: 'Tail pattern', kind: 'shape', alleles: shapes(['Striped', 40], ['Solid', 34], ['Multicolor', 26]) });
+/* The inherited SKILL: a power a pony can pass to its foals, whatever its variety. Its alleles are skill powers (shared/ponySkills.js); the last one is "no talent", and it is the RECESSIVE one, so a pony with
+ * any power allele has the power. `level`: the pony level it unlocks at (after the variety's and the cutie mark's skills). An older pony reads as having none (`fallback: 'last'`). */
+PonyGeneTable.register({ id: 'talent', part: 'skills', name: 'Inherited skill', kind: 'skill', level: 9, fallback: 'last', alleles: [
+  { id: 'leaf_blast', name: 'Leaf Blast', weight: 6 }, { id: 'mark_star', name: 'Starburst', weight: 6 }, { id: 'mark_heart', name: 'Heartglow', weight: 6 },
+  { id: 'mark_flower', name: 'Pollen Puff', weight: 6 }, { id: 'mark_moon', name: 'Moon Dash', weight: 6 }, { id: 'mark_cloud', name: 'Mist Veil', weight: 6 },
+  { id: 'mark_apple', name: 'Apple Bounty', weight: 5 }, { id: 'mark_drop', name: 'Dewdrop', weight: 6 }, { id: 'mark_note', name: 'Lullaby', weight: 6 },
+  { id: 'none', name: 'No talent', weight: 90 }] });
 })();

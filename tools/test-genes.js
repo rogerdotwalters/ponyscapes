@@ -64,4 +64,17 @@ test('wild meadow ponies show the whole range of coats', () => {
   assert(seen.size >= 20, 'coats seen: ' + seen.size);
   const pats = new Set(); for (let g = 0; g < 400; g++) pats.add(J(`PonyLook.describe(PonyLook.fromGene(${g}, 0)).gene.manePattern`)); assert.strictEqual(pats.size, 3);
 });
+test('skills are genes: an inherited talent shows in the tree at level 9, an older pony has none, and carriers pass it on', () => {
+  const at = run("PonyGenes.at('talent')"), none = run("PonyGeneTable.get('talent').alleles.length - 1"), star = run("PonyGeneTable.get('talent').alleles.findIndex(a => a.id === 'mark_star')");
+  assert.strictEqual(run('PonyGenes.talentOf([3, 2, 1, 0, 0, 0, 200])'), null, 'older ponies have no talent');
+  const mk = pair => `(() => { const l = PonyLook.fromGene(7, 1); l[${7 + at}] = ${pair}; return l; })()`;       // a moss pony: no tree of its own, so the talent is its only skill
+  const tree = (pair, lvl) => J(`PonySkills.tree(${mk(pair)}, 'pony_plain', ${lvl}).map(s => [s.id, s.unlocked, s.ability && s.ability.id])`);
+  assert.deepStrictEqual(tree(star * 64 + none, 8), [['talent', false, 'mark_star']]);
+  assert.deepStrictEqual(tree(star * 64 + none, 9), [['talent', true, 'mark_star']], 'a carried talent shows: the power alleles dominate "no talent"');
+  assert.deepStrictEqual(tree(none * 65, 30), [], 'no talent, no skill');
+  assert.deepStrictEqual(J(`PonySkills.unlocked(${mk(star * 64 + none)}, 'pony_plain', 12)`), ['mark_star']);
+  const r = J(`(() => { const rng = mulberry32(3); let got = 0; for (let i = 0; i < 400; i++) { const f = PonyGenes.inherit(rng, ${mk(star * 64 + none)}, ${mk(none * 65)}, 1); const a = Math.floor(f[${at}] / 64), b = f[${at}] % 64; if (Math.min(a, b) === ${star}) got++; } return got; })()`);
+  assert(r > 120 && r < 280, 'about half the foals of a talented parent inherit it: ' + r);
+  assert(J("PonyLook.describe(PonyLook.fromGene(1, 0)).gene.traits.length") >= 6);
+});
 console.log(passed + ' passed');

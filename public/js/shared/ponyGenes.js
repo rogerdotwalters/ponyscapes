@@ -15,7 +15,7 @@ const PonyGenes = (() => {
   function genomeOf(look) {
     return LOCI.map((L, i) => {
       const p = pair(look, i); if (p) return p;
-      const from = L.slot !== undefined ? L.slot : L.legacyFrom, v = from !== undefined ? look[from] | 0 : 0;
+      const from = L.slot !== undefined ? L.slot : L.legacyFrom, v = from !== undefined ? look[from] | 0 : L.fallback === 'last' ? L.alleles.length - 1 : 0;
       return [v, v];
     });
   }
@@ -59,6 +59,11 @@ const PonyGenes = (() => {
     },
     /** Make the look's coat and mane slots show what its genome says (after building a look from a new genome). */
     sync(look) { const g = genomeOf(look); for (let i = 0; i < LOCI.length; i++) if (LOCI[i].slot !== undefined) look[LOCI[i].slot] = Math.min(g[i][0], g[i][1]); return look; },
+    /** The skill power this pony inherited, { ability, name, level }, or null (no talent). */
+    talentOf(look) {
+      const i = at('talent'), L = LOCI[i], a = L.alleles[PonyGenes.express(look).talent];
+      return a && a.id !== 'none' ? { ability: a.id, name: a.name, level: L.level } : null;
+    },
     /** The genes as they SHOW: { geneId: allele index }, the rule genes applied (a matched tail takes the mane's colour). */
     express(look) {
       const g = genomeOf(look), v = look[4] | 0, out = {};
@@ -78,11 +83,12 @@ const PonyGenes = (() => {
         { part: 'Body', text: allele('bodyShape').name },
         { part: 'Hooves', text: `${allele('hoofShape').name}, ${allele('hoofColor').name.toLowerCase()}`, color: allele('hoofColor').color },
         { part: 'Head', text: allele('headShape').name + ' snout' }];
+      const talent = PonyGenes.talentOf(look); if (talent) traits.push({ part: 'Skill', text: `${talent.name}, inherited (level ${talent.level})` });
       return {
         eyeShape: ex.eyeShape, eyeColor: allele('eyeColor').color, maneShape: ex.maneShape, tailShape: ex.tailShape, bodyShape: ex.bodyShape,
         hoofShape: ex.hoofShape, hoofColor: allele('hoofColor').color, headShape: ex.headShape, tailLinked,
         manePattern: ex.manePattern, tailPattern, maneColors: patterned(manes[ex.maneColor], ex.manePattern), tailMane: patterned(manes[ex.tailColor], tailPattern), traits,
-        key: LOCI.filter(L => L.slot === undefined).map(L => L.id === 'tailColor' && tailLinked ? 'm' : ex[L.id]).join('')
+        key: LOCI.filter(L => L.slot === undefined && L.kind !== 'skill').map(L => L.id === 'tailColor' && tailLinked ? 'm' : ex[L.id]).join('')
       };
     }
   };
