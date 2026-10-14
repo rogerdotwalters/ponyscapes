@@ -47,6 +47,13 @@ const PonyGenes = (() => {
       }
       return look;
     },
+    /** Every gene drawn uniformly (any shape, any colour, black and silver as likely as the rest, a talent about as often as none): for the dev spawn, to see the whole range. Sets the genome of `look`. */
+    randomize(rng, look) {
+      const variant = look[4] | 0;
+      look.length = BASE;
+      for (const L of LOCI) { const n = sizeOf(L, variant); look.push(Math.floor(rng() * n) * PACK + Math.floor(rng() * n)); }
+      return PonyGenes.sync(look);
+    },
     /** A foal's genome: one allele of each gene from each parent, now and then a mutation. An allele that does not fit the foal's variety is drawn afresh. */
     inherit(rng, A, B, variant) {
       const ga = genomeOf(A), gb = genomeOf(B);

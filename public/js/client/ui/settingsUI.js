@@ -22,6 +22,7 @@ class SettingsUI {
     this._createNightLook();
     this._createFarming();
     this._createWeather();
+    this._createPonySpawner();
     this._createTeleport();
     this._createAnimals();
     this._createBiomes();
@@ -224,6 +225,17 @@ class SettingsUI {
       '<button data-tp="village" tabindex="-1">Village</button><button data-tp="cave" tabindex="-1">Cave mouth</button>' +
       rooms.map((r, i) => `<button data-tp="room:${i}" tabindex="-1">Dungeon room ${i + 1}</button>`).join('') + '</div>';
     el.addEventListener('click', e => { const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp); });
+    this.body.appendChild(el);
+  }
+
+  /* ---- ponies: spawn any kind (or a random one) beside you, each with a fully random look ---- */
+  _createPonySpawner() {
+    const el = document.createElement('div'); el.className = 'admBox';
+    const kinds = Object.values(AnimalDefs).filter(d => d.pony);
+    el.innerHTML = '<div class="gtitle">Spawn ponies <small>(they are yours, with every gene random: shapes, colours, skills)</small></div><div class="admRow" style="flex-wrap:wrap;gap:6px">' +
+      '<button data-spawn="random" data-n="1" tabindex="-1">\u{1F3B2} Random pony</button><button data-spawn="random" data-n="6" tabindex="-1">\u{1F3B2} Random \u00d76</button>' +
+      kinds.map(d => `<button data-spawn="${d.id}" data-n="1" tabindex="-1">${d.name}</button>`).join('') + '</div>';
+    el.addEventListener('click', e => { const b = e.target.closest('button[data-spawn]'); if (b) this.game.spawnPonies(b.dataset.spawn, +b.dataset.n); });
     this.body.appendChild(el);
   }
 
