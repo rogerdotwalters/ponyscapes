@@ -14,6 +14,7 @@ const KEY_EVENTS = {
   mainPony: bus => bus.emit('mainPony'),                    // riding one of your ponies: make it your main pony
   dismount: bus => bus.emit('dismount'),                    // get on the pony beside you / get off the one you ride (its own key: never shared with Pick or Feed)
   leash: bus => bus.emit('leashPony'),                      // put your own pony on a leash (so it can be stabled)
+  stable: bus => bus.emit('openStall'),                     // the stall beside you: its menu
   release: bus => bus.emit('release'),                      // let go / untie (a separate key from the action key; a catch asks first)
   rotate: bus => bus.emit('rotateBuild'),
   interact: bus => bus.emit('interact'),

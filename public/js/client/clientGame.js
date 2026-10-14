@@ -201,15 +201,22 @@ class ClientGame {
   latestDrops() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.drops) || this.welcomeDrops || {}; }
   latestBoats() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.boats) || this.welcomeBoats; }
   /** What the interact button would do right now: 'Exit' | 'Pick' | 'Board' | 'Drink' | 'Fill' | null (nearest wins). */
-  interactHint() {
+  interactHint(skip = []) {
     if (!this.local) return null;
     if (this.local.boat) return 'Exit';
     if (Downed.isDown(this.local)) return null;                                       // on your knees: only snacks
     const ally = Downed.findAlly(this.latestPlayers(), this.local, this.myId);          // a teammate down beside you
     if (ally) return ally.label;
     const action = Interactions.find(this.map, this.latestBoats(), this.local, this.heldItemId(), this.latestAnimals(), this.myId, this.npcs, this.latestDrops());
-    return action ? action.label : null;
+    return action && !skip.includes(action.kind) ? action.label : null;
   }
+  /** The stall button: the nearest stall within reach ({ name, fx, fy }), else null. It opens that stall's menu. */
+  stallHint() {
+    const L = this.local; if (!L || L.mount || L.boat || L.asleep || Downed.isDown(L)) return null;
+    const [hit] = Stable.stallsNear(this.map, L);
+    return hit ? { name: Stable.stallName(this.map, hit.f), fx: hit.f.x, fy: hit.f.y } : null;
+  }
+  openStall() { const h = this.stallHint(); if (h) this.net.sendCommand({ type: 'openStall', fx: h.fx, fy: h.fy }); }
 
   /* ---- letting go: its OWN button, never the action button. A caught wild pony asks first. ---- */
   /** The animal the Let go / Untie button would act on right now (or null). */

@@ -21,7 +21,7 @@ class StableUI {
     const kind = type => (AnimalDefs[type] ? AnimalDefs[type].name : '');
     const sexTag = o => { if (!o.sex) return ''; const s = PonyLook.sexInfo(o.sex); return `<span class="stSex ${o.sex === 'f' ? 'f' : 'm'}" title="${s.name}" aria-label="${s.name}">${s.symbol}</span>`; };
     const inside = menu.inside || (menu.mode === 'out' ? menu.options : []), addable = menu.addable || (menu.mode === 'in' ? menu.options : []), cap = menu.cap || 1, care = menu.care;
-    this.title.textContent = `Stall (${inside.length + (menu.others || 0)}/${cap})`;
+    this.title.textContent = `${menu.name || 'Stall'} (${inside.length + (menu.others || 0)}/${cap})`;
     const bar = (cls, icon, v) => `<div class="stBar ${cls}" title="${v}%"><b>${icon}</b><i><u style="width:${Math.max(0, Math.min(100, v))}%"></u></i></div>`;
     const stats = o => (o.care ? `<div class="stStats">${bar('hun', '\uD83C\uDF4E', o.care[0])}${bar('thi', '\uD83D\uDCA7', o.care[1])}${bar('hap', o.care[2] < 30 ? '\u2639' : '\u263A', o.care[2])}<span class="stHearts" title="Friendship">\u2665 ${o.care[3]}</span></div>` : '');
     const row = (o, act) => `<div class="stCard ${o.sex === 'f' ? 'f' : o.sex ? 'm' : ''}">` +

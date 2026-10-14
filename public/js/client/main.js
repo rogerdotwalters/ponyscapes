@@ -29,7 +29,7 @@ function setupFullscreenButton(button) {
 
 function collectLayoutDom(game) {
   const dom = { coinPanel: $('coinPanel'), controlsPanel: $('controlsPanel'), controlsBody: $('controlsBody'), dialoguePanel: $('dialoguePanel'), puzzlePanel: $('puzzlePanel'), stablePanel: $('stablePanel'), stableBody: $('stableBody'), isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnApple: $('btnApple'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), posterPanel: $('posterPanel'), posterBody: $('posterBody'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), energy: $('energyBar'), clock: $('clock'), season: $('seasonBar') };
-  ['btnMenu', 'btnCoins', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide'].forEach(id => { dom[id] = $(id); });
+  ['btnMenu', 'btnCoins', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
 
@@ -62,7 +62,7 @@ function launch(choice, query) {
     const keyboard = new KeyboardInput(bus);
     const touch = new TouchControls(bus, {
       root: $('touchUI'), zone: $('joyZone'), base: $('joyBase'), knob: $('joyKnob'),
-      btnBag: $('btnBag'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility'), btnLasso: $('btnLasso'), btnLeash: $('btnLeash'), btnRide: $('btnRide')
+      btnBag: $('btnBag'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility'), btnLasso: $('btnLasso'), btnLeash: $('btnLeash'), btnRide: $('btnRide'), btnStall: $('btnStall')
     });
     const input = new InputController({ bus, keyboard, touch });
     const appleButton = new AppleButton({ root: $('btnApple'), game, bus });
@@ -173,6 +173,7 @@ function launch(choice, query) {
     game.events.on('confirmRelease', e => confirmUI.ask(e));
     game.events.on('stallMenu', e => stableUI.show(e));
     game.events.on('deskMenu', e => stableUI.showDesk(e));
+    bus.on('openStall', () => game.openStall());                  // the stall button: that stall's menu
     bus.on('leashPony', () => game.leashPony());                  // the Leash button: a lasso for a pony that is already yours
     bus.on('ridePony', () => game.toggleRide());                 // the Ride button: its own button, never shared with Board / Feed / Pick
     bus.on('toggleEmotes', () => emoteUI.toggle());
@@ -205,7 +206,7 @@ function launch(choice, query) {
     if (weatherParam && adapter.server && Weather.TYPES[weatherParam]) setTimeout(() => adapter.server.weather.force(weatherParam), 300);     // ?weather=thunderstorm: start under that sky (testing)
     window.ponyscapes = { coinBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
 
-    let rideShown = null, leashShown = null, appleShown = null, lassoShown = null, attackShown = false, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
+    let stallShown = null, rideShown = null, leashShown = null, appleShown = null, lassoShown = null, attackShown = false, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
     /** The ridden pony's rarity abilities: a strip above the vitals (desktop) and the power button (touch), with cooldowns. */
     const showAbilities = () => {
       const list = game.abilityState(), text = list.map(a => `${a.ability.glyph} ${a.ability.name}${a.cooldown > 0 ? ' ' + Math.ceil(a.cooldown) + 's' : ''}`);
@@ -253,7 +254,9 @@ function launch(choice, query) {
         if (hasPony !== appleShown) { appleShown = hasPony; $('btnApple').style.display = hasPony ? '' : 'none'; }
         const hasLasso = !!(game.local && game.local.gear && game.local.gear.lasso);
         if (hasLasso !== lassoShown) { lassoShown = hasLasso; $('btnLasso').style.display = hasLasso ? '' : 'none'; }
-        const interactHint = game.interactHint();
+        const stall = game.stallHint(), stallKey = stall ? stall.name : '';                                                  // the stall button: wears the name of the stall beside you
+        if (stallKey !== stallShown) { stallShown = stallKey; $('btnStall').style.display = stall ? '' : 'none'; $('btnStall').textContent = stallKey; }
+        const interactHint = game.interactHint($('touchUI').hidden ? [] : ['stall']);
         if (interactHint !== interactShown) { interactShown = interactHint; $('btnBoard').style.display = interactHint ? '' : 'none'; $('btnBoard').textContent = shortVerb(interactHint || ''); $('btnBoard').title = interactHint || ''; }
       }
     });

@@ -37,6 +37,12 @@ const Stable = {
     const f = L && L.furniture.find(g => (FurnitureDefs.get(g.id) || {}).gate && g.x >= stall.x && g.x < stall.x + stall.w && g.y === stall.y + stall.h);
     return f ? { f, open: !!(map.isGateOpen && map.isGateOpen(f.x, f.y)) } : null;
   },
+  /** Every stall has a name of its own (the button that opens its menu wears it): by its place in the stable's layout. */
+  NAMES: ['Meadow', 'Clover', 'Willow', 'Maple', 'Sunny', 'Breeze', 'Hazel', 'Juniper', 'Poppy', 'Rowan', 'Thistle', 'Bramble'],
+  stallName(map, f) {
+    const L = Stable.layoutOf(map), i = L ? L.furniture.filter(g => (FurnitureDefs.get(g.id) || {}).stall).findIndex(g => g.x === f.x && g.y === f.y) : -1;
+    return i < 0 ? 'Stall' : Stable.NAMES[i % Stable.NAMES.length] + (i >= Stable.NAMES.length ? ' ' + (Math.floor(i / Stable.NAMES.length) + 1) : '');
+  },
   key: (grid, f) => `${grid}|${f.x},${f.y}`,
   /** The grid and tile of a stall key. */
   parseKey(key) { const m = /^(room:[0-9:]{1,24})\|(\d{1,3}),(\d{1,3})$/.exec(key || ''); return m ? { grid: m[1], x: +m[2], y: +m[3] } : null; },
@@ -104,8 +110,8 @@ function findStall(map, p, heldItemId, animals = {}, selfId = p.id) {
   if (!hit) return null;
   const occs = Stable.occupants(animals, p, hit.f), occ = occs.filter(o => o.owner === selfId && !Stable.locked(o)).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
   if (occ && ItemDB.isApple(heldItemId) && Math.hypot(occ.x - p.x, occ.y - p.y) <= Stable.FEED_REACH) return { kind: 'stallFeed', label: `Feed ${Stable.nameOf(occ)}`, dist: hit.dist - 0.5, animal: occ };
-  const label = !occs.length ? 'Stable a pony' : occs.length < Stable.CAPACITY ? 'Stall: add or take out' : 'Take a pony out';
-  return { kind: 'stall', mode: occs.length ? 'out' : 'in', label, dist: hit.dist, fx: hit.f.x, fy: hit.f.y };
+  const name = Stable.stallName(map, hit.f), label = `${name}: ${!occs.length ? 'stable a pony' : 'stable menu'}`;
+  return { kind: 'stall', mode: occs.length ? 'out' : 'in', label, name, dist: hit.dist, fx: hit.f.x, fy: hit.f.y };
 }
 Interactions.extra.push(findStall);
 InteractionHandlers.stall = (server, id, p, action) => server._useStall(id, p, action);
@@ -126,6 +132,12 @@ Object.assign(GameServer.prototype, {
     this._notice(id, `${Stable.nameOf(a)} is on a leash`);
   },
 
+  /** The stall button (client: the one wearing the stall's name): open that stall's menu. */
+  _openStall(id, cmd) {
+    const p = this.players[id]; if (!p || p.asleep || p.down > 0 || p.hp <= 0) return;
+    this._useStall(id, p, { fx: cmd.fx | 0, fy: cmd.fy | 0 });
+  },
+
   /** The interact key at a stall: send the menu (the gate, and the ponies you could put in, or the ponies you could take out). */
   _useStall(id, p, action) {
     const hit = this._roomPiece(p, action, d => d.stall); if (!hit) return;
@@ -137,7 +149,7 @@ Object.assign(GameServer.prototype, {
     if (care) { cap = this._stallCap(inside); addable = inside.length >= cap || breeding ? [] : this._guestsFor(inside, Stable.leashed(animals, p, id)); }       // (one pony per stall; a second only to breed)
     else if (breeding) addable = [];
     // (options / mode: the old single menu; inside / addable / cap: the whole stall at once, for the shared stall's menu)
-    this.pendingEvents.push({ type: 'stallMenu', to: id, mode, fx: f.x, fy: f.y, gate: gate ? { open: gate.open } : null, options: list.map(Stable.describe),
+    this.pendingEvents.push({ type: 'stallMenu', to: id, mode, fx: f.x, fy: f.y, name: Stable.stallName(this.mapOf(p), f), gate: gate ? { open: gate.open } : null, options: list.map(Stable.describe),
       inside: inside.filter(a => a.owner === id).map(a => Stable.describe(a, id)), others: inside.filter(a => a.owner !== id).length, addable: addable.map(a => Stable.describe(a, id)), cap,
       breed: this._breedInfo(id, p, f, inside), care: this._careMenu(id, p, f, inside) });
   },

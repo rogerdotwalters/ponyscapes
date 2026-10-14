@@ -104,4 +104,15 @@ test('breeding: exactly a stallion and a mare alone in a stall; the bar fills; a
   assert(r.foalOut, 'the foal is born outside the stall'); assert(!r.canRide, 'a foal cannot be ridden yet');
   assert.strictEqual(r.again, 1, 'they can breed again once rested'); assert.strictEqual(r.cancelled, 1, 'a third pony is refused, the breeding goes on'); assert(!r.thirdIn);
 });
+test('every stall has a name of its own, shown on the stall button and in its menu', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+    S.interiors.enter(A, P, BuildingSites.list.find(x => x.def.id === 'pony_stable').index);
+    const map = S.mapOf(P), stalls = map.plan.layout.furniture.filter(g => g.id === 'stall'), names = stalls.map(f => Stable.stallName(map, f));
+    const f = stalls[1]; P.x = f.x + 1.5; P.y = f.y + 5.5; S.pendingEvents.length = 0; S._openStall(A, { fx: f.x, fy: f.y });
+    const menu = S.pendingEvents.find(e => e.type === 'stallMenu'), near = Stable.stallsNear(map, P)[0];
+    return JSON.stringify({ n: names.length, unique: new Set(names).size, menuName: menu && menu.name, hint: near && Stable.stallName(map, near.f), label: findStall(map, P, '', {}, A).label });
+  })()`));
+  assert.strictEqual(r.n, 12); assert.strictEqual(r.unique, 12, 'twelve different names'); assert(r.menuName && r.menuName === r.hint, JSON.stringify(r)); assert(r.label.startsWith(r.menuName));
+});
 console.log(passed + ' passed');

@@ -897,3 +897,6 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 #stableBody .stAuto{border-color:#5aa9e6;background:rgba(25,70,120,.7);color:#d6ecff}
 #stableBody .stOn{border-color:#7cc66a;background:rgba(30,80,30,.4);color:#d8f5cc;opacity:.9}
 #stableBody button:disabled:not(.stOn){opacity:.5;border-color:rgba(227,194,122,.35);background:rgba(15,28,43,.55);color:#cdbd96}
+
+/* the stall button: a pill wearing the name of the stall beside you (stableSystem.js) */
+#btnStall{border-radius:14px !important;font:700 13px Georgia,serif;border-color:#e3b04a;background:rgba(140,95,20,.78);color:#fff0c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px}

@@ -35,13 +35,14 @@ function layoutTouchControls({ k, left, right, bottom, m, w, h, topUsed }) {
   const lasso = makeRect(ability.x - g - small, ability.y, small, small);    // throw the lasso in the lasso slot, beside it
   const leash = makeRect(lasso.x - g - small, ability.y, small, small);      // put your own pony on a leash (a lasso for a pony that is already yours)
   const apple = makeRect(leash.x - g - small, ability.y, small, small);      // the Apple button (give your pony an apple), at the end of that row
-  const cluster = unionRect([useRect, bag, board, rot, ride, release, ability, lasso, leash, apple]);
+  const stall = makeRect(right - small * 2 - g, ability.y - g - small, small * 2 + g, small);   // the stall button: wears the stall's name, above the ability row
+  const cluster = unionRect([useRect, bag, board, rot, ride, release, ability, lasso, leash, apple, stall]);
   const baseSize = Math.round(108 * k);
   const base = makeRect(left + Math.round(6 * k), bottom - baseSize - Math.round(4 * k), baseSize, baseSize);
   const zoneTop = Math.max(h * 0.38, topUsed);
   const zoneRight = Math.min(Math.max(w * 0.42, base.x + base.w + m), cluster.x - m);
   const zone = makeRect(0, zoneTop, zoneRight, h - zoneTop);
-  return { use: useRect, bag, board, rot, ride, release, ability, lasso, leash, apple, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
+  return { use: useRect, bag, board, rot, ride, release, ability, lasso, leash, apple, stall, cluster, base, zone, baseRadius: Math.round(baseSize * 0.5) };
 }
 
 /**
@@ -262,7 +263,7 @@ class UiLayout {
 
     if (L.touch) {
       const T = L.touch;
-      for (const [id, r] of [['btnAct', T.use], ['btnBag', T.bag], ['btnBoard', T.board], ['btnRot', T.rot], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnLeash', T.leash], ['btnRide', T.ride]]) {
+      for (const [id, r] of [['btnAct', T.use], ['btnBag', T.bag], ['btnBoard', T.board], ['btnRot', T.rot], ['btnRelease', T.release], ['btnAbility', T.ability], ['btnLasso', T.lasso], ['btnLeash', T.leash], ['btnRide', T.ride], ['btnStall', T.stall]]) {
         place(dom[id], r); dom[id].style.fontSize = Math.max(11, Math.round(r.w * 0.19)) + 'px';
       }
       this.touchControls.applyLayout(T);
