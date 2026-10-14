@@ -51,7 +51,7 @@ class PixiLighting {
     lights.forEach((l, i) => {                                                                     // a warm glow on top of the cut-outs
       let s = this.glowSprites[i];
       if (!s) { s = new PIXI.Sprite(this.glowTex); s.anchor.set(0.5); s.blendMode = 'add'; this.glowSprites[i] = s; this.glows.addChild(s); }
-      const look = LIGHT_LOOK[l.kind] || LIGHT_LOOK.torch, [r, g, b] = look.rgb;
+      const look = LIGHT_LOOK[l.kind] || LIGHT_LOOK.torch, [r, g, b] = l.rgb || look.rgb;
       s.visible = true; s.position.set(l.x, l.y); s.width = 2 * 0.9 * l.radius; s.height = 2 * 0.9 * l.radius * 0.5;
       s.tint = (r << 16) | (g << 8) | b; s.alpha = Math.min(1, look.glow * l.flick);
     });

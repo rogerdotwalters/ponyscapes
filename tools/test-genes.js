@@ -96,4 +96,13 @@ test('black and silver are recessive: carriers do not show them, two carriers so
   assert(wild > 0 && wild < 150, 'wild black and silver ponies are rare: ' + wild); assert(carried > wild, 'carriers are commoner than the ponies that show it');
   void nM;
 });
+test('auras take the colour of the pony\'s mane (a grey mane borrows the coat), as css and as rgb for a night-light pony', () => {
+  const hue = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return [r, g, b]; };
+  for (let g = 0; g < 60; g++) { const d = J(`PonyLook.describe(PonyLook.fromGene(${g}, ${g % 18}))`); assert(/^#[0-9a-f]{6}$/.test(d.aura), d.aura); }
+  const red = hue(run("PonyGenes.auraColor('#e53935', '#f4eef7')")); assert(red[0] > red[1] && red[0] > red[2], 'a red mane: a red aura');
+  const blue = hue(run("PonyGenes.auraColor('#1e88e5', '#f4eef7')")); assert(blue[2] > blue[0] && blue[2] > blue[1], 'a blue mane: a blue aura');
+  const grey = hue(run("PonyGenes.auraColor('#cbd5e1', '#7ec0ea')")); assert(grey[2] > grey[0], 'a silver mane on a blue coat: blue-ish');
+  const rgb = J('PonyLook.auraRgb(PonyLook.fromGene(3, 0))'); assert(rgb.length === 3 && rgb.every(v => v >= 0 && v <= 255));
+  const a = J('PonyLook.describe(PonyLook.fromGene(3, 7)).aura'), b = J('PonyLook.describe(PonyLook.fromGene(4, 7)).aura'); assert(a && b);
+});
 console.log(passed + ' passed');

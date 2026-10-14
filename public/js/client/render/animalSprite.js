@@ -55,8 +55,8 @@ class AnimalSprite {
     const ctx = this.g.ctx, def = AnimalDefs[animal.type], look = this._look(animal.look);
     if (look.glow || def.mystical) {                                                              // (only a glowing or magical pony needs the shifted origin)
       ctx.save(); ctx.translate(sx, sy);
-      if (look.glow) this._glow(look.glow, now);
-      if (def.mystical) this.g.ellipse(0, -22, 30, 24, `rgba(255,240,255,${0.10 + 0.04 * Math.sin(now / 500)})`);
+      if (look.glow) this._glow(look.aura, now);                                                // (in the colour of its mane)
+      if (def.mystical) this.g.ellipse(0, -22, 30, 24, this._rgba(look.aura, 0.10 + 0.04 * Math.sin(now / 500)));
       ctx.restore();
     }
     PixelPony.draw(ctx, look, dir, sx, sy, { moving: speed > 0.2, phase: st.phase, now, seed: seed * 0.13, lift: animal.lift, flying: !!animal.flying,

@@ -72,7 +72,7 @@ class Lighting {
     ctx.drawImage(layer, 0, 0);
     ctx.globalCompositeOperation = 'lighter';                         // a warm glow on top of the cut-outs
     for (const l of lights) {
-      const look = LIGHT_LOOK[l.kind] || LIGHT_LOOK.torch, [r, g, b] = look.rgb;
+      const look = LIGHT_LOOK[l.kind] || LIGHT_LOOK.torch, [r, g, b] = l.rgb || look.rgb;
       ctx.save(); ctx.translate(l.x, l.y); ctx.scale(1, 0.5);
       const gr = ctx.createRadialGradient(0, 0, 2, 0, 0, l.radius * 0.9);
       gr.addColorStop(0, `rgba(${r},${g},${b},${(look.glow * l.flick).toFixed(3)})`); gr.addColorStop(0.5, `rgba(${r},${g},${b},${(look.glow * 0.35 * l.flick).toFixed(3)})`); gr.addColorStop(1, `rgba(${r},${g},${b},0)`);

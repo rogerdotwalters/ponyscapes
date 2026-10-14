@@ -142,7 +142,7 @@ class Renderer {
     const lights = found.map(l => {
       const [x, y] = toScreen(l.x, l.y, l.kind === 'torch' ? 24 : l.kind === 'lantern' ? 30 : l.kind === 'pony' ? 22 : 6);
       const flick = lightFlicker(l.kind, l.x, l.y, performance.now());                // the flame's brightness; the pool of light breathes with it
-      return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * (1 + (flick - 1) * 0.5), kind: l.kind, flick };
+      return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * (1 + (flick - 1) * 0.5), kind: l.kind, flick, rgb: l.look ? PonyLook.auraRgb(l.look) : undefined };   // (a pony's light shines in its own colour)
     });
     this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, this.game.map.kind === 'cave' || this.game.map.kind === 'dungeon' ? 0 : this.game.map.kind === 'room' ? 12 : this.game.hour(), px, py, s, lights);
     this.camera.applyTransform(this.ctx);
