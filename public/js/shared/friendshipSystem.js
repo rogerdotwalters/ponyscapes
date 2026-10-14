@@ -25,6 +25,7 @@ class FriendshipSystem {
   act(pid, being, act, itemId = '') {
     const S = this.s, C = CONFIG.sim.friendship, p = S.players[pid], inv = S.inventories[pid];
     if (!p || !being || !being.befriendable) return null;
+    if (typeof Stable !== 'undefined' && Stable.locked(being)) { S._notice(pid, `${Stable.nameOf(being)} is busy breeding`); return null; }
     const name = being.name || being.def.name, person = being.kind === 'person', cool = C.cooldowns[act === 'feed' ? 'feed' : act];
     let points, spend = false, line = '';
     if (act === 'talk') { line = being.lineFor(pid, p.name || 'friend'); S.npcs.speak(being, line); points = C.gains.talk; }

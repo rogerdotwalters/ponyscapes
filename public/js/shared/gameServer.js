@@ -73,7 +73,7 @@ class GameServer {
     this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
     this.weather = new WeatherSystem(this);                                 // the sky (weather.js): rain waters the fields, lightning strikes
-    this.settings = { hostilesOff: false, testPony: false, botPlayer: false, bearDefeated: false, castleRestored: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
+    this.settings = { hostilesOff: false, testPony: false, ponyCare: false, botPlayer: false, bearDefeated: false, castleRestored: false, difficulty: CONFIG.sim.difficulty.default }; this.settingsRev = 1; this.settingsSentRev = {}; this.adminRev = 1; this.adminSentRev = {}; this.testPonyId = '';      // the host's testing aids
     this.leashLog = {};                                    // ownerId -> { animalType: times you have put a rope on one }: kept for quests (saved with the character)
     this.breeding = {};                                    // stall key -> { owner, ids: [two ponies], t }: a pair breeding in a stall (stableSystem.js)
     this.posterCoins = {};                                 // ownerId -> { varietyId: how many }: the pony coins pinned on the Coin Poster at home (ponyPoster.js)
@@ -274,6 +274,7 @@ class GameServer {
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
       case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
+      case 'deskPick': this._deskPick(id, cmd); break;                                                        // a button in the stable desk's menu (ponyCare.js)
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
@@ -628,7 +629,7 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
-    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this._breedTick(TICK_DT);
+    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this._breedTick(TICK_DT); this._careTick(TICK_DT);
     this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick); this.quests.update(this.tick);
     if (this.tick % 4 === 0) this._gatherCoins();                                     // coins on the ground jump into purses nearby
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)
@@ -873,6 +874,7 @@ class GameServer {
   applySetting(key, value) {
     if (key === 'hostilesOff') { this.settings.hostilesOff = value; this.animals.hostilesOff = value; }
     else if (key === 'testPony') { this.settings.testPony = value; this._setTestPony(value); }
+    else if (key === 'ponyCare') this.settings.ponyCare = !!value;                         // food, water, happiness and running away (ponyCare.js)
     else if (key === 'botPlayer') this.settings.botPlayer = this.bots.set(value);
     else if (key === 'bearDefeated') this._setBearDefeated(value);
     else if (key === 'castleRestored') this.interiors.setRestored('castle', !!value);        // (a testing aid: the village restores the castle for everyone, or lets it fall to ruin again)

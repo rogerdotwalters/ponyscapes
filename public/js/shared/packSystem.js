@@ -79,6 +79,7 @@ Object.assign(GameServer.prototype, {
     if (!valid(src, from.i) || !src.slots[from.i]) return;
     if (src === dst) { if (src.move(from.i, to.i)) this.inventoryRev[id]++; return; }
     const stack = src.slots[from.i];
+    if (dst.only === 'ponyCoins' && PonyCoins.varietyOf(stack.id) === null) { this._notice(id, 'The stable desk keeps only pony coins'); return; }
     if (!(to.i >= 0)) {                                                             // "to the pony" / "to my bag": top up stacks, then a free slot
       dst.limitHit = null;
       const left = dst.add(stack.id, stack.count);

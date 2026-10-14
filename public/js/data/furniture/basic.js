@@ -27,6 +27,8 @@ FurnitureDefs.registerAll([
   { id: 'dye_press', name: 'Dye Press', size: [1, 1], solid: true, height: 34, style: 'press', press: true, colors: { wood: '#7a5233', light: '#a8763f', iron: '#5a5a66', tub: '#6d4c2f' } },
   /* ---- the stable (data/buildings/pony_stable.js, shared/stableSystem.js): a stall holds one pony; walk up and press the interact key ---- */
   { id: 'stall', name: 'Stall', size: [4, 4], solid: false, stall: true, height: 24, style: 'stall', colors: { wood: '#8a5f33', post: '#6d4c2f', hay: '#e0c46c' } },
+  /* the stable desk (shared/ponyCare.js): the bank for your pony coins and the office where tanks and stalls are bought */
+  { id: 'stable_desk', name: 'Stable Desk', size: [2, 1], solid: true, height: 26, style: 'counter', desk: true, container: { slots: 20, only: 'ponyCoins' }, colors: { top: '#d9b45a', front: '#6d4c2f', trim: '#3a281a' } },
   /* a gate in the front wall of a stall (it blocks while shut; the stall menu opens and closes it: js/shared/stableSystem.js) */
   { id: 'stall_gate', name: 'Stall Gate', size: [1, 1], solid: true, gate: true, height: 22, style: 'stall_gate', colors: { wood: '#a8763f', post: '#6d4c2f' } },
   /* ---- the Coin Poster (shared/ponyPoster.js): hangs on a wall; open it and press the pony coins you have found onto it, one per pony variety ---- */

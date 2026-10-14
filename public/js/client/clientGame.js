@@ -263,6 +263,7 @@ class ClientGame {
   hasPony() { return this.pets.some(p => !p.gentling); }
   /** A choice in the stable's menu. */
   stallPick(cmd) { this.net.sendCommand(Object.assign({ type: 'stallPick' }, cmd)); }
+  deskPick(cmd) { this.net.sendCommand(Object.assign({ type: 'deskPick' }, cmd)); }                    // the stable desk's menu (ponyCare.js)
   _animalName(animal) { return animal.look ? PonyLook.describe(animal.look).name : AnimalDefs[animal.type].name; }
   /** Pressed the Let go button / U. Untying an animal you already own is safe; letting go of a catch opens the confirmation. */
   requestRelease() {

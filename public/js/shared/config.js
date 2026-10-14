@@ -60,6 +60,24 @@ const CONFIG = {
      *  `arriveChance` / `leaveChance` = each morning's chance for a free place to be taken / for a pony to move on. They appear `spawnMin`..`spawnMax` tiles from a player, and leave
      *  only once nobody is within `hideDistance`. */
     wildPonies: { perBiome: 3, startFill: 0.4, arriveChance: 0.6, leaveChance: 0.3, morningHour: 6, spawnMin: 18, spawnMax: 40, hideDistance: 24, samples: 3 },
+    /** Pony care (shared/ponyCare.js), switched on by the host (Dev settings > Pony care; off by default so it can be tested and tuned). Every owned pony gets hungry and thirsty; a stalled pony eats and
+     *  drinks from the bowls of ITS OWN stall (one pony per stall; a breeding guest makes two). Fed and watered ponies get happier; a pony unhappy for too long loses friendship, and one that keeps losing it
+     *  while still unhappy runs away. Everything is per second of game time. Costs are in PONY COINS (any variety) taken from the stable desk's bank.
+     *  Levels are arrays: index = level. Bowl `size` = units the bowl holds (1 unit fills 1 point of hunger / thirst). Upgrade `cost[n]` = the price of going from level n-1 to n. */
+    ponyCare: {
+      hunger: { max: 100, drain: 0.04 }, thirst: { max: 100, drain: 0.06 },          // hunger empties in ~42 min, thirst in ~28 min
+      outside: { drainFactor: 1, drinkRange: 2.2, drinkPerSecond: 10 },                // a pony out of its stall still drains; beside water it drinks by itself
+      eatBelow: 70, eatPerSecond: 3,                                                    // a stalled pony tops itself up from its bowl once below this, this many points a second
+      appleFood: 30, jugWater: 40,                                                      // hand-feeding: an apple restores this much hunger / fills this many units of a bowl; a jug of water fills a bowl by this much (a watering can: no limit)
+      appleBowl: 20,
+      happiness: { start: 70, low: 30, riseFed: 0.08, fall: 0.12, fallEmpty: 0.3, fedAbove: 50, hungryBelow: 25, comfort: [0, 0.25, 0.5, 0.8] },   // comfort level multiplies the rise
+      neglect: { seconds: 120, every: 60, friendLoss: 6, runAfter: 3, recoverAbove: 45 },   // unhappy this long (s): friendship drops every `every` s; after `runAfter` drops while still unhappy it runs away
+      foodBowl:  { size: [40, 80, 160, 320], cost: [0, 3, 8, 20] },
+      waterBowl: { size: [60, 120, 240, 480], cost: [0, 3, 8, 20] },
+      comfort:   { cost: [0, 4, 10, 24] },                                              // level 0-3: bedding, raises how fast a fed pony gets happier
+      auto: { cost: 12, refillPerSecond: 3 },                                          // automate one stall's food / water (needs a tank with room)
+      tank: { supply: [0, 2, 4, 6], maxCount: 4, buy: [0, 10, 18, 30], upsize: [0, 16, 28] }   // a tank feeds `supply[size]` stalls; you may own up to maxCount of them; buy = a tank of that size, upsize[n] = size n -> n+1 (all tanks)
+    },
     drops: { max: 400, pickupRange: 1.3, gatherRange: 2.6, coinRange: 1.1, throwRange: 4 },             // items dropped on the ground (kept in the world save)
     // Animal levels rise with distance from the ORIGIN (the starting village): one level per `tilesPerLevel` tiles, on top of each species' own base level
     levels: { origin: { x: 20.5, y: 26.5 }, tilesPerLevel: 60, max: 99 },     // zones are wide: one level per 60 tiles

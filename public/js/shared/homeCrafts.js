@@ -101,7 +101,7 @@ Interactions.extra.push(findHomeCraft);
 
 /** The chest or wardrobe within reach of p, nearest first (or null). */
 function findStorageFurniture(map, p) {
-  const [hit] = HomeCrafts.near(map, p, def => def.container || def.wardrobe);
+  const [hit] = HomeCrafts.near(map, p, def => (def.container && !def.desk) || def.wardrobe);      // (the stable desk has its own menu: ponyCare.js)
   if (!hit) return null;
   const { f, def, dist } = hit;
   if (p.asleep) return null;                                                                          // (in bed, the button is Get up)

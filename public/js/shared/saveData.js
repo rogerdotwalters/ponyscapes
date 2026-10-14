@@ -27,6 +27,22 @@ const SaveData = {
     return out;
   },
   _plain: v => v !== null && typeof v === 'object' && !Array.isArray(v),
+  /** The stable care state of a world save (ponyCare.js): { roomGrid: { tanks, stalls } }, cleaned. */
+  careState(raw) {
+    const out = {}, P = SaveData._plain, N = SaveData._num, I = SaveData._int, C = CONFIG.sim.ponyCare, tank = t => (P(t) ? { size: I(t.size, 0, C.tank.supply.length - 1, 0), count: I(t.count, 0, C.tank.maxCount, 0) } : { size: 0, count: 0 });
+    if (!P(raw)) return out;
+    for (const [grid, room] of Object.entries(raw).slice(0, 200)) {
+      if (!/^room:[0-9:]{1,24}$/.test(grid) || !P(room)) continue;
+      const r = { tanks: { water: tank(room.tanks && room.tanks.water), food: tank(room.tanks && room.tanks.food) }, stalls: {} };
+      if (!r.tanks.water.count) r.tanks.water.size = 0; if (!r.tanks.food.count) r.tanks.food.size = 0;
+      for (const [key, s] of Object.entries(P(room.stalls) ? room.stalls : {}).slice(0, 64)) {
+        if (!/^\d{1,3},\d{1,3}$/.test(key) || !P(s)) continue;
+        r.stalls[key] = { fl: I(s.fl, 0, C.foodBowl.size.length - 1, 0), wl: I(s.wl, 0, C.waterBowl.size.length - 1, 0), cl: I(s.cl, 0, C.comfort.cost.length - 1, 0), food: N(s.food, 0, 1e4, 0), water: N(s.water, 0, 1e4, 0), af: s.af === true, aw: s.aw === true };
+      }
+      out[grid] = r;
+    }
+    return out;
+  },
   /** One plot of a field (farming.js). `legacy`: a half-tile plot of an older save (a crop in it was planted and covered). */
   _plot(f, legacy) {
     if (!SaveData._plain(f)) return Farming.newCell();
@@ -162,6 +178,7 @@ const SaveData = {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     return Object.assign({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
       foal: Number.isFinite(q.foal) && q.foal > 0 ? N(q.foal, 0, Stable.FOAL_SECONDS, 0) : undefined, breedRest: Number.isFinite(q.breedRest) && q.breedRest > 0 ? N(q.breedRest, 0, Stable.BREED_REST, 0) : undefined,
+      care: Array.isArray(q.care) && q.care.length === 5 && q.care.every(Number.isFinite) ? [N(q.care[0], 0, 100, 100), N(q.care[1], 0, 100, 100), N(q.care[2], 0, 100, 70), N(q.care[3], 0, 1e5, 0), N(q.care[4], 0, 99, 0)] : undefined,
       friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null }, SaveData._pack(q, look));
   },
   /** A pony's saved bags and pack, cleaned: { bags: [bag id | ''], pack: [slot] } (only pony bags, no more bags than it has slots for, and a pack
