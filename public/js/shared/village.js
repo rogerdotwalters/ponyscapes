@@ -10,7 +10,7 @@ const Village = (() => {
   const HOME_SITE = BuildingSites.list.find(s => s.def.instance === 'player');           // the buildings themselves are BuildingSites (data: js/data/buildings/)
   const HOME = HOME_SITE ? { x0: HOME_SITE.x0, y0: HOME_SITE.y0, x1: HOME_SITE.x1, y1: HOME_SITE.y1 } : { x0: 14, y0: 30, x1: 17, y1: 32 };   // the player home
   const WORKSHOP = { x: 19, y: 31 };                                   // the open-air crafting table in the home's yard (the testing version builds it)
-  const PADDOCK = { x0: 21, y0: 31, x1: 26, y1: 35 };                  // the starter fenced paddock (with a stable inside), east of the home
+  const PADDOCK = { x0: 21, y0: 31, x1: 26, y1: 35 };                  // the starter paddock area (the stable; no fence), east of the home
   const SPAWNS = [{ x: 19.5, y: 25.5 }, { x: 21.5, y: 25.5 }, { x: 19.5, y: 27.5 }, { x: 21.5, y: 27.5 }];
   const INFLUENCE_FALLOFF = 16;                       // tiles over which natural terrain is lifted above sea level
 
