@@ -76,4 +76,12 @@ test('breeding: two water ponies have a water pony foal; a water and a meadow po
     } return out; })()`)));
   assert.strictEqual(foals.pure, 40); assert.strictEqual(foals.mixOk, foals.n);
 });
+test('dev spawner: any kind or a random one, each pony with a fully random look, owned by the host', () => {
+  const r = JSON.parse(JSON.stringify(run(`(() => { const S = new GameServer(3), A = S.addPlayer(); S.hostId = A;
+    const before = Object.keys(S.animals.animals); S._devSpawnPonies('pony_star', 1); S._devSpawnPonies('random', 12);
+    const fresh = Object.values(S.animals.animals).filter(a => !before.includes(a.id)), types = new Set(fresh.map(a => a.type)), looks = new Set(fresh.map(a => PonyLook.describe(a.look).gene.key));
+    const star = fresh.find(a => a.type === 'pony_star');
+    return { n: fresh.length, owned: fresh.every(a => a.owner === A), types: types.size, looks: looks.size, starVariant: PonyVariants[star.look[4]].id, valid: fresh.every(a => a.look.length === PonyGenes.LEN && a.look.every(Number.isInteger)) }; })()`)));
+  assert.strictEqual(r.n, 13); assert(r.owned && r.valid); assert(r.types >= 3 && r.looks >= 8, JSON.stringify(r)); assert.strictEqual(r.starVariant, 'star');
+});
 console.log(passed + ' passed');

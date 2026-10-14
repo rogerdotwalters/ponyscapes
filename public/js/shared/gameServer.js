@@ -272,6 +272,7 @@ class GameServer {
         }
         break;   // the Admin page: speed, day split, time (sent to everyone)
       case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
+      case 'spawnPony': if (id === this.hostId) this._devSpawnPonies(cmd.kind, cmd.count); break;                                // the host's pony spawner (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
@@ -894,6 +895,24 @@ class GameServer {
       this.dungeons.conquer(ring, 'Cave Bear', false);
     } else this.worldProgress.undefeatBoss(ring);
     this.settings.bearDefeated = this.worldProgress.isDefeated(ring);
+  }
+
+  /** Dev: `count` ponies appear round the host, theirs, each with a fully RANDOM look (every gene drawn at random, PonyGenes.randomize). `kind` is a pony kind id, or anything else for a random kind
+   *  (any kind, the sky and moon ones included; their varieties come with them, the others get a random variety). */
+  _devSpawnPonies(kind, count) {
+    const host = this.players[this.hostId];
+    if (!host) return;
+    const kinds = Object.keys(AnimalDefs).filter(k => AnimalDefs[k].pony), n = clamp(Math.round(+count) || 1, 1, 12), map = this.mapOf(host);
+    const varieties = PonyVariants.map((v, i) => i).filter(i => !PonyVariants[i].legacy && !SkyPonies.kindOfVariant(i)), names = [];
+    for (let i = 0; i < n; i++) {
+      const type = kinds.includes(kind) ? kind : kinds[Math.floor(this.rng() * kinds.length)];
+      const bound = PonyVariants.findIndex((v, j) => SkyPonies.kindOfVariant(j) === type), variant = bound >= 0 ? bound : varieties[Math.floor(this.rng() * varieties.length)];
+      const angle = (i / n) * Math.PI * 2 + this.rng(), spot = findLanding(map, host.x + Math.cos(angle) * 2.2, host.y + Math.sin(angle) * 2.2, CONFIG.sim.ride.radius);
+      const pet = this.animals.release(type, spot.x, spot.y, this.hostId, undefined, { level: AnimalDefs[type].levelBase, variant, grid: gridOf(host) });
+      pet.look = PonyGenes.randomize(this.rng, pet.look); pet.leashed = false;
+      this._remember(this.hostId, pet); names.push(PonyLook.describe(pet.look).name);
+    }
+    this._notice(this.hostId, `Spawned ${n} pon${n === 1 ? 'y' : 'ies'}: ${names.join(', ')}`);
   }
 
   /** On: a level 12 pegasus appears beside the host, theirs to ride with no Horsemanship needed. Off: it goes away (and the host is set down first). */
