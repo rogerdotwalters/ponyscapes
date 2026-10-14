@@ -16,8 +16,10 @@ const PixelPony = (() => {
   /** A pony's colours, worked out once per look (they used to be recomputed for every pony, every frame). A copy is returned: draw() sets
    *  the frame's own fields (wings, flame frame...) on it. */
   const palettes = new LruCache(500);
+  const CLASSIC = PonyGenes.phenotype([0, 0, 0, 0, 0, 0, 0]);                                    // (the genes of a plain pony: the art pack's own ponies have none)
+  const geneKey = (g = CLASSIC) => g.key + (g.tailLinked ? '' : '|' + g.tailMane.join());
   function palette(look) {
-    const key = `${look.coat}|${look.mane.join()}|${look.mark}|${look.accessory}`;
+    const key = `${look.coat}|${look.mane.join()}|${look.mark}|${look.accessory}|${geneKey(look.gene)}`;
     let p = palettes.get(key);
     if (!p) { p = makePalette(look); palettes.set(key, p); }
     return Object.assign({}, p);
@@ -25,14 +27,16 @@ const PixelPony = (() => {
   /** Every colour a pony is drawn in. The painting code below only ever uses entries of this (never works a colour out itself): that is what lets
    *  the art pack save the shapes once and colour them per pony (SlotArt, SLOTS). */
   function makePalette(look) {
-    const coat = look.coat, m = look.mane;
+    const coat = look.coat, m = look.mane, G = look.gene || CLASSIC, mkManes = a => (a.length >= 3 ? a : [a[0], a[1] || light(a[0], 0.3), light(a[1] || a[0], 0.45)]).map(tones);
     const manes = (m.length >= 3 ? m : [m[0], m[1] || light(m[0], 0.3), light(m[1] || m[0], 0.45)]).map(tones);   // (a rainbow mane has four)
     const C = {
       coat: tones(coat), muzzle: tones(mix(coat, '#f1dcc0', 0.45)), feather: tones(mix(coat, '#f6ead2', 0.6)),
-      ear: mix(coat, '#e98fa6', 0.5), eye: '#2a1810', iris: mix(m[0], '#4a2a18', 0.55),
+      ear: mix(coat, '#e98fa6', 0.5), eye: '#2a1810', iris: G.eyeColor || mix(m[0], '#4a2a18', 0.55),
+      tailManes: G.tailLinked ? manes : mkManes(G.tailMane),                                  // the tail's own colours when the tail does not have to match the mane (the genes: ponyGenes.js)
+      sh: { eye: G.eyeShape, mane: G.maneShape, tail: G.tailShape, body: G.bodyShape, hoof: G.hoofShape, head: G.headShape },
       manes, mark: look.mark, markColor: m[0], markColor2: m[1] || m[0], outline: '#24170f',
       fx: look.accessory, ff: 0, tw: 0,                                                    // the biome effect, and its flame / twinkle frame
-      hoof: look.accessory === 'flames' ? EMBER_HOOF : look.accessory === 'frost' ? ICE_HOOF : HOOF,
+      hoof: G.hoofColor ? tones(G.hoofColor) : look.accessory === 'flames' ? EMBER_HOOF : look.accessory === 'frost' ? ICE_HOOF : HOOF,
       ...(look.accessory === 'flames' ? { feather: tones(mix(coat, '#ff7043', 0.45)) } : look.accessory === 'frost' ? { feather: tones('#f2faff') } : {}),
     };
     C.coatFar = { b: C.coat.d, d: shade(C.coat.d, 0.85), l: C.coat.b };                       // the far side's legs, and the back of the head: darker
@@ -44,7 +48,8 @@ const PixelPony = (() => {
     // The painters compare colours in two places (a coat's fur texture: `c === t.b`; a wing's edge: `tip.has(c)`). If such colours coincide
     // (a pure white coat; a mane colour equal to a wing's), a picture built from marker colours would differ, so those ponies are painted live.
     const same = (t) => t.l === t.b || t.d === t.b;
-    C.liveOnly = same(C.coat) || same(C.coatFar) || same(C.feather) || same(C.muzzle)
+    // The art pack holds the CLASSIC shapes and one set of mane colours: a pony with a gene-made shape, or a tail of its own colour, is painted live.
+    C.liveOnly = Object.values(C.sh).some(v => v) || C.tailManes !== C.manes || same(C.coat) || same(C.coatFar) || same(C.feather) || same(C.muzzle)
       || [C.manes[0].b, C.manes[0].d].some(tip => [C.wing.b, C.wing.l, C.wing.d, C.wingFar.b, C.wingFar.l, C.wingFar.d].includes(tip));
     return C;
   }
@@ -128,22 +133,25 @@ const PixelPony = (() => {
   ];
 
   /** Mane and tail locks: 2-pixel-wide locks of each mane colour that wave as they fall, each with a dark edge and a shine. */
-  const lock = (C, i, y, w = 4) => {
+  const lock = (C, i, y, w = 4, set = C.manes) => {
     if (C.fx === 'flames') return fire(C, i, y, w);
     if (C.fx === 'frost' && y % 5 === 0 && (i & 1) === 0) return ICE.white;                 // frost glinting in the hair
-    const off = Math.round(Math.sin(y / 3 + i * 0.4)), band = Math.floor((i + off + 8) / 2), t = C.manes[band % C.manes.length], within = (i + off + 8) % 2;
+    const off = Math.round(Math.sin(y / 3 + i * 0.4)), band = Math.floor((i + off + 8) / 2), t = set[band % set.length], within = (i + off + 8) % 2;
     return within === 1 && y % 3 === 0 ? t.d : within === 0 && y % 4 === 1 ? t.l : t.b;
   };
 
   /** A leg from (x, top) down to the hoof: shin, a shaggy fetlock and a dark hoof. far: the far side's legs are shaded darker. */
   function leg(P, C, x, top, [dx, lift], far, thick = 4) {
     const coat = far ? C.coatFar : C.coat, feather = far ? C.featherFar : C.feather;
-    const hoofY = GROUND - 2 - lift, fet = hoofY - 3;
+    const shape = C.sh.hoof, hoofY = GROUND - 2 - lift, fet = hoofY - (shape === 1 ? 5 : 3);               // (hoof shapes, ponyGenes.js: 0 round, 1 feathered, 2 shod, 3 sleek)
     for (let y = top; y < fet; y++) { const t = (y - top) / Math.max(1, fet - top), xx = x + Math.round(dx * t); P.rect(xx, y, thick, 1, coat.b); P.px(xx + thick - 1, y, coat.d); if (y === top + 3) P.px(xx, y, coat.d); }
-    for (let y = fet; y < hoofY; y++) { P.rect(x + dx - 1, y, thick + 1, 1, feather.b); P.px(x + dx - 1, y, feather.l); P.px(x + dx + thick - 1, y, feather.d); }
-    P.px(x + dx - 2, hoofY - 1, feather.d); P.px(x + dx + thick, hoofY - 1, feather.d);                          // tufts over the hoof
+    if (shape === 3) for (let y = fet; y < hoofY; y++) { P.rect(x + dx, y, thick, 1, coat.b); P.px(x + dx + thick - 1, y, coat.d); }   // a clean, smooth fetlock
+    else for (let y = fet; y < hoofY; y++) { P.rect(x + dx - 1, y, thick + 1, 1, feather.b); P.px(x + dx - 1, y, feather.l); P.px(x + dx + thick - 1, y, feather.d); }
+    if (shape !== 3) { P.px(x + dx - 2, hoofY - 1, feather.d); P.px(x + dx + thick, hoofY - 1, feather.d); }       // tufts over the hoof
+    if (shape === 1) { P.px(x + dx - 2, hoofY - 2, feather.b); P.px(x + dx + thick, hoofY - 2, feather.b); P.px(x + dx - 2, hoofY - 3, feather.d); P.px(x + dx + thick, hoofY - 3, feather.d); }   // long feathers
     const hoof = C.hoof;
     P.rect(x + dx - 1, hoofY, thick + 1, 1, far ? hoof.b : hoof.l); P.rect(x + dx - 1, hoofY + 1, thick + 1, 2, far ? hoof.d : hoof.b);
+    if (shape === 2) P.rect(x + dx - 1, hoofY + 2, thick + 1, 1, far ? '#7f8793' : '#d3d9e2');                        // a horseshoe
   }
 
   /** The cutie mark: a tiny 5x5 picture. */
@@ -256,14 +264,19 @@ const PixelPony = (() => {
   /* =====================================================================================================================
    * SIDE VIEW (facing right)
    * ===================================================================================================================== */
+  /** Body shapes (ponyGenes.js: 0 standard, 1 stocky, 2 slender): the ellipses of the barrel, rump and chest in the side view, and the chest and rump in the front and back views. */
+  const BODIES = [
+    { side: [[23, 24, 12.5, 7], [13, 23, 6.5, 7], [32, 24, 5, 7]], belly: 31, chest: [CX, 26, 9.5, 7], rump: [CX, 26, 10.5, 8] },
+    { side: [[23, 24, 13, 7.6], [13, 23, 7, 7.6], [32, 24, 5.4, 7.6]], belly: 31, chest: [CX, 26, 10.6, 7.6], rump: [CX, 26, 11.6, 8.6] },
+    { side: [[23, 24, 12, 6], [13, 23, 6, 6], [32, 24, 4.6, 6.2]], belly: 30, chest: [CX, 26, 8.4, 6.3], rump: [CX, 26, 9.4, 7.2] }];
   function side(P, C, F, blink) {
-    const b = F.bob;
+    const b = F.bob, B = BODIES[C.sh.body];
     if (C.wings) P.at(0, b, () => wings(P, C, 'right', 'far'));
     leg(P, C, 29, 28, F.B, true, 3); leg(P, C, 16, 28, F.A, true, 3);                    // far legs, behind the body
     P.at(0, b, () => {
       tailSide(P, C, F);
-      P.shape([[23, 24, 12.5, 7], [13, 23, 6.5, 7], [32, 24, 5, 7]], C.coat);             // the barrel, the rump and the chest
-      for (let x = 15; x < 31; x++) if ((x * 7) % 5 === 0) P.px(x, 31, C.coat.d);          // a shaggy belly
+      P.shape(B.side, C.coat);                                                             // the barrel, the rump and the chest
+      for (let x = 15; x < 31; x++) if ((x * 7) % 5 === 0) P.px(x, B.belly, C.coat.d);     // a shaggy belly
       if (!P.cap) mark(P, C, 11, 21);                                                      // (the layers below it are layer B: see PixelPony.pack)
       P.layer('B', () => {
         bodyFx(P, C, 'right');
@@ -274,7 +287,7 @@ const PixelPony = (() => {
     leg(P, C, 31, 28, F.A, false); leg(P, C, 11, 28, F.B, false);                         // near legs, in front
     P.at(0, b, () => {
       for (let y = 25; y <= 31; y++) P.px(16 - Math.round(Math.abs(y - 27.5) * 0.4), y, C.coat.d);   // the line of the near thigh
-      if (C.fx === 'frost') for (const [x, len] of [[19, 3], [22, 2], [25, 3], [28, 2]]) for (let k = 0; k < len; k++) P.px(x, 31 + k, k ? ICE.blue : ICE.white);   // icicles under the belly
+      if (C.fx === 'frost') for (const [x, len] of [[19, 3], [22, 2], [25, 3], [28, 2]]) for (let k = 0; k < len; k++) P.px(x, B.belly + k, k ? ICE.blue : ICE.white);   // icicles under the belly
       maneSide(P, C, F);
       headSide(P, C, F, blink);
       if (C.horn) horn(P, C, 40, 2, 44, -7);
@@ -284,40 +297,78 @@ const PixelPony = (() => {
     });
   }
 
+  /** Tail shapes (ponyGenes.js): how far it hangs and how wide it is, in the side and the back view. */
+  const TAILS = [{ len: 20, wide: 0 }, { len: 12, wide: 0 }, { len: 17, wide: 2 }, { len: 21, wide: -2 }];       // long, short, bushy, sleek
   function tailSide(P, C, F) {
-    for (let y = 18; y <= 38; y++) {
-      const k = (y - 18) / 20, cx = 9 - Math.round(k * 4) + Math.round(Math.sin(y / 3.5)) + (y > 24 ? F.sway : 0), w = Math.round(3 + Math.sin(Math.min(1, k * 1.3) * Math.PI) * 4 - (k > 0.9 ? 2 : 0));
-      for (let i = 0; i < w; i++) P.px(cx - i + 1, y, C.fx === 'frost' && y > 34 ? (i % 2 ? ICE.blue : ICE.pale) : lock(C, i, y, w));
+    const T = TAILS[C.sh.tail];
+    for (let y = 18; y <= 18 + T.len; y++) {
+      const k = (y - 18) / T.len, cx = 9 - Math.round(k * 4) + Math.round(Math.sin(y / 3.5)) + (y > 24 ? F.sway : 0), w = Math.max(1, Math.round(3 + T.wide + Math.sin(Math.min(1, k * 1.3) * Math.PI) * 4 - (k > 0.9 ? 2 : 0)));
+      for (let i = 0; i < w; i++) P.px(cx - i + 1, y, C.fx === 'frost' && y > 34 ? (i % 2 ? ICE.blue : ICE.pale) : lock(C, i, y, w, C.tailManes));
       if (C.fx === 'flames') { tongue(P, C, cx - w + 1, y, -1); tongue(P, C, cx + 1, y + 1, 1); }
     }
-    for (let y = 17; y <= 21; y++) P.rect(8, y, 4, 1, lock(C, y, y));                       // where it springs from the rump
+    for (let y = 17; y <= 21; y++) P.rect(8, y, 4, 1, lock(C, y, y, 4, C.tailManes));       // where it springs from the rump
   }
 
+  /** Mane shapes (ponyGenes.js): where it ends in the side, front and back view, how much wider or narrower it is, and whether it tapers or stands in spikes. */
+  const MANES = [{ end: [28, 28, 22], wide: 0 }, { end: [17, 16, 14], wide: -1, taper: 1 }, { end: [31, 31, 25], wide: 1, taper: 1 }, { end: [26, 27, 20], wide: 0, spiky: 1 }];   // wavy, cropped, flowing, spiky
+  /** The width of a lock of mane at a row: its natural width, shaped by the mane's gene. */
+  const maneWidth = (M, y, w, end) => Math.max(2, Math.min(w + (y > 4 ? M.wide : 0) - (M.spiky && y % 3 === 0 ? 2 : 0), M.taper ? end - y + 3 : 99));
   function maneSide(P, C, F) {
-    for (let y = 2; y <= 28; y++) {                                                       // a big, wavy mane down the neck and over the shoulder
-      const t = Math.max(0, (y - 9) / 15), edge = y < 9 ? 33 : Math.round(33 - t * 6), wave = Math.round(Math.sin(y / 2.6)), w = y < 4 ? 4 : y > 24 ? 4 + (28 - y) % 2 : 7;
+    const M = MANES[C.sh.mane], end = M.end[0];
+    for (let y = 2; y <= end; y++) {                                                      // a big, wavy mane down the neck and over the shoulder
+      const t = Math.max(0, (y - 9) / 15), edge = y < 9 ? 33 : Math.round(33 - t * 6), wave = Math.round(Math.sin(y / 2.6)), w = maneWidth(M, y, y < 4 ? 4 : y > 24 ? 4 + (28 - y) % 2 : 7, end);
       const sx = y > 18 ? F.sway : 0;
       for (let i = 0; i < w; i++) P.px(edge - 4 + i + wave + sx, y, C.fx === 'frost' && y > 25 ? (i % 2 ? ICE.blue : ICE.pale) : lock(C, i, y, w));
       if (C.fx === 'flames') tongue(P, C, edge - 4 + wave + sx, y, -1);
     }
     if (C.fx === 'flames') for (let x = 30; x <= 35; x += 2) { P.px(x, 1, FIRE[1]); if ((x + C.ff) % 3) P.px(x, 0, FIRE[0]); }   // flames along the crest
-    for (const [x, y] of [[26, 29], [28, 30], [30, 29]]) P.px(x + F.sway, y, lock(C, x, y));   // stray ends
+    if (!M.taper) for (const [x, y] of [[26, 29], [28, 30], [30, 29]]) P.px(x + F.sway, y + end - 28, lock(C, x, y));   // stray ends
   }
 
+  /** Head and snout shapes (ponyGenes.js: 0 classic, 1 long, 2 button). Side view: the nose blob, the muzzle ellipse [cx, cy, rx, ry], the nostril [x, x, y] and the mouth [y, x0, x1].
+   *  Front view: the chin blob, the muzzle [cy, rx, ry], the nostril row and the mouth row. */
+  const HEADS = [
+    { nose: [46, 14, 4, 3.5], mz: [46, 14, 4.3, 3.6], nos: [48, 49, 13], mouth: [17, 45, 48], chin: [CX, 17.5, 5, 4], fmz: [18, 5, 3.6], fnos: 19, fmouth: 21 },
+    { nose: [46, 15, 4, 4.4], mz: [46, 15, 4.3, 4.3], nos: [48, 49, 14], mouth: [19, 45, 48], chin: [CX, 18.8, 4.8, 4.8], fmz: [19.2, 4.6, 4], fnos: 20, fmouth: 23 },
+    { nose: [45, 13.5, 3.4, 3], mz: [45, 13.5, 3.6, 3.1], nos: [47, 48, 13], mouth: [16, 44, 47], chin: [CX, 16.5, 5.4, 3.4], fmz: [17, 4.6, 3], fnos: 18, fmouth: 20 }];
+  /** The eye in the side view (shapes: 0 round, 1 almond, 2 sleepy, 3 big, 4 starry). Every shape blinks the same way. */
+  function eyeSide(P, C, blink) {
+    const e = C.eye, i = C.iris, w = '#ffffff';
+    if (blink) { P.row(9, 40, 42, e); P.px(43, 8, e); return; }
+    switch (C.sh.eye) {
+      case 1: P.rect(40, 8, 3, 3, e); P.px(40, 8, w); P.px(41, 10, i); P.px(42, 10, i); P.row(7, 40, 43, e); P.px(44, 6, e); break;
+      case 2: P.row(8, 40, 43, C.coat.d); P.rect(40, 9, 3, 2, e); P.px(40, 9, w); P.px(41, 10, i); P.px(42, 10, i); break;
+      case 3: P.rect(40, 6, 4, 5, e); P.px(40, 6, w); P.px(41, 7, w); P.row(10, 40, 43, i); P.px(43, 9, i); P.px(43, 5, e); P.px(44, 4, e); break;
+      case 4: P.rect(40, 7, 3, 4, e); P.px(40, 7, w); P.px(42, 8, w); P.row(10, 40, 42, i); P.px(42, 9, i); P.row(6, 40, 43, e); P.px(44, 5, e); break;
+      default: P.rect(40, 7, 3, 4, e); P.px(40, 7, w); P.px(41, 10, i); P.px(42, 10, i); P.px(42, 9, i); P.row(6, 40, 43, e); P.px(44, 5, e);   // a big eye with lashes
+    }
+  }
+  /** One eye in the front view, at x (the left eye or the right one). */
+  function eyeFront(P, C, x, blink) {
+    const e = C.eye, i = C.iris, w = '#ffffff', inner = x + (x < CX ? 2 : 0), out = x < CX ? -1 : 1;
+    if (blink) { P.row(11, x, x + 2, e); return; }
+    switch (C.sh.eye) {
+      case 1: P.rect(x, 10, 3, 3, e); P.px(inner, 10, w); P.row(12, x, x + 2, i); P.row(9, x, x + 2, e); break;
+      case 2: P.row(10, x, x + 2, C.coat.d); P.rect(x, 11, 3, 2, e); P.px(inner, 11, w); P.row(12, x, x + 2, i); break;
+      case 3: P.rect(x - 1, 8, 5, 5, e); P.px(inner, 8, w); P.px(inner - out, 9, w); P.row(12, x - 1, x + 3, i); P.px(x - 1, 7, e); P.px(x + 3, 7, e); break;
+      case 4: P.rect(x, 9, 3, 4, e); P.px(inner, 9, w); P.px(x + 1, 11, w); P.row(12, x, x + 2, i); P.row(8, x, x + 2, e); P.px(x + 1, 11, w); break;
+      default: P.rect(x, 9, 3, 4, e); P.px(inner, 9, w); P.row(12, x, x + 2, i); P.row(8, x, x + 2, e);
+    }
+  }
   function headSide(P, C, F, blink) {
-    const flick = F.ear ? 1 : 0;
+    const flick = F.ear ? 1 : 0, Hd = HEADS[C.sh.head];
     for (const [x, far] of [[34, true], [38, false]]) {                                  // ears (the far one darker)
       const c = far ? C.coat.d : C.coat.b, e = far ? 0 : flick;
       P.px(x + 1 + e, 0, c); P.rect(x, 1, 2, 1, c); P.rect(x, 2, 3, 1, c); P.rect(x - 1, 3, 4, 1, c);
       if (!far) { P.px(x, 2, C.ear); P.px(x, 3, C.ear); }
     }
-    P.shape([[40, 9, 6.5, 6], [41, 13, 5, 4.5], [46, 14, 4, 3.5]], C.coat, false);           // the skull, the cheek and the nose, as one head
-    for (let y = 11; y <= 17; y++) for (let x = 43; x <= 50; x++) if (((x - 46) / 4.3) ** 2 + ((y - 14) / 3.6) ** 2 <= 1) P.px(x, y, y >= 17 ? C.muzzle.d : y <= 11 ? C.muzzle.l : C.muzzle.b);   // the soft, pale muzzle
-    P.px(48, 13, C.nostril); P.px(49, 13, C.muzzle.d);                        // the nostril
-    P.row(17, 45, 48, C.muzzle.d);                                                          // the mouth
+    P.shape([[40, 9, 6.5, 6], [41, 13, 5, 4.5], Hd.nose], C.coat, false);                   // the skull, the cheek and the nose, as one head
+    { const [mx, my, rx, ry] = Hd.mz, top = Math.ceil(my - ry), bot = Math.floor(my + ry);
+      for (let y = top; y <= bot; y++) for (let x = 43; x <= Math.floor(mx + rx); x++) if (((x - mx) / rx) ** 2 + ((y - my) / ry) ** 2 <= 1) P.px(x, y, y >= bot ? C.muzzle.d : y <= top ? C.muzzle.l : C.muzzle.b); }   // the soft, pale muzzle
+    P.px(Hd.nos[0], Hd.nos[2], C.nostril); P.px(Hd.nos[1], Hd.nos[2], C.muzzle.d);          // the nostril
+    P.row(Hd.mouth[0], Hd.mouth[1], Hd.mouth[2], C.muzzle.d);                               // the mouth
     P.row(17, 38, 40, C.coat.d); P.px(37, 16, C.coat.d);                                   // the jaw
-    if (blink) { P.row(9, 40, 42, C.eye); P.px(43, 8, C.eye); }
-    else { P.rect(40, 7, 3, 4, C.eye); P.px(40, 7, '#ffffff'); P.px(41, 10, C.iris); P.px(42, 10, C.iris); P.px(42, 9, C.iris); P.row(6, 40, 43, C.eye); P.px(44, 5, C.eye); }   // a big eye with lashes
+    eyeSide(P, C, blink);
     for (const [y, x0, x1] of [[1, 35, 38], [2, 34, 40], [3, 34, 41], [4, 35, 42], [5, 36, 42], [6, 37, 39], [7, 37, 38], [8, 38, 38]]) for (let x = x0; x <= x1; x++) P.px(x, y, lock(C, x - x0, y, x1 - x0 + 1));   // the forelock, falling over the brow
   }
 
@@ -329,8 +380,9 @@ const PixelPony = (() => {
     leg(P, C, 19, 30, [0, F.B[1]], true, 3); leg(P, C, 31, 30, [0, F.A[1]], true, 3);     // hind legs, behind
     P.at(0, b, () => {
       if (C.wings) wings(P, C, 'down');
-      for (let y = 20; y <= 33; y++) { const x = 35 + (y > 24 ? F.sway : 0) - (y > 29 ? 1 : 0); for (let i = 0; i < 3; i++) P.px(x + i, y, C.fx === 'frost' && y > 30 ? ICE.pale : lock(C, i, y, 3)); }   // the tail, peeking out
-      P.shape([[CX, 26, 9.5, 7]], C.coat);                                                  // the chest
+      { const T = TAILS[C.sh.tail], w = Math.max(2, 3 + (T.wide >> 1)), end = 20 + Math.round(T.len * 0.65);
+        for (let y = 20; y <= end; y++) { const x = 35 + (y > 24 ? F.sway : 0) - (y > 29 ? 1 : 0); for (let i = 0; i < w; i++) P.px(x + i, y, C.fx === 'frost' && y > 30 ? ICE.pale : lock(C, i, y, w, C.tailManes)); } }   // the tail, peeking out
+      P.shape([BODIES[C.sh.body].chest], C.coat);                                           // the chest
       bodyFx(P, C, 'down');
       P.rect(21, 13, 11, 11, C.coat.b); P.rect(30, 13, 2, 11, C.coat.d);                    // the neck
     });
@@ -338,15 +390,14 @@ const PixelPony = (() => {
     P.at(0, b, () => {
       const flick = F.ear ? 1 : 0;
       for (const [x, e, out] of [[19, 0, -1], [31, flick, 1]]) { P.px(x + 1 + out, e, C.coat.b); P.rect(x + (out > 0 ? 1 : 0), 1 + e, 2, 1, C.coat.b); P.rect(x, 2 + e, 3, 2, C.coat.b); P.px(x + 1, 2 + e, C.ear); P.px(x + 1, 3 + e, C.ear); }   // ears, pointing out
-      P.shape([[CX, 11, 7.5, 7], [CX, 17.5, 5, 4]], C.coat, false);                          // the head
-      for (let y = 15; y <= 21; y++) for (let x = 21; x <= 31; x++) if (((x - CX) / 5) ** 2 + ((y - 18) / 3.6) ** 2 <= 1) P.px(x, y, y >= 21 ? C.muzzle.d : y <= 15 ? C.muzzle.l : C.muzzle.b);   // the muzzle
-      P.px(23, 19, C.nostril); P.px(29, 19, C.nostril); P.row(21, 25, 27, C.muzzle.d);
-      for (const x of [20, 29]) {                                                           // big eyes on the sides of the head
-        if (blink) P.row(11, x, x + 2, C.eye);
-        else { P.rect(x, 9, 3, 4, C.eye); P.px(x + (x < CX ? 2 : 0), 9, '#ffffff'); P.row(12, x, x + 2, C.iris); P.row(8, x, x + 2, C.eye); }
-      }
+      const Hd = HEADS[C.sh.head], [my, mrx, mry] = Hd.fmz, top = Math.ceil(my - mry), bot = Math.floor(my + mry);
+      P.shape([[CX, 11, 7.5, 7], Hd.chin], C.coat, false);                                   // the head
+      for (let y = top; y <= bot; y++) for (let x = 21; x <= 31; x++) if (((x - CX) / mrx) ** 2 + ((y - my) / mry) ** 2 <= 1) P.px(x, y, y >= bot ? C.muzzle.d : y <= top ? C.muzzle.l : C.muzzle.b);   // the muzzle
+      P.px(23, Hd.fnos, C.nostril); P.px(29, Hd.fnos, C.nostril); P.row(Hd.fmouth, 25, 27, C.muzzle.d);
+      for (const x of [20, 29]) eyeFront(P, C, x, blink);                                   // big eyes on the sides of the head
       for (const [y, x0, x1] of [[2, 22, 30], [3, 21, 31], [4, 21, 31], [5, 22, 30], [6, 23, 29], [7, 24, 28], [8, 25, 27]]) for (let x = x0; x <= x1; x++) P.px(x, y, lock(C, x - x0, y, x1 - x0 + 1));   // the forelock
-      for (let y = 6; y <= 28; y++) { const wave = Math.round(Math.sin(y / 2.6)), w = y > 25 ? 3 : 5; const x = 15 + wave + (y > 18 ? F.sway : 0); for (let i = 0; i < w; i++) P.px(x + i, y, C.fx === 'frost' && y > 25 ? ICE.pale : lock(C, i, y, w)); if (C.fx === 'flames') tongue(P, C, x, y, -1); }   // the mane, falling on one side
+      const M = MANES[C.sh.mane];
+      for (let y = 6; y <= M.end[1]; y++) { const wave = Math.round(Math.sin(y / 2.6)), w = maneWidth(M, y, y > 25 ? 3 : 5, M.end[1]); const x = 15 + wave + (y > 18 ? F.sway : 0); for (let i = 0; i < w; i++) P.px(x + i, y, C.fx === 'frost' && y > 25 ? ICE.pale : lock(C, i, y, w)); if (C.fx === 'flames') tongue(P, C, x, y, -1); }   // the mane, falling on one side
       if (C.horn) horn(P, C, CX, 2, CX, -7);
       headFx(P, C, 'down');
     });
@@ -363,18 +414,20 @@ const PixelPony = (() => {
       for (const [x, out] of [[20, -1], [30, 1]]) { P.px(x + 1 + out, 0, C.coat.d); P.rect(x + (out > 0 ? 1 : 0), 1, 2, 1, C.coat.d); P.rect(x, 2, 3, 2, C.coat.d); }
       P.blob(CX, 9, 6, 5.5, far, false);                                                    // the back of the head
       P.rect(21, 12, 11, 9, C.coat.d);                                                      // the neck
-      for (let y = 2; y <= 22; y++) { const wave = Math.round(Math.sin(y / 2.6)); for (let i = 0; i < 6; i++) P.px(23 + i + wave, y, lock(C, i, y, 6)); if (C.fx === 'flames') { tongue(P, C, 23 + wave, y, -1); tongue(P, C, 28 + wave, y + 1, 1); } }   // the mane down the neck
+      const M = MANES[C.sh.mane];
+      for (let y = 2; y <= M.end[2]; y++) { const wave = Math.round(Math.sin(y / 2.6)), w = maneWidth(M, y, 6, M.end[2]), x0 = 23 + 3 - (w >> 1); for (let i = 0; i < w; i++) P.px(x0 + i + wave, y, lock(C, i, y, w)); if (C.fx === 'flames') { tongue(P, C, x0 + wave, y, -1); tongue(P, C, x0 + w - 1 + wave, y + 1, 1); } }   // the mane down the neck
       headFx(P, C, 'up');
-      P.shape([[CX, 26, 10.5, 8]], C.coat);                                                  // the rump
+      P.shape([BODIES[C.sh.body].rump], C.coat);                                             // the rump
       for (let y = 28; y <= 33; y++) P.px(CX, y, C.coat.d);
       bodyFx(P, C, 'up');
       if (C.wings) wings(P, C, 'up');
     });
     leg(P, C, 17, 30, [0, F.B[1]], false); leg(P, C, 31, 30, [0, F.A[1]], false);          // hind legs
     P.at(0, b, () => {
-      for (let y = 18; y <= 38; y++) {                                                      // a full tail, hanging down the middle
-        const k = (y - 18) / 20, w = Math.round(4 + Math.sin(Math.min(1, k * 1.3) * Math.PI) * 3), cx = CX + Math.round(Math.sin(y / 3.5)) + (y > 24 ? F.sway : 0);
-        for (let i = 0; i < w; i++) P.px(cx - (w >> 1) + i, y, C.fx === 'frost' && y > 34 ? (i % 2 ? ICE.blue : ICE.pale) : lock(C, i, y, w));
+      const T = TAILS[C.sh.tail];
+      for (let y = 18; y <= 18 + T.len; y++) {                                              // a full tail, hanging down the middle
+        const k = (y - 18) / T.len, w = Math.max(2, Math.round(4 + T.wide + Math.sin(Math.min(1, k * 1.3) * Math.PI) * 3)), cx = CX + Math.round(Math.sin(y / 3.5)) + (y > 24 ? F.sway : 0);
+        for (let i = 0; i < w; i++) P.px(cx - (w >> 1) + i, y, C.fx === 'frost' && y > 34 ? (i % 2 ? ICE.blue : ICE.pale) : lock(C, i, y, w, C.tailManes));
         if (C.fx === 'flames') { tongue(P, C, cx - (w >> 1), y, -1); tongue(P, C, cx - (w >> 1) + w - 1, y + 1, 1); }
       }
     });
@@ -504,7 +557,7 @@ const PixelPony = (() => {
     layersOf(st) {
       const ref = { coat: '#9fb7e8', mane: st.nm === 4 ? ['#ff1744', '#ff9100', '#ffea00', '#00e676'] : ['#6a4bc4', '#a58be8'], mark: 'star', accessory: st.fx };
       const C = stateOf(ref, st), probe = SlotArt.probeOf(C, SLOTS);
-      Object.assign(probe, { wings: C.wings, horn: C.horn, flying: C.flying, wf: C.wf, ruffle: C.ruffle, ff: C.ff, tw: C.tw, fx: C.fx, outline: C.outline });
+      Object.assign(probe, { tailManes: probe.manes, wings: C.wings, horn: C.horn, flying: C.flying, wf: C.wf, ruffle: C.ruffle, ff: C.ff, tw: C.tw, fx: C.fx, outline: C.outline });
       return { key: stateKey(C, st.view, st.pose, st.blink), layers: captureLayers(probe, st.view, POSES[st.pose], !!st.blink) };
     },
     live(look, st) { const C = stateOf(look, st); return renderLive(C, st.view, POSES[st.pose], !!st.blink); },
@@ -518,7 +571,7 @@ const PixelPony = (() => {
    */
   /** What identifies a pony's colours in a cache key: worked out once per look object (a look is shared by every frame of that pony). */
   const lookKeys = new WeakMap();
-  const lookKey = look => { let k = lookKeys.get(look); if (!k) { k = `${look.coat}|${look.mane.join()}|${look.mark}`; lookKeys.set(look, k); } return k; };
+  const lookKey = look => { let k = lookKeys.get(look); if (!k) { k = `${look.coat}|${look.mane.join()}|${look.mark}|${geneKey(look.gene)}`; lookKeys.set(look, k); } return k; };
 
   /* ---- the Pixi backend (pixi/pixiRenderer.js): a frame stays in MARKER colours and a shader colours it (pixi/paletteFilter.js). The frame joins the
    *      pack's layers as SlotArt.compose does, but with a marker for the outline and for the cutie mark's two colours, so it is the same picture for
