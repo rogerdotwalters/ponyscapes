@@ -28,12 +28,14 @@ const PixelPony = (() => {
    *  the art pack save the shapes once and colour them per pony (SlotArt, SLOTS). */
   function makePalette(look) {
     const coat = look.coat, m = look.mane, G = look.gene || CLASSIC, mkManes = a => (a.length >= 3 ? a : [a[0], a[1] || light(a[0], 0.3), light(a[1] || a[0], 0.45)]).map(tones);
-    const manes = (m.length >= 3 ? m : [m[0], m[1] || light(m[0], 0.3), light(m[1] || m[0], 0.45)]).map(tones);   // (a rainbow mane has four)
+    // hair colours by pattern (ponyGenes.js): striped is the variety's own list (padded to three tones), solid is ONE colour, multicolor is four or more painted in patches
+    const hair = (list, pattern) => { if (pattern === 1) return [tones(list[0])]; const set = mkManes(list); if (pattern === 2) set.patch = true; return set; };
+    const manes = hair(look.gene ? G.maneColors : m, G.manePattern | 0);          // (a look without genes, such as the art pack's own, has just its mane)                                                 // (a rainbow mane has four)
     const C = {
       coat: tones(coat), muzzle: tones(mix(coat, '#f1dcc0', 0.45)), feather: tones(mix(coat, '#f6ead2', 0.6)),
       ear: mix(coat, '#e98fa6', 0.5), eye: '#2a1810', iris: G.eyeColor || mix(m[0], '#4a2a18', 0.55),
-      tailManes: G.tailLinked ? manes : mkManes(G.tailMane),                                  // the tail's own colours when the tail does not have to match the mane (the genes: ponyGenes.js)
-      sh: { eye: G.eyeShape, mane: G.maneShape, tail: G.tailShape, body: G.bodyShape, hoof: G.hoofShape, head: G.headShape },
+      tailManes: G.tailLinked ? manes : hair(G.tailMane, G.tailPattern | 0),                                  // the tail's own colours when the tail does not have to match the mane (the genes: ponyGenes.js)
+      sh: { eye: G.eyeShape, mane: G.maneShape, tail: G.tailShape, body: G.bodyShape, hoof: G.hoofShape, head: G.headShape, mpat: G.manePattern | 0, tpat: G.tailLinked ? G.manePattern | 0 : G.tailPattern | 0 },
       manes, mark: look.mark, markColor: m[0], markColor2: m[1] || m[0], outline: '#24170f',
       fx: look.accessory, ff: 0, tw: 0,                                                    // the biome effect, and its flame / twinkle frame
       hoof: G.hoofColor ? tones(G.hoofColor) : look.accessory === 'flames' ? EMBER_HOOF : look.accessory === 'frost' ? ICE_HOOF : HOOF,
@@ -136,7 +138,7 @@ const PixelPony = (() => {
   const lock = (C, i, y, w = 4, set = C.manes) => {
     if (C.fx === 'flames') return fire(C, i, y, w);
     if (C.fx === 'frost' && y % 5 === 0 && (i & 1) === 0) return ICE.white;                 // frost glinting in the hair
-    const off = Math.round(Math.sin(y / 3 + i * 0.4)), band = Math.floor((i + off + 8) / 2), t = set[band % set.length], within = (i + off + 8) % 2;
+    const off = Math.round(Math.sin(y / 3 + i * 0.4)), band = set.patch ? Math.floor((y + i * 2 + 40) / 3) : Math.floor((i + off + 8) / 2), t = set[band % set.length], within = (i + off + 8) % 2;
     return within === 1 && y % 3 === 0 ? t.d : within === 0 && y % 4 === 1 ? t.l : t.b;
   };
 
@@ -325,12 +327,16 @@ const PixelPony = (() => {
     if (!M.taper) for (const [x, y] of [[26, 29], [28, 30], [30, 29]]) P.px(x + F.sway, y + end - 28, lock(C, x, y));   // stray ends
   }
 
-  /** Head and snout shapes (ponyGenes.js: 0 classic, 1 long, 2 button). Side view: the nose blob, the muzzle ellipse [cx, cy, rx, ry], the nostril [x, x, y] and the mouth [y, x0, x1].
+  /** Head and snout shapes (ponyGenes.js: 0 classic, 1 long, 2 button, 3 roman, 4 dished, 5 broad, 6 pointed). Side view: the nose blob, the muzzle ellipse [cx, cy, rx, ry], the nostril [x, x, y] and the mouth [y, x0, x1].
    *  Front view: the chin blob, the muzzle [cy, rx, ry], the nostril row and the mouth row. */
   const HEADS = [
     { nose: [46, 14, 4, 3.5], mz: [46, 14, 4.3, 3.6], nos: [48, 49, 13], mouth: [17, 45, 48], chin: [CX, 17.5, 5, 4], fmz: [18, 5, 3.6], fnos: 19, fmouth: 21 },
     { nose: [46, 15, 4, 4.4], mz: [46, 15, 4.3, 4.3], nos: [48, 49, 14], mouth: [19, 45, 48], chin: [CX, 18.8, 4.8, 4.8], fmz: [19.2, 4.6, 4], fnos: 20, fmouth: 23 },
-    { nose: [45, 13.5, 3.4, 3], mz: [45, 13.5, 3.6, 3.1], nos: [47, 48, 13], mouth: [16, 44, 47], chin: [CX, 16.5, 5.4, 3.4], fmz: [17, 4.6, 3], fnos: 18, fmouth: 20 }];
+    { nose: [45, 13.5, 3.4, 3], mz: [45, 13.5, 3.6, 3.1], nos: [47, 48, 13], mouth: [16, 44, 47], chin: [CX, 16.5, 5.4, 3.4], fmz: [17, 4.6, 3], fnos: 18, fmouth: 20 },
+    { nose: [46, 14, 4, 3.5], mz: [46, 14, 4.3, 3.6], nos: [48, 49, 13], mouth: [17, 45, 48], bump: [[44, 10.5, 3.4, 2.6]], chin: [CX, 17.5, 5, 4], fmz: [18, 5, 3.6], fnos: 19, fmouth: 21 },    // roman: a raised bridge
+    { nose: [46, 13, 3.6, 3.2], mz: [46, 13.2, 3.9, 3.2], nos: [48, 49, 12], mouth: [16, 45, 48], chin: [CX, 17.2, 5, 3.7], fmz: [17.6, 4.8, 3.2], fnos: 18, fmouth: 20 },                       // dished: short, a little upturned
+    { nose: [45.5, 14.5, 4.5, 4], mz: [45.5, 14.5, 4.8, 3.9], nos: [47, 49, 14], mouth: [18, 44, 49], chin: [CX, 18, 5.8, 4.2], fmz: [18.4, 5.6, 3.8], fnos: 19, fmouth: 22 },                    // broad: a wide, deep muzzle
+    { nose: [47, 14, 3.5, 2.6], mz: [47, 14, 3.5, 2.7], nos: [49, 50, 13], mouth: [16, 46, 49], chin: [CX, 17.5, 4, 4.2], fmz: [18, 3.6, 3.6], fnos: 19, fmouth: 21 }];                            // pointed: a slim, fine nose
   /** The eye in the side view (shapes: 0 round, 1 almond, 2 sleepy, 3 big, 4 starry). Every shape blinks the same way. */
   function eyeSide(P, C, blink) {
     const e = C.eye, i = C.iris, w = '#ffffff';
@@ -362,7 +368,7 @@ const PixelPony = (() => {
       P.px(x + 1 + e, 0, c); P.rect(x, 1, 2, 1, c); P.rect(x, 2, 3, 1, c); P.rect(x - 1, 3, 4, 1, c);
       if (!far) { P.px(x, 2, C.ear); P.px(x, 3, C.ear); }
     }
-    P.shape([[40, 9, 6.5, 6], [41, 13, 5, 4.5], Hd.nose], C.coat, false);                   // the skull, the cheek and the nose, as one head
+    P.shape([[40, 9, 6.5, 6], [41, 13, 5, 4.5], Hd.nose, ...(Hd.bump || [])], C.coat, false);                   // the skull, the cheek and the nose, as one head
     { const [mx, my, rx, ry] = Hd.mz, top = Math.ceil(my - ry), bot = Math.floor(my + ry);
       for (let y = top; y <= bot; y++) for (let x = 43; x <= Math.floor(mx + rx); x++) if (((x - mx) / rx) ** 2 + ((y - my) / ry) ** 2 <= 1) P.px(x, y, y >= bot ? C.muzzle.d : y <= top ? C.muzzle.l : C.muzzle.b); }   // the soft, pale muzzle
     P.px(Hd.nos[0], Hd.nos[2], C.nostril); P.px(Hd.nos[1], Hd.nos[2], C.muzzle.d);          // the nostril

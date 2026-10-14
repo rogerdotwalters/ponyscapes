@@ -19,6 +19,13 @@ const PonyGenes = (() => {
       return [v, v];
     });
   }
+  /** Colours of a pony's hair, by pattern: striped is the variety's list as it is, solid its first colour, multicolor four colours (the list, then hues turned round from it). */
+  const toHsl = hex => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    if (!d) return [0, 0, l]; const s = d / (1 - Math.abs(2 * l - 1)), h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, s, l]; };
+  const fromHsl = ([h, s, l]) => { const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, [r, g, b] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(((h % 360) + 360) % 360 / 60)];
+    return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join(''); };
+  const turn = (hex, deg) => { const [h, s, l] = toHsl(hex); return fromHsl([h + deg, Math.max(s, 0.45), Math.min(0.75, Math.max(0.4, l))]); };
+  const patterned = (list, pattern) => pattern === 1 ? [list[0]] : pattern === 2 ? [...list, turn(list[0], 100), turn(list[list.length - 1], -100), turn(list[0], 200)].slice(0, Math.max(4, list.length)) : list;
   const pick = (rng, weights) => { let t = weights.reduce((a, b) => a + b, 0) * rng(); for (let i = 0; i < weights.length; i++) { t -= weights[i]; if (t < 0) return i; } return weights.length - 1; };
   return {
     LOCI, BASE, LEN, at, genomeOf, sizeOf,
@@ -27,7 +34,11 @@ const PonyGenes = (() => {
     roll(rng, look, variant) {
       for (const L of LOCI) {
         const n = sizeOf(L, variant);
-        const shown = L.slot !== undefined ? Math.min(look[L.slot] | 0, n - 1) : pick(rng, L.alleles ? L.alleles.map(a => a.weight || 1) : new Array(n).fill(1));
+        let shown = L.slot !== undefined ? Math.min(look[L.slot] | 0, n - 1) : pick(rng, L.alleles ? L.alleles.map(a => a.weight || 1) : new Array(n).fill(1));
+        if (L.slot !== undefined && !variant && L.palette) {                           // a meadow pony may carry one of the colours added later
+          const base = PonyPalette.base[L.palette], more = n - base;
+          if (more > 0 && rng() < 0.4) { shown = base + Math.floor(rng() * more); look[L.slot] = shown; }
+        }
         const carried = shown + Math.floor(rng() * (n - shown));
         look.push(rng() < 0.5 ? shown * PACK + carried : carried * PACK + shown);
       }
@@ -59,16 +70,18 @@ const PonyGenes = (() => {
     phenotype(look) {
       const ex = PonyGenes.express(look), v = look[4] | 0, V = v ? PonyVariants[v] : null, P = PonyPalette, allele = id => LOCI[at(id)].alleles[ex[id]];
       const manes = (V || P).manes, tailLinked = LOCI.some(L => L.link && ex[L.id] === 0 && L.link[1] === 'tailColor');
+      const tailPattern = tailLinked ? ex.manePattern : ex.tailPattern;                           // (a matched tail matches the mane's pattern as well as its colour)
       const traits = [
         { part: 'Eyes', text: `${allele('eyeShape').name}, ${allele('eyeColor').name.toLowerCase()}`, color: allele('eyeColor').color },
-        { part: 'Mane', text: allele('maneShape').name },
-        { part: 'Tail', text: allele('tailShape').name + (tailLinked ? ', matching the mane' : ', its own colour'), color: tailLinked ? null : manes[ex.tailColor][0] },
+        { part: 'Mane', text: `${allele('maneShape').name}, ${allele('manePattern').name.toLowerCase()}` },
+        { part: 'Tail', text: `${allele('tailShape').name}, ${LOCI[at('tailPattern')].alleles[tailPattern].name.toLowerCase()}` + (tailLinked ? ', matching the mane' : ', its own colour'), color: tailLinked ? null : manes[ex.tailColor][0] },
         { part: 'Body', text: allele('bodyShape').name },
         { part: 'Hooves', text: `${allele('hoofShape').name}, ${allele('hoofColor').name.toLowerCase()}`, color: allele('hoofColor').color },
         { part: 'Head', text: allele('headShape').name + ' snout' }];
       return {
         eyeShape: ex.eyeShape, eyeColor: allele('eyeColor').color, maneShape: ex.maneShape, tailShape: ex.tailShape, bodyShape: ex.bodyShape,
-        hoofShape: ex.hoofShape, hoofColor: allele('hoofColor').color, headShape: ex.headShape, tailLinked, tailMane: manes[ex.tailColor], traits,
+        hoofShape: ex.hoofShape, hoofColor: allele('hoofColor').color, headShape: ex.headShape, tailLinked,
+        manePattern: ex.manePattern, tailPattern, maneColors: patterned(manes[ex.maneColor], ex.manePattern), tailMane: patterned(manes[ex.tailColor], tailPattern), traits,
         key: LOCI.filter(L => L.slot === undefined).map(L => L.id === 'tailColor' && tailLinked ? 'm' : ex[L.id]).join('')
       };
     }

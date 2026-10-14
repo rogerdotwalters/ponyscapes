@@ -16,13 +16,20 @@ PonyGeneTable.register({ id: 'tailLink', part: 'tail', name: 'Matching tail', ki
 PonyGeneTable.register({ id: 'eyeShape', part: 'eyes', name: 'Eye shape', kind: 'shape', alleles: shapes(['Round', 50], ['Almond', 18], ['Sleepy', 14], ['Big', 10], ['Starry', 8]) });
 PonyGeneTable.register({ id: 'eyeColor', part: 'eyes', name: 'Eye colour', kind: 'colour', alleles: [
   swatch('mane', 'Mane tint', null, 30), swatch('brown', 'Brown', '#7a4a2a', 16), swatch('blue', 'Blue', '#3a78d8', 12), swatch('green', 'Green', '#3f9a54', 10),
-  swatch('amber', 'Amber', '#d9922a', 9), swatch('violet', 'Violet', '#8a52c8', 8), swatch('rose', 'Rose', '#d8527e', 6), swatch('teal', 'Teal', '#2aa6a0', 6)] });
+  swatch('amber', 'Amber', '#d9922a', 9), swatch('violet', 'Violet', '#8a52c8', 8), swatch('rose', 'Rose', '#d8527e', 6), swatch('teal', 'Teal', '#2aa6a0', 6),
+  swatch('grey', 'Grey', '#8896a8', 7), swatch('gold', 'Gold', '#e0b020', 6), swatch('lime', 'Lime', '#8fc43a', 5), swatch('crimson', 'Crimson', '#c0392b', 4),
+  swatch('sky', 'Sky', '#6ec3f0', 6), swatch('lavender', 'Lavender', '#b79ce8', 5)] });
 PonyGeneTable.register({ id: 'maneShape', part: 'mane', name: 'Mane shape', kind: 'shape', alleles: shapes(['Wavy', 40], ['Cropped', 24], ['Flowing', 22], ['Spiky', 14]) });
 PonyGeneTable.register({ id: 'tailShape', part: 'tail', name: 'Tail shape', kind: 'shape', alleles: shapes(['Long', 40], ['Short', 22], ['Bushy', 24], ['Sleek', 14]) });
 PonyGeneTable.register({ id: 'bodyShape', part: 'body', name: 'Body shape', kind: 'shape', alleles: shapes(['Standard', 50], ['Stocky', 25], ['Slender', 25]) });
 PonyGeneTable.register({ id: 'hoofShape', part: 'hooves', name: 'Hoof shape', kind: 'shape', alleles: shapes(['Round', 45], ['Feathered', 20], ['Shod', 15], ['Sleek', 20]) });
 PonyGeneTable.register({ id: 'hoofColor', part: 'hooves', name: 'Hoof colour', kind: 'colour', alleles: [
   swatch('slate', 'Slate', null, 40), swatch('black', 'Black', '#26222a', 18), swatch('gold', 'Gold', '#d9a93a', 8), swatch('silver', 'Silver', '#aeb7c4', 12),
-  swatch('rose', 'Rose', '#d98aa0', 10), swatch('cream', 'Cream', '#e6d7b4', 12)] });
-PonyGeneTable.register({ id: 'headShape', part: 'head', name: 'Head and snout', kind: 'shape', alleles: shapes(['Classic', 50], ['Long', 25], ['Button', 25]) });
+  swatch('rose', 'Rose', '#d98aa0', 10), swatch('cream', 'Cream', '#e6d7b4', 12),
+  swatch('bronze', 'Bronze', '#b87333', 8), swatch('blue', 'Blue', '#4a74b8', 7), swatch('lilac', 'Lilac', '#a98ad8', 7), swatch('mint', 'Mint', '#7fcfb0', 7),
+  swatch('white', 'White', '#f4f4f4', 8), swatch('crimson', 'Crimson', '#b03040', 5)] });
+PonyGeneTable.register({ id: 'headShape', part: 'head', name: 'Head and snout', kind: 'shape', alleles: shapes(['Classic', 40], ['Long', 16], ['Button', 16], ['Roman', 14], ['Dished', 14], ['Broad', 12], ['Pointed', 12]) });
+/* Hair patterns (added after the first genes, so they sit at the end). The classic one is what every pony had: the variety's own colours in stripes. */
+PonyGeneTable.register({ id: 'manePattern', part: 'mane', name: 'Mane pattern', kind: 'shape', alleles: shapes(['Striped', 40], ['Solid', 34], ['Multicolor', 26]) });
+PonyGeneTable.register({ id: 'tailPattern', part: 'tail', name: 'Tail pattern', kind: 'shape', alleles: shapes(['Striped', 40], ['Solid', 34], ['Multicolor', 26]) });
 })();
