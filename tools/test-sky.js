@@ -84,4 +84,11 @@ test('dev spawner: any kind or a random one, each pony with a fully random look,
     return { n: fresh.length, owned: fresh.every(a => a.owner === A), types: types.size, looks: looks.size, starVariant: PonyVariants[star.look[4]].id, valid: fresh.every(a => a.look.length === PonyGenes.LEN && a.look.every(Number.isInteger)) }; })()`)));
   assert.strictEqual(r.n, 13); assert(r.owned && r.valid); assert(r.types >= 3 && r.looks >= 8, JSON.stringify(r)); assert.strictEqual(r.starVariant, 'star');
 });
+test('dev spawner: a chosen kind and variety (a moon or sky kind keeps its own variety)', () => {
+  const r = JSON.parse(JSON.stringify(run(`(() => { const S = new GameServer(4), A = S.addPlayer(); S.hostId = A; const had = Object.keys(S.animals.animals), mk = () => Object.values(S.animals.animals).filter(a => !had.includes(a.id));
+    S._devSpawnPonies('pony_unicorn', 5, 'frost'); const a = mk().map(x => [x.type, PonyVariants[x.look[4]].id]);
+    S._devSpawnPonies('pony_water', 1, 'frost'); const w = mk().find(x => x.type === 'pony_water');
+    return { a, water: PonyVariants[w.look[4]].id }; })()`)));
+  assert.strictEqual(r.a.length, 5); assert(r.a.every(([t, v]) => t === 'pony_unicorn' && v === 'frost'), JSON.stringify(r.a)); assert.strictEqual(r.water, 'water');
+});
 console.log(passed + ' passed');

@@ -231,11 +231,18 @@ class SettingsUI {
   /* ---- ponies: spawn any kind (or a random one) beside you, each with a fully random look ---- */
   _createPonySpawner() {
     const el = document.createElement('div'); el.className = 'admBox';
-    const kinds = Object.values(AnimalDefs).filter(d => d.pony);
-    el.innerHTML = '<div class="gtitle">Spawn ponies <small>(they are yours, with every gene random: shapes, colours, skills)</small></div><div class="admRow" style="flex-wrap:wrap;gap:6px">' +
-      '<button data-spawn="random" data-n="1" tabindex="-1">\u{1F3B2} Random pony</button><button data-spawn="random" data-n="6" tabindex="-1">\u{1F3B2} Random \u00d76</button>' +
-      kinds.map(d => `<button data-spawn="${d.id}" data-n="1" tabindex="-1">${d.name}</button>`).join('') + '</div>';
-    el.addEventListener('click', e => { const b = e.target.closest('button[data-spawn]'); if (b) this.game.spawnPonies(b.dataset.spawn, +b.dataset.n); });
+    const kinds = Object.values(AnimalDefs).filter(d => d.pony), varieties = PonyVariants.filter(v => !v.legacy);
+    const opts = (list, first) => `<option value="">${first}</option>` + list.map(([v, n]) => `<option value="${v}">${n}</option>`).join('');
+    el.innerHTML = '<div class="gtitle">Spawn ponies <small>(they are yours, with every gene random: shapes, colours, skills)</small></div><div class="admRow" style="flex-wrap:wrap;gap:6px;align-items:center">' +
+      `<select data-spawn-kind tabindex="-1">${opts(kinds.map(d => [d.id, d.name + (d.rarity && d.rarity !== 'common' ? ' (' + rarityOf(d.rarity).name + ')' : '')]), 'Random kind')}</select>` +
+      `<select data-spawn-variety tabindex="-1" title="Moon and sky kinds always come in their own variety">${opts(varieties.map(v => [v.id, v.name]), 'Random variety')}</select>` +
+      '<input data-spawn-count type="number" min="1" max="12" value="1" style="width:3.4em" title="How many"><button data-spawn-go tabindex="-1">Spawn</button>' +
+      '<button data-spawn="random" data-n="6" tabindex="-1">\u{1F3B2} Random \u00d76</button></div>';
+    el.addEventListener('click', e => {
+      const q = sel => el.querySelector(sel);
+      if (e.target.closest('button[data-spawn-go]')) this.game.spawnPonies(q('[data-spawn-kind]').value || 'random', +q('[data-spawn-count]').value || 1, q('[data-spawn-variety]').value);
+      const b = e.target.closest('button[data-spawn]'); if (b) this.game.spawnPonies(b.dataset.spawn, +b.dataset.n);
+    });
     this.body.appendChild(el);
   }
 
