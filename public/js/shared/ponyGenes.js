@@ -67,6 +67,12 @@ const PonyGenes = (() => {
         return x * PACK + y;
       });
     },
+    /** The colour of a pony's AURA (the glow of a glowing or magical pony, a night-light pony's light): its mane's first colour, lightened so it shines. A grey mane (white, silver, black) borrows the coat's hue. */
+    auraColor(maneHex, coatHex) {
+      let [h, s, l] = toHsl(maneHex);
+      if (s < 0.2) { const c = toHsl(coatHex); if (c[1] >= 0.2) [h, s] = c; }
+      return fromHsl([h, s < 0.2 ? s : Math.max(s, 0.55), clamp(l, 0.58, 0.78)]);
+    },
     /** Make the look's coat and mane slots show what its genome says (after building a look from a new genome). */
     sync(look) { const g = genomeOf(look); for (let i = 0; i < LOCI.length; i++) if (LOCI[i].slot !== undefined) look[LOCI[i].slot] = Math.min(g[i][0], g[i][1]); return look; },
     /** The skill power this pony inherited, { ability, name, level }, or null (no talent). */

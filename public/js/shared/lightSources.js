@@ -16,7 +16,7 @@ const LightSources = {
       if (!a.look || !here(a)) continue;
       const glow = PonyRarity.of(a.look, a.type).abilities.find(ab => ab.passive);
       const light = glow && glow.effectDefs.find(e => e.kind === 'light');
-      if (light) out.push({ x: a.x, y: a.y, radius: light.radius, kind: 'pony' });
+      if (light) out.push({ x: a.x, y: a.y, radius: light.radius, kind: 'pony', look: a.look });
     }
     return out;
   },
