@@ -59,11 +59,21 @@ class AnimalDeltaDecoder {
 
 /** Remembers the last version of a big shared object per remote player and says whether it changed. */
 class ChangeGate {
-  constructor() { this.last = null; }
+  constructor() { this.last = null; this.ref = undefined; }       // (ref: the object last looked at; the same object again cannot have changed)
   /** Returns the object if it differs from what this player last got (else null). */
-  changed(value) { const json = JSON.stringify(value); if (json === this.last) return null; this.last = json; return value; }
-  prime(value) { this.last = JSON.stringify(value); }
+  changed(value) { if (value === this.ref) return null; this.ref = value; const json = JSON.stringify(value); if (json === this.last) return null; this.last = json; return value; }
+  prime(value) { this.last = JSON.stringify(value); this.ref = value; }
 }
+
+/** JSON of an object, worked out once however many friends are sent it (the snapshot's objects are shared between them and new every time). */
+const jsonMemo = new WeakMap();
+const sharedJson = v => { let s = jsonMemo.get(v); if (s === undefined) { s = JSON.stringify(v); jsonMemo.set(v, s); } return s; };
+/** Rounds each entity (player, villager) of a { id: entity } table ONCE per snapshot: `memo` (a Map the caller makes per snapshot) hands the same rounded copy to every friend. */
+DeltaCodec.quantizeEntities = (table, memo) => {
+  const out = {};
+  for (const id in table) { const e = table[id]; let q = memo.get(e); if (q === undefined) { q = DeltaCodec.quantize(e); memo.set(e, q); } out[id] = q; }
+  return out;
+};
 
 /** Host side, one per remote player: for each player, only the FIELDS that changed since the last snapshot sent (a walking player is ~10 numbers;
  *  their gear, skill levels, colour and name are sent once). Every present player appears (possibly as {}), so the receiver knows who is here. */
@@ -73,7 +83,7 @@ class PlayerDeltaEncoder {
     const out = {};
     for (const id in players) {
       const p = players[id], prev = this.last[id] || {}, next = {}, d = {};
-      for (const k in p) { const v = p[k], s = v !== null && typeof v === 'object' ? JSON.stringify(v) : v; next[k] = s; if (prev[k] !== s) d[k] = v; }
+      for (const k in p) { const v = p[k], s = v !== null && typeof v === 'object' ? sharedJson(v) : v; next[k] = s; if (prev[k] !== s) d[k] = v; }
       this.last[id] = next; out[id] = d;
     }
     for (const id in this.last) if (!(id in players)) delete this.last[id];

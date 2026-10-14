@@ -9,6 +9,7 @@ const forageAt = (map, tx, ty) => { const p = map.propAt(tx, ty); return p && Fo
 function setForageState(map, tx, ty, ripe, cut = false) {
   const key = tileKey(tx, ty);
   if (ripe) delete map.forageStates[key]; else map.forageStates[key] = cut ? { ripe: false, cut: 1 } : { ripe: false };
+  map.forageRev = (map.forageRev || 0) + 1;
   const prop = map.peekPropAt(tx, ty);
   if (prop && ForageDefs[forageKind(prop)]) { prop.ripe = ripe; prop.cut = !ripe && !!cut; }
 }
@@ -18,7 +19,13 @@ function applyForageStates(map, states) {
   for (const key of Object.keys(map.forageStates)) if (!(key in states)) setForageState(map, keyTileX(key), keyTileY(key), true);
   for (const key of Object.keys(states)) { const now = map.forageStates[key]; if (!now || !!now.cut !== !!states[key].cut) setForageState(map, keyTileX(key), keyTileY(key), false, !!states[key].cut); }
 }
-const collectForageStates = map => JSON.parse(JSON.stringify(map.forageStates));
+/** (The very same object comes back until something changes: see collectTreeStates.) */
+const collectForageStates = map => {
+  const c = map.forageCache;
+  if (c && c.src === map.forageStates && c.rev === (map.forageRev || 0)) return c.copy;
+  map.forageCache = { src: map.forageStates, rev: map.forageRev || 0, copy: JSON.parse(JSON.stringify(map.forageStates)) };
+  return map.forageCache.copy;
+};
 
 /** Nearest ripe bush / stone / apple tree / bottle within `range` of the player: { tx, ty, prop, dist } or null.
  *  Things that need a tool (a mound needs a shovel) are only offered while you hold it. */

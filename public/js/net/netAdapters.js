@@ -53,8 +53,8 @@ class LocalAdapter extends NetAdapter {
   }
   _sendSnapshot() {
     const snapshot = SnapshotBuilder.snapshotsFor(this.server, [this.id])[this.id];
-    const wire = JSON.stringify(snapshot);
-    this._deliver('down', () => { const snap = JSON.parse(wire); if (this.callback) this.callback(snap); else this.backlog.push(snap); });
+    const snap = SnapshotBuilder.copyForLocal(snapshot, this.localMemo || (this.localMemo = {}));
+    this._deliver('down', () => { if (this.callback) this.callback(snap); else this.backlog.push(snap); });
   }
   _deliver(direction, fn) {                                    // one-way delay = half the fake RTT, order preserved
     const net = CONFIG.net, delay = net.fakeLatencyMs / 2 + Math.random() * net.fakeJitterMs;
