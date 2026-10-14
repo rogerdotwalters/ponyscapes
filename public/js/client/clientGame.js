@@ -2,6 +2,7 @@
 /* CLIENT game state: prediction, reconciliation, interpolation, inventory mirror, building cursor, event relay.
  * It never draws and never touches the DOM. */
 const CLIENT_STREAM_RADIUS = 2, CLIENT_KEEP_RADIUS = 4, CHUNKS_PER_FRAME = 2;     // chunks around the player (CLIENT_KEEP_RADIUS: never dropped)
+const EXTRAPOLATE_TICKS = 3, EXTRAPOLATE_MAX_STEP = 4;   // a late snapshot: keep moving things along their last movement for at most 3 ticks (0.1 s), never across a jump bigger than 4 tiles
 // Land you have seen stays built until the cap is passed (then the least recently seen goes): ~12 KB a chunk, so about 15 MB, or 6 on a small phone.
 const CLIENT_MAX_CHUNKS = (typeof navigator !== 'undefined' && navigator.deviceMemory && navigator.deviceMemory <= 4) ? 500 : 1200;
 
@@ -407,8 +408,8 @@ class ClientGame {
     this._followGrid(snapshot);                                                  // through a door / into a cave: switch to that grid first
     this._bufferForInterpolation(snapshot);
     this._reconcile(snapshot);
-    applyTreeStates(this.worldMap, snapshot.trees || {});                         // (the overworld's: kept up to date even while we are indoors)
-    applyForageStates(this.worldMap, snapshot.forage || {});
+    if (!snapshot.treesSame) applyTreeStates(this.worldMap, snapshot.trees || {});                         // (the overworld's: kept up to date even while we are indoors)
+    if (!snapshot.forageSame) applyForageStates(this.worldMap, snapshot.forage || {});                   // (a remote player's unchanged lists are flagged: nothing to apply)
     if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
     if (snapshot.stallNames && this.map) this.map.stallNames = snapshot.stallNames;                 // what the stalls here are called (stableSystem.js)
@@ -487,7 +488,7 @@ class ClientGame {
     this.clockTick += frameMs / TICK_MS;                                       // smooth between snapshots, pulled back if it drifts
     if (Math.abs(this.clockTick - this.serverTick) > 6) this.clockTick = this.serverTick;
     if (!this.snapshots.length) return;
-    this.remoteTick = Math.min(this.remoteTick + frameMs / TICK_MS, this.snapshots[this.snapshots.length - 1].tick);
+    this.remoteTick = Math.min(this.remoteTick + frameMs / TICK_MS, this.snapshots[this.snapshots.length - 1].tick + EXTRAPOLATE_TICKS);     // (a little past the newest snapshot: see _addInterpolated)
   }
 
   /** The state the renderer draws: { tick, players, boats } in the same shape the server uses. */
@@ -524,8 +525,13 @@ class ClientGame {
     let a = buf[0], b = buf[buf.length - 1];
     for (const s of buf) if (s.tick <= rt) a = s;
     for (let i = buf.length - 1; i >= 0; i--) if (buf[i].tick >= rt) b = buf[i];
-    const t = b.tick === a.tick ? 0 : clamp((rt - a.tick) / (b.tick - a.tick), 0, 1);
-    const blend = (from, to) => Object.assign({}, to, { x: lerp(from.x, to.x, t), y: lerp(from.y, to.y, t), facing: lerpAngle(from.facing, to.facing, t) });
+    let t = b.tick === a.tick ? 0 : clamp((rt - a.tick) / (b.tick - a.tick), 0, 1);
+    const late = rt > b.tick && buf.length > 1;                                    // the next snapshot is overdue: carry on along the last movement instead of freezing
+    if (late) { a = buf[buf.length - 2]; b = buf[buf.length - 1]; t = b.tick === a.tick ? 1 : clamp((rt - a.tick) / (b.tick - a.tick), 1, 1 + EXTRAPOLATE_TICKS / (b.tick - a.tick)); }
+    const blend = (from, to) => {
+      if (late && Math.hypot(to.x - from.x, to.y - from.y) > EXTRAPOLATE_MAX_STEP) return Object.assign({}, to);        // (a teleport / door is not a movement to continue)
+      return Object.assign({}, to, { x: lerp(from.x, to.x, t), y: lerp(from.y, to.y, t), facing: late ? to.facing : lerpAngle(from.facing, to.facing, t) });
+    };
     for (const id in b.players) if (id !== this.myId) players[id] = blend(a.players[id] || b.players[id], b.players[id]);
     for (const id in b.boats || {}) boats[id] = blend((a.boats && a.boats[id]) || b.boats[id], b.boats[id]);
     for (const id in b.animals || {}) animals[id] = blend((a.animals && a.animals[id]) || b.animals[id], b.animals[id]);
