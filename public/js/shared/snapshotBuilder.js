@@ -41,6 +41,7 @@ const SnapshotBuilder = {
     const built = server.builtUpdateFor(id);           if (built) snapshot.built = built;
     const floors = server.floorsUpdateFor(id);         if (floors) snapshot.floors = floors;
     const gates = server.gatesUpdateFor(id);          if (gates) snapshot.gates = gates;                  // the open gates of the stable you are in (stableSystem.js)
+    const stallNames = server.stallNamesUpdateFor(id); if (stallNames) snapshot.stallNames = stallNames;   // the names of the stalls in the stable you are in (stableSystem.js)
     const farm = server.farmUpdateFor(id);             if (farm) snapshot.farm = farm;                    // the fields: tilled, watered, growing (farming.js)
     const stock = server.stockpilesUpdateFor(id);      if (stock) snapshot.stockpiles = stock;            // { piles, levels }: the town's storage
     const progress = server.progressUpdateFor(id);     if (progress) snapshot.progress = progress;        // { s: {skill: xp}, a: {attribute: xp} }

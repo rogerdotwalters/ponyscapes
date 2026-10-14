@@ -38,7 +38,7 @@ class StableUI {
       return `<div class="stBowl"><div class="stBowlHead"><b>${icon} ${label} bowl</b><span>Lv ${b.level + 1} &middot; ${b.units}/${b.size}</span></div>${bar(what === 'Food' ? 'hun' : 'thi', icon, Math.round(b.units / b.size * 100))}` +
         `<div class="stActs"><button class="stFill" data-act="care" data-what="fill${what}">${what === 'Food' ? 'Fill with apples' : 'Fill with water'}</button>${up}${auto}</div></div>`;
     };
-    let html = '';
+    let html = `<div class="stRename"><input id="stName" maxlength="16" value="${esc(menu.name || '')}" aria-label="Stable name" autocomplete="off"><button data-act="rename">Rename</button></div>`;
     if (menu.gate) html += `<button class="stGate${menu.gate.open ? ' open' : ''}" data-act="gate">${menu.gate.open ? '\uD83D\uDEAA Close the gate' : '\uD83D\uDEAA Open the gate'}</button>`;
     const br = menu.breed;
     if (br && (inside.length || br.busy)) {                       // breeding: exactly two of your ponies, a stallion and a mare, alone in the stall
@@ -58,7 +58,7 @@ class StableUI {
     else if (inside.length + (menu.others || 0) >= cap) html += `<p class="stHint">${care ? 'Every pony has its own stall. Only a stallion and a mare can share one, to breed.' : `This stall is full (${cap} ponies).`}</p>`;
     else html += '<p class="stHint">To add another pony, put it on a leash (the Leash button) and come back.</p>';
     this.body.innerHTML = html;
-    this.body.querySelectorAll('button').forEach(b => b.addEventListener('click', () => this.pick(b.dataset.act, b.dataset.id, b.dataset.what)));
+    this.body.querySelectorAll('button').forEach(b => b.addEventListener('click', () => this.pick(b.dataset.act, b.dataset.id, b.dataset.act === 'rename' ? this.body.querySelector('#stName').value : b.dataset.what)));
   }
   /** The stable desk (shared/ponyCare.js): the bank for pony coins and the office for tanks. @param {{fx, fy, bank, food, water, mine}} d */
   showDesk(d) {
@@ -81,6 +81,6 @@ class StableUI {
   pick(act, animal, what) {
     const m = this.menu; if (!m || m.desk) return;
     this.game.stallPick({ act, animal: animal || '', fx: m.fx, fy: m.fy, what: what || '' });
-    if (act !== 'care') this.close();                           // (the care buttons keep the menu open: the server sends it again with the new numbers)
+    if (act !== 'care' && act !== 'rename') this.close();                           // (the care buttons keep the menu open: the server sends it again with the new numbers)
   }
 }

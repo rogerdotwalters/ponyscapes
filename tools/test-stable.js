@@ -111,8 +111,28 @@ test('every stall has a name of its own, shown on the stall button and in its me
     const map = S.mapOf(P), stalls = map.plan.layout.furniture.filter(g => g.id === 'stall'), names = stalls.map(f => Stable.stallName(map, f));
     const f = stalls[1]; P.x = f.x + 1.5; P.y = f.y + 5.5; S.pendingEvents.length = 0; S._openStall(A, { fx: f.x, fy: f.y });
     const menu = S.pendingEvents.find(e => e.type === 'stallMenu'), near = Stable.stallsNear(map, P)[0];
-    return JSON.stringify({ n: names.length, unique: new Set(names).size, menuName: menu && menu.name, hint: near && Stable.stallName(map, near.f), label: findStall(map, P, '', {}, A).label });
+    return JSON.stringify({ n: names.length, unique: new Set(names).size, menuName: menu && menu.name, hint: near && Stable.stallName(map, near.f), first: names[0], label: findStall(map, P, '', {}, A).label });
   })()`));
-  assert.strictEqual(r.n, 12); assert.strictEqual(r.unique, 12, 'twelve different names'); assert(r.menuName && r.menuName === r.hint, JSON.stringify(r)); assert(r.label.startsWith(r.menuName));
+  assert.strictEqual(r.n, 12); assert.strictEqual(r.unique, 12, 'twelve different names'); assert(r.menuName && r.menuName === r.hint, JSON.stringify(r)); assert(r.label.startsWith(r.menuName)); assert.strictEqual(r.first, 'Stable 1');
+});
+test('stalls can be renamed from the menu (and numbered again); stabling a main pony unsets it as main', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+    for (const k of Object.keys(S.animals.animals)) if (S.animals.animals[k].owner === A) delete S.animals.animals[k];
+    S.interiors.enter(A, P, BuildingSites.list.find(x => x.def.id === 'pony_stable').index);
+    const map = S.mapOf(P), f = map.plan.layout.furniture.find(g => g.id === 'stall' && g.x === 1 && g.y === 1); P.x = f.x + 1.5; P.y = f.y + 5.5;
+    const out = { before: Stable.stallName(map, f) };
+    S.pendingEvents.length = 0; S._stallPick(A, { act: 'rename', animal: '', fx: f.x, fy: f.y, what: '  Star<b>light  ' });
+    out.after = Stable.stallName(map, f); out.menu = (S.pendingEvents.find(e => e.type === 'stallMenu') || {}).name; out.snap = S.stallNamesUpdateFor(A);
+    const saved = SaveData.stallNameState(JSON.parse(JSON.stringify(S.stallNames))); out.saved = saved[gridOf(P)][f.x + ',' + f.y];
+    S._stallPick(A, { act: 'rename', animal: '', fx: f.x, fy: f.y, what: '' }); out.reset = Stable.stallName(map, f);
+    const id = S.animals.spawn('pony_plain', f.x + 1, f.y + 5.5, 0, { level: 1 }), a = S.animals.animals[id];
+    a.owner = A; a.main = true; a.leashed = true; a.grid = gridOf(P); a.x = P.x + 0.5; a.y = P.y;
+    S._stallPick(A, { act: 'in', animal: id, fx: f.x, fy: f.y }); out.stalled = !!a.stall; out.main = !!a.main;
+    S._stallPick(A, { act: 'out', animal: id }); out.mainAfterOut = !!a.main;
+    return JSON.stringify(out);
+  })()`));
+  assert.strictEqual(r.before, 'Stable 1'); assert.strictEqual(r.after, 'Starblight'); assert.strictEqual(r.menu, 'Starblight'); assert(r.snap && Object.values(r.snap).includes('Starblight'));
+  assert.strictEqual(r.saved, 'Starblight'); assert.strictEqual(r.reset, 'Stable 1'); assert(r.stalled); assert.strictEqual(r.main, false, 'stabled: no longer main'); assert.strictEqual(r.mainAfterOut, false, 'taking it out does not make it main again');
 });
 console.log(passed + ' passed');

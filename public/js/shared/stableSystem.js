@@ -37,11 +37,14 @@ const Stable = {
     const f = L && L.furniture.find(g => (FurnitureDefs.get(g.id) || {}).gate && g.x >= stall.x && g.x < stall.x + stall.w && g.y === stall.y + stall.h);
     return f ? { f, open: !!(map.isGateOpen && map.isGateOpen(f.x, f.y)) } : null;
   },
-  /** Every stall has a name of its own (the button that opens its menu wears it): by its place in the stable's layout. */
-  NAMES: ['Meadow', 'Clover', 'Willow', 'Maple', 'Sunny', 'Breeze', 'Hazel', 'Juniper', 'Poppy', 'Rowan', 'Thistle', 'Bramble'],
+  /** Every stall has a name of its own: "Stable 1", "Stable 2" ... by its place in the stable's layout, until its owner renames it (map.stallNames, kept by the server and sent with the snapshot). */
+  NAME_MAX: 16,
+  cleanName: raw => String(raw == null ? '' : raw).replace(/[^A-Za-z0-9 '\-]/g, '').replace(/\s+/g, ' ').trim().slice(0, Stable.NAME_MAX),
   stallName(map, f) {
+    const custom = map && map.stallNames && map.stallNames[f.x + ',' + f.y];
+    if (custom) return custom;
     const L = Stable.layoutOf(map), i = L ? L.furniture.filter(g => (FurnitureDefs.get(g.id) || {}).stall).findIndex(g => g.x === f.x && g.y === f.y) : -1;
-    return i < 0 ? 'Stall' : Stable.NAMES[i % Stable.NAMES.length] + (i >= Stable.NAMES.length ? ' ' + (Math.floor(i / Stable.NAMES.length) + 1) : '');
+    return i < 0 ? 'Stable' : 'Stable ' + (i + 1);
   },
   key: (grid, f) => `${grid}|${f.x},${f.y}`,
   /** The grid and tile of a stall key. */
@@ -132,6 +135,33 @@ Object.assign(GameServer.prototype, {
     this._notice(id, `${Stable.nameOf(a)} is on a leash`);
   },
 
+  /** Make the room's map carry the stall names the server keeps for it (so Stable.stallName sees them). */
+  _syncStallNames(p) {
+    const grid = gridOf(p), map = grid ? this.mapOf(p) : null;
+    if (!map || !Stable.layoutOf(map)) return null;
+    this.stallNames = this.stallNames || {};
+    return (map.stallNames = this.stallNames[grid] || (this.stallNames[grid] = {}));
+  },
+  /** Rename a stall from its menu (an empty name goes back to "Stable N"). Your own stable only. */
+  _renameStall(id, p, map, cmd) {
+    const f = map.plan.layout.furniture.find(g => g.x === (cmd.fx | 0) && g.y === (cmd.fy | 0) && (FurnitureDefs.get(g.id) || {}).stall);
+    if (!f || Stable.rectDist(f, p) > Stable.REACH + 0.8) { this._notice(id, 'Stand beside the stall'); return; }
+    if (!this._isMyStable(id, gridOf(p))) { this._notice(id, 'This is not your stable'); return; }
+    const names = this._syncStallNames(p), key = f.x + ',' + f.y, name = Stable.cleanName(cmd.what);
+    if (name) names[key] = name; else delete names[key];
+    this._notice(id, name ? `The stall is now called ${name}` : 'The stall has its number back');
+    this.namesRev = (this.namesRev || 0) + 1;
+    this._useStall(id, p, { fx: f.x, fy: f.y });
+  },
+  /** For the snapshot: the stall names of the room this player is in (only when they changed, or the player came into a room). */
+  stallNamesUpdateFor(id) {
+    const p = this.players[id], names = p ? this._syncStallNames(p) : null, key = names ? gridOf(p) + '|' + JSON.stringify(names) : '';
+    this.namesSent = this.namesSent || {};
+    if (this.namesSent[id] === key) return null;
+    this.namesSent[id] = key;
+    return names ? Object.assign({}, names) : null;
+  },
+
   /** The stall button (client: the one wearing the stall's name): open that stall's menu. */
   _openStall(id, cmd) {
     const p = this.players[id]; if (!p || p.asleep || p.down > 0 || p.hp <= 0) return;
@@ -140,6 +170,7 @@ Object.assign(GameServer.prototype, {
 
   /** The interact key at a stall: send the menu (the gate, and the ponies you could put in, or the ponies you could take out). */
   _useStall(id, p, action) {
+    this._syncStallNames(p);
     const hit = this._roomPiece(p, action, d => d.stall); if (!hit) return;
     const f = hit.f, animals = this.animals.animals, inside = Stable.occupants(animals, p, f), gate = Stable.gateOf(this.mapOf(p), f);
     if (Stable.rectDist(f, p) > Stable.REACH + 0.4) return;
@@ -172,6 +203,7 @@ Object.assign(GameServer.prototype, {
     if (cmd.act === 'gate') { this._useGate(id, p, map, cmd); return; }
     if (cmd.act === 'breed' || cmd.act === 'breedStop') { this._breedPick(id, p, map, cmd); return; }
     if (cmd.act === 'care') { this._carePick(id, p, map, cmd); return; }
+    if (cmd.act === 'rename') { this._renameStall(id, p, map, cmd); return; }
     if (!a || a.owner !== id || (!sameGrid(a, p) && !a.stall)) return;
     if (cmd.act === 'in') {
       const f = map.plan.layout.furniture.find(g => g.x === (cmd.fx | 0) && g.y === (cmd.fy | 0) && (FurnitureDefs.get(g.id) || {}).stall);
@@ -185,6 +217,7 @@ Object.assign(GameServer.prototype, {
       const at = Stable.spot(f, sharing);
       Object.assign(a, { stall: Stable.key(grid, f), stallAt: at, stallBox: Stable.box(f), x: at.x, y: at.y, vx: 0, vy: 0, leashed: false, rider: '', home: at, state: 'idle', facing: Math.PI / 2 });
       delete a.roam;
+      if (a.main) { a.main = false; this._notice(id, `${Stable.nameOf(a)} is no longer your main pony: set it again after taking it out`); }
       this._notice(id, `${Stable.nameOf(a)} settles into the stall`);
       this.pendingEvents.push({ type: 'stalled', to: id, animal: a.id, x: at.x, y: at.y, grid });
       return;

@@ -27,6 +27,18 @@ const SaveData = {
     return out;
   },
   _plain: v => v !== null && typeof v === 'object' && !Array.isArray(v),
+  /** The stall names of a world save (stableSystem.js): { roomGrid: { 'x,y': name } }, cleaned. */
+  stallNameState(raw) {
+    const out = {}, P = SaveData._plain;
+    if (!P(raw)) return out;
+    for (const [grid, names] of Object.entries(raw).slice(0, 200)) {
+      if (!/^room:[0-9:]{1,24}$/.test(grid) || !P(names)) continue;
+      const clean = {};
+      for (const [key, n] of Object.entries(names).slice(0, 64)) { const name = /^\d{1,3},\d{1,3}$/.test(key) ? Stable.cleanName(n) : ''; if (name) clean[key] = name; }
+      out[grid] = clean;
+    }
+    return out;
+  },
   /** The stable care state of a world save (ponyCare.js): { roomGrid: { tanks, stalls } }, cleaned. */
   careState(raw) {
     const out = {}, P = SaveData._plain, N = SaveData._num, I = SaveData._int, C = CONFIG.sim.ponyCare, tank = t => (P(t) ? { size: I(t.size, 0, C.tank.supply.length - 1, 0), count: I(t.count, 0, C.tank.maxCount, 0) } : { size: 0, count: 0 });

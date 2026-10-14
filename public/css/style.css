@@ -900,3 +900,6 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 
 /* the stall button: a pill wearing the name of the stall beside you (stableSystem.js) */
 #btnStall{border-radius:14px !important;font:700 13px Georgia,serif;border-color:#e3b04a;background:rgba(140,95,20,.78);color:#fff0c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px}
+#stableBody .stRename{display:flex;gap:6px}
+#stableBody .stRename input{flex:1;min-width:0;min-height:44px;box-sizing:border-box;padding:6px 10px;border-radius:9px;border:1.5px solid rgba(227,194,122,.6);background:rgba(10,18,28,.7);color:#f4e6c1;font:700 15px Georgia,serif;-webkit-user-select:text;user-select:text;touch-action:manipulation}
+#stableBody .stRename button{flex:0 0 auto;border-color:#b58cf0;background:rgba(70,40,120,.7);color:#eadcff}

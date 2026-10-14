@@ -411,6 +411,7 @@ class ClientGame {
     applyForageStates(this.worldMap, snapshot.forage || {});
     if (snapshot.built) { BuildSystem.replaceAll(this.worldMap, snapshot.built); this.events.emit('builtChanged'); }
     if (snapshot.floors) BuildSystem.replaceFloors(this.worldMap, snapshot.floors);
+    if (snapshot.stallNames && this.map) this.map.stallNames = snapshot.stallNames;                 // what the stalls here are called (stableSystem.js)
     if (snapshot.gates && this.map && this.map.openGates) {                       // the stable's gates (stableSystem.js): the open ones of the room we are in
       const want = new Set(snapshot.gates);
       for (const key of [...this.map.openGates]) if (!want.has(key)) { const [x, y] = key.split(',').map(Number); this.map.setGate(x, y, false); }
