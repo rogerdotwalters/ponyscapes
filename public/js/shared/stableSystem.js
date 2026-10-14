@@ -286,15 +286,17 @@ Object.assign(GameServer.prototype, {
       if (going.t >= Stable.BREED_SECONDS) { this._breedEnd(key); this._bornFoal(going.owner, pair[0], pair[1], f, k.grid); }
     }
   },
-  /** A foal from a stallion and a mare: it gets its looks from them (each trait from either one, now and then something new), their variety, and a rarity at least as good as the better parent. */
+  /** A foal from a stallion and a mare: its genes come from them, one allele of each gene from each parent (PonyGenes.inherit: so a trait both carry can come out, and now and then something new),
+   *  its cutie mark from either, their variety, and a rarity at least as good as the better parent. */
   _foalLook(a, b) {
     const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B, variant = pickParent[4] | 0;
-    const V = variant ? PonyVariants[variant] : null, P = PonyPalette, size = { 0: V ? V.coats.length : P.coats.length, 1: V ? V.manes.length : P.manes.length, 2: V ? V.marks.length : P.marks.length, 3: V ? V.names.length : P.names.length };
+    const V = variant ? PonyVariants[variant] : null, P = PonyPalette, marks = (V || P).marks.length, names = (V || P).names.length;
     const same = [A, B].filter(l => (l[4] | 0) === variant);
-    const trait = i => (r() < 0.1 ? Math.floor(r() * size[i]) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[i] | 0) < size[i] ? l[i] | 0 : Math.floor(r() * size[i]); })());
-    const look = [trait(0), trait(1), trait(2), Math.floor(r() * size[3]), variant];
+    const mark = r() < 0.1 ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();
+    const look = [0, 0, mark, Math.floor(r() * names), variant];
     look.push(Math.min(RarityOrder.length - 1, Math.max(A[5] | 0, B[5] | 0) + (r() < 0.12 ? 1 : 0)), Math.floor(r() * 65536));
-    return look;
+    look.push(...PonyGenes.inherit(r, A, B, variant));
+    return PonyGenes.sync(look);                                                              // (the coat and mane slots show what the genes say)
   },
   _bornFoal(owner, a, b, f, grid) {
     const mares = [a, b].filter(x => PonyLook.sexOf(x.look) === 'f'), kinds = [a.type, b.type], type = a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : kinds[Math.floor(this.rng() * 2)];

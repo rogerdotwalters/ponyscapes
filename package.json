@@ -18,6 +18,7 @@
     "test:warren": "node tools/test-warren.js",
     "test:loot": "node tools/test-loot.js",
     "test:skills": "node tools/test-skills.js",
+    "test:genes": "node tools/test-genes.js",
     "test:apples": "node tools/test-apples.js",
     "test:taming": "node tools/test-taming.js",
     "test:markers": "node tools/test-markers.js",

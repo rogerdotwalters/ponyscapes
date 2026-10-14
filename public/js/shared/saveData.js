@@ -185,7 +185,7 @@ const SaveData = {
   _pet(q) {
     if (!SaveData._plain(q) || !AnimalDefs[q.type]) return null;
     const N = SaveData._num, I = SaveData._int;
-    const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
+    const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, PonyGenes.LEN).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed, ...genome]
     const x = N(q.x, -1e7, 1e7, NaN), y = N(q.y, -1e7, 1e7, NaN);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     return Object.assign({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
@@ -300,7 +300,7 @@ const SaveData = {
     }
     if (Array.isArray(data.pets)) for (const q of data.pets.slice(0, SaveData.MAX_PETS)) {
       if (!SaveData._plain(q) || !AnimalDefs[q.type] || !(AnimalDefs[q.type].pony || AnimalDefs[q.type].tameable)) continue;      // only things you can actually keep: a saved "pet" can never be a dragon
-      const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, 7).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed]
+      const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, PonyGenes.LEN).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed, ...genome]
       out.pets.push(Object.assign({ type: q.type, main: q.main === true || undefined, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) }, SaveData._pack(q, look)));
     }
     out.friends = {};                                                                       // hearts with the villagers: { 'n_baker': [level, points] }
