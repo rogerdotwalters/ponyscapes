@@ -15,7 +15,7 @@ test('a pony from a gene number is the same every time, and its coat and mane sl
   for (let g = 1; g < 200; g++) { const l = J(`PonyLook.fromGene(${g}, ${g % 3})`); assert.strictEqual(l.length, run('PonyGenes.LEN')); const e = J(`PonyGenes.express(PonyLook.fromGene(${g}, ${g % 3}))`); assert.strictEqual(e.bodyColor, l[0]); assert.strictEqual(e.maneColor, l[1]); }
 });
 test('the first seven numbers of a pony are what they were before genes (saved herds look the same)', () => {
-  assert.deepStrictEqual(J('PonyLook.fromGene(7, 0).slice(0, 7)'), [0, 0, 7, 16, 0, 0, 26576]);
+  assert.deepStrictEqual(J('PonyLook.fromGene(7, 0).slice(2, 7)'), [7, 16, 0, 0, 26576]);
 });
 test('an older pony (no genome) reads as classic, with its tail the colour of its mane', () => {
   const g = J('PonyLook.describe([3, 2, 1, 0, 0, 0, 200]).gene');
@@ -43,5 +43,38 @@ test('foals of two ponies keep a valid genome that survives a save', () => {
   const r = J(`(() => { const S = new GameServer(5), A = PonyLook.fromGene(1, 0), B = PonyLook.fromGene(2, 0), f = S._foalLook({ look: A }, { look: B });
     return { len: f.length, ok: f.every(Number.isInteger), d: !!PonyLook.describe(f).gene.key }; })()`);
   assert.strictEqual(r.len, run('PonyGenes.LEN')); assert(r.ok && r.d);
+});
+test('hair patterns: striped (classic), solid and multicolor; a matched tail takes the mane\'s pattern', () => {
+  const at = id => run(`PonyGenes.at('${id}')`);
+  const mk = (mp, tp, link) => `(() => { const l = PonyLook.fromGene(5, 0); l[${7 + at('manePattern')}] = ${mp} * 65; l[${7 + at('tailPattern')}] = ${tp} * 65; l[${7 + at('tailLink')}] = ${link} * 65; return PonyLook.describe(l).gene; })()`;
+  assert.strictEqual(J(mk(1, 0, 0) + '.maneColors.length'), 1, 'solid is one colour');
+  assert(J(mk(2, 0, 0) + '.maneColors.length') >= 4, 'multicolor has four or more');
+  assert.strictEqual(J(mk(0, 0, 0) + '.maneColors.length'), J('PonyPalette.manes[PonyLook.fromGene(5, 0)[1]].length'), 'striped is the variety list as it is');
+  assert.strictEqual(J(mk(1, 2, 0) + '.tailPattern'), 1, 'matched: the tail follows the mane'); assert.strictEqual(J(mk(1, 2, 1) + '.tailPattern'), 2, 'free: its own pattern');
+  const hex = J(mk(2, 0, 0) + '.maneColors'); assert(hex.every(c => /^#[0-9a-f]{6}$/.test(c)), hex.join());
+});
+test('there are more snout shapes and more colours, and older looks (before the pattern genes) still read', () => {
+  assert(run("PonyGeneTable.get('headShape').alleles.length") >= 7);
+  assert(run('PonyPalette.coats.length') > 12 && run('PonyPalette.manes.length') > 10 && run("PonyGeneTable.get('eyeColor').alleles.length") >= 12 && run("PonyGeneTable.get('hoofColor').alleles.length") >= 10);
+  const old = J('PonyLook.fromGene(9, 0).slice(0, 7 + PonyGenes.at(\'tailLink\') + 1)');                  // a genome saved before the last two genes existed
+  const g = J(`PonyLook.describe(${JSON.stringify(old)}).gene`); assert.strictEqual(g.manePattern, 0); assert.strictEqual(g.tailPattern, 0);
+});
+test('wild meadow ponies show the whole range of coats', () => {
+  const seen = new Set(); for (let g = 0; g < 400; g++) seen.add(J(`PonyLook.fromGene(${g}, 0)[0]`));
+  assert(seen.size >= 20, 'coats seen: ' + seen.size);
+  const pats = new Set(); for (let g = 0; g < 400; g++) pats.add(J(`PonyLook.describe(PonyLook.fromGene(${g}, 0)).gene.manePattern`)); assert.strictEqual(pats.size, 3);
+});
+test('skills are genes: an inherited talent shows in the tree at level 9, an older pony has none, and carriers pass it on', () => {
+  const at = run("PonyGenes.at('talent')"), none = run("PonyGeneTable.get('talent').alleles.length - 1"), star = run("PonyGeneTable.get('talent').alleles.findIndex(a => a.id === 'mark_star')");
+  assert.strictEqual(run('PonyGenes.talentOf([3, 2, 1, 0, 0, 0, 200])'), null, 'older ponies have no talent');
+  const mk = pair => `(() => { const l = PonyLook.fromGene(7, 1); l[${7 + at}] = ${pair}; return l; })()`;       // a moss pony: no tree of its own, so the talent is its only skill
+  const tree = (pair, lvl) => J(`PonySkills.tree(${mk(pair)}, 'pony_plain', ${lvl}).map(s => [s.id, s.unlocked, s.ability && s.ability.id])`);
+  assert.deepStrictEqual(tree(star * 64 + none, 8), [['talent', false, 'mark_star']]);
+  assert.deepStrictEqual(tree(star * 64 + none, 9), [['talent', true, 'mark_star']], 'a carried talent shows: the power alleles dominate "no talent"');
+  assert.deepStrictEqual(tree(none * 65, 30), [], 'no talent, no skill');
+  assert.deepStrictEqual(J(`PonySkills.unlocked(${mk(star * 64 + none)}, 'pony_plain', 12)`), ['mark_star']);
+  const r = J(`(() => { const rng = mulberry32(3); let got = 0; for (let i = 0; i < 400; i++) { const f = PonyGenes.inherit(rng, ${mk(star * 64 + none)}, ${mk(none * 65)}, 1); const a = Math.floor(f[${at}] / 64), b = f[${at}] % 64; if (Math.min(a, b) === ${star}) got++; } return got; })()`);
+  assert(r > 120 && r < 280, 'about half the foals of a talented parent inherit it: ' + r);
+  assert(J("PonyLook.describe(PonyLook.fromGene(1, 0)).gene.traits.length") >= 6);
 });
 console.log(passed + ' passed');

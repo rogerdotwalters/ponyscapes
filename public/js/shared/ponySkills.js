@@ -37,14 +37,16 @@ const PonySkills = {
   markAbility: mark => (SkillAbilityDefs['mark_' + mark] ? 'mark_' + mark : null),
   /** How much stronger a skill is at a pony's level: +8% per level above 1. */
   scale: level => 1 + 0.08 * (Math.max(1, level || 1) - 1),
-  /** A pony's tree: [{ id, level (to unlock), unlocked, ability (the power, or null), name, text }], for its look, kind and level. Empty for a variety with no tree yet. */
+  /** A pony's tree: [{ id, level (to unlock), unlocked, ability (the power, or null), name, text }], for its look, kind and level: its variety's skills, then the skill it inherited, if any. */
   tree(look, type, level = 1) {
-    const d = PonyLook.describe(look), tree = PonySkillTrees.get(d.variantId);
-    if (!tree) return [];
-    return tree.skills.map(s => {
+    const d = PonyLook.describe(look), tree = PonySkillTrees.get(d.variantId), out = [];
+    for (const s of tree ? tree.skills : []) {
       const abilityId = s.byMark ? PonySkills.markAbility(d.mark) : s.ability, ability = abilityId ? SkillAbilityDefs[abilityId] : null;
-      return { id: s.id, label: s.label, level: s.level, unlocked: (level || 1) >= s.level && !!ability, ability, name: ability ? ability.name : s.label, text: s.byMark ? `from its ${d.mark} cutie mark` : 'from where it was born' };
-    });
+      out.push({ id: s.id, label: s.label, level: s.level, unlocked: (level || 1) >= s.level && !!ability, ability, name: ability ? ability.name : s.label, text: s.byMark ? `from its ${d.mark} cutie mark` : 'from where it was born' });
+    }
+    const talent = PonyGenes.talentOf(look), ability = talent ? SkillAbilityDefs[talent.ability] : null;       // the skill it inherited (a gene: ponyGenes.js), unless the pony has that power already
+    if (ability && !out.some(s => s.ability && s.ability.id === ability.id)) out.push({ id: 'talent', label: 'Inherited skill', level: talent.level, unlocked: (level || 1) >= talent.level, ability, name: ability.name, text: 'inherited from its parents' });
+    return out;
   },
   /** The powers a pony has unlocked at its level (ability ids, in tree order). */
   unlocked: (look, type, level) => PonySkills.tree(look, type, level).filter(s => s.unlocked).map(s => s.ability.id)

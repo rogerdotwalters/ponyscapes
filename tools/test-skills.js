@@ -20,11 +20,11 @@ const hpOf = id => run(`S.animals.animals['${id}'].hp`);
 const fire = i => run(`(() => { S.tick += 5; S._useRarityAbility(A, PA, ${i}); })()`);
 
 test('a meadow pony\'s tree: Leaf Blast from level 3, its cutie-mark power from level 6; other varieties have none yet', () => {
-  const tree = lvl => run(`PonySkills.tree(PonyLook.fromGene(7, 0), 'pony_plain', ${lvl}).map(s => [s.id, s.unlocked])`);
+  const tree = lvl => run(`PonySkills.tree(PonyLook.fromGene(7, 0), 'pony_plain', ${lvl}).filter(s => s.id !== 'talent').map(s => [s.id, s.unlocked])`);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(tree(2))), [['leaf_blast', false], ['cutie_mark', false]]);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(tree(3))), [['leaf_blast', true], ['cutie_mark', false]]);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(tree(6))), [['leaf_blast', true], ['cutie_mark', true]]);
-  assert.strictEqual(run(`PonySkills.tree(PonyLook.fromGene(7, 1), 'pony_plain', 30).length`), 0, 'a moss pony has no tree yet');
+  assert.strictEqual(run(`PonySkills.tree(PonyLook.fromGene(7, 1), 'pony_plain', 30).filter(s => s.id !== 'talent').length`), 0, 'a moss pony has no tree yet');
 });
 
 test('every meadow cutie mark has its own power', () => {
