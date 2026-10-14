@@ -37,6 +37,12 @@ const Stable = {
     const f = L && L.furniture.find(g => (FurnitureDefs.get(g.id) || {}).gate && g.x >= stall.x && g.x < stall.x + stall.w && g.y === stall.y + stall.h);
     return f ? { f, open: !!(map.isGateOpen && map.isGateOpen(f.x, f.y)) } : null;
   },
+  /** Every stall has a name of its own (the button that opens its menu wears it): by its place in the stable's layout. */
+  NAMES: ['Meadow', 'Clover', 'Willow', 'Maple', 'Sunny', 'Breeze', 'Hazel', 'Juniper', 'Poppy', 'Rowan', 'Thistle', 'Bramble'],
+  stallName(map, f) {
+    const L = Stable.layoutOf(map), i = L ? L.furniture.filter(g => (FurnitureDefs.get(g.id) || {}).stall).findIndex(g => g.x === f.x && g.y === f.y) : -1;
+    return i < 0 ? 'Stall' : Stable.NAMES[i % Stable.NAMES.length] + (i >= Stable.NAMES.length ? ' ' + (Math.floor(i / Stable.NAMES.length) + 1) : '');
+  },
   key: (grid, f) => `${grid}|${f.x},${f.y}`,
   /** The grid and tile of a stall key. */
   parseKey(key) { const m = /^(room:[0-9:]{1,24})\|(\d{1,3}),(\d{1,3})$/.exec(key || ''); return m ? { grid: m[1], x: +m[2], y: +m[3] } : null; },
@@ -92,7 +98,9 @@ const Stable = {
   },
   nameOf: a => (a.look && typeof PonyLook !== 'undefined' ? PonyLook.describe(a.look).name : AnimalDefs[a.type].name),
   /** What a menu shows for a pony. */
-  describe: a => ({ id: a.id, name: Stable.nameOf(a), level: a.level || 1, type: a.type, sex: a.look ? PonyLook.sexOf(a.look) : '' })
+  /** A pony that is breeding right now cannot be taken out, moved, fed or petted until the foal is born (or the breeding is stopped). */
+  locked: a => !!a && a.breedP !== undefined,
+  describe: (a, pid) => ({ id: a.id, name: Stable.nameOf(a), level: a.level || 1, type: a.type, sex: a.look ? PonyLook.sexOf(a.look) : '', care: typeof PonyCare !== 'undefined' ? PonyCare.statsOf(a, pid) || undefined : undefined, locked: Stable.locked(a) || undefined })
 };
 
 /** What the interact key does in a stable (client + server): feed a stabled pony you hold an apple for, else a stall's menu. */
@@ -100,10 +108,10 @@ function findStall(map, p, heldItemId, animals = {}, selfId = p.id) {
   if (p.asleep || !Stable.layoutOf(map)) return null;
   const [hit] = Stable.stallsNear(map, p);
   if (!hit) return null;
-  const occs = Stable.occupants(animals, p, hit.f), occ = occs.filter(o => o.owner === selfId).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+  const occs = Stable.occupants(animals, p, hit.f), occ = occs.filter(o => o.owner === selfId && !Stable.locked(o)).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
   if (occ && ItemDB.isApple(heldItemId) && Math.hypot(occ.x - p.x, occ.y - p.y) <= Stable.FEED_REACH) return { kind: 'stallFeed', label: `Feed ${Stable.nameOf(occ)}`, dist: hit.dist - 0.5, animal: occ };
-  const label = !occs.length ? 'Stable a pony' : occs.length < Stable.CAPACITY ? 'Stall: add or take out' : 'Take a pony out';
-  return { kind: 'stall', mode: occs.length ? 'out' : 'in', label, dist: hit.dist, fx: hit.f.x, fy: hit.f.y };
+  const name = Stable.stallName(map, hit.f), label = `${name}: ${!occs.length ? 'stable a pony' : 'stable menu'}`;
+  return { kind: 'stall', mode: occs.length ? 'out' : 'in', label, name, dist: hit.dist, fx: hit.f.x, fy: hit.f.y };
 }
 Interactions.extra.push(findStall);
 InteractionHandlers.stall = (server, id, p, action) => server._useStall(id, p, action);
@@ -124,17 +132,36 @@ Object.assign(GameServer.prototype, {
     this._notice(id, `${Stable.nameOf(a)} is on a leash`);
   },
 
+  /** The stall button (client: the one wearing the stall's name): open that stall's menu. */
+  _openStall(id, cmd) {
+    const p = this.players[id]; if (!p || p.asleep || p.down > 0 || p.hp <= 0) return;
+    this._useStall(id, p, { fx: cmd.fx | 0, fy: cmd.fy | 0 });
+  },
+
   /** The interact key at a stall: send the menu (the gate, and the ponies you could put in, or the ponies you could take out). */
   _useStall(id, p, action) {
     const hit = this._roomPiece(p, action, d => d.stall); if (!hit) return;
     const f = hit.f, animals = this.animals.animals, inside = Stable.occupants(animals, p, f), gate = Stable.gateOf(this.mapOf(p), f);
     if (Stable.rectDist(f, p) > Stable.REACH + 0.4) return;
     const mode = inside.length ? 'out' : 'in', list = inside.length ? Stable.stalledHere(animals, p, id) : Stable.leashed(animals, p, id);
-    const addable = inside.length < Stable.CAPACITY ? Stable.leashed(animals, p, id) : [];
+    const care = PonyCare.isOn(this), breeding = (this.breeding || {})[Stable.key(gridOf(p), f)];
+    let addable = inside.length < Stable.CAPACITY ? Stable.leashed(animals, p, id) : [], cap = Stable.CAPACITY;
+    if (care) { cap = this._stallCap(inside); addable = inside.length >= cap || breeding ? [] : this._guestsFor(inside, Stable.leashed(animals, p, id)); }       // (one pony per stall; a second only to breed)
+    else if (breeding) addable = [];
     // (options / mode: the old single menu; inside / addable / cap: the whole stall at once, for the shared stall's menu)
-    this.pendingEvents.push({ type: 'stallMenu', to: id, mode, fx: f.x, fy: f.y, gate: gate ? { open: gate.open } : null, options: list.map(Stable.describe),
-      inside: inside.filter(a => a.owner === id).map(Stable.describe), others: inside.filter(a => a.owner !== id).length, addable: addable.map(Stable.describe), cap: Stable.CAPACITY,
-      breed: this._breedInfo(id, p, f, inside) });
+    this.pendingEvents.push({ type: 'stallMenu', to: id, mode, fx: f.x, fy: f.y, name: Stable.stallName(this.mapOf(p), f), gate: gate ? { open: gate.open } : null, options: list.map(Stable.describe),
+      inside: inside.filter(a => a.owner === id).map(a => Stable.describe(a, id)), others: inside.filter(a => a.owner !== id).length, addable: addable.map(a => Stable.describe(a, id)), cap,
+      breed: this._breedInfo(id, p, f, inside), care: this._careMenu(id, p, f, inside) });
+  },
+
+  /** With pony care on, a stall holds ONE pony (its bowls are its own); a second joins only to breed. */
+  _stallCap: inside => (inside.length ? 2 : 1),
+  /** The leashed ponies that could join the one in the stall: the opposite sex, for breeding. */
+  _guestsFor(inside, leashed) {
+    if (!inside.length) return leashed;
+    if (inside.length !== 1) return [];
+    const sex = PonyCare.sexOf(inside[0]);
+    return leashed.filter(x => { const s = PonyCare.sexOf(x); return s && sex && s !== sex; });
   },
 
   /** A choice in the stall menu: act = 'in' (put the pony in the stall at fx, fy), 'out' (take it out in front of its gate) or 'roam' (let it out into the village). */
@@ -144,12 +171,16 @@ Object.assign(GameServer.prototype, {
     const grid = gridOf(p);
     if (cmd.act === 'gate') { this._useGate(id, p, map, cmd); return; }
     if (cmd.act === 'breed' || cmd.act === 'breedStop') { this._breedPick(id, p, map, cmd); return; }
+    if (cmd.act === 'care') { this._carePick(id, p, map, cmd); return; }
     if (!a || a.owner !== id || (!sameGrid(a, p) && !a.stall)) return;
     if (cmd.act === 'in') {
       const f = map.plan.layout.furniture.find(g => g.x === (cmd.fx | 0) && g.y === (cmd.fy | 0) && (FurnitureDefs.get(g.id) || {}).stall);
       if (!f || Stable.rectDist(f, p) > Stable.REACH + 0.8) { this._notice(id, 'Stand beside the stall'); return; }
-      const sharing = Stable.occupants(animals, p, f);
-      if (sharing.length >= Stable.CAPACITY) { this._notice(id, `That stall is full (${Stable.CAPACITY} ponies)`); return; }
+      const sharing = Stable.occupants(animals, p, f), care = PonyCare.isOn(this);
+      if ((this.breeding || {})[Stable.key(grid, f)]) { this._notice(id, 'The ponies in that stall are breeding: leave them be'); return; }
+      const cap = care ? this._stallCap(sharing) : Stable.CAPACITY;
+      if (sharing.length >= cap) { this._notice(id, care ? 'Every pony needs its own stall (a second one only joins to breed)' : `That stall is full (${Stable.CAPACITY} ponies)`); return; }
+      if (care && sharing.length === 1 && !this._guestsFor(sharing, [a]).length) { this._notice(id, 'Every pony needs its own stall: only a stallion and a mare can share one, to breed'); return; }
       if (!Stable.leashed(animals, p, id).includes(a)) { this._notice(id, 'Only a pony on a leash can be stabled'); return; }
       const at = Stable.spot(f, sharing);
       Object.assign(a, { stall: Stable.key(grid, f), stallAt: at, stallBox: Stable.box(f), x: at.x, y: at.y, vx: 0, vy: 0, leashed: false, rider: '', home: at, state: 'idle', facing: Math.PI / 2 });
@@ -159,6 +190,7 @@ Object.assign(GameServer.prototype, {
       return;
     }
     if (!a.stall || !a.stall.startsWith(grid + '|')) return;                                 // (only from inside the stable the pony is in)
+    if (Stable.locked(a)) { this._notice(id, `${Stable.nameOf(a)} is breeding: leave the pair alone until the foal is born (or stop the breeding)`); return; }
     const f = Stable.pieceOfKey(a.stall), name = Stable.nameOf(a);
     delete a.stall; delete a.stallAt; delete a.stallBox; a.vx = a.vy = 0; a.state = 'idle'; a.leashed = false;
     if (cmd.act === 'roam') {                                                                // out of the door: into the village, to roam there

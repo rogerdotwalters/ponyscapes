@@ -51,7 +51,7 @@ Object.assign(GameServer.prototype, {
       const key = this._ownerKeyOf(a);
       if (!key || a.trial) continue;
       const friend = a.friends[a.owner] || a.parkedFriend;
-      out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, roam: a.roam || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, foal: a.foal > 0 ? Math.round(a.foal) : undefined, breedRest: a.breedRest > 0 ? Math.round(a.breedRest) : undefined, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
+      out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, roam: a.roam || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, foal: a.foal > 0 ? Math.round(a.foal) : undefined, breedRest: a.breedRest > 0 ? Math.round(a.breedRest) : undefined, care: a.hunger !== undefined ? [a.hunger, a.thirst, a.happy, a.lowT || 0, a.drops || 0].map(v => Math.round(v * 10) / 10) : undefined, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
         x: a.x, y: a.y, stall: a.stall ? { k: a.stall, x: a.stallAt ? a.stallAt.x : a.x, y: a.stallAt ? a.stallAt.y : a.y } : undefined, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null }, this._exportPack(a)));
     }
     return out;
@@ -65,6 +65,7 @@ Object.assign(GameServer.prototype, {
       if (q.main) pet.main = true;
       if (q.foal > 0) pet.foal = q.foal;                                                                  // (still growing up)
       if (q.breedRest > 0) pet.breedRest = q.breedRest;
+      if (q.care) [pet.hunger, pet.thirst, pet.happy, pet.lowT, pet.drops] = q.care;                    // (pony care: ponyCare.js)
       if (q.roam && !q.stall) pet.roam = true;                                                          // (let out to roam the village)
       if (q.stall) { pet.stall = q.stall.k; pet.stallAt = { x: q.stall.x, y: q.stall.y }; pet.stallBox = Stable.boxOfKey(q.stall.k) || undefined; }          // (still in its stall in the stable)
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction)); pet.home = { x: q.hx, y: q.hy };
@@ -271,6 +272,7 @@ Object.assign(GameServer.prototype, {
   /** Feeding your own pony a treat: XP too (more for food it likes). */
   _treat(id, p, act) {
     const a = this.animals.animals[act.animal.id], item = p.held, liked = a && a.opinionOf(item) !== 'neutral';
+    if (a && Stable.locked(a)) { this._notice(id, `${Stable.nameOf(a)} is busy breeding`); return null; }
     const result = this.friendship.act(id, a, 'feed', item);
     if (result && result.points > 0 && a.owner === id) this._ponyXp(a, liked ? CONFIG.sim.ponyLeveling.feedLikedXp : CONFIG.sim.ponyLeveling.feedXp);
     return result;

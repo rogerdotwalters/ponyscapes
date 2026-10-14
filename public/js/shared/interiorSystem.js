@@ -162,10 +162,11 @@ class InteriorSystem {
   }
 
   /** For the world save: whose home is which room. */
-  exportState() { const chests = {}; for (const [k, inv] of Object.entries(this.chests)) if (inv.used) chests[k] = inv.toJSON(); return { homes: Object.assign({}, this.homes), nextHome: this.nextHome, chests, owners: JSON.parse(JSON.stringify(this.owners)), restored: BuildingVersions.wire() }; }
+  exportState() { const chests = {}; for (const [k, inv] of Object.entries(this.chests)) if (inv.used) chests[k] = inv.toJSON(); return { homes: Object.assign({}, this.homes), nextHome: this.nextHome, chests, owners: JSON.parse(JSON.stringify(this.owners)), restored: BuildingVersions.wire(), care: JSON.parse(JSON.stringify(this.server.care || {})) }; }
   restore(state) {
     if (!state || typeof state !== 'object') return;
     BuildingVersions.apply(state.restored); this.versionsRev++; this._syncSettings();
+    this.server.care = SaveData.careState(state.care);                              // (stable tanks, bowls and upgrades: ponyCare.js)
     for (const [key, n] of Object.entries(state.homes || {})) if (/^(seat:)?[A-Za-z0-9_-]{1,64}$/.test(key) && Number.isInteger(n) && n >= 0 && n < 4000) this.homes[key] = n;
     for (const [key, slots] of Object.entries(state.chests || {})) {                // (what lies in the worn chests)
       if (!/^[A-Za-z0-9_:|,.\-]{1,80}$/.test(key) || !Array.isArray(slots)) continue;

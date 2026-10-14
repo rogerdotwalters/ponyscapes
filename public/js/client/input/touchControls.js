@@ -79,11 +79,12 @@ class TouchControls {
 
   /* ---- buttons ---- */
   _bindButtons() {
-    const { btnBag, btnAct, btnRot, btnBoard, btnRelease, btnAbility, btnLasso, btnLeash, btnRide } = this.dom;
+    const { btnBag, btnAct, btnRot, btnBoard, btnRelease, btnAbility, btnLasso, btnLeash, btnRide, btnStall } = this.dom;
     this._press(btnBoard, () => this.bus.emit('interact'));
     if (btnAbility) this._press(btnAbility, () => this.bus.emit('ponyPower', 0));      // the first rarity ability that is ready
     if (btnLasso) this._press(btnLasso, () => this.bus.emit('throwLasso'));
     if (btnLeash) this._press(btnLeash, () => this.bus.emit('leashPony'));
+    if (btnStall) this._press(btnStall, () => this.bus.emit('openStall'));
     if (btnRide) this._press(btnRide, () => this.bus.emit('ridePony'));
     if (btnRelease) this._press(btnRelease, () => this.bus.emit('release'));
     this._press(btnRot, () => this.bus.emit('rotateBuild'));

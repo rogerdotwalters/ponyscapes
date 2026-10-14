@@ -875,3 +875,28 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
   #stablePanel #stableBody{max-height:none !important;flex:1 1 auto;min-height:0}
   #stablePanel #stableClose{width:40px;height:40px;font-size:18px}
 }
+
+/* stable menu v3: pony care (stats, bowls, desk) */
+#stableBody .stStats{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+#stableBody .stBar{display:flex;align-items:center;gap:4px;flex:1 1 30%;min-width:84px;font-size:13px}
+#stableBody .stBar b{font-weight:400;width:18px;text-align:center}
+#stableBody .stBar i{flex:1;height:9px;border-radius:5px;background:rgba(0,0,0,.5);overflow:hidden;border:1px solid rgba(255,255,255,.25)}
+#stableBody .stBar u{display:block;height:100%;text-decoration:none;background:#7cc66a}
+#stableBody .stBar.hun u{background:#e8844a}
+#stableBody .stBar.thi u{background:#4aa8ff}
+#stableBody .stBar.hap u{background:#f2cf7a}
+#stableBody .stHearts{color:#ff6fae;font:700 13px Georgia,serif}
+#stableBody .stLock{padding:8px 10px;border-radius:8px;background:rgba(120,30,60,.45);border:1px dashed rgba(240,140,174,.7);color:#ffd6e6;font:600 13px Georgia,serif}
+#stableBody .stBowl{display:flex;flex-direction:column;gap:6px;padding:9px 10px;border-radius:10px;background:rgba(10,18,28,.55);border:1.5px solid rgba(227,194,122,.35)}
+#stableBody .stBowlHead{display:flex;justify-content:space-between;gap:8px;font:700 14px Georgia,serif}
+#stableBody .stBowlHead span{font:500 12px Georgia,serif;opacity:.85}
+#stableBody .stBowl .stActs{flex-wrap:wrap}
+#stableBody .stBowl .stActs button{flex:1 1 130px}
+#stableBody .stFill{border-color:#7cc66a;background:rgba(30,80,30,.7);color:#d8f5cc}
+#stableBody .stUp{border-color:#e3b04a;background:rgba(140,95,20,.7);color:#fff0c8}
+#stableBody .stAuto{border-color:#5aa9e6;background:rgba(25,70,120,.7);color:#d6ecff}
+#stableBody .stOn{border-color:#7cc66a;background:rgba(30,80,30,.4);color:#d8f5cc;opacity:.9}
+#stableBody button:disabled:not(.stOn){opacity:.5;border-color:rgba(227,194,122,.35);background:rgba(15,28,43,.55);color:#cdbd96}
+
+/* the stall button: a pill wearing the name of the stall beside you (stableSystem.js) */
+#btnStall{border-radius:14px !important;font:700 13px Georgia,serif;border-color:#e3b04a;background:rgba(140,95,20,.78);color:#fff0c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px}
