@@ -34,7 +34,7 @@ const PonyCare = {
     return true;
   },
   blankStall: () => ({ fl: 0, wl: 0, cl: 0, food: 0, water: 0, af: false, aw: false }),
-  blankRoom: () => ({ tanks: { water: { size: 0, count: 0 }, food: { size: 0, count: 0 } }, stalls: {} }),
+  blankRoom: () => ({ cap: 0, tanks: { water: { size: 0, count: 0 }, food: { size: 0, count: 0 } }, stalls: {} }),
   /** How many stalls the tanks of a kind can feed, and how many are wired to them now. */
   supply(room, kind) { const t = room.tanks[kind], C = PonyCare.cfg().tank; return t.count * C.supply[t.size]; },
   used(room, kind) { const flag = kind === 'food' ? 'af' : 'aw'; return Object.values(room.stalls).filter(s => s[flag]).length; },
@@ -150,25 +150,44 @@ Object.assign(GameServer.prototype, {
       return { size: t.size, count: t.count, max: C.tank.maxCount, supply: PonyCare.supply(room, kind), used: PonyCare.used(room, kind),
         buyCost: none ? C.tank.buy[1] : t.count < C.tank.maxCount ? C.tank.buy[t.size] : null, upCost: !none && t.size + 1 < C.tank.supply.length ? C.tank.upsize[t.size] : null, perTank: C.tank.supply[none ? 1 : t.size] };
     };
-    return { fx: f.x, fy: f.y, bank: PonyCare.coins(bank), food: tank('food'), water: tank('water'), mine: this._isMyStable(id, grid) };
+    const cap = this._ponyCapOf(id), K = CONFIG.sim.ponyCap, mine = Object.values(this.animals.animals).filter(a => a.owner === id && AnimalDefs[a.type].pony);
+    return { fx: f.x, fy: f.y, bank: PonyCare.coins(bank), food: tank('food'), water: tank('water'), mine: this._isMyStable(id, grid), care: PonyCare.isOn(this),
+      cap: { have: mine.length, max: cap, level: room.cap | 0, maxLevel: K.cost.length - 1, perLevel: K.perLevel, upCost: (room.cap | 0) + 1 < K.cost.length ? K.cost[(room.cap | 0) + 1] : null },
+      ponies: mine.map(a => ({ id: a.id, name: Stable.nameOf(a), level: a.level || 1, sex: a.look ? PonyLook.sexOf(a.look) : '', type: a.type, main: !!a.main, locked: Stable.locked(a), ridden: !!a.rider, stalled: !!a.stall })) };
   },
   _useDesk(id, p, action) {
     const hit = this._deskNear(p, action.fx, action.fy); if (!hit) return;
-    if (!PonyCare.isOn(this)) { this._notice(id, 'The stable desk is closed (switch on Pony care in the Dev settings)'); return; }
     this.pendingEvents.push(Object.assign({ type: 'deskMenu', to: id }, this._deskInfo(id, p, hit.f, hit.def)));
   },
   /** A button in the desk's menu: storage (open the bank) / buyTank / upTank, for kind food or water. */
   _deskPick(id, cmd) {
     const p = this.players[id], hit = p && this._deskNear(p, cmd.fx, cmd.fy);
-    if (!hit || !PonyCare.isOn(this)) return;
+    if (!hit) return;
     const grid = gridOf(p), S = this.interiors;
     if (!this._isMyStable(id, grid)) { this._notice(id, 'This is not your stable'); return; }
     if (cmd.act === 'storage') {
       const key = HomeCrafts.storeKey(grid, hit.f); this._deskBank(grid, hit.f, hit.def);
       S.openChest[id] = key; delete S.chestSent[id]; this.pendingEvents.push({ type: 'openChest', to: id }); return;
     }
-    const kind = cmd.kind === 'water' ? 'water' : cmd.kind === 'food' ? 'food' : '';
-    if (!kind) return;
+    const bankNow = this._deskBank(grid, hit.f, hit.def);
+    if (cmd.act === 'upCap') {                                                    // a bigger stable: more ponies may be kept
+      const K = CONFIG.sim.ponyCap, room = this._careRoom(grid), lvl = room.cap | 0;
+      if (lvl + 1 >= K.cost.length) { this._notice(id, 'Your stable is as big as it gets'); return; }
+      if (!PonyCare.pay(bankNow, K.cost[lvl + 1])) { this._notice(id, `That costs ${K.cost[lvl + 1]} pony coins: put them in the desk first (you have ${PonyCare.coins(bankNow)})`); return; }
+      S.chestSent = {}; room.cap = lvl + 1; this._notice(id, `A bigger stable: you can now keep ${this._ponyCapOf(id)} ponies`);
+    } else if (cmd.act === 'remove') {
+      this._removePony(id, p, String(cmd.animal || ''));
+    } else {
+      const kind = cmd.kind === 'water' ? 'water' : cmd.kind === 'food' ? 'food' : '';
+      if (!kind) return;
+      if (!PonyCare.isOn(this)) { this._notice(id, 'Switch on Pony care (Menu) to use tanks'); return; }
+      this._deskTank(id, p, hit, cmd, kind, grid);
+      return;
+    }
+    this.pendingEvents.push(Object.assign({ type: 'deskMenu', to: id }, this._deskInfo(id, p, hit.f, hit.def)));
+  },
+  _deskTank(id, p, hit, cmd, kind, grid) {
+    const S = this.interiors;
     const C = PonyCare.cfg().tank, room = this._careRoom(grid), t = room.tanks[kind], bank = this._deskBank(grid, hit.f, hit.def);
     const pay = cost => { if (!PonyCare.pay(bank, cost)) { this._notice(id, `That costs ${cost} pony coins: put them in the desk first (you have ${PonyCare.coins(bank)})`); return false; } S.chestSent = {}; return true; };
     if (cmd.act === 'buyTank') {
@@ -241,16 +260,21 @@ Object.assign(GameServer.prototype, {
     if (now && now !== was) this._notice(a.owner, `${Stable.nameOf(a)} is ${hungry && thirsty ? 'hungry and thirsty' : hungry ? 'hungry' : 'thirsty'}`);
     a.warnState = now;
   },
-  /** The pony has had enough of being neglected: it leaves its owner and goes wild. */
-  _ponyRunsAway(a) {
-    const owner = a.owner, name = Stable.nameOf(a), where = PonyCare.stallOf(a), grid = where ? where.grid : gridOf(a);
-    if (a.stall) { const key = a.stall; for (const k of Object.keys(this.breeding || {})) if (k === key) this._breedEnd(k); }
-    if (a.stall && grid) {                                                                             // out of the stable, through the door
-      const site = Grids.siteOf(grid), at = site ? { x: site.frontX + 0.5, y: site.frontY + 1.5 } : { x: a.x, y: a.y };
+  /** A pony leaves its owner and goes wild (it ran away, or was sent away from the desk's menu): out of its stall and through the stable door if it was inside. */
+  _setFree(a) {
+    const where = PonyCare.stallOf(a), grid = where ? where.grid : gridOf(a);
+    if (a.stall) { for (const k of Object.keys(this.breeding || {})) if (k === a.stall) this._breedEnd(k); }
+    if (a.stall && grid) {
+      const site = Grids.siteOf(grid), at = site ? { x: site.frontX + 0.5 + (this.rng() - 0.5) * 1.5, y: site.frontY + 1.5 } : { x: a.x, y: a.y };
       delete a.grid; a.x = at.x; a.y = at.y;
     }
     delete a.stall; delete a.stallAt; delete a.stallBox; delete a.roam; delete a.breedP;
     Object.assign(a, { owner: '', leashed: false, main: false, rider: '', vx: 0, vy: 0, state: 'idle', home: { x: a.x, y: a.y }, hunger: undefined, thirst: undefined, happy: undefined, lowT: 0, drops: 0 });
+  },
+  /** The pony has had enough of being neglected: it leaves its owner and goes wild. */
+  _ponyRunsAway(a) {
+    const owner = a.owner, name = Stable.nameOf(a);
+    this._setFree(a);
     if (this.players[owner]) this._notice(owner, `${name} ran away! It was neglected for too long`);
     this.pendingEvents.push({ type: 'ranAway', to: owner, animal: a.id, x: a.x, y: a.y, name });
   }

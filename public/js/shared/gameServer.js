@@ -275,6 +275,7 @@ class GameServer {
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
       case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
+      case 'vendorPick': this._vendorPick(id, cmd); break;                                                    // the pony vendor's menu (ponyTrade.js)
       case 'openStall': this._openStall(id, cmd); break;                                                      // the stall button: open that stall's menu (stableSystem.js)
       case 'deskPick': this._deskPick(id, cmd); break;                                                        // a button in the stable desk's menu (ponyCare.js)
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
