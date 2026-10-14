@@ -5,7 +5,7 @@
  * What a level does:
  *   health        +18% per level above 1        spider bite   +10% per level
  *   hunting XP    +20% per level                top speed     +1% per level (to +50%)
- *   ponies:       need more apples to settle (+1 per 5 levels), are harder to lasso when above your Horsemanship,
+ *   ponies:       are calmed by staying close and by fruit (+1 fruit per 5 levels), are harder to lasso when above your Horsemanship,
  *                 need more Horsemanship to ride (+1 per 3 levels) and carry you faster (+1.2% per level, to +50%).
  *   catching:     a WILD animal above your level cannot be caught, tamed or picked up at all: ponies by Horsemanship, others by
  *                 Animal Friendship (tooWild). */
@@ -35,8 +35,8 @@ const AnimalLevels = {
   },
   /** How exotic a fruit is on the ladder (any other apple counts as the plainest). A fruit at or above the rung a pony needs is accepted. */
   fruitRank(item) { const i = AnimalLevels.TAME_LADDER.indexOf(item); return i >= 0 ? i : 0; },
-  /** Seconds of gentling one fruit buys (the rainbow bar fills this long per fruit). */
-  TAME_SECONDS_PER_FRUIT: 12,                                       // (the rainbow bar fills slowly: three times as long as it first did)
+  /** Share of the calm bar one fruit adds on top of staying near (a fruit is a treat that speeds the gentling up; it is no longer required). */
+  fruitCalm: need => 0.5 / Math.max(1, need),
   /** Horsemanship needed to ride a pony of this type and level. */
   rideLevel: (type, level) => (CONFIG.sim.ponyRideLevels[type] || 1) + Math.floor(((level || 1) - 1) / 3),
   rideSpeedFactor: level => 1 + Math.min(0.5, 0.012 * ((level || 1) - 1)),

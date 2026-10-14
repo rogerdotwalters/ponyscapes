@@ -262,7 +262,7 @@ class Renderer {
       if (a.foal > 0) this.ctx.restore();
       const holder = a.owner || a.captor;
       if (a.leashed && holder && this.players && this.players[holder]) this._drawLeash(sx, sy, a, this.players[holder]);
-      if (a.captor && a.tame !== undefined) this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.tame, now);
+      if (a.captor && a.tame !== undefined) { this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.tame, now); this._drawRopeBar(sx, sy - lift * FLY_HEIGHT, a.rope === undefined ? 1 : a.rope, now); }
       else if (a.breed !== undefined) this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.breed, now);                      // breeding in a stall: the same rainbow bar
       return;
     }
@@ -463,10 +463,22 @@ class Renderer {
     ctx.restore();
   }
 
+  /** The lasso's integrity over a caught pony: full when new, it shortens (and reddens) as the rope strains. */
+  _drawRopeBar(sx, sy, rope, now) {
+    const ctx = this.ctx, w = 46, h = 5, x = Math.round(sx - w / 2), y = Math.round(sy - 70), low = rope < 0.35;
+    ctx.save();
+    ctx.fillStyle = 'rgba(8,14,24,.78)'; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+    ctx.fillStyle = low ? (Math.floor(now / 200) % 2 ? '#ff5d5d' : '#b83a3a') : rope < 0.65 ? '#ffb04a' : '#d8b878';
+    ctx.fillRect(x, y, Math.max(0, Math.round(w * Math.min(1, rope))), h);
+    ctx.strokeStyle = '#f2e6cf'; ctx.lineWidth = 1; ctx.strokeRect(x - 1.5, y - 1.5, w + 3, h + 3);
+    ctx.restore();
+  }
+
   _drawLeash(sx, sy, animal, owner) {
     const ctx = this.ctx, def = AnimalDefs[animal.type], ox = isoX(owner.x, owner.y), oy = isoY(owner.x, owner.y);
-    const ax = sx, ay = sy - (def.pony ? 30 : 18), bx = ox, by = oy - 20, sag = 6 + Math.hypot(bx - ax, by - ay) * 0.12;
-    ctx.strokeStyle = '#8a6a3c'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(ax, ay);
+    const taut = animal.captor && Math.hypot(animal.x - owner.x, animal.y - owner.y) >= ROPE_LENGTH - 0.15;       // at the end of the rope: pulled straight
+    const ax = sx, ay = sy - (def.pony ? 30 : 18), bx = ox, by = oy - 20, sag = taut ? 0 : 6 + Math.hypot(bx - ax, by - ay) * 0.12;
+    ctx.strokeStyle = taut ? '#d8c08a' : '#8a6a3c'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(ax, ay);
     ctx.quadraticCurveTo((ax + bx) / 2, Math.max(ay, by) + sag, bx, by); ctx.stroke();
     ctx.strokeStyle = '#c9a66a'; ctx.lineWidth = 0.8; ctx.stroke();
   }

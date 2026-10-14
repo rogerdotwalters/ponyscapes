@@ -49,6 +49,7 @@ class GameServer {
     this.lightCache = [];                                  // campfires + held torches, rebuilt every tick
     this.animals = new AnimalSystem({ map: this.map, mapOf: a => this.mapOf(a), rng: this.rng, getTick: () => this.tick, emit: e => this._emitFrom(this.animals.active, e),
       damagePlayer: (id, amount) => this._damagePlayer(id, amount), getLights: () => this.lightCache, onKilled: (a, def) => this.dungeons.onKilled(a, def) });
+    this.animals.onRopeSnapped = (ownerId, animal) => { this._notice(ownerId, 'The rope snapped! The pony bolted'); this.pendingEvents.push({ type: 'letGo', to: ownerId, x: animal.x, y: animal.y }); };
     this.animals.onSettled = (ownerId, animal) => this._settled(ownerId, animal);                  // (a caught pony's taming bar is full: it becomes a pet)
     this.npcs = new NpcSystem({ map: this.map, rng: this.rng, server: this });                                    // the villagers (placed once the server is fully built, below)
     this.friendship = new FriendshipSystem(this);                                                   // the heart meter, for people and animals alike
@@ -739,7 +740,7 @@ class GameServer {
   }
 
   /** Feed a pony you have caught, ANYWHERE: it takes the fruit its kind and level ask for (or a more exotic one). Each fruit buys a few seconds on the
-   *  rainbow taming bar; when the bar is full it settles in as your pet (animals.onSettled -> _settled). */
+   *  calm bar; when the bar is full it settles in as your pet (animals.onSettled -> _settled). */
   _feedPony(id, animal) {
     const p = this.players[id], inventory = this.inventories[id], def = AnimalDefs[animal.type], want = AnimalLevels.tameFruit(def, animal.level);
     if (!ItemDB.isApple(p.held) || !inventory.has(p.held, 1)) { this._notice(id, `Hold a ${ItemDefs[want.item].name} to feed it`); return; }

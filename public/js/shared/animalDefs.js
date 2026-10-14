@@ -60,11 +60,12 @@ const NODE_ROAM_RADIUS = 7, NODE_ROAM_PULL = 3, NODE_REFILL_DISTANCE = 14;
 const LURE_RADIUS = 5, LURE_STOP = 1.3, TRUST_SECONDS = 4;           // food in your hand calms animals within this many tiles; they walk up to you
 //                                                   and keep trusting you for TRUST_SECONDS after, so you can swap to the leash
 const LEASH_FOLLOW_DISTANCE = 1.8, LEASH_TELEPORT_DISTANCE = 9, LEASH_STUCK_SECONDS = 2.5;
+/** The lasso rope on a CAUGHT wild pony: it can run ROPE_LENGTH tiles from you, then the rope comes under tension (player and pony drag each other).
+ *  Tension wears the rope's integrity down; it mends slowly while slack. The pony calms only while you stay within ROPE_CALM_RANGE of it. */
+const ROPE_LENGTH = 6, ROPE_CALM_RANGE = 4.5, ROPE_WEAR = 0.07, ROPE_MEND = 0.03, ROPE_CALM_SECONDS = 22;
 const MAIN_PONY_FOLLOW_DISTANCE = 2.4;        // your main pony trots along a little farther back than one on a rope
 const PET_HOME_RADIUS = 5;                        // a pet that is not on a leash wanders this far from where it was let go
 const PICKUP_RANGE = 1.1, UNTIE_RANGE = 1.8, TAME_SPEED_BONUS = 1.2;
 
 /** The lasso: thrown at a tameable animal within LASSO_RANGE tiles and LASSO_HALF_ANGLE radians of where you face. */
 const LASSO_HALF_ANGLE = 0.55, LASSO_CLOSE = 1.8, LASSO_AIM_SLACK = 0.9;   // (LASSO_AIM_SLACK: how far from a click / tap an animal may be and still be the one meant)          // inside LASSO_CLOSE tiles the cone does not matter
-/** Catch chance by what the animal is doing, before distance and Horsemanship. */
-const LASSO_BASE_CHANCE = { lured: 0.92, idle: 0.65, wander: 0.55, follow: 0.55, flee: 0.28 };

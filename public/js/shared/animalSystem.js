@@ -125,7 +125,6 @@ class AnimalSystem {
   /** A tamed animal: on a leash it follows its owner; otherwise it potters about near the spot it was let go and never panics.
    *  A CAUGHT wild pony (captor, not yet owner) follows the same way and the rope NEVER breaks: it is gentled by feeding it fruit (anywhere), while a rainbow bar fills. */
   _thinkPet(a, def, humans, dt) {
-    if (!a.owner) this._tickGentling(a, dt);                                           // (a caught pony: the taming timer runs; it may settle just now)
     if (!a.owner && !a.captor) return;
     if (a.stall) { this._thinkStalled(a, def, dt); return; }
     if (a.roam) { a.hurt = false; this._wander(a, def, dt); return; }                  // let out to roam the village (stableSystem.js)
@@ -134,10 +133,11 @@ class AnimalSystem {
       if (a.main && owner && !owner.boat) { this._follow(a, def, owner, dt, MAIN_PONY_FOLLOW_DISTANCE); a.home = { x: a.x, y: a.y }; return; }   // your main pony goes where you go
       a.hurt = false; this._wander(a, def, dt); return;
     }
-    if (!owner) {                                                                      // the leader is out of reach for now (another room, a boat): the rope holds, it waits where it stands
+    if (!owner || !sameGrid(owner, a)) {                                               // the leader is out of reach for now (another room, a boat): the rope holds, it waits where it stands
       a.state = 'idle'; this._steerAlong(a, 0, 0, 0);
       return;
     }
+    if (a.captor) { this._thinkCaught(a, def, owner, dt); return; }
     this._follow(a, def, owner, dt, LEASH_FOLLOW_DISTANCE);
   }
   /** A pony in a stall of the stable (stableSystem.js): it potters about inside its own pen and never leaves it, even through an open gate. */
@@ -163,19 +163,47 @@ class AnimalSystem {
     this._steerAlong(a, owner.x - a.x, owner.y - a.y, d > distance ? Math.min(def.followSpeed || def.wanderSpeed * 3, 0.5 + d * 1.5) : 0);
   }
 
-  /** A caught pony: the more fruit it has eaten, the more of the taming bar it may fill. The bar fills with time (TAME_SECONDS_PER_FRUIT per fruit);
-   *  when it is full the pony settles in as its captor's pet. It never gets restless and the rope never breaks. */
-  _tickGentling(a, dt) {
-    if (!a.captor) return;
-    const per = AnimalLevels.TAME_SECONDS_PER_FRUIT, need = a.applesNeed || 0, fed = (a.trust || 0) * per;
-    if (!need || fed <= 0) return;                                                     // (nothing eaten yet: the bar waits for the first fruit)
-    a.tameT = Math.min(fed, (a.tameT || 0) + dt);
-    if (a.tameT >= need * per - 1e-6) this._settle(a);
+  /** A CAUGHT wild pony on the lasso. It pulls away from you (harder the less calm it is) until the rope reaches ROPE_LENGTH and comes under tension:
+   *  then player and pony drag each other (the stronger one gives less ground) and the rope's integrity wears down. Stay within ROPE_CALM_RANGE and the
+   *  calm bar fills (faster with Animal Friendship, slower for a higher-level pony); full calm settles it as your pet, an empty rope snaps and it bolts. */
+  _thinkCaught(a, def, owner, dt) {
+    if (a.rope === undefined) a.rope = 1;
+    if (a.calm === undefined) a.calm = 0;
+    const dx = a.x - owner.x, dy = a.y - owner.y, d = Math.hypot(dx, dy) || 1e-6;
+    const skittish = 1 - Math.min(1, a.calm / 0.75);                                   // a calm pony stops straining at the rope
+    if (skittish > 0.05) {                                                             // pulling away, a little off the straight line so it circles
+      const side = (a.id.length % 2 ? 1 : -1) * 0.6 * Math.sin(this.getTick() / 25 + a.level);
+      const ux = dx / d, uy = dy / d, tx = ux - uy * side, ty = uy + ux * side;
+      a.state = 'flee'; this._steerAlong(a, tx, ty, (def.fleeSpeed || def.wanderSpeed * 3) * 0.6 * skittish);
+    } else { a.state = 'idle'; this._steerAlong(a, 0, 0, 0); }
+    const taut = d > ROPE_LENGTH;
+    if (taut) {
+      const over = d - ROPE_LENGTH, handling = Skills._s(owner.lv, 'horsemanship');
+      const ponyPower = 4 + a.level * 1.5 * (0.5 + 0.5 * skittish), playerPower = 6 + handling;
+      const onPlayer = owner.boat ? 0 : clamp(ponyPower / (ponyPower + playerPower), 0.15, 0.85);   // the stronger side is dragged less
+      const ux = dx / d, uy = dy / d, map = this.mapOf(a);
+      a.x -= ux * over * (1 - onPlayer); a.y -= uy * over * (1 - onPlayer);
+      owner.x += ux * over * onPlayer; owner.y += uy * over * onPlayer;
+      resolveCollisions(map, a, def.radius);
+      if (!owner.flying) resolveCollisions(this.mapOf(owner), owner, CONFIG.sim.playerRadius || 0.3);
+      a.vx *= 0.5; a.vy *= 0.5;
+      a.rope = Math.max(0, a.rope - ROPE_WEAR * (0.5 + 0.5 * skittish) * (1 + a.level / (10 + Skills._s(owner.lv, 'horsemanship'))) * dt);
+      if (a.rope <= 0) { const captor = a.captor; this.releaseWild(a.id); if (this.onRopeSnapped) this.onRopeSnapped(captor, a); return; }
+    } else a.rope = Math.min(1, a.rope + ROPE_MEND * dt);
+    if (d <= ROPE_CALM_RANGE) {                                                        // near enough: it calms down
+      a.calm = Math.min(1, a.calm + dt * this.calmRate(a, owner.lv));
+      if (a.calm >= 1 - 1e-6) this._settle(a);
+    }
+  }
+  /** Calm bar per second: Animal Friendship soothes it, a higher-level pony takes longer. */
+  calmRate(a, levels) {
+    const friendship = 1 + 0.04 * (Skills._s(levels, 'animal_friendship') - 1), seconds = ROPE_CALM_SECONDS + 1.5 * ((a.level || 1) - 1);
+    return friendship / seconds;
   }
   /** The bar is full: the pony becomes the captor's own pet. */
   _settle(a) {
     const captor = a.captor;
-    a.owner = captor; a.captor = ''; a.leashed = false; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp; a.tameT = 0;
+    a.owner = captor; a.captor = ''; a.leashed = false; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp; a.calm = 0; a.rope = 1;
     if (this.onSettled) this.onSettled(captor, a);
   }
 
@@ -322,12 +350,23 @@ class AnimalSystem {
     return best;
   }
 
-  /** Chance a thrown lasso lands: calm animals are easy, running ones hard; far throws and clumsy hands cost, Horsemanship helps. */
-  lassoChance(a, dist, levels, buffs) {
-    const base = LASSO_BASE_CHANCE[a.state] !== undefined ? LASSO_BASE_CHANCE[a.state] : 0.5;
-    const outlevelled = Math.max(0, (a.level || 1) - Skills._s(levels, 'horsemanship'));      // a pony stronger than you is harder to rope
-    const charm = buffs ? ((buffs.luck || 0) + (buffs.friendship || 0)) / 200 : 0;             // lucky and well-liked riders throw better
-    return clamp(base - Math.max(0, dist - LASSO_CLOSE) * 0.06 + Skills.lassoBonus(levels) + charm - 0.035 * outlevelled, 0.12, 0.95);
+  /** The level of the pony that helps you throw: the one you are riding, else your main pony, else your best pony (0 with none). */
+  ownPonyLevel(playerId, mountId) {
+    const mount = mountId && this.animals[mountId];
+    if (mount) return mount.level || 1;
+    let main = 0, best = 0;
+    for (const id in this.animals) {
+      const a = this.animals[id];
+      if (a.owner !== playerId || !AnimalDefs[a.type].pony || a.captor) continue;
+      best = Math.max(best, a.level || 1); if (a.main) main = a.level || 1;
+    }
+    return main || best;
+  }
+  /** Chance a thrown lasso lands: the target's level against your handling skill (Horsemanship for ponies, Animal Friendship for the rest),
+   *  and a boost from the level of your own pony (the one you ride, else your main pony). */
+  lassoChance(a, levels, ownPony = 0) {
+    const handling = Skills._s(levels, AnimalLevels.tameSkill(AnimalDefs[a.type])), gap = handling - (a.level || 1);
+    return clamp(0.5 + 0.04 * gap + Math.min(0.2, 0.01 * ownPony), 0.1, 0.95);
   }
 
   /** A missed throw spooks it. */
@@ -346,26 +385,24 @@ class AnimalSystem {
   /** A wild pony is caught on the lasso: it follows you, but is not yours until it has been gentled with its fruit (and the rainbow bar is full). */
   capture(id, captorId) {
     const a = this.animals[id];
-    a.captor = captorId; a.leashed = true; a.trust = 0; a.tameT = 0; a.captureT = 0; a.warned = false; a.shelter = null; a.shelterTick = -999;
+    a.captor = captorId; a.leashed = true; a.trust = 0; a.calm = 0; a.rope = 1; a.captureT = 0; a.warned = false; a.shelter = null; a.shelterTick = -999;
     a.applesNeed = AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count;
     a.state = 'idle'; a.fleeT = 0; a.hurt = false; a.trustT = 0;
     return a;
   }
-  /** One fruit eaten (anywhere). Returns { done: false, have, need }: the bar then fills by itself and the pony settles once it is full. */
+  /** One fruit eaten (anywhere): a treat that adds to the calm bar. Returns { done, have, need }; the pony settles once the bar is full. */
   feed(id, captorId, discount = 0) {
     const a = this.animals[id];
     if (!a || a.captor !== captorId) return null;
     const need = a.applesNeed = Math.max(1, AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count - discount);   // an upgraded stable settles it with fewer
     a.trust = Math.min(need, a.trust + 1);
-    if (a.tameT >= need * AnimalLevels.TAME_SECONDS_PER_FRUIT - 1e-6) this._settle(a);
-    return { done: false, have: a.trust, need };
+    a.calm = Math.min(1, (a.calm || 0) + AnimalLevels.fruitCalm(need));
+    const done = a.calm >= 1 - 1e-6;
+    if (done) this._settle(a);
+    return { done, have: a.trust, need };
   }
-  /** How full the taming bar is, 0..1 (0 for a pony that is not being gentled). */
-  tameProgress(a) {
-    if (!a.captor) return 0;
-    const need = a.applesNeed || AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count;
-    return clamp((a.tameT || 0) / (need * AnimalLevels.TAME_SECONDS_PER_FRUIT), 0, 1);
-  }
+  /** How calm the caught pony is, 0..1 (0 for a pony that is not being gentled). */
+  tameProgress(a) { return a.captor ? clamp(a.calm || 0, 0, 1) : 0; }
   /** Let a caught pony go: it bolts. Returns who held it. */
   releaseWild(id) {
     const a = this.animals[id], def = AnimalDefs[a.type], captor = a.captor, angle = this.rng() * Math.PI * 2;
@@ -481,7 +518,7 @@ class AnimalSystem {
         if (a.grid) out[id].grid = a.grid;
         if (a.jumpLift) out[id].lift = Math.round(a.jumpLift * 100) / 100;                     // the Slime King mid-leap: how high (0..1; drawn like a flying pony's lift)
         if (a.main) out[id].main = true;
-        if (a.captor) out[id].tame = Math.round(this.tameProgress(a) * 100) / 100;               // a caught pony's rainbow taming bar (0..1)
+        if (a.captor) { out[id].tame = Math.round(this.tameProgress(a) * 100) / 100; out[id].rope = Math.round((a.rope === undefined ? 1 : a.rope) * 100) / 100; }   // a caught pony's calm bar and its rope's integrity (0..1)
         if (a.breedP !== undefined) out[id].breed = Math.round(a.breedP * 100) / 100;           // breeding in a stall: the same rainbow bar (0..1)
         if (a.foal > 0) out[id].foal = Math.round(a.foal / Stable.FOAL_SECONDS * 100) / 100;     // a foal: how much of its growing up is left (1 = just born)
         if (a.stall) out[id].stall = true;                                                    // in a stall of the stable: it stays put and cannot be ridden
