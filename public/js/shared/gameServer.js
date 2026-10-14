@@ -83,7 +83,7 @@ class GameServer {
       onImpact: (id, p) => { if (p.mount) this._ponyXp(this.animals.animals[p.mount], CONFIG.sim.ponyLeveling.taskXp); } });   // work done from the saddle trains the pony
     if (options.world) SaveData.applyTimers(this, options.world);                // the clock and regrow timers: the home and paddock are already in the saved map
     if (options.world) SaveData.applyOwned(this, options.world);                 // everybody's ponies (waiting for their owners) and the items on the ground
-    else if (CONFIG.sim.testKit) { this._buildStarterHome(); this._buildStarterPaddock(); this._buildStarterStockpiles(); this._spawnTutorialPony(); }
+    else if (CONFIG.sim.testKit) { this._buildStarterHome(); this._buildStarterStockpiles(); this._spawnTutorialPony(); }
     this.npcs.populate();                                  // the villagers move in
   }
 
@@ -128,16 +128,7 @@ class GameServer {
     this.builtRev++;
   }
 
-  /** A fenced paddock with a gate and a stable in it, next to the home: somewhere to lead a caught wild pony and feed it apples. */
-  _buildStarterPaddock() {
-    const P = Village.paddock, put = (tx, ty, type, slot) => BuildSystem.place(this.map, tx, ty, type, slot), midY = Math.floor((P.y0 + P.y1) / 2);
-    for (let tx = P.x0; tx <= P.x1; tx++) { put(tx, P.y0, 'wood_fence', 'n'); put(tx, P.y1, 'wood_fence', 's'); }
-    for (let ty = P.y0; ty <= P.y1; ty++) { put(P.x0, ty, 'wood_fence', 'w'); put(P.x1, ty, 'wood_fence', 'e'); }
-    put(P.x0, midY, 'wood_gate', 'w');                         // the gate faces the home
-    this.builtRev++;
-  }
-
-  /** A shy wild earth pony grazing just outside the paddock, to practise on. */
+  /** A shy wild earth pony grazing just east of the stable, to practise on. */
   _spawnTutorialPony() {
     const P = Village.paddock;
     for (const [dx, dy] of [[6, 2], [6, 0], [7, 3], [5, 4], [8, 1], [6, 5]]) {

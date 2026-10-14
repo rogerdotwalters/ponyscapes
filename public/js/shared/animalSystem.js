@@ -172,10 +172,10 @@ class AnimalSystem {
     a.tameT = Math.min(fed, (a.tameT || 0) + dt);
     if (a.tameT >= need * per - 1e-6) this._settle(a);
   }
-  /** The bar is full: the pony becomes the captor's own pet. */
+  /** The bar is full: the pony becomes the captor's own pet, and stays on the rope (it is already counted there) until they untie it. */
   _settle(a) {
     const captor = a.captor;
-    a.owner = captor; a.captor = ''; a.leashed = false; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp; a.tameT = 0;
+    a.owner = captor; a.captor = ''; a.leashed = true; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp; a.tameT = 0;
     if (this.onSettled) this.onSettled(captor, a);
   }
 
