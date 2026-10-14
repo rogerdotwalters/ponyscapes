@@ -6,3 +6,7 @@ PonySkillTrees.register({ id: 'meadow', skills: [
   { id: 'leaf_blast', label: 'Leaf Blast', level: 3, ability: 'leaf_blast' },
   { id: 'cutie_mark', label: 'Cutie mark power', level: 6, byMark: true }
 ] });
+/* The sky ponies' own powers (ponySkills.js): one that suits the sky they come from, and the cutie mark's. */
+for (const [id, label, ability] of [['water', 'Tidal Wash', 'tidal_wash'], ['lightning', 'Lightning Strike', 'lightning_strike'], ['sun', 'Sunbeam', 'sunbeam'], ['star', 'Starfall', 'starfall']])
+  PonySkillTrees.register({ id, skills: [{ id: ability, label, level: 3, ability }, { id: 'cutie_mark', label: 'Cutie mark power', level: 6, byMark: true }] });
+

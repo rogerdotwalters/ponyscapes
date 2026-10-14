@@ -67,9 +67,9 @@ class PonyBookUI {
     const summary = `<div class="gsum">Collected ${g.book.filter(k => k.seen).length} of ${g.book.length} pony kinds &middot; ${owned} animal${owned === 1 ? '' : 's'} kept</div>`;
     const varieties = (g.varieties || []).map(v => {
       const color = v.index ? PonyVariants[v.index].coats[0] : PonyPalette.coats[1];
-      return `<div class="pkind pvar${v.seen ? ' got' : ''}" style="--c:${color}"><b>${v.seen ? '\u2713' : '?'}</b><span>${v.seen ? v.name : '???'}</span><i>${BiomeNames[v.biome] || (v.id === "moon" ? "Only after dark" : "Retired")}${v.theme ? " \u00b7 " + v.theme : ""}</i></div>`;
+      return `<div class="pkind pvar${v.seen ? ' got' : ''}" style="--c:${color}"><b>${v.seen ? '\u2713' : '?'}</b><span>${v.seen ? v.name : '???'}</span><i>${BiomeNames[v.biome] || v.when || (v.id === "moon" ? "Only after dark" : "Retired")}${v.theme ? " \u00b7 " + v.theme : ""}</i></div>`;
     }).join('');
-    const varHtml = varieties ? `<div class="gtitle">Biome ponies <small>one kind lives in each biome</small></div><div class="pkinds pvars">${varieties}</div>` : '';
+    const varHtml = varieties ? `<div class="gtitle">Pony varieties <small>one lives in each biome; sky ponies come out in the right weather or hour</small></div><div class="pkinds pvars">${varieties}</div>` : '';
     const kindsHtml = `<div class="pkinds">${kinds}</div>${varHtml}`;
     const animalsHtml = '<div class="gtitle">Your animals</div>' + (cards || '<div class="gempty">Nothing yet. Throw your lasso at a wild pony, then stay close until it calms down. Apples help.</div>');
     const gentling = g.pets.some(p => p.gentling);                               // a pony you are gentling needs you: show it before the collection grid

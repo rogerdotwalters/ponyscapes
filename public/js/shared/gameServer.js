@@ -70,6 +70,7 @@ class GameServer {
     this.bots = new BotSystem(this);                                         // the test bot (botSystem.js)
     this.sleep = new SleepSystem(this);                                      // bedtime, the forced sleep and skipping the night (sleepSystem.js)
     this.nightEvents = new NightEvents(this);                                // moon ponies, only after dark (nightEvents.js)
+    this.skyEvents = new SkyEvents(this);                                    // sky ponies: water in the rain, lightning in storms, sun at noon, stars at midnight (skyEvents.js)
     this.wildPonies = new WildPonies(this);                                  // ponies come and go with the mornings (wildPonies.js)
     this.quests = new QuestSystem(this);                                     // the world's quests and puzzle nodes (questSystem.js)
     this.wants = new WantSystem(this);                                       // what creatures ask for, and the bosses you can appease (wantSystem.js)
@@ -631,7 +632,7 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
-    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this._breedTick(TICK_DT); this._careTick(TICK_DT);
+    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this.skyEvents.update(this.tick); this._breedTick(TICK_DT); this._careTick(TICK_DT);
     this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick); this.quests.update(this.tick);
     if (this.tick % 4 === 0) this._gatherCoins();                                     // coins on the ground jump into purses nearby
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)
@@ -803,7 +804,7 @@ class GameServer {
     const kept = this.everVariants[id] || {}, now = {};
     for (const pet of this.animals.petsOf(id, this.tick)) if (!pet.gentling && pet.look) { const v = pet.look[4] | 0; now[v] = (now[v] || 0) + 1; }
     const placed = this.posterCoins[id] || {};
-    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
+    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, when: (SkyPonyTable.get(v.id) || {}).when || '', theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
       .filter(v => !v.legacy || v.seen || v.owned);                                    // retired varieties only show if you already have one
   }
   bookFor(id) {

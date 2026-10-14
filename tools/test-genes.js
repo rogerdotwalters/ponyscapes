@@ -24,7 +24,7 @@ test('an older pony (no genome) reads as classic, with its tail the colour of it
 });
 test('the matching-tail gene forces the tail to the mane colour; without it the tail is its own', () => {
   const at = id => run(`PonyGenes.at('${id}')`);
-  const mk = (link, tail) => `(() => { const l = PonyLook.fromGene(5, 0); l[1] = 2; l[${7 + at('maneColor')}] = 2 * 65; l[${7 + at('tailColor')}] = ${tail} * 65; l[${7 + at('tailLink')}] = ${link} * 65; return PonyLook.describe(l).gene; })()`;
+  const mk = (link, tail) => `(() => { const l = PonyLook.fromGene(5, 0); l[1] = 2; l[${7 + at('maneColor')}] = 2 * 65; l[${7 + at('tailColor')}] = ${tail} * 65; l[${7 + at('tailLink')}] = ${link} * 65; l[${7 + at('manePattern')}] = 0; l[${7 + at('tailPattern')}] = 0; return PonyLook.describe(l).gene; })()`;
   assert.deepStrictEqual(J(mk(0, 5) + '.tailMane'), J('PonyPalette.manes[2]'));
   assert.deepStrictEqual(J(mk(1, 5) + '.tailMane'), J('PonyPalette.manes[5]'));
   assert.strictEqual(J(mk(0, 5) + '.tailLinked'), true); assert.strictEqual(J(mk(1, 5) + '.tailLinked'), false);
@@ -76,5 +76,24 @@ test('skills are genes: an inherited talent shows in the tree at level 9, an old
   const r = J(`(() => { const rng = mulberry32(3); let got = 0; for (let i = 0; i < 400; i++) { const f = PonyGenes.inherit(rng, ${mk(star * 64 + none)}, ${mk(none * 65)}, 1); const a = Math.floor(f[${at}] / 64), b = f[${at}] % 64; if (Math.min(a, b) === ${star}) got++; } return got; })()`);
   assert(r > 120 && r < 280, 'about half the foals of a talented parent inherit it: ' + r);
   assert(J("PonyLook.describe(PonyLook.fromGene(1, 0)).gene.traits.length") >= 6);
+});
+test('black and silver are recessive: carriers do not show them, two carriers sometimes have black or silver foals', () => {
+  const R = run('PonyPalette.recessive.count'), nC = run('PonyPalette.coats.length'), nM = run('PonyPalette.manes.length');
+  assert.strictEqual(R, 2); assert.strictEqual(run('PonyPalette.base.coats') + 0 < nC - R, true);
+  const at = run("PonyGenes.at('bodyColor')"), black = nC - 2, silver = nC - 1;
+  const mk = pair => `(() => { const l = PonyLook.fromGene(3, 0); l[${7 + at}] = ${pair}; return PonyGenes.sync(l); })()`;
+  const coat = pair => J(`PonyGenes.express(${mk(pair)}).bodyColor`);
+  assert.strictEqual(coat(4 * 64 + black), 4, 'a pony with one black allele shows the other colour');
+  assert.strictEqual(coat(black * 64 + 4), 4);
+  assert.strictEqual(coat(silver * 64 + 4), 4, 'silver is recessive too');
+  assert.strictEqual(coat(black * 65), black, 'two black alleles: black'); assert.strictEqual(coat(silver * 65), silver);
+  const r = J(`(() => { const rng = mulberry32(9); let b = 0, s = 0, n = 600; const A = ${mk(4 * 64 + black)}, B = ${mk(4 * 64 + silver)}, C = ${mk(4 * 64 + black)}, D = ${mk(4 * 64 + black)};
+    for (let i = 0; i < n; i++) { const f = PonyGenes.inherit(rng, A, D, 0)[${at}]; if (Math.min(Math.floor(f / 64), f % 64) === ${black}) b++; }
+    let none = 0; for (let i = 0; i < n; i++) { const f = PonyGenes.inherit(rng, ${mk(4 * 65)}, ${mk(5 * 65)}, 0)[${at}]; if (Math.min(Math.floor(f / 64), f % 64) >= ${black}) none++; }
+    return { b, none }; })()`);
+  assert(r.b > 90 && r.b < 220, 'two black carriers: about a quarter of the foals are black: ' + r.b); assert(r.none < 60, 'no carriers: only the odd mutation: ' + r.none);
+  let wild = 0, carried = 0; for (let g = 0; g < 1500; g++) { const d = J(`PonyLook.describe(PonyLook.fromGene(${g}, 0)).gene.traits.map(t => t.text).join('|')`); if (/Black \(recessive\)|Silver \(recessive\)/.test(d)) wild++; if (/carries/.test(d)) carried++; }
+  assert(wild > 0 && wild < 150, 'wild black and silver ponies are rare: ' + wild); assert(carried > wild, 'carriers are commoner than the ponies that show it');
+  void nM;
 });
 console.log(passed + ' passed');

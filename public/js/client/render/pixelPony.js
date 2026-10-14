@@ -473,6 +473,22 @@ const PixelPony = (() => {
       if (moving && side) for (let k = 0; k < 12; k++) cols.forEach((c, j) => dot(5 - k, 20 + j + Math.round(Math.sin((now / 120) - k * 0.6)), c, 0.75 * (1 - k / 12)));
       else for (let i = 0; i < 3; i++) { const t = ((now / 1800) + i / 3) % 1; plus(CX + Math.cos(i * 2.1) * 14, 24 - t * 24, cols[(i * 2) % 6], 1 - t, false); }
     }
+    if (acc === 'sparks') {                                                                        // lightning: little bolts crackling round the body
+      const step = Math.floor(now / 110);
+      for (let b = 0; b < 3; b++) {
+        const r = Math.sin((step + b * 7) * 12.9898) * 43758.5453, rnd = r - Math.floor(r);
+        if (rnd < 0.35) continue;                                                                  // (not every bolt is lit every moment)
+        let x = (side ? 14 : 12) + rnd * (side ? 24 : 28), y = 8 + ((rnd * 97) % 1) * 22, dir = rnd > 0.7 ? 1 : -1;
+        for (let k = 0; k < 5; k++) { dot(x, y, k % 2 ? '#fff7a0' : '#ffffff', 0.95); dot(x + 1, y, '#ffe94d', 0.55); x += dir * (k % 2 ? 2 : -1); y += 2; }
+      }
+    }
+    if (acc === 'rays') {                                                                          // sun: a ring of golden rays, and warm glints drifting up
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4 + now / 2400, r = (side ? 25 : 17) + Math.sin(now / 300 + i * 1.3) * 1.6;
+        dot(CX + Math.cos(a) * r, 20 + Math.sin(a) * r * 0.62, i % 2 ? '#ffe082' : '#fff3b0', 0.55 + 0.3 * Math.sin(now / 260 + i));
+      }
+      for (let i = 0; i < 3; i++) { const t = ((now / 2200) + i / 3 + seed) % 1; plus(10 + i * 14 + Math.sin(now / 500 + i) * 2, 34 - t * 34, '#ffd54f', 1 - t, false); }
+    }
     if (look.accessory === 'flames') {
       const from = view === 'right' ? [[30, 6], [8, 24], [28, 14], [6, 30]] : view === 'down' ? [[16, 10], [17, 20], [37, 24], [26, 3]] : [[25, 6], [26, 24], [24, 14], [27, 30]];
       for (let i = 0; i < 8; i++) {

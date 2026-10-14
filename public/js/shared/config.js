@@ -105,6 +105,9 @@ const CONFIG = {
     /** Night events (nightEvents.js): each night, every player outdoors may be visited by a MOON PONY, super rare: it keeps to the dark, spawns `spawnMin`..`spawnMax` tiles away
      *  and fades with the dawn unless somebody has caught it. Fireflies drift over the grass at night (client only: client/render/fireflies.js). */
     night: { moonPonyChance: 0.04, spawnMin: 16, spawnMax: 34, fireflies: 46 },
+    /** Sky ponies (skyEvents.js, data/ponies/skyPonies.js): water, lightning, sun and star ponies come out in the right sky, `spawnMin`..`spawnMax` tiles from a player, at most `maxAtOnce` of a kind;
+     *  every entry has its own chance per player per episode, and `chanceScale` multiplies them all (raise it to see them more often). */
+    sky: { spawnMin: 16, spawnMax: 34, maxAtOnce: 2, chanceScale: 1 },
     /** Weather (weather.js): a spell lasts minHours..maxHours of in-game time; the layers ease at rampPerSecond. Rain fills a field plot by `waterPerSecond` x its intensity each
      *  second (watered at 1). Lightning strikes every strikeSeconds (longest at the weakest storm, shortest at the strongest), `strikeMin..strikeMax` tiles from a player (nearChance:
      *  right next to one). A strike hurts what is within strikeRadius (strikeDamage 0 = never); `fires` leave a short fire that hurts (fireDamage) and heavy rain puts out. */

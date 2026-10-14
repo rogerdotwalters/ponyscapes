@@ -32,14 +32,17 @@ const PonyGenes = (() => {
     hasGenome: look => !!look && look.length >= LEN,
     /** A wild pony's genome, appended to `look` (which already holds its shown coat and mane). Each gene's shown allele is rolled by its weights; the carried one is any allele after it. */
     roll(rng, look, variant) {
+      const R = variant ? 0 : PonyPalette.recessive.count;                                       // (only the meadow palette has the recessive colours, black and silver)
       for (const L of LOCI) {
-        const n = sizeOf(L, variant);
-        let shown = L.slot !== undefined ? Math.min(look[L.slot] | 0, n - 1) : pick(rng, L.alleles ? L.alleles.map(a => a.weight || 1) : new Array(n).fill(1));
-        if (L.slot !== undefined && !variant && L.palette) {                           // a meadow pony may carry one of the colours added later
-          const base = PonyPalette.base[L.palette], more = n - base;
-          if (more > 0 && rng() < 0.4) { shown = base + Math.floor(rng() * more); look[L.slot] = shown; }
+        const n = sizeOf(L, variant), common = n - (L.palette ? R : 0);                          // the colours that are not recessive
+        let shown = L.slot !== undefined ? Math.min(look[L.slot] | 0, n - 1) : L.palette ? Math.floor(rng() * common) : pick(rng, L.alleles ? L.alleles.map(a => a.weight || 1) : new Array(n).fill(1));
+        if (L.palette && !variant) {
+          const base = PonyPalette.base[L.palette], more = common - base;
+          if (L.slot !== undefined && more > 0 && rng() < 0.4) shown = base + Math.floor(rng() * more);   // a meadow pony may carry one of the colours added later
+          if (R && rng() < 0.015 * R) shown = n - R + Math.floor(rng() * R);                        // now and then one is black or silver itself: both its alleles recessive
+          if (L.slot !== undefined) look[L.slot] = shown;
         }
-        const carried = shown + Math.floor(rng() * (n - shown));
+        const carried = shown + Math.floor(rng() * (n - shown));                                  // (the carried allele is never a lower, dominant one: the recessive colours are last)
         look.push(rng() < 0.5 ? shown * PACK + carried : carried * PACK + shown);
       }
       return look;
@@ -83,6 +86,12 @@ const PonyGenes = (() => {
         { part: 'Body', text: allele('bodyShape').name },
         { part: 'Hooves', text: `${allele('hoofShape').name}, ${allele('hoofColor').name.toLowerCase()}`, color: allele('hoofColor').color },
         { part: 'Head', text: allele('headShape').name + ' snout' }];
+      const R = PonyPalette.recessive, g = genomeOf(look), rec = (i, n) => g[at(i)].filter(a => v === 0 && a >= n - R.count);                // the recessive colours a pony wears or carries
+      for (const [id, part] of [['bodyColor', 'Coat'], ['maneColor', 'Mane']]) {
+        const n = sizeOf(LOCI[at(id)], v), shownRec = v === 0 && ex[id] >= n - R.count, carried = rec(id, n).filter(a => a !== ex[id]);
+        if (shownRec) traits.unshift({ part, text: `${R.names[ex[id] - (n - R.count)]} (recessive)` });
+        else if (carried.length) traits.push({ part, text: `carries ${[...new Set(carried)].map(a => R.names[a - (n - R.count)].toLowerCase()).join(' and ')}` });
+      }
       const talent = PonyGenes.talentOf(look); if (talent) traits.push({ part: 'Skill', text: `${talent.name}, inherited (level ${talent.level})` });
       return {
         eyeShape: ex.eyeShape, eyeColor: allele('eyeColor').color, maneShape: ex.maneShape, tailShape: ex.tailShape, bodyShape: ex.bodyShape,

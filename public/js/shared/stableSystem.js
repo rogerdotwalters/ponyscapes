@@ -299,9 +299,10 @@ Object.assign(GameServer.prototype, {
     return PonyGenes.sync(look);                                                              // (the coat and mane slots show what the genes say)
   },
   _bornFoal(owner, a, b, f, grid) {
-    const mares = [a, b].filter(x => PonyLook.sexOf(x.look) === 'f'), kinds = [a.type, b.type], type = a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : kinds[Math.floor(this.rng() * 2)];
+    const look = this._foalLook(a, b), kinds = [a.type, b.type], bound = SkyPonies.kindOfVariant(look[4]);                  // (a moon or sky variety is always its own kind of pony)
+    const free = kinds.filter(k => !SkyPonies.isBound(k)), type = bound || (a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : free.length ? free[Math.floor(this.rng() * free.length)] : 'pony_plain');
     const at = Stable.front(f, Math.floor(this.rng() * 8)), foal = this.animals.release(type, at.x, at.y, owner, undefined, { level: 1, variant: 0, grid });
-    foal.look = this._foalLook(a, b); foal.foal = Stable.FOAL_SECONDS; foal.home = { x: at.x, y: at.y }; foal.leashed = false;
+    foal.look = look; foal.foal = Stable.FOAL_SECONDS; foal.home = { x: at.x, y: at.y }; foal.leashed = false;
     for (const x of [a, b]) x.breedRest = Stable.BREED_REST;
     if (this.players[owner]) this._remember(owner, foal);
     const info = PonyLook.sexInfo(PonyLook.sexOf(foal.look)), name = Stable.nameOf(foal);
