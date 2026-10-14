@@ -224,9 +224,8 @@ class FishingHandler {
   }
 }
 
-/** The lasso: THROW it at any friendly animal (not a monster or a guardian) up to 5+ tiles away (the one you click / tap, else inside a cone in front of you). A caught animal that is not a wild pony stays on the rope until you untie it; how many you can hold grows with your level (Skills.leashCap). The rope NEVER breaks. It may miss: calm, lured animals
- *  are easy, running ones hard, and Horsemanship helps. A caught deer or sheep is simply yours; a caught wild PONY follows you
- *  on the rope and is gentled anywhere by feeding it the fruit its kind and level ask for (AnimalLevels.tameFruit) while a rainbow bar fills, then it becomes your pet. */
+/** The lasso: THROW it at any friendly animal (not a monster or a guardian) up to 5+ tiles away (the one you click / tap, else inside a cone in front of you). A caught animal that is not a wild pony stays on the rope until you untie it; how many you can hold grows with your level (Skills.leashCap). The odds depend on the animal's level, your Horsemanship (Animal Friendship for non-ponies) and the level of your own pony. It may miss. A caught deer or sheep is simply yours; a caught wild PONY follows you
+ *  on the rope and is held on a rope of limited length (it wears down under tension, see animalSystem._thinkCaught) and calms while you stay near, then it becomes your pet. */
 class LeashHandler {
   /** @param {{animals:AnimalSystem, getInventory, emit, markInventoryChanged, getPlayer, award, rng, onTamed:(ownerId, animal)=>void}} deps */
   constructor(deps) { Object.assign(this, deps); }
@@ -250,7 +249,7 @@ class LeashHandler {
     const inventory = this.getInventory(id), a = this.animals.animals[target.ref], p = this.getPlayer(id), def = AnimalDefs[a.type];
     const item = p.held, lasso = ItemDB.getLasso(item) || { tier: 1, chance: 0 }, fromSlot = p.lassoSwing && p.gear.lasso === item;   // thrown from the lasso slot (L), or held from the bar
     if (!fromSlot && !inventory.has(item, 1)) return;
-    const dist = Math.hypot(a.x - p.x, a.y - p.y), mine = a.owner === id, need = def.pony ? (def.lassoTier || 1) : 1;
+    const mine = a.owner === id, need = def.pony ? (def.lassoTier || 1) : 1;
     if (!mine && need > lasso.tier) {                                                   // a rarer pony slips out of a plain loop
       const better = Object.values(ItemDefs).find(d => d.lasso && d.lasso.tier === need);
       this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id, item });
@@ -265,7 +264,7 @@ class LeashHandler {
       this.emit({ type: 'notice', to: id, text: wild });
       return;
     }
-    const landed = mine || this.rng() < this.animals.lassoChance(a, dist, p.lv, p.buffs) + lasso.chance;
+    const landed = mine || this.rng() < this.animals.lassoChance(a, p.lv, this.animals.ownPonyLevel(id, p.mount)) + lasso.chance;
     this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: landed, by: id, item });
     if (!landed) {
       this.animals.startle(target.ref, p);
@@ -282,7 +281,7 @@ class LeashHandler {
       const coin = PonyCoins.itemOf((PonyVariants[(a.look && a.look[4]) | 0] || PonyVariants[0]).id) || PonyCoins.itemOf('meadow');   // (every pony gives one: a retired variety's gives the meadow coin)
       if (coin) this.dropOnGround(coin, 1, a.x, a.y, a.grid || '');                   // the frightened pony sheds the collector coin of its own variety
       this.emit({ type: 'caught', to: id, x: a.x, y: a.y, animal: a.type, id: a.id, need: fruit.count, item: fruit.item });
-      this.emit({ type: 'notice', to: id, text: `Caught! The rope holds. Hold a ${ItemDefs[fruit.item].name} and press Feed: it takes ${fruit.count}` });
+      this.emit({ type: 'notice', to: id, text: `Caught! Stay close until it calms down (keep the rope from pulling tight). A ${ItemDefs[fruit.item].name} helps` });
       return;
     }
     const tamed = this.animals.tame(target.ref, id);

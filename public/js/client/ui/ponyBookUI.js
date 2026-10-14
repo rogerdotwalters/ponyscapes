@@ -35,9 +35,9 @@ class PonyBookUI {
   }
 
   static status(pet) {
-    if (pet.gentling) {                                                          // a caught wild pony: the rope holds; fruit fills the rainbow bar
+    if (pet.gentling) {                                                          // a caught wild pony: stay near it to calm it
       const g = pet.gentling, fruit = g.item && ItemDefs[g.item] ? ItemDefs[g.item].name : 'apple';
-      return `The rope holds. Hold a ${fruit} (or a rarer fruit) and press Feed anywhere: ${g.have}/${g.need} fed.<div class="tameBar" title="Taming"><i style="width:${Math.round((g.progress || 0) * 100)}%"></i></div>`;
+      return `Stay within ${ROPE_CALM_RANGE} tiles until it calms down (don't let the rope pull tight). A ${fruit} (Feed) speeds it up: ${g.have}/${g.need} fed.<div class="tameBar" title="Calm"><i style="width:${Math.round((g.progress || 0) * 100)}%"></i></div>`;
     }
     if (pet.stalled) return 'Resting in its stall in the stable';
     if (pet.roam) return 'Out roaming the village';
@@ -71,7 +71,7 @@ class PonyBookUI {
     }).join('');
     const varHtml = varieties ? `<div class="gtitle">Biome ponies <small>one kind lives in each biome</small></div><div class="pkinds pvars">${varieties}</div>` : '';
     const kindsHtml = `<div class="pkinds">${kinds}</div>${varHtml}`;
-    const animalsHtml = '<div class="gtitle">Your animals</div>' + (cards || '<div class="gempty">Nothing yet. Hold an apple to calm a wild pony, then throw your lasso at it. Lead it to a stable (or a closed fenced pen) and feed it apples to tame it.</div>');
+    const animalsHtml = '<div class="gtitle">Your animals</div>' + (cards || '<div class="gempty">Nothing yet. Throw your lasso at a wild pony, then stay close until it calms down. Apples help.</div>');
     const gentling = g.pets.some(p => p.gentling);                               // a pony you are gentling needs you: show it before the collection grid
     this.body.innerHTML = summary + (gentling ? animalsHtml + kindsHtml : kindsHtml + animalsHtml);
     this.body.querySelectorAll('canvas.portrait').forEach(canvas => {

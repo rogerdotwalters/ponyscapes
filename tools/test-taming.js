@@ -28,27 +28,54 @@ test('the fruit ladder: kinds and levels ask for rarer fruit', () => {
   assert(need('pony_unicorn', 16).count >= need('pony_plain', 1).count);
 });
 
-test('the lasso rope never breaks: a caught pony is still held after a very long time, far away, and without shelter', () => {
-  caught();
-  ticks(30 * 400);                                                                        // (far longer than the old 150 second limit)
-  assert.strictEqual(run('PONY.captor'), run('A'), 'still on the rope');
-  run('PA.x += 40; PA.y += 5; S.map.ensureAround(PA.x, PA.y, 2)'); ticks(30 * 5);
-  assert.strictEqual(run('PONY.captor'), run('A'), 'a long walk does not break it');
+/** Put the host `d` tiles from the caught pony (on open ground west of it) so the rope is slack or taut as wanted. */
+const apart = d => run(`PA.x = PONY.x - ${d}; PA.y = PONY.y; PONY.vx = PONY.vy = 0`);
+
+test('lasso chance rises with your handling and your own pony, and falls with the target\'s level', () => {
+  const chance = (monsterLevel, handling, own) => run(`AnimalLevels && S0.animals.lassoChance({ type: 'pony_plain', level: ${monsterLevel} }, { s: { horsemanship: ${handling} }, a: {} }, ${own})`);
+  run(`globalThis.S0 = new GameServer(1)`);
+  assert(chance(5, 10, 0) > chance(5, 6, 0), 'handling helps');
+  assert(chance(10, 10, 0) < chance(5, 10, 0), 'a higher-level pony is harder');
+  assert(chance(5, 10, 8) > chance(5, 10, 0), 'a strong pony of your own helps');
 });
 
-test('feeding works anywhere (no stable or pen), takes the right fruit, and the rainbow bar fills before the pony settles', () => {
+test('a tight rope drags player and pony together and wears the rope', () => {
+  caught();
+  run('PA.x = PONY.x - 9; PA.y = PONY.y; PONY.vx = PONY.vy = 0; S.map.ensureAround(PA.x, PA.y, 2)');
+  const px = run('PA.x'); ticks(1);
+  assert(run('PA.x') > px, 'the player is dragged toward the pony too');
+  const gap = run('Math.hypot(PONY.x - PA.x, PONY.y - PA.y)');
+  assert(gap <= run('ROPE_LENGTH') + 0.5, 'pulled in to the rope length: ' + gap);
+  const before = run('PONY.rope'); for (let i = 0; i < 30 * 5; i++) { run('PA.x = PONY.x - 9; PA.y = PONY.y'); ticks(1); }
+  assert(run('PONY.rope') < before || run('PONY.captor') === '', 'tension wears the rope');
+});
+
+test('a rope under constant tension snaps and the pony bolts', () => {
+  caught(); let snapped = false;
+  for (let i = 0; i < 30 * 200 && !snapped; i++) { run('PA.x = PONY.x - 9; PA.y = PONY.y'); ticks(1); snapped = run('PONY.captor') === ''; }
+  assert(snapped, 'snapped'); assert.strictEqual(run('PONY.owner'), '');
+});
+
+test('staying near calms it: it becomes yours once the bar is full, faster with Animal Friendship', () => {
+  caught();
+  const rate = lv => run(`S.animals.calmRate(PONY, { s: { animal_friendship: ${lv} }, a: {} })`);
+  assert(rate(20) > rate(1), 'friendship soothes');
+  let t = 0; while (run('PONY.owner') === '' && t < 30 * 120) { run('PA.x = PONY.x - 2; PA.y = PONY.y'); ticks(1); t++; }
+  assert.strictEqual(run('PONY.owner'), run('A'), 'tamed by staying close'); assert.strictEqual(run('PONY.captor'), '');
+});
+
+test('far from the pony it does not calm down', () => {
+  caught(); apart(5.5); const before = run('PONY.calm || 0'); ticks(30 * 3);
+  const d = run('Math.hypot(PONY.x - PA.x, PONY.y - PA.y)');
+  if (d > run('ROPE_CALM_RANGE')) assert.strictEqual(run('PONY.calm || 0'), before, 'no calm outside the range');
+});
+
+test('fruit is a treat that speeds the calming up (and takes the right fruit)', () => {
   caught('pony_plain', 1, { apple: 5, golden_apple: 2 });
   assert.strictEqual(run('S.animals.tameProgress(PONY)'), 0);
-  const need = run('AnimalLevels.tameFruit(AnimalDefs.pony_plain, 1).count');
   feed('apple');
   assert.strictEqual(run('PONY.trust'), 1, 'fed in the open');
-  const half = run('S.animals.tameProgress(PONY)'); ticks(30); const later = run('S.animals.tameProgress(PONY)');
-  assert(later > half, 'the bar fills with time: ' + half + ' -> ' + later);
-  assert.strictEqual(run('PONY.owner'), '', 'not yet tamed');
-  for (let i = 1; i < need; i++) feed('apple');
-  ticks(30 * run('AnimalLevels.TAME_SECONDS_PER_FRUIT') * need + 60);
-  assert.strictEqual(run('PONY.owner'), run('A'), 'tamed once the bar is full'); assert.strictEqual(run('PONY.captor'), '');
-  assert(run(`S.pendingEvents.some(e => e.type === 'tamed') || true`));
+  assert(run('S.animals.tameProgress(PONY)') > 0.2, 'the bar jumped');
 });
 
 test('a rarer pony refuses a plain apple but takes a more exotic fruit', () => {
