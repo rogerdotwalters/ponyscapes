@@ -20,6 +20,8 @@ class MenuUI {
   constructor({ panel, body, closeButton, game, onPick }) {
     this.panel = panel; this.body = body; this.game = game; this.onPick = onPick;
     closeButton.addEventListener('click', () => this.close());
+    body.addEventListener('change', e => { const c = e.target.closest('input[data-setting]'); if (c && this.game.isHost) this.game.setSetting(c.dataset.setting, c.checked); });   // the testing checkbox
+    game.events.on('settingsChanged', () => this.isOpen && this.refresh());
     body.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.section) this.onPick(b.dataset.section); });
   }
   get isOpen() { return !this.panel.hidden; }
@@ -30,6 +32,7 @@ class MenuUI {
     const maps = this.game.treasureMaps.length;
     this.body.innerHTML = '<div class="menugrid">' + sections.map(s =>
       `<button data-section="${s.id}"><span class="mg">${s.glyph}</span><span class="mt"><b>${s.label}</b><i>${s.id === 'treasure' && maps ? `${maps} map${maps === 1 ? '' : 's'} read` : s.sub}</i></span>${s.key ? `<kbd>${s.key}</kbd>` : ''}</button>`).join('') + '</div>' +
+      (this.game.isHost ? `<label class="chk menutest"><input type="checkbox" data-setting="ponyCare"${this.game.settings && this.game.settings.ponyCare ? ' checked' : ''}><span><b>Pony care (testing)</b><small>Turn the feeding systems on: food, water, happiness, stable desk and tanks.</small></span></label>` : '') +
       '<div class="menunote">Tap outside a window to close it.</div>';
   }
 }
