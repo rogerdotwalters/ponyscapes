@@ -173,6 +173,7 @@ function launch(choice, query) {
     game.events.on('confirmRelease', e => confirmUI.ask(e));
     game.events.on('stallMenu', e => stableUI.show(e));
     game.events.on('deskMenu', e => stableUI.showDesk(e));
+    game.events.on('vendorMenu', e => stableUI.showVendor(e));
     bus.on('openStall', () => game.openStall());                  // the stall button: that stall's menu
     bus.on('leashPony', () => game.leashPony());                  // the Leash button: a lasso for a pony that is already yours
     bus.on('ridePony', () => game.toggleRide());                 // the Ride button: its own button, never shared with Board / Feed / Pick

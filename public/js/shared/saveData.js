@@ -45,7 +45,7 @@ const SaveData = {
     if (!P(raw)) return out;
     for (const [grid, room] of Object.entries(raw).slice(0, 200)) {
       if (!/^room:[0-9:]{1,24}$/.test(grid) || !P(room)) continue;
-      const r = { tanks: { water: tank(room.tanks && room.tanks.water), food: tank(room.tanks && room.tanks.food) }, stalls: {} };
+      const r = { cap: I(room.cap, 0, CONFIG.sim.ponyCap.cost.length - 1, 0), tanks: { water: tank(room.tanks && room.tanks.water), food: tank(room.tanks && room.tanks.food) }, stalls: {} };
       if (!r.tanks.water.count) r.tanks.water.size = 0; if (!r.tanks.food.count) r.tanks.food.size = 0;
       for (const [key, s] of Object.entries(P(room.stalls) ? room.stalls : {}).slice(0, 64)) {
         if (!/^\d{1,3},\d{1,3}$/.test(key) || !P(s)) continue;

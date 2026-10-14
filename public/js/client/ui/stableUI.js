@@ -60,26 +60,57 @@ class StableUI {
     this.body.innerHTML = html;
     this.body.querySelectorAll('button').forEach(b => b.addEventListener('click', () => this.pick(b.dataset.act, b.dataset.id, b.dataset.act === 'rename' ? this.body.querySelector('#stName').value : b.dataset.what)));
   }
-  /** The stable desk (shared/ponyCare.js): the bank for pony coins and the office for tanks. @param {{fx, fy, bank, food, water, mine}} d */
+  /** The stable desk (shared/ponyCare.js, ponyTrade.js): the bank for pony coins, the stable's size, the tanks and a list to send ponies away. @param {object} d the 'deskMenu' event */
   showDesk(d) {
     this.requestOpen();
     this.menu = { desk: true, fx: d.fx, fy: d.fy };
     this.title.textContent = 'Stable Desk';
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const coins = n => `${n} coin${n === 1 ? '' : 's'}`;
     const tank = (kind, label, icon, t) => `<div class="stBowl"><div class="stBowlHead"><b>${icon} ${label} tank</b><span>${t.count ? `${t.count} of ${t.max} &middot; Lv ${t.size}` : 'none yet'}</span></div>` +
       `<p class="stHint">${t.count ? `Feeds ${t.supply} stalls (${t.used} connected). Open a stall's menu and press Automate to connect it.` : `Buy one to automate stalls. Each tank feeds ${t.perTank} stalls.`}</p><div class="stActs">` +
       (t.buyCost === null ? '<button disabled>All tanks bought</button>' : `<button class="stUp" data-desk="buyTank" data-kind="${kind}"${d.mine ? '' : ' disabled'}>${t.count ? 'Another tank' : 'Buy a tank'} &middot; ${coins(t.buyCost)}</button>`) +
       (t.count ? (t.upCost === null ? '<button disabled>Biggest tanks</button>' : `<button class="stAuto" data-desk="upTank" data-kind="${kind}"${d.mine ? '' : ' disabled'}>Bigger tanks &middot; ${coins(t.upCost)}</button>`) : '') + '</div></div>';
+    const sexTag = o => (o.sex ? `<span class="stSex ${o.sex === 'f' ? 'f' : 'm'}">${PonyLook.sexInfo(o.sex).symbol}</span>` : '');
+    const c = d.cap, full = c.have >= c.max;
+    const herd = (d.ponies || []).map(o => `<div class="stCard ${o.sex === 'f' ? 'f' : o.sex ? 'm' : ''}"><div class="stInfo">${sexTag(o)}<div class="stName">${esc(o.name)}${o.main ? ' \u2605' : ''}<small>${esc(AnimalDefs[o.type] ? AnimalDefs[o.type].name : '')} &middot; Lv ${o.level}</small></div>` +
+      (o.main || o.locked || o.ridden ? `<small class="stNote">${o.main ? 'main pony' : o.locked ? 'breeding' : 'ridden'}</small>` : `<button class="stDanger" data-remove="${esc(o.id)}">Remove</button>`) + '</div></div>').join('');
     this.body.innerHTML = `<h4 class="stHead">Bank</h4><div class="stBowl"><div class="stBowlHead"><b>\uD83E\uDE99 Pony coins</b><span>${d.bank} stored</span></div>` +
-      `<p class="stHint">Keep your pony coins here: stall upgrades and tanks are paid from the bank.</p><div class="stActs"><button class="stTake" data-desk="storage">Open the bank</button></div></div>` +
-      `<h4 class="stHead">Tanks</h4>` + tank('water', 'Water', '\uD83D\uDCA7', d.water) + tank('food', 'Food', '\uD83C\uDF4E', d.food) + (d.mine ? '' : '<p class="stHint">This is not your stable.</p>');
+      `<p class="stHint">Keep your pony coins here: stable upgrades${d.care ? ', stall upgrades and tanks' : ''} are paid from the bank.</p><div class="stActs"><button class="stTake" data-desk="storage">Open the bank</button></div></div>` +
+      `<h4 class="stHead">Stable size</h4><div class="stBowl"><div class="stBowlHead"><b>\uD83D\uDC0E Ponies kept</b><span>${c.have} / ${c.max}</span></div>${full ? '<p class="stHint">Your stable is full: upgrade it, or send a pony away.</p>' : ''}` +
+      `<div class="stActs">${c.upCost === null ? '<button disabled>Biggest stable</button>' : `<button class="stUp" data-desk="upCap"${d.mine ? '' : ' disabled'}>Bigger stable (+${c.perLevel}) &middot; ${coins(c.upCost)}</button>`}</div></div>` +
+      (d.care ? '<h4 class="stHead">Tanks</h4>' + tank('water', 'Water', '\uD83D\uDCA7', d.water) + tank('food', 'Food', '\uD83C\uDF4E', d.food) : '<p class="stHint">Switch on Pony care in the Menu to use food and water tanks.</p>') +
+      `<h4 class="stHead">Your ponies</h4><p class="stHint">Remove sends a pony away and it goes wild. Your main pony can't be removed.</p>${herd || '<p class="stHint">You have no ponies.</p>'}` + (d.mine ? '' : '<p class="stHint">This is not your stable.</p>');
     this.body.querySelectorAll('button[data-desk]').forEach(b => b.addEventListener('click', () => {
       this.game.deskPick({ act: b.dataset.desk, kind: b.dataset.kind || '', fx: d.fx, fy: d.fy });
       if (b.dataset.desk === 'storage') this.close();
     }));
+    this.body.querySelectorAll('button[data-remove]').forEach(b => b.addEventListener('click', () => {            // two taps: the first asks, the second sends the pony away
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sure?'; setTimeout(() => { if (b.isConnected) { b.dataset.sure = ''; b.textContent = 'Remove'; } }, 3000); return; }
+      this.game.deskPick({ act: 'remove', animal: b.dataset.remove, fx: d.fx, fy: d.fy });
+    }));
+  }
+  /** The pony vendor (shared/ponyTrade.js): buy and sell ponies for gold. @param {object} v the 'vendorMenu' event */
+  showVendor(v) {
+    this.requestOpen();
+    this.menu = { vendor: true, fx: v.fx, fy: v.fy };
+    this.title.textContent = 'Pony Vendor';
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const sexTag = o => (o.sex ? `<span class="stSex ${o.sex === 'f' ? 'f' : 'm'}">${PonyLook.sexInfo(o.sex).symbol}</span>` : '');
+    const card = (o, btn) => `<div class="stCard ${o.sex === 'f' ? 'f' : o.sex ? 'm' : ''}"><div class="stInfo">${sexTag(o)}<div class="stName">${esc(o.name)}<small>${esc(o.kind)} &middot; Lv ${o.level} &middot; <em style="color:${o.color};font-style:normal">${esc(o.rarityName)}</em></small></div></div><div class="stActs">${btn}</div></div>`;
+    const buy = v.buy.map(o => card(o, o.sold ? '<button disabled>Sold</button>' : `<button class="stFill" data-buy="${o.i}"${v.gold >= o.price && v.have < v.cap ? '' : ' disabled'}>Buy &middot; ${o.price} gold</button>`)).join('');
+    const sell = v.sell.map(o => card(o, o.main ? '<button disabled>Main pony</button>' : o.locked ? '<button disabled>Breeding</button>' : o.ridden ? '<button disabled>Being ridden</button>' : `<button class="stUp" data-sell="${esc(o.id)}">Sell &middot; ${o.price} gold</button>`)).join('');
+    this.body.innerHTML = `<p class="stHint">You have ${v.gold} gold &middot; ${v.have} / ${v.cap} ponies kept${v.have >= v.cap ? ' (stable full: upgrade it at the desk)' : ''}</p>` +
+      `<h4 class="stHead">For sale today</h4>${buy || '<p class="stHint">Nothing for sale.</p>'}<h4 class="stHead">Sell your ponies</h4>${sell || '<p class="stHint">You have no ponies.</p>'}`;
+    this.body.querySelectorAll('button[data-buy]').forEach(b => b.addEventListener('click', () => this.game.vendorPick({ act: 'buy', index: +b.dataset.buy, fx: v.fx, fy: v.fy })));
+    this.body.querySelectorAll('button[data-sell]').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Sure?'; setTimeout(() => { if (b.isConnected) { b.dataset.sure = ''; b.textContent = b.dataset.label; } }, 3000); return; }
+      this.game.vendorPick({ act: 'sell', animal: b.dataset.sell, fx: v.fx, fy: v.fy });
+    }));
+    this.body.querySelectorAll('button[data-sell]').forEach(b => { b.dataset.label = b.textContent; });
   }
   pick(act, animal, what) {
-    const m = this.menu; if (!m || m.desk) return;
+    const m = this.menu; if (!m || m.desk || m.vendor) return;
     this.game.stallPick({ act, animal: animal || '', fx: m.fx, fy: m.fy, what: what || '' });
     if (act !== 'care' && act !== 'rename') this.close();                           // (the care buttons keep the menu open: the server sends it again with the new numbers)
   }

@@ -250,7 +250,8 @@ Object.assign(GameServer.prototype, {
     const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal` };
     const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first` };
     const mine = Object.values(this.animals.animals).filter(x => x.owner === id && AnimalDefs[x.type].pony).length;
-    if (mine >= Stable.PET_CAP) return { can: false, reason: `You already keep ${Stable.PET_CAP} ponies` };
+    const cap = this._ponyCapOf(id);
+    if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: upgrade your stable at the desk` };
     return { can: true, reason: '' };
   },
   /** The Breed button (and Stop) in a stall's menu. */
