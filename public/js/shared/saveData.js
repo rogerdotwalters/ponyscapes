@@ -15,7 +15,7 @@ const SaveData = {
   /** A character's id: made once when the character begins and kept in every copy of its save (the host's and the friend's), so they can tell they mean the same one. */
   newCharacterId() { let id = ''; for (let i = 0; i < 20; i++) id += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)]; return id; },
   validCharacterId: id => typeof id === 'string' && /^[A-Za-z0-9_-]{8,40}$/.test(id),
-  MAX_BUILT_TILES: 200000, MAX_STATE_ENTRIES: 200000, MAX_PETS: 24, MAX_MAPS: 8,
+  MAX_BUILT_TILES: 200000, MAX_STATE_ENTRIES: 200000, MAX_PETS: 400, MAX_MAPS: 8,
 
   /* ---------------------------------- helpers ---------------------------------- */
   _num(v, lo, hi, fallback) { return typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback; },

@@ -66,7 +66,7 @@ const CONFIG = {
      *  Levels are arrays: index = level. Bowl `size` = units the bowl holds (1 unit fills 1 point of hunger / thirst). Upgrade `cost[n]` = the price of going from level n-1 to n. */
     /** How many ponies one person may keep (stableSystem.js): `base`, plus `perLevel` for every stable upgrade (paid in pony coins at the stable desk; cost[n] = the price of level n). The pony vendor
      *  (ponyTrade.js) buys and sells ponies for GOLD coins: a pony's price = kind price + level x perLevel + rarity price; the vendor pays `sellFraction` of it and keeps `stock` ponies on offer, new ones each day. */
-    ponyCap: { base: 30, perLevel: 10, cost: [0, 10, 20, 35, 55, 80] },
+    ponyCap: { base: 100, perLevel: 25, cost: [0, 10, 20, 35, 55, 80] },
     ponyTrade: { price: { pony_plain: 4, pony_earth: 5, pony_unicorn: 12, pony_pegasus: 18, pony_alicorn: 60 }, perLevel: 1, rarity: [0, 4, 12, 30, 80], sellFraction: 0.5, stock: 4, maxStockLevel: 8, buyKinds: ['pony_plain', 'pony_earth', 'pony_unicorn', 'pony_pegasus'] },
     ponyCare: {
       hunger: { max: 100, drain: 0.04 }, thirst: { max: 100, drain: 0.06 },          // hunger empties in ~42 min, thirst in ~28 min

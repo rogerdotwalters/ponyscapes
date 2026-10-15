@@ -15,7 +15,6 @@ const Stable = {
   BREED_SECONDS: 90,                                        // how long the rainbow bar takes to fill when two ponies breed
   BREED_REST: 240,                                          // seconds a pony needs to rest after a foal
   FOAL_SECONDS: 300,                                        // how long a foal takes to grow up (it is smaller, and cannot be ridden, until then)
-  PET_CAP: 30,                                              // the most ponies one person can keep (foals included)
   CAPACITY: 4,                                              // ponies that can share one stall
   /** Where the ponies in a pen stand (the four corners of the middle of a 4 x 4 pen), as offsets from the stall's top-left corner. */
   SLOTS: [[1.0, 1.7], [3.0, 1.7], [1.0, 3.1], [3.0, 3.1]],
