@@ -512,7 +512,7 @@ const PixelPony = (() => {
   /** One pony frame, painted live (the old way): the body, the outline round it, then frost's twinkles over that. */
   function renderLive(C, view, F, blink) {
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d'), P = painter(ctx);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }), P = painter(ctx);
     P.at(0, TOP, () => { if (view === 'up') back(P, C, F); else if (view === 'down') front(P, C, F, blink); else side(P, C, F, blink); });
     outline(ctx, C.outline, W, H);
     if (C.fx === 'frost') twinkles(P, C, view, F);
