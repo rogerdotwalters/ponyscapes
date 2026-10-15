@@ -189,7 +189,7 @@ const SaveData = {
     const x = N(q.x, -1e7, 1e7, NaN), y = N(q.y, -1e7, 1e7, NaN);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     return Object.assign({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
-      foal: Number.isFinite(q.foal) && q.foal > 0 ? N(q.foal, 0, Stable.FOAL_SECONDS, 0) : undefined, breedRest: Number.isFinite(q.breedRest) && q.breedRest > 0 ? N(q.breedRest, 0, Stable.BREED_REST, 0) : undefined,
+      ped: Pedigree.fromSave(q.ped) || undefined, foal: Number.isFinite(q.foal) && q.foal > 0 ? N(q.foal, 0, Stable.FOAL_SECONDS, 0) : undefined, breedRest: Number.isFinite(q.breedRest) && q.breedRest > 0 ? N(q.breedRest, 0, Stable.BREED_REST, 0) : undefined,
       care: Array.isArray(q.care) && q.care.length === 5 && q.care.every(Number.isFinite) ? [N(q.care[0], 0, 100, 100), N(q.care[1], 0, 100, 100), N(q.care[2], 0, 100, 70), N(q.care[3], 0, 1e5, 0), N(q.care[4], 0, 99, 0)] : undefined,
       friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null }, SaveData._pack(q, look));
   },
@@ -245,7 +245,7 @@ const SaveData = {
     if (!p || !inventory) return null;
     const out = SaveData.outsideSpot(server, p), spot = SaveData.safeSpot(server, out.x, out.y, p.slot);     // (rowing a boat? put back on the shore; indoors? at the door)
     const pets = Object.values(server.animals.animals).filter(a => a.owner === id && !a.trial).slice(0, SaveData.MAX_PETS)
-      .map(a => Object.assign({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, main: a.main || undefined, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }, server._exportPack(a)));
+      .map(a => Object.assign({ type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, ped: Array.isArray(a.ped) ? a.ped : undefined, hpFraction: a.maxHp ? a.hp / a.maxHp : 1, main: a.main || undefined, x: gridOf(a) ? spot.x + 1 : a.x, y: gridOf(a) ? spot.y : a.y, friend: Friendship.hasBond(a.friends[id]) ? Friendship.encode(a.friends[id]) : null }, server._exportPack(a)));
     const xp = server.progress.ensure(id);
     return {
       v: SaveData.VERSION, savedAt: Date.now(), cid: server.charIds[id],
@@ -301,7 +301,7 @@ const SaveData = {
     if (Array.isArray(data.pets)) for (const q of data.pets.slice(0, SaveData.MAX_PETS)) {
       if (!SaveData._plain(q) || !AnimalDefs[q.type] || !(AnimalDefs[q.type].pony || AnimalDefs[q.type].tameable)) continue;      // only things you can actually keep: a saved "pet" can never be a dragon
       const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, PonyGenes.LEN).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed, ...genome]
-      out.pets.push(Object.assign({ type: q.type, main: q.main === true || undefined, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) }, SaveData._pack(q, look)));
+      out.pets.push(Object.assign({ type: q.type, main: q.main === true || undefined, level: I(q.level, 1, CONFIG.sim.levels.max, 1), xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, ped: Pedigree.fromSave(q.ped) || undefined, hpFraction: N(q.hpFraction, 0.05, 1, 1), x: N(q.x, -1e7, 1e7, NaN), y: N(q.y, -1e7, 1e7, NaN), friend: Friendship.decode(q.friend) }, SaveData._pack(q, look)));
     }
     out.friends = {};                                                                       // hearts with the villagers: { 'n_baker': [level, points] }
     if (SaveData._plain(data.friends)) for (const key of Object.keys(data.friends).slice(0, 40)) { const bond = Friendship.decode(data.friends[key]); if (/^n_[a-z_]+$/.test(key) && Npcs.has(key.slice(2)) && bond) out.friends[key] = bond; }
@@ -332,6 +332,7 @@ const SaveData = {
       const at = SaveData.safeSpot(server, Number.isFinite(q.x) ? q.x : p.x + 1, Number.isFinite(q.y) ? q.y : p.y, p.slot);
       const pet = server.animals.release(q.type, at.x, at.y, id, undefined, { level: q.level, variant: q.look ? q.look[4] | 0 : 0 });
       if (q.look && AnimalDefs[q.type].pony) pet.look = q.look;
+      if (q.ped) pet.ped = q.ped;
       pet.hp = Math.max(1, Math.round(pet.maxHp * q.hpFraction));
       if (q.friend) pet.friends[id] = q.friend;                                  // a pet remembers how fond of you it is
       if (Number.isFinite(q.xp)) pet.xp = q.xp;

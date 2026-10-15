@@ -280,6 +280,8 @@ class GameServer {
       case 'vendorPick': this._vendorPick(id, cmd); break;                                                    // the pony vendor's menu (ponyTrade.js)
       case 'openStall': this._openStall(id, cmd); break;                                                      // the stall button: open that stall's menu (stableSystem.js)
       case 'deskPick': this._deskPick(id, cmd); break;                                                        // a button in the stable desk's menu (ponyCare.js)
+      case 'lineage': if (typeof cmd.animal === 'string') this._lineage(id, cmd.animal); break;                  // a pony's family tree and genes (stableSystem.js)
+      case 'herdGenetics': this._herdGenetics(id); break;                                                      // the herd's diversity (stableSystem.js)
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
@@ -806,7 +808,7 @@ class GameServer {
     const kept = this.everVariants[id] || {}, now = {};
     for (const pet of this.animals.petsOf(id, this.tick)) if (!pet.gentling && pet.look) { const v = pet.look[4] | 0; now[v] = (now[v] || 0) + 1; }
     const placed = this.posterCoins[id] || {};
-    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, when: (SkyPonyTable.get(v.id) || {}).when || '', theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
+    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, when: (SkyPonyTable.get(v.id) || {}).when || (Hybrids.isHybrid(v.id) ? (kept[i] ? 'Bred: ' + (HybridTable.get(v.id).parents.map(q => (PonyVariantTable.get(q) || {}).name).join(' x ') || 'two hybrids') : 'Bred from two ponies') : ''), theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
       .filter(v => !v.legacy || v.seen || v.owned);                                    // retired varieties only show if you already have one
   }
   bookFor(id) {

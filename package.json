@@ -19,6 +19,8 @@
     "test:loot": "node tools/test-loot.js",
     "test:skills": "node tools/test-skills.js",
     "test:genes": "node tools/test-genes.js",
+    "test:pedigree": "node tools/test-pedigree.js",
+    "test:hybrids": "node tools/test-hybrids.js",
     "test:sky": "node tools/test-sky.js",
     "test:apples": "node tools/test-apples.js",
     "test:taming": "node tools/test-taming.js",

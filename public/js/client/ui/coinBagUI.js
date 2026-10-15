@@ -1,5 +1,6 @@
 'use strict';
-/* CLIENT - the coin bag: the Coins button floats a cutaway (vertically sliced) sack over the world, with no window round it (tap outside to close). It holds
+/* CLIENT - the coin bags: there are TWO of this class, apart from each other: the MONEY bag (the Coins button: the ten kinds of coin) and the PONY COIN bag (the Pony coins button, `kind: 'pony'`: only the collector
+ * coins, which can't be spent or dropped, and go onto the Coin Poster). Each has its own panel, so pony coins never sit among the money. The money bag: the Coins button floats a cutaway (vertically sliced) sack over the world, with no window round it (tap outside to close). It holds
  * ALL your coins, real ones of ten kinds (coins.js: copper, silver, gold, platinum, titanium, then the gem coins), drawn as big pixel-art medieval coins
  * (coinArt.js) that move on a small physics world: gravity, coins stacking and sliding on each other and on the bag's walls, tumbling when they fall.
  * The leather is ELASTIC (elasticBag.js): an empty bag is a limp little teardrop; with coins in it the teardrop lengthens and its lower part widens, its walls bulge where the coins push on them and spring back, within
@@ -12,7 +13,8 @@
  *   - a tap flicks a coin and makes its neighbours jump
  * At most ~64 coins are drawn at once (a bigger purse shows a share of each kind; merging makes them fewer). */
 class CoinBagUI {
-  constructor({ panel, canvas, count, breakdown, mergeButton, game, camera }) {
+  constructor({ panel, canvas, count, breakdown, mergeButton, game, camera, kind = 'money' }) {
+    this.kind = kind;                                                                                                // 'money': the ten kinds of coin; 'pony': the pony collector coins (a bag of their own)
     this.panel = panel; this.canvas = canvas; this.countEl = count; this.breakEl = breakdown; this.game = game; this.camera = camera;
     this.S = 3; this._fit();
     this.ctx = canvas.getContext('2d');
@@ -21,7 +23,7 @@ class CoinBagUI {
     this.coins = []; this.queue = []; this.drag = null; this.ghost = null; this.raf = 0; this.last = 0;
     this.bag = new ElasticBag(); this.weight = 0;                                                                                                  // the stretchy walls, and the weight of all the coins (sets how big the bag is)
     this.pendingOut = Coins.empty(); this.pendingT = 0; this.lastCoins = Coins.empty(); this.hint = null; this.lastTap = null; this.hidden = 0;
-    mergeButton.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); game.coinChange('merge'); });
+    if (mergeButton) mergeButton.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); game.coinChange('merge'); });
     canvas.addEventListener('pointerdown', e => this._down(e));
     canvas.addEventListener('pointermove', e => this._move(e));
     canvas.addEventListener('pointerup', e => this._up(e));
@@ -106,16 +108,18 @@ class CoinBagUI {
   /* ---- keeping the pile in step with the purse ---- */
   /** What the bag should show: the purse's coins (less those just dragged out and not yet confirmed), at most ~64 of them. */
   _desired() {
+    if (this.kind === 'pony') { this.hidden = 0; return Coins.empty(); }                                                // (this bag holds no money)
     const have = this.game.inventory.coins || Coins.empty(), want = have.map((n, t) => Math.max(0, n - this.pendingOut[t] - this.offered[t])), sum = want.reduce((a, b) => a + b, 0), cap = 64;
     this.hidden = 0; if (sum <= cap) return want;
     const out = want.map(n => (n ? Math.max(1, Math.floor(n * cap / sum)) : 0));
     this.hidden = sum - out.reduce((a, b) => a + b, 0); return out;
   }
   /** The pony coins in your bag (they are ordinary bag items, one slot-stack per variety), by variety id. */
-  _ponyHave() { const out = {}; for (const id of PonyCoins.ids) { const n = this.game.inventory.count(PonyCoins.itemOf(id)); if (n > 0) out[id] = n; } return out; }
+  _ponyHave() { const out = {}; if (this.kind === 'money') return out;                                          // (the money bag holds no pony coins: they have a bag of their own)
+    for (const id of PonyCoins.ids) { const n = this.game.inventory.count(PonyCoins.itemOf(id)); if (n > 0) out[id] = n; } return out; }
   /** How many of each pony coin the bag should show: what you hold less those just dragged out, at most ~24 in all. */
   _ponyWant() {
-    const have = this._ponyHave(), want = {}; let left = 24;
+    const have = this._ponyHave(), want = {}; let left = 64;
     for (const id of PonyCoins.ids) { const n = Math.min(left, Math.max(0, (have[id] || 0) - (this.ponyOut[id] || 0))); if (n) want[id] = n; left -= n; }
     return want;
   }
@@ -129,11 +133,12 @@ class CoinBagUI {
   }
   _reconcile() {
     const want = this._desired(), inv = this.game.inventory;
-    this.countEl.textContent = Coins.format(inv.coins || Coins.empty());
-    this.weight = 0; (inv.coins || []).forEach((n, t) => { this.weight += Math.max(0, n - this.pendingOut[t] - this.offered[t]) * Math.pow(CoinBagUI.radiusOf(t) / 8, 2); });   // (every coin counts, shown or not)
-    for (const id of PonyCoins.ids) this.weight += Math.max(0, (this._ponyHave()[id] || 0) - (this.ponyOut[id] || 0)) * Math.pow(CoinBagUI.PONY_R / 8, 2);
+    const ponyHave = this._ponyHave(), ponyTotal = Object.values(ponyHave).reduce((a, b) => a + b, 0), ponyKinds = Object.keys(ponyHave).length;
+    this.countEl.textContent = this.kind === 'pony' ? (ponyTotal ? `${ponyTotal.toLocaleString()} pony coin${ponyTotal === 1 ? '' : 's'}, ${ponyKinds} of ${PonyCoins.ids.length} kinds` : 'No pony coins yet: lasso a wild pony') : Coins.format(inv.coins || Coins.empty());
+    this.weight = 0; (this.kind === 'pony' ? [] : inv.coins || []).forEach((n, t) => { this.weight += Math.max(0, n - this.pendingOut[t] - this.offered[t]) * Math.pow(CoinBagUI.radiusOf(t) / 8, 2); });   // (every coin counts, shown or not)
+    for (const id of PonyCoins.ids) this.weight += Math.max(0, (ponyHave[id] || 0) - (this.ponyOut[id] || 0)) * Math.pow(CoinBagUI.PONY_R / 8, 2);
     this._reconcilePony();
-    this.breakEl.textContent = this.hidden ? `Showing ${(this._shown()).toLocaleString()} of your coins: merge them to see them all` : '';
+    this.breakEl.textContent = this.kind === 'pony' ? (ponyTotal > this._shown() ? `Showing ${this._shown().toLocaleString()} of your ${ponyTotal.toLocaleString()} pony coins` : '') : this.hidden ? `Showing ${(this._shown()).toLocaleString()} of your coins: merge them to see them all` : '';
     for (let t = 0; t < Coins.N; t++) {
       const mine = this.coins.filter(c => c.t === t && !c.v && !(this.drag && c === this.drag.coin)), queued = this.queue.filter(q => q.t === t && !q.v).length, have = mine.length + queued;
       if (want[t] > have) for (let i = 0; i < want[t] - have; i++) this.queue.push({ t });

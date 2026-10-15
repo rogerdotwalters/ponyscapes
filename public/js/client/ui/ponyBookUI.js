@@ -7,17 +7,28 @@ class PonyBookUI {
   constructor({ panel, body, closeButton, game }) {
     this.panel = panel; this.body = body; this.game = game;
     closeButton.addEventListener('click', () => this.close());
-    body.addEventListener('click', e => { const b = e.target.closest('button.prelease'); if (b) this.game.requestReleasePet(b.dataset.id); });
+    this.view = null; this.herd = null;                                                                      // view: the family tree being shown (the server's 'lineage' event); herd: the herd's diversity ('herdGenetics')
+    body.addEventListener('click', e => {
+      const b = e.target.closest('button.prelease'); if (b) { this.game.requestReleasePet(b.dataset.id); return; }
+      const t = e.target.closest('button.gtree'); if (t) { this.game.lineage(t.dataset.id); return; }
+      if (e.target.closest('button.gbackbtn')) { this.view = null; this.refresh(); }
+    });
+    body.addEventListener('change', e => { if (e.target.classList.contains('gtog')) GeneticsView.set(e.target.checked); });
+    GeneticsView.onChange(() => { if (this.isOpen) { this._askHerd(); this.refresh(); } });
+    game.events.on('lineage', e => { this.view = e; if (this.isOpen) this.refresh(); });
+    game.events.on('herdGenetics', e => { this.herd = e.herd; if (this.isOpen && !this.view) this.refresh(); });
     game.events.on('petsChanged', () => this.isOpen && this._refreshSoon());
   }
   get isOpen() { return !this.panel.hidden; }
-  open() { this.panel.hidden = false; this.refresh(); }
+  open() { this.panel.hidden = false; this.view = null; this._askHerd(); this.refresh(); }
   close() { this.panel.hidden = true; }
+  /** With the genetics switch on, ask the server for the herd's diversity (it changes when a foal is born or a pony leaves). */
+  _askHerd() { if (GeneticsView.on && this.game.hasPony()) this.game.herdGenetics(); }
 
   /** What the panel actually shows: positions are NOT part of it, so ponies wandering about never rebuild the buttons under a finger. */
   _signature() {
     const g = this.game;
-    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.foalMin, p.xp && p.xp.into, p.main, p.stalled, p.roam]), g.book, g.varieties]);
+    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.foalMin, p.xp && p.xp.into, p.main, p.stalled, p.roam, p.gen]), g.book, g.varieties, GeneticsView.on, g.pets.length]);
   }
   _refreshSoon() {                                      // pets arrive every snapshot: redraw only when what is shown changed (a rebuild in the middle of a tap loses the tap)
     const sig = this._signature();
@@ -50,6 +61,7 @@ class PonyBookUI {
 
   refresh() {
     this.lastRefresh = performance.now(); this.lastSignature = this._signature();
+    if (this.view) { this.body.innerHTML = GeneticsView.lineageHtml(this.view); return; }
     const g = this.game, owned = g.pets.filter(p => !p.gentling).length;
     const kinds = g.book.map(k => {
       const def = AnimalDefs[k.type], color = PONY_KIND_COLORS[k.type] || rarityOf(def.rarity).color;
@@ -62,7 +74,7 @@ class PonyBookUI {
       const flies = PonyAbilityRules.has(pet.type, 'fly') ? '<em class="pfly">can fly (' + PonyAbilities.get('fly').key + ')</em>' : '';
       const traits = pet.look ? PonyBookUI.traits(pet.look, pet.type, pet.level) : '';
       return `<div class="pcard"><canvas class="portrait" width="92" height="80" data-i="${i}"></canvas>` +
-        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}${pet.foalMin ? ' (foal: grown in ' + pet.foalMin + ' min)' : ''}${pet.look ? ' &middot; ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).symbol + ' ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).name : ''}</div>${traits}${PonyBookUI.genes(pet)}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
+        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}${pet.foalMin ? ' (foal: grown in ' + pet.foalMin + ' min)' : ''}${pet.look ? ' &middot; ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).symbol + ' ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).name : ''}</div>${traits}${PonyBookUI.genes(pet)}${GeneticsView.cardHtml(pet)}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
     }).join('');
     const summary = `<div class="gsum">Collected ${g.book.filter(k => k.seen).length} of ${g.book.length} pony kinds &middot; ${owned} animal${owned === 1 ? '' : 's'} kept</div>`;
     const varieties = (g.varieties || []).map(v => {
@@ -73,7 +85,8 @@ class PonyBookUI {
     const kindsHtml = `<div class="pkinds">${kinds}</div>${varHtml}`;
     const animalsHtml = '<div class="gtitle">Your animals</div>' + (cards || '<div class="gempty">Nothing yet. Throw your lasso at a wild pony, then stay close until it calms down. Apples help.</div>');
     const gentling = g.pets.some(p => p.gentling);                               // a pony you are gentling needs you: show it before the collection grid
-    this.body.innerHTML = summary + (gentling ? animalsHtml + kindsHtml : kindsHtml + animalsHtml);
+    const genetics = `<div class="gbar">${GeneticsView.toggleHtml()}</div>${GeneticsView.on ? GeneticsView.herdHtml(this.herd) : ''}`;
+    this.body.innerHTML = summary + (owned ? genetics : '') + (gentling ? animalsHtml + kindsHtml : kindsHtml + animalsHtml);
     this.body.querySelectorAll('canvas.portrait').forEach(canvas => {
       const pet = g.pets[Number(canvas.dataset.i)];
       if (pet) renderAnimalPortrait(canvas, pet.type, pet.look);

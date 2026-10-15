@@ -5,7 +5,14 @@
  *
  * The powers are Abilities built from Effects (rarity.js). A skill grows 8% stronger for every pony level above 1 (damage, healing, slows). The pure part here runs on the client too,
  * so the Pony Book can show the tree; the server fires the powers (gameServer.js _useRarityAbility). */
+/** The effects of the hybrid ponies' powers (data/ponies/hybrids.js): one per entry of a power's list. */
+const HybridEffects = (() => {
+  const fx = {};
+  for (const h of HybridTable.all()) h.power.effects.forEach((e, i) => { const id = `${h.id}_fx${i}`; fx[id] = new Effect(Object.assign({ id, name: h.power.name, color: h.power.color }, e)); });
+  return fx;
+})();
 const SkillEffectDefs = Object.freeze({
+  ...HybridEffects,
   leaf_damage:  new Effect({ id: 'leaf_damage',  name: 'Razor Leaves', kind: 'damage', value: 5, radius: 3.6, shape: 'cone',   target: 'hostile', color: '#5fbf4a' }),
   leaf_scare:   new Effect({ id: 'leaf_scare',   name: 'Rustle',       kind: 'scare',  radius: 3.6, shape: 'cone',   target: 'wild',    color: '#8fd46a' }),
   star_damage:  new Effect({ id: 'star_damage',  name: 'Starburst',    kind: 'damage', value: 6, radius: 3.2, shape: 'circle', target: 'hostile', color: '#ffe066' }),
@@ -26,7 +33,11 @@ const SkillEffectDefs = Object.freeze({
   note_slow:    new Effect({ id: 'note_slow',    name: 'Lullaby',      kind: 'slow',   value: 70, radius: 4, duration: 4, shape: 'circle', target: 'wild', color: '#c9b3ff' })
 });
 
+/** ... and the Ability each hybrid's skill tree points at. */
+const HybridAbilities = Object.fromEntries(HybridTable.all().map(h => [h.power.id, new Ability({ id: h.power.id, name: h.power.name, description: h.power.description, cooldown: h.power.cooldown,
+  effects: h.power.effects.map((e, i) => `${h.id}_fx${i}`), glyph: h.power.glyph, color: h.power.color })]));
 const SkillAbilityDefs = Object.freeze({
+  ...HybridAbilities,
   leaf_blast:   new Ability({ id: 'leaf_blast',   name: 'Leaf Blast',      description: 'A cone of razor leaves: cuts the hostile creatures ahead and sends other wild animals scampering', cooldown: 7,  effects: ['leaf_damage', 'leaf_scare'], glyph: '🍃', color: '#5fbf4a' }),
   mark_star:    new Ability({ id: 'mark_star',    name: 'Starburst',       description: 'A burst of starlight round you hurts hostile creatures',          cooldown: 10, effects: ['star_damage'],  glyph: '⭐',       color: '#ffe066' }),
   mark_heart:   new Ability({ id: 'mark_heart',   name: 'Heartglow',       description: 'A warm glow heals you and friends beside you',                    cooldown: 15, effects: ['heart_heal'],   glyph: '❤',       color: '#ff7ab6' }),

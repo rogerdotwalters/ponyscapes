@@ -51,7 +51,7 @@ Object.assign(GameServer.prototype, {
       const key = this._ownerKeyOf(a);
       if (!key || a.trial) continue;
       const friend = a.friends[a.owner] || a.parkedFriend;
-      out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, roam: a.roam || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, foal: a.foal > 0 ? Math.round(a.foal) : undefined, breedRest: a.breedRest > 0 ? Math.round(a.breedRest) : undefined, care: a.hunger !== undefined ? [a.hunger, a.thirst, a.happy, a.lowT || 0, a.drops || 0].map(v => Math.round(v * 10) / 10) : undefined, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
+      out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, roam: a.roam || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, ped: Array.isArray(a.ped) ? a.ped : undefined, foal: a.foal > 0 ? Math.round(a.foal) : undefined, breedRest: a.breedRest > 0 ? Math.round(a.breedRest) : undefined, care: a.hunger !== undefined ? [a.hunger, a.thirst, a.happy, a.lowT || 0, a.drops || 0].map(v => Math.round(v * 10) / 10) : undefined, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
         x: a.x, y: a.y, stall: a.stall ? { k: a.stall, x: a.stallAt ? a.stallAt.x : a.x, y: a.stallAt ? a.stallAt.y : a.y } : undefined, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null }, this._exportPack(a)));
     }
     return out;
@@ -61,6 +61,7 @@ Object.assign(GameServer.prototype, {
     for (const q of list) {
       const pet = this.animals.release(q.type, q.x, q.y, this._tokenFor(q.key), undefined, { level: q.level, variant: q.look ? q.look[4] | 0 : 0, grid: q.grid || '' });
       if (q.look && AnimalDefs[q.type].pony) pet.look = q.look;
+      if (q.ped) pet.ped = q.ped;
       if (Number.isFinite(q.xp)) pet.xp = q.xp;
       if (q.main) pet.main = true;
       if (q.foal > 0) pet.foal = q.foal;                                                                  // (still growing up)

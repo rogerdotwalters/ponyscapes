@@ -87,6 +87,7 @@
 <div id="topBtns">
   <button class="tbtn" id="btnMenu" tabindex="-1" title="Menu: every section of the game">&#9776; Menu</button>
   <button class="tbtn" id="btnCoins" tabindex="-1" title="Your coin bag: drag coins out onto the world to drop them"><span class="coinDot" aria-hidden="true"></span>Coins</button>
+  <button class="tbtn" id="btnPonyCoins" tabindex="-1" title="Your pony coin bag: the collector coins from the ponies you have caught"><span class="coinDot pony" aria-hidden="true"></span>Pony coins</button>
   <button class="tbtn" id="btnMap" tabindex="-1" title="Map (M)">Map</button>
   <button class="tbtn" id="btnFs" tabindex="-1" title="Fullscreen">&#x26F6;</button>
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
@@ -112,12 +113,18 @@
   <div id="invBody" class="scrollable"></div>
 </div>
 
-<div id="coinPanel" hidden>
-  <canvas id="coinCanvas" width="560" height="680"></canvas>
-  <div id="coinTotal"><span id="coinCount">0</span></div>
-  <div id="coinBreakdown"></div>
-  <div id="coinButtons"><button id="coinMerge" tabindex="-1" title="Merge coins up: 10 copper make a silver, 10 silver a gold, and so on (gem coins: 5 of the one below)">Merge coins</button></div>
-  <div id="coinHint">Drag a coin out of the bag onto the world to drop it (anyone who steps close picks it up). Double-tap a coin to break it into smaller ones. Tap outside to close.</div>
+<div id="coinPanel" class="bagPanel" hidden>
+  <canvas id="coinCanvas" class="bagCanvas" width="560" height="680"></canvas>
+  <div id="coinTotal" class="bagTotal"><span id="coinCount">0</span></div>
+  <div id="coinBreakdown" class="bagBreakdown"></div>
+  <div id="coinButtons" class="bagButtons"><button id="coinMerge" class="bagMerge" tabindex="-1" title="Merge coins up: 10 copper make a silver, 10 silver a gold, and so on (gem coins: 5 of the one below)">Merge coins</button></div>
+  <div id="coinHint" class="bagHint">Drag a coin out of the bag onto the world to drop it (anyone who steps close picks it up). Double-tap a coin to break it into smaller ones. Tap outside to close.</div>
+</div>
+<div id="ponyBagPanel" class="bagPanel ponyBag" hidden>
+  <canvas id="ponyBagCanvas" class="bagCanvas" width="560" height="680"></canvas>
+  <div id="ponyBagTotal" class="bagTotal"><span id="ponyBagCount">0</span></div>
+  <div id="ponyBagBreakdown" class="bagBreakdown"></div>
+  <div id="ponyBagHint" class="bagHint">Your pony coins live in this bag, apart from your money. They can't be spent or dropped: press them onto the Coin Poster at home. Tap outside to close.</div>
 </div>
 <div id="gardenPanel" hidden>
   <div id="gardenWin">
@@ -283,12 +290,13 @@
 <script src="js/data/dungeons/castle_crypt.js" defer></script>
 <script src="js/data/ponies/registry.js" defer></script>
 <script src="js/data/ponies/variants.js" defer></script>
-<script src="js/data/items/ponyCoins.js" defer></script>
 <script src="js/data/ponies/abilities.js" defer></script>
 <script src="js/data/ponies/genes.js" defer></script>
 <script src="js/data/ponies/kinds.js" defer></script>
 <script src="js/data/ponies/skills.js" defer></script>
 <script src="js/data/ponies/skyPonies.js" defer></script>
+<script src="js/data/ponies/hybrids.js" defer></script>
+<script src="js/data/items/ponyCoins.js" defer></script>
 <script src="js/data/creatures/registry.js" defer></script>
 <script src="js/data/creatures/rabbit.js" defer></script>
 <script src="js/data/creatures/deer.js" defer></script>
@@ -357,6 +365,7 @@
 <script src="js/shared/resourceDefs.js" defer></script>
 <script src="js/shared/ponyDefs.js" defer></script>
 <script src="js/shared/ponyGenes.js" defer></script>
+<script src="js/shared/ponyPedigree.js" defer></script>
 <script src="js/shared/animalDefs.js" defer></script>
 <script src="js/shared/lootTables.js" defer></script>
 <script src="js/shared/animalLevels.js" defer></script>
@@ -424,6 +433,7 @@
 <script src="js/shared/wildPonies.js" defer></script>
 <script src="js/shared/nightEvents.js" defer></script>
 <script src="js/shared/skyEvents.js" defer></script>
+<script src="js/shared/hybrids.js" defer></script>
 <script src="js/shared/wantSystem.js" defer></script>
 <script src="js/shared/puzzles.js" defer></script>
 <script src="js/shared/questSystem.js" defer></script>
@@ -541,6 +551,7 @@
 <script src="js/client/ui/downedUI.js" defer></script>
 <script src="js/client/ui/appleUI.js" defer></script>
 <script src="js/client/ui/wardrobeUI.js" defer></script>
+<script src="js/client/ui/geneticsView.js" defer></script>
 <script src="js/client/ui/ponyBookUI.js" defer></script>
 <script src="js/client/ui/posterUI.js" defer></script>
 <script src="js/client/ui/tradeUI.js" defer></script>

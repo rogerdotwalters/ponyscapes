@@ -5,11 +5,11 @@
 const SkyPonies = {
   /** The pony kind a variety (an index into PonyVariants) belongs to, or null for an ordinary one: the moon and the sky varieties are tied to their kinds. */
   kindOfVariant(index) {
-    const id = (PonyVariants[index | 0] || {}).id, entry = SkyPonyTable.get(id);
-    return entry ? entry.kind : id === 'moon' ? 'pony_moon' : null;
+    const id = (PonyVariants[index | 0] || {}).id, entry = SkyPonyTable.get(id), hybrid = HybridTable.get(id);
+    return entry ? entry.kind : hybrid ? hybrid.kind : id === 'moon' ? 'pony_moon' : null;
   },
   /** Is this kind of pony tied to a variety (the moon and the sky ponies)? */
-  isBound(kind) { return kind === 'pony_moon' || SkyPonyTable.all().some(e => e.kind === kind); },
+  isBound(kind) { return kind === 'pony_moon' || SkyPonyTable.all().some(e => e.kind === kind) || HybridTable.all().some(h => h.kind === kind); },
   /** Is the entry's sky out right now? (the weather type, and the hour of the day when it has hours) */
   matches(entry, weatherType, hour) {
     if (!entry.weather.includes(weatherType)) return false;

@@ -712,22 +712,23 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 .invGhost{image-rendering:pixelated}
 
 /* ---------- the coin bag: no window, just a cutaway sack full of coins floating over the world (tap outside it to close) ---------- */
-#coinPanel{position:fixed !important;left:0 !important;top:0 !important;right:0;bottom:0;width:auto !important;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+.bagPanel{position:fixed !important;left:0 !important;top:0 !important;right:0;bottom:0;width:auto !important;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
   padding:64px 0 118px !important;background:none !important;border:0 !important;box-shadow:none !important;overflow:visible;pointer-events:none;color:var(--parch,#f1e0b4)}
-#coinPanel>*{pointer-events:auto}
-#coinPanel>#coinHint,#coinPanel>#coinBreakdown,#coinPanel>#coinTotal{pointer-events:none}
-#coinCanvas{display:block;image-rendering:pixelated;touch-action:none;cursor:grab;filter:drop-shadow(0 10px 8px rgba(0,0,0,.45))}
-#coinCanvas.grabbing{cursor:grabbing}
-#coinTotal{font:700 20px var(--font-title,Georgia,serif);color:var(--brass,#f2cf7a);text-shadow:2px 2px 0 #1d120a,0 0 8px rgba(0,0,0,.6)}
-#coinBreakdown{font:600 12px var(--font-title,Georgia,serif);color:#fff3d0;text-shadow:1px 1px 0 #1d120a,0 0 6px rgba(0,0,0,.7);text-align:center;max-width:min(90vw,520px);min-height:14px}
-#coinMerge{padding:5px 14px;border-radius:2px;border:2px solid #1d120a;background:#d9a441;color:#2a170c;font:700 12px var(--font-title,Georgia,serif);box-shadow:inset 0 2px 0 #f6d98c,inset 0 -3px 0 #98691f}
-#coinMerge:active{transform:translateY(1px)}
-#coinHint{font:italic 11px var(--font-title,Georgia,serif);color:#e8d9b0;text-align:center;max-width:min(90vw,360px);text-shadow:1px 1px 0 #1d120a,0 0 6px rgba(0,0,0,.8)}
+.bagPanel>*{pointer-events:auto}
+.bagPanel>.bagHint,.bagPanel>.bagBreakdown,.bagPanel>.bagTotal{pointer-events:none}
+.bagCanvas{display:block;image-rendering:pixelated;touch-action:none;cursor:grab;filter:drop-shadow(0 10px 8px rgba(0,0,0,.45))}
+.bagCanvas.grabbing{cursor:grabbing}
+.bagTotal{font:700 20px var(--font-title,Georgia,serif);color:var(--brass,#f2cf7a);text-shadow:2px 2px 0 #1d120a,0 0 8px rgba(0,0,0,.6)}
+.bagBreakdown{font:600 12px var(--font-title,Georgia,serif);color:#fff3d0;text-shadow:1px 1px 0 #1d120a,0 0 6px rgba(0,0,0,.7);text-align:center;max-width:min(90vw,520px);min-height:14px}
+.bagMerge{padding:5px 14px;border-radius:2px;border:2px solid #1d120a;background:#d9a441;color:#2a170c;font:700 12px var(--font-title,Georgia,serif);box-shadow:inset 0 2px 0 #f6d98c,inset 0 -3px 0 #98691f}
+.bagMerge:active{transform:translateY(1px)}
+.bagHint{font:italic 11px var(--font-title,Georgia,serif);color:#e8d9b0;text-align:center;max-width:min(90vw,360px);text-shadow:1px 1px 0 #1d120a,0 0 6px rgba(0,0,0,.8)}
+.coinDot.pony{background:#d89ad0;box-shadow:inset 1px 1px 0 #f6d4f0}
 .coinDot{display:inline-block;width:9px;height:9px;margin-right:5px;background:#e0a82c;border:2px solid #1d120a;border-radius:50%;box-shadow:inset 1px 1px 0 #ffe07a;vertical-align:-1px}
 .coinGhost{position:fixed;z-index:30;pointer-events:none;image-rendering:pixelated;filter:drop-shadow(0 5px 3px rgba(0,0,0,.4))}
 
 /* while paying at a shop the bag sits to the right of the shop window, the counter tray inside the window is where coins go */
-#coinPanel.pay #coinHint,#coinPanel.poster #coinButtons{display:none}
+.bagPanel.pay .bagHint,.bagPanel.poster .bagButtons{display:none}
 .shopPay{margin:6px 0;padding:8px;border:2px dashed #8a5f32;border-radius:2px;background:rgba(20,10,4,.45)}
 .shopPay .askRow,.shopPay .paidRow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0;font:700 13px var(--font-title,Georgia,serif)}
 .coinChip{display:inline-flex;align-items:center;gap:3px;padding:2px 6px 2px 4px;border:2px solid #1d120a;border-radius:2px;background:rgba(0,0,0,.35);color:#f4e6c1;font:700 13px var(--font-title,Georgia,serif)}
@@ -793,9 +794,9 @@ select,.playerRow select{background:#2a1b10;color:var(--parch);border:2px solid 
 
 /* phones: while the coin bag is open the thumb controls and the tool belt step out of the way; paying turns the shop window into a slim card */
 body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsOpen #healthBar,body.coinsOpen #hungerBar,body.coinsOpen #thirstBar,body.coinsOpen #energyBar,body.coinsOpen #btnEmote,body.coinsOpen #hint{visibility:hidden}
-#coinPanel.small #coinTotal{font-size:15px}
-#coinPanel.small #coinBreakdown{font-size:11px}
-#coinPanel.small #coinHint{display:none}
+.bagPanel.small .bagTotal{font-size:15px}
+.bagPanel.small .bagBreakdown{font-size:11px}
+.bagPanel.small .bagHint{display:none}
 #shopPanel.paying{left:8px !important;top:8px !important;width:min(372px,calc(100vw - 16px)) !important;max-height:calc(100vh - 16px);overflow-y:auto;touch-action:pan-y}
 #shopPanel.paying header{display:none}
 #shopPanel.paying .shophead{display:none}
@@ -906,3 +907,42 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .menutest{display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:8px;border-radius:10px;border:1.5px dashed rgba(227,194,122,.5);font-size:13px}.menutest input{width:22px;height:22px;flex:0 0 auto}.menutest small{display:block;font-size:11px;opacity:.8}
 #stableBody .stDanger{margin-left:auto;border-color:#d86a6a;background:rgba(120,30,30,.7);color:#ffd6d6;min-height:36px;padding:4px 10px}
 #stableBody .stNote{margin-left:auto;opacity:.75;font:500 12px Georgia,serif}
+
+/* ---------- breeding genetics: the rating chip, the family tree and the background numbers (client/ui/geneticsView.js) ---------- */
+.gchip{display:inline-block;padding:1px 8px;border-radius:9px;background:var(--c,#888);color:#10202f;font:700 11px Georgia,serif;white-space:nowrap}
+.gline{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:3px 0}
+.gline small,.gpair small{font-size:11px;color:#cfd8e3}
+.gpair{margin:6px 0 2px}
+.gtree,.gbackbtn{padding:2px 8px;border-radius:7px;border:1.5px solid rgba(227,194,122,.6);background:rgba(10,18,28,.55);color:#f4e6c1;font:600 11px Georgia,serif;cursor:pointer}
+.gbackbtn{padding:5px 10px;font-size:12px}
+.gbar{margin:2px 0 8px}
+.gtoggle{display:inline-flex;align-items:center;gap:6px;font:600 12px Georgia,serif;color:#f4e6c1;cursor:pointer;user-select:none}
+.gtoggle input{width:16px;height:16px;accent-color:#d9a441}
+.gnums{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:10.5px;color:#e3c27a;margin:2px 0}
+.gdetail{margin:4px 0;padding:6px 8px;border-radius:7px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.2);font-size:11.5px}
+.grow2{display:flex;justify-content:space-between;gap:10px;padding:1px 0;color:#cfd8e3}
+.grow2 b{color:#fff3d0;text-align:right}
+.grow2.wide{flex-direction:column;gap:1px}.grow2.wide b{text-align:left;font-weight:600}
+.gwarn{color:#ffb4a0 !important}
+.gherd{margin-bottom:8px}.gherd small{display:block;font-size:10.5px;color:#aab6c4;margin-top:3px}
+.ggenome{margin:3px 0;font-size:11px;color:#cfd8e3}.ggenome summary{cursor:pointer;color:#e3c27a}
+.ggenome table{width:100%;border-collapse:collapse;margin:4px 0}
+.ggenome th{text-align:left;font-size:10px;color:#aab6c4;font-weight:600}
+.ggenome td,.ggenome th{padding:1px 4px;border-bottom:1px solid rgba(255,255,255,.06)}
+.ggenome tr.hom td:last-child{opacity:.55}
+.gcarry{color:#cdb4f0}
+.gsw{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;border:1px solid rgba(0,0,0,.5);vertical-align:0}
+.ptreewrap{overflow-x:auto;padding:4px 0 8px;touch-action:pan-x pan-y}
+.ptree{display:inline-flex;min-width:100%}
+.prow{display:flex;align-items:stretch}.prow>.pnode{align-self:center}
+.pcol{display:flex;flex-direction:column;margin-left:10px}
+.pcol>.prow{flex:1}
+.pnode{box-sizing:border-box;min-width:92px;max-width:118px;margin:2px 0;padding:3px 6px;border-radius:6px;font:600 10.5px Georgia,serif;color:#fff3d0;background:rgba(10,18,28,.7);border:1.5px solid rgba(227,194,122,.35);position:relative}
+.pnode small{display:block;font:italic 9px Georgia,serif;color:#9fb0c2;margin-bottom:1px}
+.pnode.f{border-color:#e58fb8}.pnode.m{border-color:#6fa8e8}.pnode.unk{opacity:.4;border-style:dashed}
+.pnode.dup{box-shadow:0 0 0 2px #f2cf7a}
+.gkids{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.gkid{padding:2px 8px;border-radius:8px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.25);font-size:11px;color:#fff3d0}.gkid small{color:#9fb0c2}
+.gback{margin-bottom:6px}
+.gcross{margin:6px 0 2px;padding:5px 8px;border-radius:7px;background:rgba(255,215,120,.08);border:1px dashed rgba(242,207,122,.45)}
+.gcross small{font-size:11px;color:#f2cf7a}

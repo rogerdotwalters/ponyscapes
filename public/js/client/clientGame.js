@@ -272,6 +272,8 @@ class ClientGame {
   /** Do you own a pony (the Apple button is for them)? */
   hasPony() { return this.pets.some(p => !p.gentling); }
   /** A choice in the stable's menu. */
+  lineage(animal) { this.net.sendCommand({ type: 'lineage', animal }); }                                 // a pony's family tree (stableSystem.js)
+  herdGenetics() { this.net.sendCommand({ type: 'herdGenetics' }); }                                    // the herd's diversity
   stallPick(cmd) { this.net.sendCommand(Object.assign({ type: 'stallPick' }, cmd)); }
   vendorPick(cmd) { this.net.sendCommand(Object.assign({ type: 'vendorPick' }, cmd)); }                  // the pony vendor's menu (ponyTrade.js)
   deskPick(cmd) { this.net.sendCommand(Object.assign({ type: 'deskPick' }, cmd)); }                    // the stable desk's menu (ponyCare.js)

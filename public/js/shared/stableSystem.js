@@ -246,12 +246,14 @@ Object.assign(GameServer.prototype, {
     if (inside.length !== 2 || inside.some(a => a.owner !== id)) return { can: false, reason: 'Breeding needs exactly two of your ponies in the stall: a stallion and a mare' };
     const [a, b] = inside, sexes = [PonyLook.sexOf(a.look), PonyLook.sexOf(b.look)].sort().join('');
     if (sexes !== 'fm') return { can: false, reason: 'It takes a stallion and a mare' };
-    const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal` };
-    const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first` };
+    const pair = this._pairView(a, b);
+    pair.cross = this._crossView(a, b);
+    const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal`, pair };
+    const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first`, pair };
     const mine = Object.values(this.animals.animals).filter(x => x.owner === id && AnimalDefs[x.type].pony).length;
     const cap = this._ponyCapOf(id);
-    if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: upgrade your stable at the desk` };
-    return { can: true, reason: '' };
+    if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: upgrade your stable at the desk`, pair };
+    return { can: true, reason: '', pair };
   },
   /** The Breed button (and Stop) in a stall's menu. */
   _breedPick(id, p, map, cmd) {
@@ -289,25 +291,69 @@ Object.assign(GameServer.prototype, {
   /** A foal from a stallion and a mare: its genes come from them, one allele of each gene from each parent (PonyGenes.inherit: so a trait both carry can come out, and now and then something new),
    *  its cutie mark from either, their variety, and a rarity at least as good as the better parent. */
   _foalLook(a, b) {
-    const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B, variant = pickParent[4] | 0;
+    const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B;
+    const idOf = l => (PonyVariants[l[4] | 0] || PonyVariants[0]).id, hybrid = Hybrids.cross(r, idOf(A), idOf(B)), variant = hybrid ? Hybrids.variantIndex(hybrid.id) : pickParent[4] | 0;   // (a recipe's hybrid: shared/hybrids.js)
     const V = variant ? PonyVariants[variant] : null, P = PonyPalette, marks = (V || P).marks.length, names = (V || P).names.length;
     const same = [A, B].filter(l => (l[4] | 0) === variant);
-    const mark = r() < 0.1 ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();
+    const mark = r() < 0.1 || !same.length ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();
     const look = [0, 0, mark, Math.floor(r() * names), variant];
-    look.push(Math.min(RarityOrder.length - 1, Math.max(A[5] | 0, B[5] | 0) + (r() < 0.12 ? 1 : 0)), Math.floor(r() * 65536));
+    look.push(Math.min(RarityOrder.length - 1, Math.max(A[5] | 0, B[5] | 0, hybrid ? rarityOf(hybrid.rarity).order : 0) + (r() < 0.12 ? 1 : 0)), Math.floor(r() * 65536));
     look.push(...PonyGenes.inherit(r, A, B, variant));
     return PonyGenes.sync(look);                                                              // (the coat and mane slots show what the genes say)
   },
   _bornFoal(owner, a, b, f, grid) {
-    const look = this._foalLook(a, b), kinds = [a.type, b.type], bound = SkyPonies.kindOfVariant(look[4]);                  // (a moon or sky variety is always its own kind of pony)
-    const free = kinds.filter(k => !SkyPonies.isBound(k)), type = bound || (a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : free.length ? free[Math.floor(this.rng() * free.length)] : 'pony_plain');
+    const look = this._foalLook(a, b), kinds = [a.type, b.type], bound = SkyPonies.kindOfVariant(look[4]);                  // (a moon, sky or hybrid variety is always its own kind of pony)
+    const free = kinds.filter(k => !SkyPonies.isBound(k)), crossed = bound || free.length < 2 ? null : Hybrids.kindCross(() => this.rng(), a.type, b.type);   // (a pegasus and a unicorn may have an alicorn: shared/hybrids.js)
+    const type = bound || crossed || (a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : free.length ? free[Math.floor(this.rng() * free.length)] : 'pony_plain');
     const at = Stable.front(f, Math.floor(this.rng() * 8)), foal = this.animals.release(type, at.x, at.y, owner, undefined, { level: 1, variant: 0, grid });
     foal.look = look; foal.foal = Stable.FOAL_SECONDS; foal.home = { x: at.x, y: at.y }; foal.leashed = false;
     for (const x of [a, b]) x.breedRest = Stable.BREED_REST;
     if (this.players[owner]) this._remember(owner, foal);
     const info = PonyLook.sexInfo(PonyLook.sexOf(foal.look)), name = Stable.nameOf(foal);
-    if (this.players[owner]) this._notice(owner, `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name})`);
-    this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name });
+    foal.ped = Pedigree.foalNode(() => this.rng(), a, b, name, PonyLook.sexOf(foal.look));                                // (its family tree: both parents' trees, five generations deep: shared/ponyPedigree.js)
+    const rep = Pedigree.reportOf(foal), inbred = rep.F > 1e-9 ? ` Inbreeding ${Pedigree.pct(rep.F)}%.` : '';
+    const pv = [a, b].map(x => (x.look ? x.look[4] | 0 : 0)), isNew = Hybrids.isHybrid(PonyVariants[look[4] | 0].id) && !pv.includes(look[4] | 0), hy = HybridTable.get(PonyVariants[look[4] | 0].id);
+    if (isNew) this._dropOnGround(PonyCoins.itemOf(hy.id), 1, at.x, at.y, grid);                                         // (a hybrid is never wild: its collector coin comes with its first foal)
+    else if (crossed && this.players[owner]) this._notice(owner, `${AnimalDefs[type].name}! A new kind of pony`);
+    if (this.players[owner]) this._notice(owner, isNew ? `HYBRID! ${PonyVariants[look[4] | 0].name} ${AnimalDefs[type].name}: ${name} ${info.symbol} is a brand new kind. Diversity ${rep.rating.grade}.${inbred}` : `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name}). Diversity ${rep.rating.grade} (${rep.rating.word}).${inbred}`);
+    this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name, hybrid: isNew ? hy.name : undefined });
+  },
+
+  /* ---------------------------------------- pedigrees: family trees, inbreeding and the diversity rating (shared/ponyPedigree.js) ---------------------------------------- */
+  /** The ratings of a mating as the stall menu shows them (numbers rounded; the client decides how much of it to show). */
+  _pairView(a, b) {
+    const r = Pedigree.pairReport(a, b, () => this.rng()), P = Pedigree.pct;
+    return { f: P(r.F), rel: P(r.R, 1), het: P(r.het, 0), score: r.rating.score, grade: r.rating.grade, word: r.rating.word, color: r.rating.color, band: r.rating.band.name, note: r.rating.band.note, depth: r.depth, tooClose: r.tooClose,
+      shared: r.shared.map(s => ({ gene: s.gene, allele: s.allele.name, color: s.allele.color, chance: P(s.chance, 0) })), common: r.common.map(c => ({ name: c.name, sex: c.sex, up: c.up })) };
+  },
+  /** What two ponies could make besides a copy of a parent: hybrids (by their varieties) and new kinds (by their kinds), with the chance of each per foal. */
+  _crossView(a, b) {
+    const idOf = x => (PonyVariants[(x.look && x.look[4]) | 0] || PonyVariants[0]).id, P = Pedigree.pct;
+    const hybrids = Hybrids.possible(idOf(a), idOf(b)).map(h => ({ name: h.name, chance: P(h.chance, 0), rarity: h.rarity, color: rarityOf(h.rarity).color }));
+    const kinds = SkyPonies.isBound(a.type) || SkyPonies.isBound(b.type) ? [] : Hybrids.kindOptions(a.type, b.type).map(k => ({ name: k.name, chance: P(k.chance, 1) }));
+    return { hybrids, kinds, from: [PonyVariants[(a.look && a.look[4]) | 0].name, PonyVariants[(b.look && b.look[4]) | 0].name] };
+  },
+  /** A pony's family tree, genes and descendants (the Pony Book's Family tree button). */
+  _lineage(id, aid) {
+    const a = this.animals.animals[aid];
+    if (!a || a.owner !== id || !a.look || !AnimalDefs[a.type].pony) return;
+    const ped = Pedigree.ensure(a, () => this.rng()), rep = Pedigree.reportOf(a), P = Pedigree.pct, g = Pedigree.graph(ped);
+    const common = ped[Pedigree.S] && ped[Pedigree.D] ? Pedigree.commonAncestors(g, ped[Pedigree.S][0], ped[Pedigree.D][0]).map(c => ({ name: c.name, sex: c.sex, up: c.up })) : [];
+    const kids = [];
+    for (const x of Object.values(this.animals.animals)) {
+      if (x === a || x.owner !== id || !x.ped) continue;
+      const up = Pedigree.depthOfAncestor(x.ped, ped[Pedigree.U]); if (up) kids.push({ id: x.id, name: Stable.nameOf(x), sex: PonyLook.sexOf(x.look), up });
+    }
+    kids.sort((p, q) => p.up - q.up);
+    this.pendingEvents.push({ type: 'lineage', to: id, animal: aid, name: Stable.nameOf(a), sex: PonyLook.sexOf(a.look), tree: ped, kids,
+      f: P(rep.F), rel: P(Math.min(1, 2 * rep.F), 1), het: P(rep.het, 0), score: rep.rating.score, grade: rep.rating.grade, word: rep.rating.word, color: rep.rating.color, band: rep.rating.band.name, note: rep.rating.band.note, common,
+      known: rep.known, gens: rep.gens, founder: rep.founder });
+  },
+  /** The diversity of everything the player keeps (the Pony Book's herd card). */
+  _herdGenetics(id) {
+    const mine = Object.values(this.animals.animals).filter(x => x.owner === id && x.look && AnimalDefs[x.type].pony), r = Pedigree.herdReport(mine, () => this.rng()), P = Pedigree.pct;
+    this.pendingEvents.push({ type: 'herdGenetics', to: id, herd: r ? { n: r.n, mk: P(r.meanKinship), ne: Math.round(r.ne * 10) / 10, founders: r.founders, fe: Math.round(r.effectiveFounders * 10) / 10, rich: Math.round(r.richness * 10) / 10,
+      he: P(r.he, 0), ho: P(r.ho, 0), fis: P(r.fis, 0), meanF: P(r.meanF), score: r.score, grade: r.grade, word: r.word, color: r.color } : null });
   },
 
   /** Open or shut the gate of the stall at (fx, fy) (from its menu). */
