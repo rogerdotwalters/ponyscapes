@@ -1,16 +1,18 @@
 'use strict';
 /* TOOLS - optimization test: times the game server's tick and snapshot with N ponies around one player (no browser):
- *   node tools/bench-ponies.js [ponies=50] [ticks=300] [--prof]     (budget: one tick = TICK_MS ms)
+ *   node tools/bench-ponies.js [ponies=50] [ticks=300] [--owned]      (--owned: the ponies belong to the player, as in a big stable)     (budget: one tick = TICK_MS ms)
  * Prints the average / p95 / worst ms per step() and per snapshot, and the share of each step() phase. */
 const { ctx, run } = require('./headless')();
 ctx.performance = { now: () => Number(process.hrtime.bigint()) / 1e6 };       // headless.js gives a millisecond clock: too coarse for a 1 ms tick
+const OWNED = process.argv.includes('--owned');
 const N = process.argv[2] === undefined ? 50 : +process.argv[2], TICKS = +process.argv[3] || 300;
 run(`(() => {
   globalThis.S = new GameServer(4242); globalThis.A = S.addPlayer(); globalThis.PA = S.players[A];
   S.map.ensureAround(PA.x, PA.y, 3);
   for (let i = 0; i < ${N}; i++) {
     const a = i * 2.399, r = 2 + (i % 10) * 1.2;                              // spiral round the player
-    S.animals.spawn(['pony_plain', 'pony_earth', 'pony_pegasus', 'pony_unicorn'][i % 4], PA.x + Math.cos(a) * r, PA.y + Math.sin(a) * r, 0, { level: 1 + (i % 8) });
+    const type = ['pony_plain', 'pony_earth', 'pony_pegasus', 'pony_unicorn'][i % 4], x = PA.x + Math.cos(a) * r, y = PA.y + Math.sin(a) * r;
+    if (${OWNED}) S.animals.release(type, x, y, A, undefined, { level: 1 + (i % 8) }); else S.animals.spawn(type, x, y, 0, { level: 1 + (i % 8) });
   }
   for (let i = 0; i < 30; i++) S.step();                                         // warm up
 })()`);

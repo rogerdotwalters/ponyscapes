@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /* TOOLS - optimization test for the BROWSER side: opens the game solo in headless Chromium, drops N ponies around the player, and measures the frame
  * rate and the CPU time of render() (and of the whole frame), then CPU-profiles it and lists the hottest functions.
- *   NODE_PATH=/opt/node-tools/node_modules node tools/bench-render.js [--ponies 50] [--secs 6] [--renderer canvas|pixi] [--base http://localhost:8123] [--profile 1]
+ *   NODE_PATH=/opt/node-tools/node_modules node tools/bench-render.js [--ponies 50] [--secs 6] [--renderer canvas|pixi] [--base http://localhost:8123] [--profile 1] [--owned 1]
  * Needs the game served from ./public (python3 -m http.server 8123 -d public). Headless Chromium has no GPU, so only compare runs with each other. */
 const { chromium } = require('playwright');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
-const base = arg('base', 'http://localhost:8123'), N = +arg('ponies', 50), SECS = +arg('secs', 6), renderer = arg('renderer', 'canvas'), profile = arg('profile', '1') === '1';
+const base = arg('base', 'http://localhost:8123'), N = +arg('ponies', 50), SECS = +arg('secs', 6), renderer = arg('renderer', 'canvas'), profile = arg('profile', '1') === '1', owned = arg('owned', '0') === '1';
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
@@ -13,12 +13,13 @@ const base = arg('base', 'http://localhost:8123'), N = +arg('ponies', 50), SECS 
   await page.goto(`${base}/index.html?solo=1&hour=12&renderer=${renderer}`);
   for (let i = 0; i < 400 && !(await page.evaluate(() => !!(window.ponyscapes && window.ponyscapes.renderer))); i++) await page.waitForTimeout(50);
   await page.waitForTimeout(1500);
-  const live = await page.evaluate(n => {                                                  // N ponies in a ring in view of the player
+  const live = await page.evaluate(([n, owned]) => {                                                  // N ponies in a ring in view of the player
     const s = ponyscapes.adapter.server, me = s.players[ponyscapes.game.myId], types = ['pony_plain', 'pony_earth', 'pony_pegasus', 'pony_unicorn'];
     for (const k of Object.keys(s.animals.animals)) if (!s.animals.animals[k].owner) delete s.animals.animals[k];
-    for (let i = 0; i < n; i++) { const a = i * 2.399, r = 1.5 + (i % 12) * 0.7; s.animals.spawn(types[i % 4], me.x + Math.cos(a) * r, me.y + Math.sin(a) * r, 0, { level: 1 + (i % 8) }); }
+    for (let i = 0; i < n; i++) { const a = i * 2.399, r = 1.5 + (i % 12) * 0.7, x = me.x + Math.cos(a) * r, y = me.y + Math.sin(a) * r;
+      if (owned) s.animals.release(types[i % 4], x, y, me.id, undefined, { level: 1 + (i % 8) }); else s.animals.spawn(types[i % 4], x, y, 0, { level: 1 + (i % 8) }); }
     return Object.keys(s.animals.animals).length;
-  }, N);
+  }, [N, owned]);
   await page.waitForTimeout(1500);
   const cdp = await page.context().newCDPSession(page);
   if (profile) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start'); }
