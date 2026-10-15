@@ -110,7 +110,7 @@ const PixelCreatures = (() => {
     let canvas = cache.get(key);
     if (!canvas) {
       canvas = document.createElement('canvas'); canvas.width = Math.ceil(k.W * m); canvas.height = Math.ceil(k.H * m);
-      const c2 = canvas.getContext('2d'); k.paint(painter(c2, m), C, F, c2); outline(c2, C.outline || OUTLINE, canvas.width, canvas.height);
+      const c2 = canvas.getContext('2d', { willReadFrequently: true }); k.paint(painter(c2, m), C, F, c2); outline(c2, C.outline || OUTLINE, canvas.width, canvas.height);
       cache.set(key, canvas);
     }
     const [srx, sry] = k.shadow || [k.W * 0.3, 3], lifted = k.flying ? k.flying(F) : 0;

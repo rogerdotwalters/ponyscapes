@@ -456,16 +456,18 @@ class GameServer {
     if (p.abilityCd[index] > 0) return;
     p.abilityCd = p.abilityCd.slice(); p.abilityCd[index] = ability.cooldown;
     const scale = SkillAbilityDefs[ability.id] ? PonySkills.scale(p.mountLevel) : 1;                                    // (a skill grows with its pony's level)
-    for (const effect of ability.effectDefs) this._applyEffect(id, p, effect, scale);
-    this.pendingEvents.push({ type: 'ability', ability: ability.id, x: p.x, y: p.y, facing: p.facing, by: id });
+    const hits = [];                                                                                                   // who each effect reached, so the clients can show it (client/render/powerFx.js)
+    for (const effect of ability.effectDefs) this._applyEffect(id, p, effect, scale, hits);
+    this.pendingEvents.push({ type: 'ability', ability: ability.id, x: p.x, y: p.y, facing: p.facing, by: id, hits: hits.slice(0, 14) });
   }
 
-  _applyEffect(id, p, effect, scale = 1) {
+  _applyEffect(id, p, effect, scale = 1, hits = []) {
     if (effect.kind === 'heal') {                                                                          // heal you (and, for 'allies', every player on your grid within the radius)
       for (const q of Object.values(this.players)) {
         if (q.down > 0 || q.hp <= 0 || !sameGrid(q, p) || !(q === p || (effect.target === 'allies' && effect.covers(p, p.facing, q.x, q.y)))) continue;
         const before = q.hp; q.hp = Math.min(q.maxHp, q.hp + Math.round(effect.value * scale));
         if (q.hp > before) this.pendingEvents.push({ type: 'healed', to: q.id, amount: Math.round(q.hp - before), x: q.x, y: q.y });
+        hits.push({ x: +q.x.toFixed(1), y: +q.y.toFixed(1), kind: 'heal', fx: effect.id });
       }
       return;
     }
@@ -480,6 +482,7 @@ class GameServer {
       const a = this.animals.animals[aid], def = a && AnimalDefs[a.type];
       if (!a || a.owner || a.captor || a.rider || def.protected || !sameGrid(a, p)) continue;            // never pets, never ponies; only on your grid
       if ((effect.target === 'hostile' && !def.hostile) || !effect.covers(p, p.facing, a.x, a.y)) continue;
+      hits.push({ id: aid, x: +a.x.toFixed(1), y: +a.y.toFixed(1), kind: effect.kind, fx: effect.id });
       if (effect.kind === 'damage') strikeAnimal(this.toolDeps, id, aid, effect.value * scale);
       else if (effect.kind === 'slow') { a.slowT = effect.duration; a.slowF = Math.max(0.1, 1 - Math.min(90, effect.value * scale) / 100); }
       else if (effect.kind === 'scare') this.animals.startle(aid, p);
