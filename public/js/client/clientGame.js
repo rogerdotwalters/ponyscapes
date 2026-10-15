@@ -254,6 +254,7 @@ class ClientGame {
   /** Host testing aid: jump the clock to an hour (0-24) of the current day, for everyone. */
   /** Host only: set the weather now (a type id from Weather.TYPES), or 'auto' to let the season's table choose again. */
   debugTeleport(to) { this.net.sendCommand({ type: 'debugTeleport', to }); }
+  debugGate(zone, open) { this.net.sendCommand({ type: 'debugGate', zone, open }); }
   /** Host only: spawn `count` ponies of a kind (a pony kind id, or 'random') and, optionally, a variety id, round you, each with a random look. */
   clearPonies() { this.net.sendCommand({ type: 'clearPonies' }); }                                      // dev: remove every pony in the game
   spawnPonies(kind, count, variety = '') { this.net.sendCommand({ type: 'spawnPony', kind, count, variety }); }

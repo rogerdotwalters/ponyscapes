@@ -7,7 +7,7 @@
   PonyVariantTable.register({ id: 'moss', name: 'Moss', biome: 'forest', accessory: 'leaves', glow: null,
     coats: ['#9fcf9a', '#7fb77f', '#c7d8a3', '#b4a77a'], manes: [['#2e7d32', '#81c784'], ['#33691e', '#9ccc65', '#c0ca33'], ['#4e342e', '#8d6e63']],
     marks: ['leaf', 'apple', 'flower'], names: ['Fern', 'Ivy', 'Hazel', 'Bracken', 'Juniper', 'Mossy', 'Alder', 'Clover'] });
-  PonyVariantTable.register({ id: 'marsh', name: 'Marsh', biome: null, legacy: true, accessory: 'bubbles', glow: null,
+  PonyVariantTable.register({ id: 'marsh', name: 'Marsh', biome: 'water', accessory: 'bubbles', glow: null,
     coats: ['#9fd8d0', '#7ec8c8', '#b6e3dd', '#8fb8d9'], manes: [['#00838f', '#4dd0e1'], ['#26a69a', '#80cbc4', '#b2dfdb'], ['#3949ab', '#7986cb']],
     marks: ['drop', 'leaf', 'cloud'], names: ['Ripple', 'Reed', 'Brook', 'Lily', 'Dewdrop', 'Tadpole', 'Marlow', 'Teal'] });
   PonyVariantTable.register({ id: 'dune', name: 'Dune', biome: null, legacy: true, accessory: 'dust', glow: null,

@@ -31,6 +31,7 @@ const Groves = {
   treeProp(map, tx, ty, sp) {
     const def = TreeSpecies.get(sp) || TreeSpecies.get('oak'), h = hash3(map.terrain.seed, tx, ty, 91);
     const tree = { t: 'tree', sp: def.id, x: tx + 0.5, y: ty + 0.5, r: 0.33 / TILE_SCALE, v: 2 * Math.floor(h * 4) + (def.look === 'pine' ? 1 : 0), hp: TreeDef.maxHp, alive: true };
+    if (def.scale) tree.r *= def.scale;
     if (def.fruit) Object.assign(tree, { forage: 'apple_tree', drop: map.terrain.appleKindAt ? map.terrain.appleKindAt(tx, ty) : 'apple', ripe: true });
     return withSavedState(map, tx, ty, tree);
   },

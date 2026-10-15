@@ -7,6 +7,7 @@
  *                      ,       bare dirt (the cleared yard in front of a cave); no trees, bushes or animal homes grow on it
  *                      S       bare stone you can walk on
  *                      E       a CAVE MOUTH: a block of the cliff face with an arched opening cut into it (you stand in front of it, in the yard, and interact)
+ *                      p w a   (set pieces) shallow water you can wade, deep water, beach sand
  *                      .       leave the generated land alone
  * A stamp only lands where every tile it changes is dry land. The first stamp of a `dungeon` kind carries the mouth of the first dungeon, the second the
  * second one's, and so on (js/data/dungeons/). */
@@ -25,6 +26,30 @@ const CLIFF_STAMPS = Object.freeze({
     '..112233E222211..',
     '...,,,,,,,,,,,...',
     '....,,,SS,,,.....'
+  ] }),
+  // a water park: a wave pool with a deep middle, a slide tower (stepped cliff blocks) over a splash pool, a lazy river round a sand island, a kiddie pool; beach all round
+  water_park: Object.freeze({ zone: 'water', rows: [
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    'aaaaapppppppppaaaaaaaaaaa33aaaaaa',
+    'aaapppppppppppppaaaaaaaa233aaaaaa',
+    'aapppwwwwwwwwwpppaaaaaa122aaaaaaa',
+    'apppwwwwwwwwwwwpppaaaaa11aaaaaaaa',
+    'appwwwwwwwwwwwwwppaaaaaaaaaaaaaaa',
+    'apppwwwwwwwwwwwpppaaaaaaapppppaaa',
+    'aapppwwwwwwwwwpppaaaaaapppppppppa',
+    'aaapppppppppppppaaaaaaapppppppppa',
+    'aappppppppppppaaaaaaaaapppppppppa',
+    'aapppppaaaaaaaaaaaaaaaaaapppppaaa',
+    'aapppppaaapppppppppppppaaaaaaaaaa',
+    'aaaaaaapppppppppppppppppppaaaaaaa',
+    'aaaaapppppaaaaaaaaaaaaapppppaaaaa',
+    'aaaapppaaaaaaaaaaaaaaaaaaapppaaaa',
+    'aaapppaaaaaaaaSSSSSaaaaaaaapppaaa',
+    'aaaapaaaaaaaaaaaaaaaaaaaaapppaaaa',
+    'aaaaaaapppaaaaaaaaaaaaapppppaaaaa',
+    'aaaaaaapppppppppppppppppppaaaaaaa',
+    'aaaaaaaaaapppppppppppppaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   ] }),
   // a long low ridge
   ridge: Object.freeze({ rows: [
@@ -59,7 +84,7 @@ const CLIFF_STAMPS = Object.freeze({
 });
 for (const [id, s] of Object.entries(CLIFF_STAMPS)) {                                    // (a typo in a stamp is caught the moment the game starts)
   const w = s.rows[0].length;
-  if (!s.rows.every(r => r.length === w && /^[.123,SE]+$/.test(r))) throw new Error(`cliff stamp "${id}" has a ragged row or an unknown character`);
+  if (!s.rows.every(r => r.length === w && /^[.123,SEpwa]+$/.test(r))) throw new Error(`cliff stamp "${id}" has a ragged row or an unknown character`);
   if (!!s.dungeon !== s.rows.some(r => r.includes('E'))) throw new Error(`cliff stamp "${id}": exactly the dungeon stamps have a cave mouth (E)`);
 }
 
@@ -77,18 +102,18 @@ class CaveSites {
     this.placed = [];                                                    // (set first: asking for tiles while placing sees no stamps)
     const T = this.terrain, seed = T.seed, o = CONFIG.sim.levels.origin, out = [];
     const zones = T.layers.zones, land = tile => tile === TILE.GRASS || tile === TILE.DIRT || tile === TILE.STONE || tile === TILE.CLAY || tile === TILE.SAND;
-    const fits = (stamp, x0, y0) => {                                                          // dry land under the whole footprint and one tile round it
+    const fits = (stamp, x0, y0, zone = 0) => {                                                          // dry land under the whole footprint and one tile round it
       const w = stamp.rows[0].length, h = stamp.rows.length;
-      for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) if (!land(T.baseTile(x0 + x, y0 + y)) || zones.kindAt(x0 + x, y0 + y) !== ZONE_KIND.LAND || zones.at(x0 + x, y0 + y).index !== 0) return false;      // (dry land of the first zone: never on a wall or in a gateway)
+      for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) if (!land(T.baseTile(x0 + x, y0 + y)) || zones.kindAt(x0 + x, y0 + y) !== ZONE_KIND.LAND || zones.at(x0 + x, y0 + y).index !== zone) return false;      // (dry land of the first zone: never on a wall or in a gateway)
       return true;
     };
     const clear = (x0, y0, w, h) => out.every(p => x0 > p.x0 + p.w + 5 || p.x0 > x0 + w + 5 || y0 > p.y0 + p.h + 5 || p.y0 > y0 + h + 5);
-    const place = (id, key, minR, maxR, tries) => {
+    const place = (id, key, minR, maxR, tries, zone = 0, centre = o) => {                 // (round `centre`, inside zone number `zone`: the first zone's, round the village, unless told)
       const stamp = CLIFF_STAMPS[id], w = stamp.rows[0].length, h = stamp.rows.length;
       for (let attempt = 0; attempt < tries; attempt++) {
-        const grow = 1 + attempt / 40, angle = hash3(seed, key, attempt, 91) * Math.PI * 2, radius = minR + hash3(seed, key, attempt, 92) * (maxR - minR) * grow;
-        const x0 = Math.floor(o.x + Math.cos(angle) * radius - w / 2), y0 = Math.floor(o.y + Math.sin(angle) * radius - h / 2), flip = hash3(seed, key, attempt, 93) < 0.5;
-        if (this.rings.at(x0 + w / 2, y0 + h / 2).index !== 0 || !clear(x0, y0, w, h) || !fits(stamp, x0, y0)) continue;
+        const grow = 1 + attempt / 40, angle = hash3(seed, key, attempt, 91) * Math.PI * 2, radius = minR + hash3(seed, key, attempt, 92) * (maxR - minR) * Math.min(grow, 1.5);
+        const x0 = Math.floor(centre.x + Math.cos(angle) * radius - w / 2), y0 = Math.floor(centre.y + Math.sin(angle) * radius - h / 2), flip = hash3(seed, key, attempt, 93) < 0.5;
+        if (this.rings.at(x0 + w / 2, y0 + h / 2).index !== zone || !clear(x0, y0, w, h) || !fits(stamp, x0, y0, zone)) continue;
         const p = { id, x0, y0, w, h, flip, cave: null };
         if (stamp.dungeon) {                                                                    // find the E, and keep the mouth's position
           for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (stamp.rows[y][flip ? w - 1 - x : x] === 'E') p.cave = { index: out.filter(q => q.cave).length, x: x0 + x + 0.5, y: y0 + y + 0.5 };
@@ -102,6 +127,7 @@ class CaveSites {
     for (let d = 0; d < dungeons; d++) place('cave_hill', 100 + d, 50, 80, 400);               // the dungeons' mouths first, so nothing else takes their ground
     let key = 0;
     for (const id of Object.keys(this.COUNT)) for (let i = 0; i < this.COUNT[id]; i++) place(id, key++, 40, 90, 60);
+    for (const z of Zones.all()) if (z.setpiece && CLIFF_STAMPS[z.setpiece]) { const n = zones.layout()[z.index]; place(z.setpiece, 200 + z.index, 0, n.r * 0.4, 500, z.index, n); }    // each zone's own set piece (the Waterlands' water park)
     this.placed = out;
     this.bounds = out.map(p => ({ p, x1: p.x0 + p.w, y1: p.y0 + p.h }));
     const far = out.reduce((m, p) => Math.max(m, Math.hypot(p.x0 + p.w / 2 - o.x, p.y0 + p.h / 2 - o.y) + Math.max(p.w, p.h)), 0);
@@ -125,7 +151,7 @@ class CaveSites {
   /** The ground a stamp forces on this tile, or -1 to leave the generated land. */
   tileAt(tx, ty) {
     const c = this.charAt(tx, ty);
-    return c === '.' ? -1 : c === ',' ? TILE.DIRT : TILE.STONE;
+    return c === '.' ? -1 : c === ',' ? TILE.DIRT : c === 'p' ? TILE.SHALLOW : c === 'w' ? TILE.WATER : c === 'a' ? TILE.SAND : TILE.STONE;
   }
   /** The solid thing a stamp stands on this tile (a cliff of height 1-3), or OBJ.NONE. */
   objAt(tx, ty) {

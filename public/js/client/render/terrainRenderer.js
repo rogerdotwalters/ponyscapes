@@ -97,6 +97,7 @@ const TerrainRenderer = (() => {
   /* ---- autotiling (autoTile.js): each tile's ground is a LOOK (kind + palette, and a rank); a neighbour that outranks it spills into it ---- */
   const looks = new Map(), BIOME_ORDER = Object.fromEntries(Biomes.ids().map((id, i) => [id, i + 1]));
   /** One look per kind and palette (made once). The rank orders kinds (AutoTile.RANKS) and, within a kind, biomes (a biome's grass over the meadow's). */
+  const WATER_OF = Object.fromEntries(Biomes.all().filter(b => b.water).map(b => [b.id, b.water]));       // biome id -> { deep, shallow } palettes
   function look(kind, pal, seasonal, biome) {
     const id = kind + '|' + pal[0];
     let l = looks.get(id);
@@ -112,8 +113,8 @@ const TerrainRenderer = (() => {
     if (type === TILE.CAVE) return look('cave', CAVE_FLOOR, false);
     if (type === TILE.CAVE_WALL) return look('cave', CAVE_WALL, false);
     if (type === TILE.STONE) return look('stone', STONE, false);
-    if (type === TILE.WATER) return look('water', WATER, false);
-    if (type === TILE.SHALLOW) return look('shallow', map.kind === 'dungeon' ? CAVE_POOL : SHALLOW, false);
+    if (type === TILE.WATER) { const w = WATER_OF[map.kind === 'world' ? map.waterBiome(tx, ty) : '']; return look('water', w ? w.deep : WATER, false); }                        // (lakes take their zone's colours: syrup, molten rock...)
+    if (type === TILE.SHALLOW) { const w = WATER_OF[map.kind === 'world' ? map.waterBiome(tx, ty) : '']; return look('shallow', map.kind === 'dungeon' ? CAVE_POOL : w ? w.shallow : SHALLOW, false); }
     return null;
   }
   const scratch = document.createElement('canvas'), tint = document.createElement('canvas');
@@ -239,6 +240,7 @@ const TerrainRenderer = (() => {
     for (const season of Seasons.LIST.map(x => x.id)) add('grass', GRASS, season);
     for (const [kind, pal] of [['dirt', DIRT], ['sand', SAND], ['clay', CLAY], ['stone', STONE], ['water', WATER], ['shallow', SHALLOW], ['cave', CAVE_FLOOR], ['cave', CAVE_WALL], ['stone', CURB]]) add(kind, pal);
     for (const [, [grass, dirt]] of Object.entries(GROUND)) { add('grass', grass); add('dirt', dirt); }
+    for (const w of Object.values(WATER_OF)) { add('water', w.deep); add('shallow', w.shallow); }
     add('soil', SOIL, '', false); add('soil', SOIL, '', true);
     return sets;
   }
