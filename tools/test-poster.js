@@ -50,9 +50,9 @@ test('the poster is saved as counts, and a save from before counts (a list of va
 });
 test('every pony kind and variety gives a coin when caught (a retired variety gives the meadow coin)', () => {
   const r = run(`(() => {
-    const out = [];
+    const out = [], S = new GameServer(7), A = S.addPlayer(), P = S.players[A];                    // (one server for all: building one is the slow part, and there are 80 varieties now)
     for (const type of ['pony_plain', 'pony_earth', 'pony_pegasus', 'pony_unicorn', 'pony_alicorn']) for (let v = 0; v < PonyVariants.length; v++) {
-      const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+      for (const k of Object.keys(S.drops)) delete S.drops[k];
       const id = S.animals.spawn(type, P.x + 1, P.y, 0, { level: 1, variant: v });
       const L = new LeashHandler(Object.assign({}, S.toolDeps, { rng: () => 0 }));
       const best = Object.values(ItemDefs).filter(d => d.lasso).sort((a, b) => b.lasso.tier - a.lasso.tier)[0].id;
