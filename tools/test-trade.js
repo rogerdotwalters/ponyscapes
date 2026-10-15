@@ -14,7 +14,8 @@ const SETUP = `
   const pony = (main = false, type = 'pony_plain') => { const id = S.animals.spawn(type, P.x, P.y, 0, { level: 3 }), a = S.animals.animals[id]; a.owner = A; a.grid = gridOf(P); a.main = main; return a; };
   const bank = () => S._bankOfRoom(P), coin = PonyCoins.itemOf(PonyCoins.ids[0]), gold = () => Math.floor(S.inventories[A].purse / Coins.value('gold_coin'));`;
 
-test('you keep 30 ponies; a stable upgrade, paid in pony coins from the desk, adds ten each time', () => {
+test('you start with room for 100 ponies; a stable upgrade, paid in pony coins from the desk, adds 25 each time', () => {
+  assert.strictEqual(JSON.parse(run('JSON.stringify([CONFIG.sim.ponyCap.base, CONFIG.sim.ponyCap.perLevel, SaveData.MAX_PETS])')).join(), '100,25,400');
   const r = JSON.parse(run(`(() => { ${SETUP}
     at(desk); const out = { cap0: S._ponyCapOf(A) };
     S._deskPick(A, { act: 'upCap', fx: desk.x, fy: desk.y }); out.noCoins = S._ponyCapOf(A);
@@ -24,11 +25,11 @@ test('you keep 30 ponies; a stable upgrade, paid in pony coins from the desk, ad
     for (let i = 0; i < 6; i++) S._deskPick(A, { act: 'upCap', fx: desk.x, fy: desk.y }); out.top = S._ponyCapOf(A);
     const saved = SaveData.careState(JSON.parse(JSON.stringify(S.care))); out.saved = saved[S._stableGridOf(A)].cap;
     return JSON.stringify(out); })()`));
-  assert.strictEqual(r.cap0, 30); assert.strictEqual(r.noCoins, 30, 'no coins, no upgrade'); assert.strictEqual(r.cap1, 40); assert.strictEqual(r.paid, 10); assert.strictEqual(r.cap2, 50); assert.strictEqual(r.level, 2);
-  assert.strictEqual(r.top, 80, 'the biggest stable keeps 80'); assert.strictEqual(r.saved, 5, 'the level is saved');
+  assert.strictEqual(r.cap0, 100); assert.strictEqual(r.noCoins, 100, 'no coins, no upgrade'); assert.strictEqual(r.cap1, 125); assert.strictEqual(r.paid, 10); assert.strictEqual(r.cap2, 150); assert.strictEqual(r.level, 2);
+  assert.strictEqual(r.top, 225, 'the biggest stable keeps 225'); assert.strictEqual(r.saved, 5, 'the level is saved');
 });
 test('breeding stops at the limit', () => {
-  const r = JSON.parse(run(`(() => { ${SETUP}
+  const r = JSON.parse(run(`(() => { ${SETUP} CONFIG.sim.ponyCap.base = 30;
     const f = L.furniture.find(g => g.id === 'stall' && g.x === 1 && g.y === 1); P.x = f.x + 1.5; P.y = f.y + 5.5;
     const mk = sex => { const a = pony(); a.look[6] = sex === 'f' ? 128 : 0; a.leashed = true; a.x = P.x + 0.5; a.y = P.y; S._stallPick(A, { act: 'in', animal: a.id, fx: f.x, fy: f.y }); return a; };
     mk('m'); mk('f'); for (let i = 0; i < 28; i++) pony();
@@ -60,7 +61,7 @@ test('the vendor sells ponies for gold (the same stock for the day) and buys you
   assert(r.mainKept, 'the main pony is not sold'); assert(r.sold); assert.strictEqual(r.got, r.sellPrice); assert(r.sellPrice <= Math.ceil(r.price / 2) + 0, 'half price: ' + r.sellPrice + ' vs ' + r.price);
 });
 test('the vendor will not sell without gold or above your limit', () => {
-  const r = JSON.parse(run(`(() => { ${SETUP}
+  const r = JSON.parse(run(`(() => { ${SETUP} CONFIG.sim.ponyCap.base = 30;
     at(vend); S.inventories[A].setCoins(Coins.empty()); S._vendorPick(A, { act: 'buy', index: 0, fx: vend.x, fy: vend.y }); const poor = S._ponyCount(A);
     S.inventories[A].add('gold_coin', 5000); for (let i = 0; i < 30; i++) pony();
     S._vendorPick(A, { act: 'buy', index: 1, fx: vend.x, fy: vend.y }); return JSON.stringify({ poor, n: S._ponyCount(A) }); })()`));
