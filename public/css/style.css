@@ -944,3 +944,5 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .gkids{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
 .gkid{padding:2px 8px;border-radius:8px;background:rgba(10,18,28,.55);border:1px solid rgba(227,194,122,.25);font-size:11px;color:#fff3d0}.gkid small{color:#9fb0c2}
 .gback{margin-bottom:6px}
+.gcross{margin:6px 0 2px;padding:5px 8px;border-radius:7px;background:rgba(255,215,120,.08);border:1px dashed rgba(242,207,122,.45)}
+.gcross small{font-size:11px;color:#f2cf7a}

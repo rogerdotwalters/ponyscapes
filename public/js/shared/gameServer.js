@@ -808,7 +808,7 @@ class GameServer {
     const kept = this.everVariants[id] || {}, now = {};
     for (const pet of this.animals.petsOf(id, this.tick)) if (!pet.gentling && pet.look) { const v = pet.look[4] | 0; now[v] = (now[v] || 0) + 1; }
     const placed = this.posterCoins[id] || {};
-    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, when: (SkyPonyTable.get(v.id) || {}).when || '', theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
+    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, when: (SkyPonyTable.get(v.id) || {}).when || (Hybrids.isHybrid(v.id) ? (kept[i] ? 'Bred: ' + (HybridTable.get(v.id).parents.map(q => (PonyVariantTable.get(q) || {}).name).join(' x ') || 'two hybrids') : 'Bred from two ponies') : ''), theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
       .filter(v => !v.legacy || v.seen || v.owned);                                    // retired varieties only show if you already have one
   }
   bookFor(id) {

@@ -44,7 +44,7 @@ class StableUI {
     const br = menu.breed;
     if (br && (inside.length || br.busy)) {                       // breeding: exactly two of your ponies, a stallion and a mare, alone in the stall
       const pair = inside.length === 2 ? `<div class="stPair">${sexTag(inside[0])}<b>${esc(inside[0].name)}</b><i>\u2764</i><b>${esc(inside[1].name)}</b>${sexTag(inside[1])}</div>` : '';
-      html += section('Breeding') + '<div class="stBreedBox">' + pair + GeneticsView.pairHtml(br.pair);
+      html += section('Breeding') + '<div class="stBreedBox">' + pair + GeneticsView.crossHtml(br.pair && br.pair.cross) + GeneticsView.pairHtml(br.pair);
       if (br.busy) html += `<p class="stHint">Breeding... ${br.pct}%</p><div class="stProg"><i style="width:${Math.max(0, Math.min(100, br.pct | 0))}%"></i></div><button class="stStop" data-act="breedStop">Stop breeding</button>`;
       else html += `<button class="stBreed${br.can ? '' : ' off'}" data-act="breed"${br.can ? '' : ' disabled'}>\u2764 Breed these two</button>` + (br.can ? '' : `<p class="stHint">${esc(br.reason)}</p>`);
       html += GeneticsView.toggleHtml() + '</div>';

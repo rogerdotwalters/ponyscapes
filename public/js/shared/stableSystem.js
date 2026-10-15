@@ -247,7 +247,9 @@ Object.assign(GameServer.prototype, {
     if (inside.length !== 2 || inside.some(a => a.owner !== id)) return { can: false, reason: 'Breeding needs exactly two of your ponies in the stall: a stallion and a mare' };
     const [a, b] = inside, sexes = [PonyLook.sexOf(a.look), PonyLook.sexOf(b.look)].sort().join('');
     if (sexes !== 'fm') return { can: false, reason: 'It takes a stallion and a mare' };
-    const pair = this._pairView(a, b), young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal`, pair };
+    const pair = this._pairView(a, b);
+    pair.cross = this._crossView(a, b);
+    const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal`, pair };
     const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first`, pair };
     const mine = Object.values(this.animals.animals).filter(x => x.owner === id && AnimalDefs[x.type].pony).length;
     const cap = this._ponyCapOf(id);
@@ -290,18 +292,20 @@ Object.assign(GameServer.prototype, {
   /** A foal from a stallion and a mare: its genes come from them, one allele of each gene from each parent (PonyGenes.inherit: so a trait both carry can come out, and now and then something new),
    *  its cutie mark from either, their variety, and a rarity at least as good as the better parent. */
   _foalLook(a, b) {
-    const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B, variant = pickParent[4] | 0;
+    const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B;
+    const idOf = l => (PonyVariants[l[4] | 0] || PonyVariants[0]).id, hybrid = Hybrids.cross(r, idOf(A), idOf(B)), variant = hybrid ? Hybrids.variantIndex(hybrid.id) : pickParent[4] | 0;   // (a recipe's hybrid: shared/hybrids.js)
     const V = variant ? PonyVariants[variant] : null, P = PonyPalette, marks = (V || P).marks.length, names = (V || P).names.length;
     const same = [A, B].filter(l => (l[4] | 0) === variant);
-    const mark = r() < 0.1 ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();
+    const mark = r() < 0.1 || !same.length ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();
     const look = [0, 0, mark, Math.floor(r() * names), variant];
-    look.push(Math.min(RarityOrder.length - 1, Math.max(A[5] | 0, B[5] | 0) + (r() < 0.12 ? 1 : 0)), Math.floor(r() * 65536));
+    look.push(Math.min(RarityOrder.length - 1, Math.max(A[5] | 0, B[5] | 0, hybrid ? rarityOf(hybrid.rarity).order : 0) + (r() < 0.12 ? 1 : 0)), Math.floor(r() * 65536));
     look.push(...PonyGenes.inherit(r, A, B, variant));
     return PonyGenes.sync(look);                                                              // (the coat and mane slots show what the genes say)
   },
   _bornFoal(owner, a, b, f, grid) {
-    const look = this._foalLook(a, b), kinds = [a.type, b.type], bound = SkyPonies.kindOfVariant(look[4]);                  // (a moon or sky variety is always its own kind of pony)
-    const free = kinds.filter(k => !SkyPonies.isBound(k)), type = bound || (a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : free.length ? free[Math.floor(this.rng() * free.length)] : 'pony_plain');
+    const look = this._foalLook(a, b), kinds = [a.type, b.type], bound = SkyPonies.kindOfVariant(look[4]);                  // (a moon, sky or hybrid variety is always its own kind of pony)
+    const free = kinds.filter(k => !SkyPonies.isBound(k)), crossed = bound || free.length < 2 ? null : Hybrids.kindCross(() => this.rng(), a.type, b.type);   // (a pegasus and a unicorn may have an alicorn: shared/hybrids.js)
+    const type = bound || crossed || (a.type === 'pony_alicorn' && b.type === 'pony_alicorn' ? 'pony_alicorn' : free.length ? free[Math.floor(this.rng() * free.length)] : 'pony_plain');
     const at = Stable.front(f, Math.floor(this.rng() * 8)), foal = this.animals.release(type, at.x, at.y, owner, undefined, { level: 1, variant: 0, grid });
     foal.look = look; foal.foal = Stable.FOAL_SECONDS; foal.home = { x: at.x, y: at.y }; foal.leashed = false;
     for (const x of [a, b]) x.breedRest = Stable.BREED_REST;
@@ -309,8 +313,11 @@ Object.assign(GameServer.prototype, {
     const info = PonyLook.sexInfo(PonyLook.sexOf(foal.look)), name = Stable.nameOf(foal);
     foal.ped = Pedigree.foalNode(() => this.rng(), a, b, name, PonyLook.sexOf(foal.look));                                // (its family tree: both parents' trees, five generations deep: shared/ponyPedigree.js)
     const rep = Pedigree.reportOf(foal), inbred = rep.F > 1e-9 ? ` Inbreeding ${Pedigree.pct(rep.F)}%.` : '';
-    if (this.players[owner]) this._notice(owner, `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name}). Diversity ${rep.rating.grade} (${rep.rating.word}).${inbred}`);
-    this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name });
+    const pv = [a, b].map(x => (x.look ? x.look[4] | 0 : 0)), isNew = Hybrids.isHybrid(PonyVariants[look[4] | 0].id) && !pv.includes(look[4] | 0), hy = HybridTable.get(PonyVariants[look[4] | 0].id);
+    if (isNew) this._dropOnGround(PonyCoins.itemOf(hy.id), 1, at.x, at.y, grid);                                         // (a hybrid is never wild: its collector coin comes with its first foal)
+    else if (crossed && this.players[owner]) this._notice(owner, `${AnimalDefs[type].name}! A new kind of pony`);
+    if (this.players[owner]) this._notice(owner, isNew ? `HYBRID! ${PonyVariants[look[4] | 0].name} ${AnimalDefs[type].name}: ${name} ${info.symbol} is a brand new kind. Diversity ${rep.rating.grade}.${inbred}` : `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name}). Diversity ${rep.rating.grade} (${rep.rating.word}).${inbred}`);
+    this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name, hybrid: isNew ? hy.name : undefined });
   },
 
   /* ---------------------------------------- pedigrees: family trees, inbreeding and the diversity rating (shared/ponyPedigree.js) ---------------------------------------- */
@@ -319,6 +326,13 @@ Object.assign(GameServer.prototype, {
     const r = Pedigree.pairReport(a, b, () => this.rng()), P = Pedigree.pct;
     return { f: P(r.F), rel: P(r.R, 1), het: P(r.het, 0), score: r.rating.score, grade: r.rating.grade, word: r.rating.word, color: r.rating.color, band: r.rating.band.name, note: r.rating.band.note, depth: r.depth, tooClose: r.tooClose,
       shared: r.shared.map(s => ({ gene: s.gene, allele: s.allele.name, color: s.allele.color, chance: P(s.chance, 0) })), common: r.common.map(c => ({ name: c.name, sex: c.sex, up: c.up })) };
+  },
+  /** What two ponies could make besides a copy of a parent: hybrids (by their varieties) and new kinds (by their kinds), with the chance of each per foal. */
+  _crossView(a, b) {
+    const idOf = x => (PonyVariants[(x.look && x.look[4]) | 0] || PonyVariants[0]).id, P = Pedigree.pct;
+    const hybrids = Hybrids.possible(idOf(a), idOf(b)).map(h => ({ name: h.name, chance: P(h.chance, 0), rarity: h.rarity, color: rarityOf(h.rarity).color }));
+    const kinds = SkyPonies.isBound(a.type) || SkyPonies.isBound(b.type) ? [] : Hybrids.kindOptions(a.type, b.type).map(k => ({ name: k.name, chance: P(k.chance, 1) }));
+    return { hybrids, kinds, from: [PonyVariants[(a.look && a.look[4]) | 0].name, PonyVariants[(b.look && b.look[4]) | 0].name] };
   },
   /** A pony's family tree, genes and descendants (the Pony Book's Family tree button). */
   _lineage(id, aid) {
