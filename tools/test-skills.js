@@ -71,4 +71,14 @@ test('input: four power slots', () => {
   assert.strictEqual(run(`sanitizeInput({ power: 4 }).power`), 4); assert.strictEqual(run(`sanitizeInput({ power: 9 }).power`), 4);
 });
 
+test('a power\'s event says who it reached, so the clients can mark each one (powerFx.js)', () => {
+  ride('flower', 6);
+  const hurt = foe('slime', 2), calm = foe('cat', 2.5), friend = run(`(() => { const b = S.addPlayer(), q = S.players[b]; q.x = PA.x + 1; q.y = PA.y; q.hp = 5; return b; })()`);
+  const event = slotName => { const slot = run(`PA.abilities.indexOf('${slotName}')`); run('S.pendingEvents.length = 0'); fire(slot); return JSON.parse(JSON.stringify(run(`S.pendingEvents.find(e => e.type === 'ability')`))); };
+  const blast = event('leaf_blast');
+  assert(blast.hits.some(h => h.id === hurt && h.kind === 'damage' && h.fx === 'leaf_damage'), 'the slime is marked as hurt');
+  assert(blast.hits.every(h => Number.isFinite(h.x) && Number.isFinite(h.y)));
+  const heart = event('mark_flower'); assert(Array.isArray(heart.hits) && heart.hits.every(h => h.kind === 'slow'), 'pollen slows');
+});
+
 console.log(`${passed} passed`);

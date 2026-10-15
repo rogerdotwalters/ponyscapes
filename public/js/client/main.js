@@ -98,7 +98,8 @@ function launch(choice, query) {
     const panels = new PanelGroup();
     const gearUI = new WardrobeUI({ panel: $('gearPanel'), body: $('gearBody'), closeButton: $('gearClose'), game });
     const journalUI = new JournalUI({ panel: $('journalPanel'), tabs: $('journalTabs'), body: $('journalBody'), closeButton: $('journalClose'), game });
-    const mapUI = new MapUI({ panel: $('mapPanel'), body: $('mapBody'), closeButton: $('mapClose'), game, onTreasure: () => { panels.closeAll(); journalUI.openTab('map'); } });
+    const waypointPrefs = new WaypointPrefs(), waypointOverlay = new WaypointOverlay({ game, camera: renderer.camera, prefs: waypointPrefs });
+    const mapUI = new MapUI({ prefs: waypointPrefs, panel: $('mapPanel'), body: $('mapBody'), closeButton: $('mapClose'), game, onTreasure: () => { panels.closeAll(); journalUI.openTab('map'); } });
     const confirmUI = new ConfirmUI({ panel: $('confirmPanel'), title: $('confirmTitle'), text: $('confirmText'), keepButton: $('confirmKeep'), goButton: $('confirmGo'), game, requestOpen: () => panels.open('confirm') });
     const stableUI = new StableUI({ panel: $('stablePanel'), title: $('stableTitle'), body: $('stableBody'), closeButton: $('stableClose'), game, requestOpen: () => panels.open('stable') });
     const menuUI = new MenuUI({ panel: $('menuPanel'), body: $('menuBody'), closeButton: $('menuClose'), game, onPick: section => openSection(section) });
@@ -233,7 +234,7 @@ function launch(choice, query) {
         footsteps.update(); worldSfx.update(frameMs / 1000); music.update(game, effects.weather.cur);
         game.advanceRemoteClock(frameMs);
         game.streamWorld();
-        renderer.render(game.getRenderState(alpha), frameMs, now);
+        renderer.render(game.getRenderState(alpha), frameMs, now); waypointOverlay.draw(now);
         debug.update(frameMs);
         healthBar.config.max = game.local.maxHp; journalUI.tick(frameMs); mapUI.tick(frameMs); gearUI.tick(frameMs); if (sessionUI) sessionUI.tick(frameMs);
         const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health

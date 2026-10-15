@@ -5,7 +5,7 @@ const CHIP_COLORS = ['#c9a06a', '#8a5a33', '#b58a55'], LEAF_COLORS = ['#468a40',
 
 class Effects {
   constructor(bus, game) {
-    this.game = game; this.arrows = []; this.rings = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {};
+    this.game = game; this.arrows = []; this.rings = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {}; this.power = new PowerFx(game);
     game.events.on('chop', e => this._onChop(e));
     game.events.on('fell', e => this._onFell(e));
     game.events.on('pressed', e => { const c = e.color || '#7b45c4'; this._burst(e.x, e.y, 12, [c, c, '#ffffff'], 14); });   // a splash of the dye's colour at the press
@@ -84,16 +84,11 @@ class Effects {
     game.events.on('upgraded', e => { this._burst(e.tx + 0.5, e.ty + 0.5, 22, GOLD_COLORS, 30); if (e.by === this.game.myId) this._float({ to: e.by }, `${e.name} is now level ${e.level}!`, 'levelup'); });
   }
 
-  /** A pony ability: a jet of fire, a ring of frost, a puff of dust behind a dash. */
+  /** A pony power: its own picture for every effect it is made of (powerFx.js), and its name above the rider. */
   _onAbility(e) {
     const ability = abilityDef(e.ability);
     if (!ability) return;
-    const fx = Math.cos(e.facing), fy = Math.sin(e.facing), colors = { flame_breath: ['#ff7a1a', '#ffb34a', '#ffe08a', '#d6331a'], frost_nova: ['#9fe3ff', '#d6f4ff', '#ffffff', '#6fc3ff'], dash: DUST_COLORS }[e.ability] || GOLD_COLORS;
-    if (e.ability === 'flame_breath') for (let d = 0.8; d <= 3.2; d += 0.6) this._burst(e.x + fx * d, e.y + fy * d, 6, colors, 26 - d * 2);
-    else if (e.ability === 'frost_nova') for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; this._burst(e.x + Math.cos(a) * 2.4, e.y + Math.sin(a) * 2.4, 3, colors, 10); }
-    else if (e.ability === 'leaf_blast') for (let d = 0.7; d <= 3.6; d += 0.5) { for (const side of [-0.45, 0, 0.45]) { const a = e.facing + side * (d / 3.6), x = e.x + Math.cos(a) * d, y = e.y + Math.sin(a) * d; this._burst(x, y, 4, LEAF_COLORS, 22 - d * 2); } }     // a cone of leaves
-    else if (SkillAbilityDefs[e.ability] && SkillAbilityDefs[e.ability].effectDefs.some(f => f.shape === 'circle')) for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, r = Math.max(1.5, SkillAbilityDefs[e.ability].effectDefs[0].radius * 0.7); this._burst(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 3, [ability.color, '#ffffff'], 10); }
-    else this._burst(e.x - fx * 0.6, e.y - fy * 0.6, 12, SkillAbilityDefs[e.ability] ? [ability.color, '#ffffff'] : colors, 6);
+    this.power.add(e);
     if (e.by === this.game.myId) this._float({ to: e.by }, ability.glyph + ' ' + ability.name);
   }
 
@@ -209,6 +204,7 @@ class Effects {
         ctx.beginPath(); ctx.ellipse(cx, cy, r.r * k * t, r.r * k * t / 2, 0, 0, Math.PI * 2); ctx.fillStyle = `rgba(255,70,50,${(0.12 + 0.28 * t).toFixed(2)})`; ctx.fill();
       }
     }
+    this.power.draw(ctx, dt);                                                                               // the pony powers (powerFx.js), under the floating text
     this.floaters = this.floaters.filter(f => (f.age += dt) < (f.style === 'levelup' ? 2.4 : 1.4));
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const f of this.floaters) {

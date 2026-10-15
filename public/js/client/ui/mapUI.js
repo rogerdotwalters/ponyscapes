@@ -4,7 +4,7 @@
  *   NEAR  65 tiles across, 4 px per tile: every tree, your ponies, stables.
  *   FAR   260 tiles across, 1 px per tile: the BIOMES, and rings at every 100 tiles out from the village marked with how strong the
  *         animals get there (levels SCALE FROM THE ORIGIN: the farther out, the higher the level and the rarer the ponies). */
-const TOWN = { x: 20.5, y: 20.5, name: 'Town' };          // the village square: the map always points the way back
+const TOWN = Waypoints.TOWN;          // the village square: the map always points the way back
 const AREA_MAP_RADIUS = 32, AREA_MAP_LAYER_RADIUS = 58, AREA_MAP_PX = 4;
 /** The map is turned 45 degrees to match the isometric view of the world (world +x runs down-right on screen, +y down-left). */
 /** The map uses the SAME 2:1 isometric projection as the world: a world step (dx, dy) lands at ((dx - dy) * K1, (dx + dy) * K2) with K2 = K1 / 2, so shapes, directions and distances read exactly like the game. */
@@ -23,8 +23,8 @@ class MapUI {
     ctx.fillStyle = 'rgba(40,25,10,.95)'; ctx.font = 'bold 11px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('N', cx - ux * 2.5, cy - uy * 2.5 + 0.5); ctx.restore();
   }
 
-  constructor({ panel, body, closeButton, game, onTreasure }) {
-    this.panel = panel; this.body = body; this.game = game; this.onTreasure = onTreasure; this.layer = null; this.farLayer = null; this.sinceDraw = 1e9; this.canvas = null; this.zoom = 'near';
+  constructor({ panel, body, closeButton, game, onTreasure, prefs }) {
+    this.prefs = prefs; this.panel = panel; this.body = body; this.game = game; this.onTreasure = onTreasure; this.layer = null; this.farLayer = null; this.sinceDraw = 1e9; this.canvas = null; this.zoom = 'near';
     this.pan = { x: 0, y: 0 }; this.drag = null; this.frame = 0;                 // dragging the map moves the view away from you (Centre on me brings it back)
     closeButton.addEventListener('click', () => this.close());
   }
@@ -33,13 +33,15 @@ class MapUI {
     this.panel.hidden = false; const size = (2 * AREA_MAP_RADIUS + 1) * AREA_MAP_PX;
     this.body.innerHTML = `<div class="mapcontent"><div class="mapwrap"><canvas id="areaMap" width="${size}" height="${size}"></canvas></div><div class="mapside">` +
       '<div class="mapzoom"><button id="zoomNear">Near</button><button id="zoomFar">Far</button><button id="mapCentre" title="Drag the map to look around; this brings it back to you">Centre on me</button></div>' +
-      '<div class="maplegend"><span class="you">\u25CF you</span><span class="pet">\u25CF ponies</span><span class="home">\u2302 home</span><span class="stb">\u25A0 stable</span><span class="x">\u2716 treasure</span><span class="town">\u27A4 town</span><span class="cub">\u{1F43E} lost cub</span></div>' +
+      '<div class="maplegend"><span class="you">\u25CF you</span><span class="pet">\u25CF ponies</span><span class="home">\u2302 home</span><span class="stb">\u25A0 stable</span><span class="x">\u2716 treasure</span><span class="town">\u27A4 town</span><span class="cub">\u{1F43E} lost cub</span><span class="qst">\u2757 quest</span></div>' +
+      '<div class="mapway" id="mapWay"><b>Waypoints on screen</b>' + [['quest', 'wq', '\u2757 Quests'], ['interest', 'wi', '\u2716 Things of interest'], ['home', 'wh', '\u2302 Home']].map(([g, c, t]) => `<label class="${c}"><input type="checkbox" data-way="${g}"${this.prefs && this.prefs.on[g] ? ' checked' : ''}> ${t}</label>`).join('') + '</div>' +
       '<div class="biomekey" id="biomeKey"></div>' +
       '<div class="mapinfo" id="areaInfo"></div><div class="mapnav"><button id="areaTreasure">Treasure maps</button></div></div></div>';
     this.canvas = this.body.querySelector('#areaMap');
     const t = this.body.querySelector('#areaTreasure'); if (t) t.addEventListener('click', () => this.onTreasure());
     const near = this.body.querySelector('#zoomNear'), far = this.body.querySelector('#zoomFar');
     if (near) near.addEventListener('click', () => this.setZoom('near')); if (far) far.addEventListener('click', () => this.setZoom('far'));
+    for (const box of this.body.querySelectorAll('input[data-way]')) box.addEventListener('change', () => { if (this.prefs) this.prefs.set(box.dataset.way, box.checked); });      // (the game then draws a line to each place on screen: waypointOverlay.js)
     const centre = this.body.querySelector('#mapCentre'); if (centre) centre.addEventListener('click', () => { this.pan = { x: 0, y: 0 }; this.draw(); });
     this.pan = { x: 0, y: 0 }; this._bindDrag(this.canvas);
     this.setZoom(this.zoom);
@@ -184,6 +186,13 @@ class MapUI {
     }
     const cm = cub && toMap(cub.x + 0.5, cub.y + 0.5);
     if (cub && !inside(cm[0], cm[1])) MapUI.edgeArrow(ctx, mid, cm[0], cm[1], '#8a5a35', `Cub ${Math.round(cub.d)}`);
+    for (const wp of Waypoints.collect(g).filter(w => w.group === 'quest')) {                                           // where each quest under way points: a gold pin with its step
+      const [x, y] = toMap(wp.x, wp.y);
+      if (!inside(x, y)) { MapUI.edgeArrow(ctx, mid, x, y, wp.color, `${wp.label} ${Math.round(Math.hypot(wp.x - me.x, wp.y - me.y))}`); continue; }
+      const r = far ? 6 : 8; ctx.fillStyle = wp.color; ctx.strokeStyle = '#3a2a08'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y - r, r, Math.PI * 0.8, Math.PI * 0.2 + Math.PI * 2); ctx.lineTo(x, y + 1); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#3a2a08'; ctx.font = 'bold 11px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(wp.glyph, x, y - r + 0.5);
+      if (!far) { ctx.font = 'bold 10px Georgia'; const w = ctx.measureText(wp.label).width + 8; ctx.fillStyle = 'rgba(10,20,30,.8)'; ctx.fillRect(x - w / 2, y - 2 * r - 15, w, 13); ctx.fillStyle = wp.color; ctx.fillText(wp.label, x, y - 2 * r - 8); }
+    }
     const [tx, ty] = toMap(TOWN.x, TOWN.y);                                                                             // the way back to town: always
     if (inside(tx, ty)) {
       ctx.font = 'bold 10px Georgia'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(TOWN.name).width + 8;
