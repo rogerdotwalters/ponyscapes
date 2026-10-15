@@ -589,7 +589,7 @@ const PixelCharacter = (() => {
   /* ---- one frame, painted live ---- */
   function renderLive(C, dir, F, blink, hurt, skip) {
     const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d'), P = painter(ctx, null, skip);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true }), P = painter(ctx, null, skip);
     paintFigure(P, C, dir, F, blink);
     outline(ctx, C.outline);
     return hurt ? hurtWash(canvas) : canvas;
