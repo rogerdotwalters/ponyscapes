@@ -40,7 +40,7 @@ async function open(browser, renderer, sc, fake) {
     for (const renderer of ['canvas', 'pixi']) {
       const row = { scene: name, renderer };
       if (shots) { const { page, errors } = await open(browser, renderer, sc, true);                    // the deterministic frame: the game's canvas, read back right after drawing
-        const png = await page.evaluate(() => { const { game, renderer } = window.ponyscapes; renderer.camera.initialised = false; for (let i = 0; i < 40; i++) renderer.render(game.getRenderState(1), 16, 5000); window.__cam = [renderer.camera.x, renderer.camera.y, renderer.camera.scale]; return document.getElementById('game').toDataURL('image/png'); });
+        const png = await page.evaluate(() => { const { game, renderer } = window.ponyscapes; PixelPony.setBudget(Infinity); renderer.camera.initialised = false; for (let i = 0; i < 40; i++) renderer.render(game.getRenderState(1), 16, 5000); window.__cam = [renderer.camera.x, renderer.camera.y, renderer.camera.scale]; return document.getElementById('game').toDataURL('image/png'); });
         row.camera = await page.evaluate(() => window.__cam);   // (40 draws: bakes everything, settles the camera)
         fs.writeFileSync(path.join(out, `${name}-${renderer}.png`), Buffer.from(png.split(',')[1], 'base64')); row.errors = errors; await page.close(); }
       if (bench) { const { page, errors } = await open(browser, renderer, sc, false);        // the timings

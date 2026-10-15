@@ -77,7 +77,7 @@ class Renderer {
   }
 
   render(state, frameMs, now) {
-    this.players = state.players;
+    this.players = state.players; PixelPony.beginFrame();
     const me = state.players[this.game.myId], ctx = this.ctx;
     this.camera.follow(isoX(me.x, me.y), isoY(me.x, me.y) - 18, frameMs);
 

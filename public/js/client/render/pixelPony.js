@@ -11,6 +11,12 @@ const PixelPony = (() => {
   const W = 52, H = 50, TOP = 8, CX = 26, GROUND = 40, PX = 1.25;   // (TOP: rows above the ears for raised wings and horns)
   const { css, shade, light, mix, tones, outline } = PixelCharacter.util;
   const cache = new LruCache(2000);
+  /* Building a picture (painting it pixel by pixel, a few ms) is capped per frame, so a crowd of ponies met for the first time (every one has its own
+   * genes, so each is painted live) spreads that work over several frames instead of dropping one: beginFrame() resets the clock, setBudget(ms) sets the cap
+   * (Infinity: build everything at once, for tools that draw a still frame). Only a game frame that called beginFrame() is capped: previews and tools that draw
+   * ponies on their own build at once. A pony whose next picture is not built yet keeps its last one. */
+  let budgetMs = 3, spent = 0, frameAt = -1e9;
+  const lastShown = new LruCache(600);                                                              // look + view -> the picture last drawn: { key, canvas }
   const HOOF = { b: '#4a4148', l: '#7a6e74', d: '#2e282d' };
 
   /** A pony's colours, worked out once per look (they used to be recomputed for every pony, every frame). A copy is returned: draw() sets
@@ -516,7 +522,9 @@ const PixelPony = (() => {
     P.at(0, TOP, () => { if (view === 'up') back(P, C, F); else if (view === 'down') front(P, C, F, blink); else side(P, C, F, blink); });
     outline(ctx, C.outline, W, H);
     if (C.fx === 'frost') twinkles(P, C, view, F);
-    return canvas;
+    const flat = document.createElement('canvas'); flat.width = W; flat.height = H;                       // painted (and read back for the outline) on a CPU canvas; kept as a plain one to draw from every frame
+    flat.getContext('2d').drawImage(canvas, 0, 0);
+    return flat;
   }
   function twinkles(P, C, view, F) {
     P.at(0, TOP, () => {                                                                                      // frost twinkling on the coat
@@ -645,18 +653,25 @@ const PixelPony = (() => {
         return { top: top + TOP * PX, h: (GROUND + 1) * PX };
       }
     }
-    let canvas = cache.get(key);
-    if (!canvas) {                                                                                // (the palette is only worked out for a picture not made yet)
-      const C = palette(look);
-      C.wings = wings; C.horn = horn; C.flying = flying; C.wf = wf; C.ruffle = !flying && anim.moving && frame % 2 === 1; C.ff = ff; C.tw = tw;
-      canvas = renderPacked(C, view, F, blink, pose);                                              // from the art pack, in this pony's colours ...
-      if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink); ArtPack.stats.painted++; }   // ... or painted
-      cache.set(key, canvas);
+    let canvas = cache.get(key), drawKey = key;
+    const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX, seen = lookKey(look) + '|' + view;
+    if (!canvas) {
+      if (spent > budgetMs && performance.now() - frameAt < 100) {                                                                      // out of building time this frame: show the pony's last picture (or wait a frame) instead of hitching
+        const last = lastShown.get(seen);
+        if (!last) return { top: top + TOP * PX, h: (GROUND + 1) * PX };
+        canvas = last.canvas; drawKey = last.key;
+      } else {
+        const t0 = performance.now(), C = palette(look);                                           // (the palette is only worked out for a picture not made yet)
+        C.wings = wings; C.horn = horn; C.flying = flying; C.wf = wf; C.ruffle = !flying && anim.moving && frame % 2 === 1; C.ff = ff; C.tw = tw;
+        canvas = renderPacked(C, view, F, blink, pose);                                            // from the art pack, in this pony's colours ...
+        if (canvas) ArtPack.stats.packed++; else { canvas = renderLive(C, view, F, blink); ArtPack.stats.painted++; }   // ... or painted
+        cache.set(key, canvas); spent += performance.now() - t0;
+      }
     }
-    const w = W * PX, h = H * PX, top = sy - (TOP + GROUND + 1) * PX;
+    if (drawKey === key) lastShown.set(seen, { key, canvas });
     if (!anim.lift) SpriteCache.shadow(ctx, sx, sy + 1, view === 'right' ? 20 : 11, 6, 0.24);
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(dir === 'left' ? SpriteCache.mirror(key, canvas) : canvas, sx - w / 2, top, w, h);   // (facing left: a mirrored copy, made once)
+    ctx.drawImage(dir === 'left' ? SpriteCache.mirror(drawKey, canvas) : canvas, sx - w / 2, top, w, h);   // (facing left: a mirrored copy, made once)
     ctx.imageSmoothingEnabled = smooth;
     drawFx(ctx, look, dir, view, sx, top + TOP * PX, anim.now, anim.seed, kind, anim.moving);
     return { top: top + TOP * PX, h: (GROUND + 1) * PX };
@@ -664,5 +679,5 @@ const PixelPony = (() => {
 
   /** Whether a kind of animal is drawn as a pixel pony. */
   const covers = type => !!(AnimalDefs[type] && AnimalDefs[type].pony && !PIXEL_PONIES_OFF[type]);
-  return { draw, covers, W, H, PX, pack };
+  return { draw, covers, W, H, PX, pack, beginFrame() { spent = 0; frameAt = performance.now(); }, setBudget(ms) { budgetMs = ms; } };
 })();
