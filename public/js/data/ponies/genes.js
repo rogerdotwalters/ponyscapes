@@ -39,4 +39,9 @@ PonyGeneTable.register({ id: 'talent', part: 'skills', name: 'Inherited skill', 
   { id: 'mark_flower', name: 'Pollen Puff', weight: 6 }, { id: 'mark_moon', name: 'Moon Dash', weight: 6 }, { id: 'mark_cloud', name: 'Mist Veil', weight: 6 },
   { id: 'mark_apple', name: 'Apple Bounty', weight: 5 }, { id: 'mark_drop', name: 'Dewdrop', weight: 6 }, { id: 'mark_note', name: 'Lullaby', weight: 6 },
   { id: 'none', name: 'No talent', weight: 90 }] });
+/* Colour DEPTH (added last): how rich the coat and the mane are. 0 is the variety's colour as it is; each step is a deeper, stronger version of it (shared/ponyGenes.js `shade`). It is ADDITIVE, not
+ * dominant: a pony shows the average of its two alleles. Wild ponies are nearly all natural; depth comes from BREEDING (shared/colorBreeding.js: two blues, two purples or two reds make a deeper one). */
+const depths = [['Natural', 70], ['Rich', 18], ['Deep', 8], ['Vivid', 3], ['Intense', 1]].map(([name, weight], i) => ({ id: 'depth' + i, name, weight }));
+PonyGeneTable.register({ id: 'coatShade', part: 'body', name: 'Coat depth', kind: 'shade', additive: true, alleles: depths });
+PonyGeneTable.register({ id: 'maneShade', part: 'mane', name: 'Mane depth', kind: 'shade', additive: true, alleles: depths });
 })();

@@ -24,7 +24,7 @@ test('an older pony (no genome) reads as classic, with its tail the colour of it
 });
 test('the matching-tail gene forces the tail to the mane colour; without it the tail is its own', () => {
   const at = id => run(`PonyGenes.at('${id}')`);
-  const mk = (link, tail) => `(() => { const l = PonyLook.fromGene(5, 0); l[1] = 2; l[${7 + at('maneColor')}] = 2 * 65; l[${7 + at('tailColor')}] = ${tail} * 65; l[${7 + at('tailLink')}] = ${link} * 65; l[${7 + at('manePattern')}] = 0; l[${7 + at('tailPattern')}] = 0; return PonyLook.describe(l).gene; })()`;
+  const mk = (link, tail) => `(() => { const l = PonyLook.fromGene(5, 0); l[1] = 2; l[${7 + at('maneColor')}] = 2 * 65; l[${7 + at('tailColor')}] = ${tail} * 65; l[${7 + at('tailLink')}] = ${link} * 65; l[${7 + at('manePattern')}] = 0; l[${7 + at('tailPattern')}] = 0; l[${7 + at('maneShade')}] = 0; return PonyLook.describe(l).gene; })()`;
   assert.deepStrictEqual(J(mk(0, 5) + '.tailMane'), J('PonyPalette.manes[2]'));
   assert.deepStrictEqual(J(mk(1, 5) + '.tailMane'), J('PonyPalette.manes[5]'));
   assert.strictEqual(J(mk(0, 5) + '.tailLinked'), true); assert.strictEqual(J(mk(1, 5) + '.tailLinked'), false);

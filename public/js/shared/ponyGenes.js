@@ -24,16 +24,19 @@ const PonyGenes = (() => {
     if (!d) return [0, 0, l]; const s = d / (1 - Math.abs(2 * l - 1)), h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, s, l]; };
   const fromHsl = ([h, s, l]) => { const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, [r, g, b] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor(((h % 360) + 360) % 360 / 60)];
     return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join(''); };
+  /** A colour at a DEPTH (0 = as it is): each step is richer (more saturated) and darker, so a light blue goes to a real, deep blue. */
+  const shade = (hex, d) => { if (!(d > 0) || typeof hex !== 'string') return hex; const [h, s, l] = toHsl(hex); return fromHsl([h, Math.min(1, s + 0.08 * d), Math.max(0.25, l * (1 - 0.13 * d))]); };
   const turn = (hex, deg) => { const [h, s, l] = toHsl(hex); return fromHsl([h + deg, Math.max(s, 0.45), Math.min(0.75, Math.max(0.4, l))]); };
   const patterned = (list, pattern) => pattern === 1 ? [list[0]] : pattern === 2 ? [...list, turn(list[0], 100), turn(list[list.length - 1], -100), turn(list[0], 200)].slice(0, Math.max(4, list.length)) : list;
   const pick = (rng, weights) => { let t = weights.reduce((a, b) => a + b, 0) * rng(); for (let i = 0; i < weights.length; i++) { t -= weights[i]; if (t < 0) return i; } return weights.length - 1; };
   return {
-    LOCI, BASE, LEN, at, genomeOf, sizeOf,
+    LOCI, BASE, LEN, at, genomeOf, sizeOf, shade, toHsl, fromHsl,
     hasGenome: look => !!look && look.length >= LEN,
     /** A wild pony's genome, appended to `look` (which already holds its shown coat and mane). Each gene's shown allele is rolled by its weights; the carried one is any allele after it. */
     roll(rng, look, variant) {
       const R = variant ? 0 : PonyPalette.recessive.count;                                       // (only the meadow palette has the recessive colours, black and silver)
       for (const L of LOCI) {
+        if (L.additive) { const w = L.alleles.map(a => a.weight || 1); look.push(pick(rng, w) * PACK + pick(rng, w)); continue; }                // (a depth: both alleles drawn by their weights)
         const n = sizeOf(L, variant), common = n - (L.palette ? R : 0);                          // the colours that are not recessive
         let shown = L.slot !== undefined ? Math.min(look[L.slot] | 0, n - 1) : L.palette ? Math.floor(rng() * common) : pick(rng, L.alleles ? L.alleles.map(a => a.weight || 1) : new Array(n).fill(1));
         if (L.palette && !variant) {
@@ -60,6 +63,11 @@ const PonyGenes = (() => {
       return LOCI.map((L, i) => {
         const n = sizeOf(L, variant);
         let x = ga[i][rng() < 0.5 ? 0 : 1], y = gb[i][rng() < 0.5 ? 0 : 1];
+        if (L.additive) {                                                                         // a depth drifts a step either way
+          if (rng() < MUTATION) x = clamp(x + (rng() < 0.5 ? -1 : 1), 0, n - 1);
+          if (rng() < MUTATION) y = clamp(y + (rng() < 0.5 ? -1 : 1), 0, n - 1);
+          return Math.min(x, n - 1) * PACK + Math.min(y, n - 1);
+        }
         if (rng() < MUTATION) x = Math.floor(rng() * n);
         if (rng() < MUTATION) y = Math.floor(rng() * n);
         if (x >= n) x = Math.floor(rng() * n);
@@ -83,7 +91,7 @@ const PonyGenes = (() => {
     /** The genes as they SHOW: { geneId: allele index }, the rule genes applied (a matched tail takes the mane's colour). */
     express(look) {
       const g = genomeOf(look), v = look[4] | 0, out = {};
-      LOCI.forEach((L, i) => { const n = sizeOf(L, v); out[L.id] = (L.slot !== undefined ? look[L.slot] | 0 : Math.min(g[i][0], g[i][1])) % n; });
+      LOCI.forEach((L, i) => { const n = sizeOf(L, v); out[L.id] = (L.slot !== undefined ? look[L.slot] | 0 : L.additive ? Math.round((g[i][0] + g[i][1]) / 2) : Math.min(g[i][0], g[i][1])) % n; });
       for (const L of LOCI) if (L.link && out[L.id] === 0) out[L.link[1]] = out[L.link[0]];
       return out;
     },
@@ -105,11 +113,12 @@ const PonyGenes = (() => {
         if (shownRec) traits.unshift({ part, text: `${R.names[ex[id] - (n - R.count)]} (recessive)` });
         else if (carried.length) traits.push({ part, text: `carries ${[...new Set(carried)].map(a => R.names[a - (n - R.count)].toLowerCase()).join(' and ')}` });
       }
+      for (const [id, part] of [['coatShade', 'Coat'], ['maneShade', 'Mane']]) if (ex[id] > 0) traits.push({ part, text: `${LOCI[at(id)].alleles[ex[id]].name.toLowerCase()} colour (bred deeper)` });
       const talent = PonyGenes.talentOf(look); if (talent) traits.push({ part: 'Skill', text: `${talent.name}, inherited (level ${talent.level})` });
       return {
         eyeShape: ex.eyeShape, eyeColor: allele('eyeColor').color, maneShape: ex.maneShape, tailShape: ex.tailShape, bodyShape: ex.bodyShape,
         hoofShape: ex.hoofShape, hoofColor: allele('hoofColor').color, headShape: ex.headShape, tailLinked,
-        manePattern: ex.manePattern, tailPattern, maneColors: patterned(manes[ex.maneColor], ex.manePattern), tailMane: patterned(manes[ex.tailColor], tailPattern), traits,
+        manePattern: ex.manePattern, tailPattern, maneColors: patterned(manes[ex.maneColor], ex.manePattern).map(c => shade(c, ex.maneShade)), tailMane: patterned(manes[ex.tailColor], tailPattern).map(c => shade(c, ex.maneShade)), coatShade: ex.coatShade, maneShade: ex.maneShade, traits,
         key: LOCI.filter(L => L.slot === undefined && L.kind !== 'skill').map(L => L.id === 'tailColor' && tailLinked ? 'm' : ex[L.id]).join('')
       };
     }
