@@ -45,7 +45,7 @@ class JournalUI {
       const cur = QuestLog.current(log, q), giver = Npcs.get(q.giver);
       const steps = q.steps.map((st, i) => {
         const doneStep = status === 'done' || (cur && i < cur.index), now = cur && i === cur.index;
-        return `<li class="${doneStep ? 'qdone' : now ? 'qnow' : ''}">${E(st.text)}${now && st.type === 'deliver' ? ` (${cur.progress}/${st.count})` : ''}</li>`;
+        return `<li class="${doneStep ? 'qdone' : now ? 'qnow' : ''}">${E(st.text)}${now ? QuestLog.countText(st, cur.progress) : ''}</li>`;
       }).join('');
       const where = status === 'available' ? `Ask ${E(giver ? giver.name : q.giver)}` : status === 'active' ? `From ${E(giver ? giver.name : q.giver)}` : 'Finished';
       return `<div class="qcard ${status}"><b>${E(q.title)}</b><small>${where}</small><ul>${steps}</ul></div>`;

@@ -11,6 +11,17 @@
  * (js/shared/puzzles.js). */
 const QUEST_REACH = CONFIG.sim.friendship.reach + 0.6, PUZZLE_REACH = 1.6, VISIT_EVERY_TICKS = 15;
 
+/** Where a quest step points, resolved from the world itself (pure: server and client). `where` is 'cave:<zone>' (the mouth of that zone's dungeon). { x, y } or null. */
+const QuestWhere = {
+  resolve(map, where) {
+    const [kind, arg] = String(where || '').split(':');
+    if (kind === 'cave' && map && map.layers && map.layers.dungeons) { const site = map.layers.dungeons.site(Number(arg)); return site ? { x: site.x, y: site.y } : null; }
+    return null;
+  },
+  /** The place a "visit" step wants you at. */
+  ofStep(map, step) { return step.where ? QuestWhere.resolve(map, step.where) : { x: step.x, y: step.y }; }
+};
+
 const QuestLog = {
   empty: () => ({ done: {}, active: {} }),
   /** 'done' | 'active' | 'available' | 'locked' */
@@ -24,6 +35,8 @@ const QuestLog = {
     const a = log.active[q.id];
     return a && q.steps[a.step] ? { step: q.steps[a.step], index: a.step, progress: a.progress | 0 } : null;
   },
+  /** "(2/3)" for a step that counts something, else ''. */
+  countText: (step, progress) => step.count ? ` (${progress | 0}/${step.count})` : '',
   /** Quests this villager gives (an Npcs id). */
   forGiver: type => QuestDefs.where(q => q.giver === type),
   /** The open quest whose current step wants this puzzle node, or null. */
@@ -105,7 +118,7 @@ class QuestSystem {
     this.log.active[q.id] = { step: 0, progress: 0 };
     this._changed();
     this._tell(`New quest: ${q.title}` + (p.name ? ` (taken up by ${p.name})` : ''));
-    this._checkVisit();
+    this._checkVisit(); this._checkEvents();
   }
 
   /** Hand over what the current "deliver" step asks for: as much as this player's bag holds, toward the shared total. */
@@ -154,15 +167,35 @@ class QuestSystem {
 
   /* ---------------------------------------- progress ---------------------------------------- */
   update(tick) {
-    if (tick % VISIT_EVERY_TICKS === 0) this._checkVisit();
+    if (tick % VISIT_EVERY_TICKS === 0) { this._checkVisit(); this._checkEvents(); }
   }
   /** "visit" steps: anyone standing at the place completes the step. */
   _checkVisit() {
     for (const q of QuestDefs.all()) {
       const cur = QuestLog.current(this.log, q);
       if (!cur || cur.step.type !== 'visit') continue;
-      const r = cur.step.radius || 3;
-      if (this.s.humanIds().some(id => { const p = this.s.players[id]; return p && !p.grid && Math.hypot(p.x - cur.step.x, p.y - cur.step.y) <= r; })) this._advance(q);
+      const r = cur.step.radius || 3, spot = QuestWhere.ofStep(this.s.map, cur.step);
+      if (spot && this.s.humanIds().some(id => { const p = this.s.players[id]; return p && !p.grid && Math.hypot(p.x - spot.x, p.y - spot.y) <= r; })) this._advance(q);
+    }
+  }
+  /** "event" steps wait on something the world does, read from the other systems (the Cave Bear's cubs: wantSystem.js):
+   *    tracks  somebody studied the paw prints in the lair of this zone      cubs  this many lost young are home (progress follows it)
+   *  Whatever ends the guardian's trouble another way (she was beaten, or is calm) ends the step too. */
+  _checkEvents() {
+    const W = this.s.wants;
+    for (const q of QuestDefs.all()) {
+      const cur = QuestLog.current(this.log, q);
+      if (!cur || cur.step.type !== 'event') continue;
+      const st = cur.step, ring = st.ring | 0, over = !!W.appeased[ring] || this.s.worldProgress.isDefeated(ring);
+      if (st.event === 'tracks') { if (over || Object.keys(W.trackers[ring] || {}).length) this._advance(q); }
+      else if (st.event === 'cubs') {
+        const have = Math.min(st.count || 1, W.progress[ring] || 0);
+        if (over || have >= (st.count || 1)) this._advance(q);
+        else if (have !== cur.progress) {
+          this.log.active[q.id].progress = have; this._changed();
+          if (have > cur.progress) this._tell(`${q.title}: ${have}/${st.count} ${st.what || 'home'}`);
+        }
+      }
     }
   }
   _advance(q) {
@@ -173,7 +206,7 @@ class QuestSystem {
     this._changed();
     if (a.step >= q.steps.length) { this._complete(q); return; }
     this._tell(`${q.title}: ${done.text} - done. Next: ${q.steps[a.step].text}`);
-    this._checkVisit();
+    this._checkVisit(); this._checkEvents();
   }
   /** Finished: everyone in the game shares the reward. */
   _complete(q) {
@@ -210,7 +243,7 @@ class QuestSystem {
       if (!a || typeof a !== 'object') continue;
       const step = Number.isInteger(a.step) ? a.step : -1, st = q.steps[step];
       if (!st) continue;
-      out.active[q.id] = { step, progress: st.type === 'deliver' && Number.isFinite(a.progress) ? Math.min(st.count, Math.max(0, Math.floor(a.progress))) : 0 };
+      out.active[q.id] = { step, progress: st.count && Number.isFinite(a.progress) ? Math.min(st.count, Math.max(0, Math.floor(a.progress))) : 0 };
     }
     return out;
   }

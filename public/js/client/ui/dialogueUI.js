@@ -73,7 +73,7 @@ class DialogueUI {
     let text;
     if (status === 'available') { text = QuestLog.line(q.offer, me); opts.push(`<button data-opt="qa:${q.id}" tabindex="-1">Accept</button>`); }
     else if (status === 'active' && cur) {
-      text = QuestLog.line(q.progress || q.offer, me) + `<div class="dlgStep">Now: ${cur.step.text}${cur.step.type === 'deliver' ? ` (${cur.progress}/${cur.step.count})` : ''}</div>`;
+      text = QuestLog.line(q.progress || q.offer, me) + `<div class="dlgStep">Now: ${cur.step.text}${QuestLog.countText(cur.step, cur.progress)}</div>`;
       if (cur.step.type === 'deliver') {
         const have = game.inventory.count(cur.step.item), name = ItemDefs[cur.step.item].name.toLowerCase();
         opts.push(`<button data-opt="qd:${q.id}" tabindex="-1"${have ? '' : ' disabled'}>Hand over ${name} (you have ${have})</button>`);
