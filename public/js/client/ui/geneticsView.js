@@ -55,10 +55,14 @@ const GeneticsView = (() => {
 
     /** What a mating could make besides a copy of a parent (the server's `cross`): hybrid varieties and new kinds of pony, with their chances. Always shown: it is a breeding option, not background. */
     crossHtml(cross) {
-      if (!cross || (!cross.hybrids.length && !cross.kinds.length)) return '';
+      if (!cross) return '';
       const hy = cross.hybrids.map(h => `<span class="gchip" style="--c:${esc(h.color)}" title="${esc(h.rarity)}">${esc(h.name)} pony &middot; ${h.chance}%</span>`).join(' ');
       const ki = cross.kinds.map(k => `<span class="gkid">${esc(k.name)} &middot; ${k.chance}%</span>`).join(' ');
-      return `<div class="gcross">${hy ? `<div><small>${esc(cross.from[0])} x ${esc(cross.from[1])} can make a hybrid</small></div><div class="gline">${hy}</div>` : ''}${ki ? `<div><small>Foals may also be a new kind of pony</small></div><div class="gline">${ki}</div>` : ''}</div>`;
+      const dot = c => `<i class="gsw big" style="background:${esc(c)}"></i>`;
+      const co = (cross.colors || []).map(c => `<div class="gcolor ${esc(c.rule)}">${dot(c.a.color)}<span>${esc(c.a.name)}</span> + ${dot(c.b.color)}<span>${esc(c.b.name)}</span>` +
+        (c.result ? ` &rarr; ${dot(c.result.color)}<b>${esc(c.result.name)}</b>` : '') + `<small>${esc(c.part)}: ${esc(c.text)}</small></div>`).join('');
+      if (!hy && !ki && !co) return '';
+      return `<div class="gcross">${co ? `<div><small>Colours</small></div>${co}` : ''}${hy ? `<div><small>${esc(cross.from[0])} x ${esc(cross.from[1])} can make a hybrid</small></div><div class="gline">${hy}</div>` : ''}${ki ? `<div><small>Foals may also be a new kind of pony</small></div><div class="gline">${ki}</div>` : ''}</div>`;
     },
 
     /** One pedigree chart: the pony on the left, its parents to the right, theirs further right. Ancestors met more than once (inbreeding) are ringed in gold. */

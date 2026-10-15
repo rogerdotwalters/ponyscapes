@@ -21,6 +21,7 @@
     "test:genes": "node tools/test-genes.js",
     "test:pedigree": "node tools/test-pedigree.js",
     "test:hybrids": "node tools/test-hybrids.js",
+    "test:colors": "node tools/test-colors.js",
     "test:sky": "node tools/test-sky.js",
     "test:apples": "node tools/test-apples.js",
     "test:taming": "node tools/test-taming.js",

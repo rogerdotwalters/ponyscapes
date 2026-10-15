@@ -57,8 +57,8 @@ const PonyLook = {
     const P = PonyPalette, l = look || [0, 0, 0, 0, 0], v = l[4] | 0, V = v ? PonyVariants[v] : null;
     const rarity = RarityDefs[RarityOrder[clamp(l[5] | 0, 0, RarityOrder.length - 1)]], sex = PonyLook.sexOf(l);
     const gene = PonyGenes.phenotype(l);                                                    // the shapes and colours its genes give it (genes.js)
-    const aura = PonyGenes.auraColor(gene.maneColors[0], (V || P).coats[l[0]]);              // its glow: the colour of its mane
-    if (!V) return { sex, coat: P.coats[l[0]], mane: P.manes[l[1]], mark: P.marks[l[2]], name: P.names[l[3]], variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: null, glow: null, rarity, gene, aura };
-    return { sex, coat: V.coats[l[0]], mane: V.manes[l[1]], mark: V.marks[l[2]], name: V.names[l[3]], variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory, glow: V.glow, rarity, gene, aura };
+    const coatHex = PonyGenes.shade((V || P).coats[l[0]], gene.coatShade), aura = PonyGenes.auraColor(gene.maneColors[0], coatHex);              // its glow: the colour of its mane
+    if (!V) return { sex, coat: coatHex, mane: P.manes[l[1]], mark: P.marks[l[2]], name: P.names[l[3]], variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: null, glow: null, rarity, gene, aura };
+    return { sex, coat: coatHex, mane: V.manes[l[1]], mark: V.marks[l[2]], name: V.names[l[3]], variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory, glow: V.glow, rarity, gene, aura };
   }
 };

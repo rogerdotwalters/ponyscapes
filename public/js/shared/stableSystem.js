@@ -299,7 +299,7 @@ Object.assign(GameServer.prototype, {
     const mark = r() < 0.1 || !same.length ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();
     const look = [0, 0, mark, Math.floor(r() * names), variant];
     look.push(Math.min(RarityOrder.length - 1, Math.max(A[5] | 0, B[5] | 0, hybrid ? rarityOf(hybrid.rarity).order : 0) + (r() < 0.12 ? 1 : 0)), Math.floor(r() * 65536));
-    look.push(...PonyGenes.inherit(r, A, B, variant));
+    look.push(...ColorBreeding.apply(r, A, B, variant, PonyGenes.inherit(r, A, B, variant)));                                // (blues deepen, red and blue make purple ...: shared/colorBreeding.js)
     return PonyGenes.sync(look);                                                              // (the coat and mane slots show what the genes say)
   },
   _bornFoal(owner, a, b, f, grid) {
@@ -332,7 +332,8 @@ Object.assign(GameServer.prototype, {
     const idOf = x => (PonyVariants[(x.look && x.look[4]) | 0] || PonyVariants[0]).id, P = Pedigree.pct;
     const hybrids = Hybrids.possible(idOf(a), idOf(b)).map(h => ({ name: h.name, chance: P(h.chance, 0), rarity: h.rarity, color: rarityOf(h.rarity).color }));
     const kinds = SkyPonies.isBound(a.type) || SkyPonies.isBound(b.type) ? [] : Hybrids.kindOptions(a.type, b.type).map(k => ({ name: k.name, chance: P(k.chance, 1) }));
-    return { hybrids, kinds, from: [PonyVariants[(a.look && a.look[4]) | 0].name, PonyVariants[(b.look && b.look[4]) | 0].name] };
+    const colors = ColorBreeding.forecast(a.look || [0, 0, 0, 0, 0, 0, 0], b.look || a.look || [0, 0, 0, 0, 0, 0, 0]);
+    return { hybrids, kinds, colors, from: [PonyVariants[(a.look && a.look[4]) | 0].name, PonyVariants[(b.look && b.look[4]) | 0].name] };
   },
   /** A pony's family tree, genes and descendants (the Pony Book's Family tree button). */
   _lineage(id, aid) {
