@@ -272,6 +272,7 @@ class GameServer {
         }
         break;   // the Admin page: speed, day split, time (sent to everyone)
       case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
+      case 'clearPonies': if (id === this.hostId) this._devClearPonies(); break;                                                              // the host's "clear all ponies" button (Dev settings)
       case 'spawnPony': if (id === this.hostId) this._devSpawnPonies(cmd.kind, cmd.count, cmd.variety); break;                                // the host's pony spawner (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
@@ -916,6 +917,19 @@ class GameServer {
       this._remember(this.hostId, pet); names.push(PonyLook.describe(pet.look).name);
     }
     this._notice(this.hostId, `Spawned ${n} pon${n === 1 ? 'y' : 'ies'}: ${names.join(', ')}`);
+  }
+
+  /** Dev: every pony in the game goes away, wild ones and everyone's own (stalled, leashed, ridden, foals), and any breeding in a stall stops. Riders are set down first. The wild herds come back with the mornings. */
+  _devClearPonies() {
+    const all = this.animals.animals; let n = 0;
+    for (const id of Object.keys(all)) {
+      const a = all[id]; if (!AnimalDefs[a.type].pony) continue;
+      const rider = a.rider && this.players[a.rider];
+      if (rider && rider.mount) this._dismount(a.rider, rider);
+      delete all[id]; n++;
+    }
+    this.breeding = {};
+    if (this.hostId && this.players[this.hostId]) this._notice(this.hostId, n ? `Cleared ${n} pon${n === 1 ? 'y' : 'ies'} from the game` : 'There were no ponies to clear');
   }
 
   /** On: a level 12 pegasus appears beside the host, theirs to ride with no Horsemanship needed. Off: it goes away (and the host is set down first). */

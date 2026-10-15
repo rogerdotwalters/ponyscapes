@@ -135,4 +135,21 @@ test('stalls can be renamed from the menu (and numbered again); stabling a main 
   assert.strictEqual(r.before, 'Stable 1'); assert.strictEqual(r.after, 'Starblight'); assert.strictEqual(r.menu, 'Starblight'); assert(r.snap && Object.values(r.snap).includes('Starblight'));
   assert.strictEqual(r.saved, 'Starblight'); assert.strictEqual(r.reset, 'Stable 1'); assert(r.stalled); assert.strictEqual(r.main, false, 'stabled: no longer main'); assert.strictEqual(r.mainAfterOut, false, 'taking it out does not make it main again');
 });
+test('dev: clear all ponies removes every pony (wild, owned, stalled, ridden) and nothing else, only for the host', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+    const ponies = () => Object.values(S.animals.animals).filter(a => AnimalDefs[a.type].pony).length, others = () => Object.values(S.animals.animals).filter(a => !AnimalDefs[a.type].pony).length;
+    S.animals.spawn('pony_plain', P.x + 5, P.y, 0, { level: 1 });                                               // a wild one
+    const own = S.animals.animals[S.animals.spawn('pony_earth', P.x + 1, P.y, 0, { level: 1 })]; own.owner = A; own.breedP = 0;
+    S.breeding = { 'x|1,1': { owner: A, ids: [own.id], t: 1 } };
+    const guest = S.joinHuman ? S.joinHuman('prince', 'Friend') : null, hostId = S.hostId;
+    const mid = ponies(); S.receiveCommand(guest, { type: 'clearPonies' });
+    const out = { guestBlocked: !guest || ponies() === mid && mid > 0 };
+    const before = { ponies: ponies(), others: others() };
+    S.receiveCommand(hostId, { type: 'clearPonies' });
+    Object.assign(out, { before, after: { ponies: ponies(), others: others() }, breeding: Object.keys(S.breeding).length, host: hostId === A });
+    return JSON.stringify(out); })()`));
+  assert(r.before.ponies >= 2, 'there were ponies'); assert.strictEqual(r.after.ponies, 0); assert.strictEqual(r.after.others, r.before.others, 'other animals stay'); assert.strictEqual(r.breeding, 0);
+  assert(r.guestBlocked, 'a guest cannot clear them'); assert(r.host, 'the first player is the host');
+});
 console.log(passed + ' passed');
