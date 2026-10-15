@@ -82,4 +82,75 @@ H('hellfire', 'Hellfire', ['plasma', 'wildfire'], 0.3, 'legendary', 'wh', 'flame
   'Inferno Brimstone Cinder Conflagra Pyra Ashen Furnace Blaze', ['Hellfire', 'A firestorm engulfs hostile creatures all round you', 13, '🌋', '#ff3d00', dmg(22, 5.4), scare(5.4)]);
 H('chaos', 'Chaos', [], 0.12, 'legendary', 'wh', 'stars', '#ff40ff', ['#101010', '#ff0050', '#00e5ff', '#ffee00'], [['#ff1744', '#00e5ff', '#ffea00', '#d500f9'], ['#76ff03', '#ff6d00', '#2979ff']],
   'Entropy Havoc Mayhem Wild Glitch Rift Anarchy Flux', ['Wild Magic', 'Anything can happen: a wave of raw magic hurts hostile creatures and heals your friends', 12, '🎲', '#ff40ff', dmg(14, 5), heal(14, 5)], { marks: MARKS });
+/* ---- more crosses (added after the first batch: they sit at the end of the variety table so saved ponies keep their numbers) ---- */
+H('wish', 'Wish', ['meadow', 'star'], 0.45, 'epic', 'h', 'stars', '#fff5b0', ['#fff3f8', '#f7e8ff', '#fffbe6', '#eaf2ff'], [['#ffd54f', '#ffffff', '#f48fb1'], ['#b39ddb', '#fff176']],
+  'Hope Dandelion Wishbone Clover Fable Whisper Daydream Sparkle', ['Wishing Star', 'A wish on a falling star heals you and your friends and lights up the dark', 15, '🌠', '#fff5b0', heal(24, 4.6), ['light', 0, 7, 'self', 'self']]);
+H('pastel', 'Pastel', ['meadow', 'rainbow'], 0.5, 'rare', '', 'rainbow', null, ['#fde4ec', '#e4f4e8', '#e8e4fb', '#fff2d6'], [['#f48fb1', '#ce93d8', '#90caf9'], ['#a5d6a7', '#fff59d', '#ffab91']],
+  'Macaron Blush Lavender Peach Sorbet Mint Cream Petal', ['Soft Glow', 'A gentle pastel glow heals you and calms the wild animals nearby', 13, '🎀', '#f8bbd0', heal(20, 4), slow(50, 4)]);
+H('fieldstorm', 'Fieldstorm', ['meadow', 'lightning'], 0.5, 'rare', '', 'sparks', '#ffe94d', ['#cfd8b8', '#dce6c0', '#bcc8a4', '#e8efd0'], [['#7cb342', '#ffea00', '#ffffff'], ['#aed581', '#ffd600']],
+  'Haywire Static Thistle Crackle Twister Gust Prairie Harrow', ['Static Charge', 'A crackle of field lightning hurts hostile creatures and speeds you up', 10, '⚡', '#ffe94d', dmg(9, 4), ['speed', 55, 0, 'self', 'self', 3]]);
+H('lichen', 'Lichen', ['moss', 'frost'], 0.45, 'rare', '', 'frost', null, ['#b8d4c0', '#a4c4b0', '#cfe0d4', '#90b4a0'], [['#4db6ac', '#e0f2f1', '#9ccc65'], ['#80cbc4', '#ffffff']],
+  'Tundra Fungus Spore Hoar Frond Taiga Moss Rimefern', ['Frozen Roots', 'Frosted roots grab the wild animals and slow them, and prick hostile creatures', 12, '🍄', '#80cbc4', slow(75, 4, 4), dmg(7, 4)]);
+H('wildwood', 'Wildwood', ['moss', 'jungle'], 0.5, 'rare', '', 'leaves', null, ['#6f9a58', '#5c8a4c', '#82aa68', '#4c7a40'], [['#1b5e20', '#8bc34a', '#4e342e'], ['#2e7d32', '#c6ff00']],
+  'Thicket Bough Bramble Hollow Briar Sylvan Burrow Elm', ['Wild Growth', 'Tangled branches slow the wild animals and mend you and friends', 12, '🌳', '#8bc34a', slow(65, 4), heal(16, 4)]);
+H('fae', 'Fae', ['moss', 'moon'], 0.4, 'epic', 'h', 'leaves', '#d6c8ff', ['#cfe0c8', '#e0e4f8', '#d4f0e0', '#e8dcf8'], [['#7e57c2', '#a5d6a7', '#f8bbd0'], ['#4db6ac', '#d1c4e9']],
+  'Pixie Glimmer Gossamer Toadstool Moth Tansy Faerie Lantern', ['Fairy Dust', 'Glittering dust confuses the wild animals and lets friends heal', 14, '🧚', '#d6c8ff', scare(4.4), heal(20, 4.4)]);
+H('hedgerow', 'Hedgerow', ['moss', 'orchard'], 0.5, 'uncommon', '', 'leaves', null, ['#a8c08a', '#bcd0a0', '#98b47c', '#c8d8b0'], [['#558b2f', '#ef5350', '#ffe082'], ['#7cb342', '#ff8a65']],
+  'Bramble Sloe Haw Berry Thorn Elder Hazel Rosehip', ['Thorn Bush', 'Thorny brambles prick hostile creatures nearby', 9, '🌹', '#7cb342', dmg(8, 3.6)]);
+H('hoarlight', 'Hoarlight', ['frost', 'moon'], 0.4, 'epic', 'h', 'frost', '#cfe0ff', ['#e8f0ff', '#d8e4fa', '#f2f6ff', '#c8d8f2'], [['#9fa8da', '#ffffff', '#b3e5fc'], ['#c5cae9', '#e1f5fe']],
+  'Silverfrost Moonrime Glint Midwinter Opaline Nocturne Hush Crescent', ['Moonlit Frost', 'Pale frost under the moon slows the wild animals and heals you', 14, '🌙', '#cfe0ff', slow(70, 4.4, 4), ['heal', 18, 0, 'self', 'self']]);
+H('thaw', 'Thaw', ['frost', 'sun'], 0.5, 'rare', '', 'rays', '#fff0c0', ['#fff4e0', '#e6f0f8', '#fdf0d0', '#dcecf4'], [['#81d4fa', '#ffe082', '#ffffff'], ['#b3e5fc', '#ffcc80']],
+  'Meltwater Springtide Drip Runoff Brook Sunmelt Early Trickle', ['Spring Thaw', 'Warm meltwater heals you and friends beside you', 13, '💧', '#ffe082', heal(26, 4.2)]);
+H('lagoon', 'Lagoon', ['crystal', 'water'], 0.45, 'epic', 'h', 'bubbles', '#8fd0ff', ['#bfeaf5', '#a8dcee', '#d0f2fa', '#98cfe6'], [['#00bcd4', '#b2ebf2', '#ffffff'], ['#26c6da', '#80deea']],
+  'Atoll Reef Seaglass Cove Azure Shoal Tidepool Turquoise', ['Crystal Tide', 'A glassy wave heals friends and shoves hostile creatures back', 14, '🌊', '#8fd0ff', heal(24, 4.4), dmg(8, 4.4)]);
+H('fulgurite', 'Fulgurite', ['crystal', 'lightning'], 0.4, 'epic', 'hw', 'sparks', '#ffe94d', ['#d8d0ec', '#c8c0e0', '#e4def4', '#bcb4d8'], [['#ffea00', '#7c4dff', '#ffffff'], ['#18ffff', '#ffd600']],
+  'Fused Glassbolt Spark Prong Arc Voltaic Shatter Tendril', ['Glass Lightning', 'A bolt of fused crystal slices hostile creatures ahead', 10, '🔱', '#ffe94d', dmg(16, 5.4, 'cone')]);
+H('moonstone', 'Moonstone', ['crystal', 'moon'], 0.4, 'epic', 'h', 'crystals', '#cfe0ff', ['#e6ecff', '#d6def8', '#f0f4ff', '#c6d0ee'], [['#b0bef0', '#ffffff', '#ce93d8'], ['#9fa8da', '#e8eaf6']],
+  'Adularia Sheen Labrador Pearl Cabochon Gleam Selenite Halo', ['Moonstone Ward', 'A soft pearly ward heals you and friends and calms the wild animals', 15, '🔮', '#cfe0ff', heal(24, 4.4), slow(55, 4.4)]);
+H('cinderstar', 'Cinderstar', ['starlit', 'ember'], 0.4, 'epic', 'h', 'flames', '#ffb86c', ['#3a2a4a', '#4a3258', '#2e2040', '#58405e'], [['#ff6d00', '#b39ddb', '#ffffff'], ['#ffab40', '#7e57c2']],
+  'Ashstar Smolder Ember Meteorite Glowworm Cindra Kilnlight Sparkfall', ['Falling Embers', 'Burning stars rain on hostile creatures round you', 11, '☄', '#ffb86c', dmg(13, 4.6)]);
+H('cotton', 'Cotton Candy', ['starlit', 'candy'], 0.45, 'rare', '', 'sprinkles', '#f8c8ff', ['#f6d0f0', '#d4d4fa', '#fadcec', '#cce4fa'], [['#f48fb1', '#b39ddb', '#80d8ff'], ['#ce93d8', '#f8bbd0']],
+  'Fluff Spun Floss Carnival Puff Fairground Whirl Cloudy', ['Sugar Cloud', 'A fluffy cloud of spun sugar puts the wild animals to sleep and heals you', 13, '🍥', '#f8c8ff', slow(80, 4.2, 4), ['heal', 20, 0, 'self', 'self']]);
+H('opal', 'Opal', ['starlit', 'rainbow'], 0.35, 'legendary', 'wh', 'rainbow', '#e8d8ff', ['#f4eefa', '#eaf6f4', '#faf0ee', '#eef0fa'], [['#80deea', '#f48fb1', '#fff59d', '#b39ddb'], ['#a5d6a7', '#ce93d8', '#ffcc80']],
+  'Iridesce Fire Milky Gemma Sheen Shift Harlequin Play', ['Play of Colour', 'Shifting colours dazzle hostile creatures and heal your friends', 13, '🔷', '#e8d8ff', dmg(14, 4.8), heal(22, 4.8)]);
+H('phoenix', 'Phoenix', ['ember', 'sun'], 0.3, 'legendary', 'w', 'flames', '#ffa000', ['#ffe0a0', '#ffcc80', '#fff0c8', '#ffb74d'], [['#ff3d00', '#ff9100', '#ffea00'], ['#d50000', '#ffab00', '#fff59d']],
+  'Rebirth Ashen Emberwing Pyra Solara Flicker Rise Fenix', ['Rising Flame', 'Golden fire scorches hostile creatures and heals you and friends', 14, '🔥', '#ffa000', dmg(15, 4.8), heal(26, 4.8)]);
+H('thunderforge', 'Thunderforge', ['ember', 'lightning'], 0.4, 'epic', 'w', 'sparks', '#ff9a3c', ['#4a3a3a', '#5a4646', '#3a2c2c', '#6a5252'], [['#ff6d00', '#ffea00', '#ffffff'], ['#ff3d00', '#ffd600']],
+  'Anvil Hammer Bellows Slag Sparkfall Foundry Clang Crucible', ['Forge Strike', 'A white-hot hammer-blow of lightning hurts hostile creatures ahead', 10, '🔨', '#ff9a3c', dmg(17, 5, 'cone')]);
+H('caramel', 'Caramel', ['ember', 'candy'], 0.45, 'rare', '', 'sprinkles', '#ffb74d', ['#d9a066', '#e6b87a', '#c88c52', '#f0c890'], [['#8d4a1d', '#ff9800', '#fff3e0'], ['#bf6f2a', '#ffd54f']],
+  'Toffee Butterscotch Fudge Brulee Praline Drizzle Syrup Brittle', ['Sticky Toffee', 'Molten caramel glues the wild animals to the spot', 12, '🍮', '#ffb74d', slow(90, 3.8, 4), dmg(5, 3.8)]);
+H('cobbler', 'Cobbler', ['ember', 'orchard'], 0.5, 'uncommon', '', 'flames', null, ['#e8b888', '#f0c8a0', '#d8a878', '#f4d4b0'], [['#c62828', '#ff8f00', '#ffe082'], ['#ef6c00', '#ffcc80']],
+  'Crumble Pie Warm Bake Streusel Tart Oven Cinnamon', ['Hot Pie', 'A warm apple pie heals you and shakes out a few apples', 20, '🥧', '#ffcc80', ['heal', 18, 0, 'self', 'self'], ['gift', 3, 0, 'self', 'self']]);
+H('rainforest', 'Rainforest', ['jungle', 'water'], 0.5, 'rare', '', 'leaves', '#8fe0c0', ['#7fc8a0', '#6cb890', '#92d4b0', '#5ca880'], [['#00796b', '#4fc3f7', '#c6ff00'], ['#26a69a', '#1de9b6']],
+  'Downpour Cascade Mist Tropical Canopy Torrent Orchid Amazon', ['Monsoon', 'A warm downpour heals you and friends and slows the wild animals', 13, '🌦', '#8fe0c0', heal(22, 4.4), slow(60, 4.4)]);
+H('stormvine', 'Stormvine', ['jungle', 'lightning'], 0.4, 'epic', '', 'sparks', '#b8ff6a', ['#8fc080', '#7ab070', '#a0d090', '#68a060'], [['#76ff03', '#ffea00', '#1b5e20'], ['#c6ff00', '#2e7d32']],
+  'Lash Creeper Snap Liana Coil Whipcord Tangle Strangler', ['Lightning Vines', 'Charged vines lash hostile creatures and bind the wild ones', 11, '🌿', '#b8ff6a', dmg(12, 4.4), slow(70, 4.4)]);
+H('taffyapple', 'Taffy Apple', ['orchard', 'candy'], 0.5, 'uncommon', '', 'sprinkles', null, ['#f4a0a0', '#f8c0c0', '#e88c8c', '#fcd0d0'], [['#d32f2f', '#ff80ab', '#ffffff'], ['#ad1457', '#ffcdd2']],
+  'Caramelly Glaze Candied Crunch Stick Fairground Sweetie Polished', ['Sweet Bounty', 'Candied apples drop into your bag and cheer you up', 30, '🍎', '#ef5350', ['gift', 3, 0, 'self', 'self'], ['heal', 14, 0, 'self', 'self']]);
+H('harvest', 'Harvest', ['orchard', 'rainbow'], 0.4, 'epic', 'h', 'rainbow', '#ffd54f', ['#f6e0b0', '#f0d098', '#fae8c4', '#e8c88c'], [['#ef6c00', '#fbc02d', '#8bc34a', '#c62828'], ['#ffb300', '#e65100']],
+  'Bounty Cornucopia Gleaner Autumn Sheaf Abundance Plenty Hayloft', ['Bountiful Harvest', 'A rainbow harvest heals you and everyone near and drops apples', 22, '🌾', '#ffd54f', heal(30, 4.6), ['gift', 3, 0, 'self', 'self']]);
+H('soda', 'Soda', ['water', 'candy'], 0.5, 'rare', '', 'bubbles', '#b8f0ff', ['#c8f0f8', '#f8d0e8', '#d8f8d0', '#fff0b8'], [['#00e5ff', '#ff4081', '#ffffff'], ['#76ff03', '#ff80ab']],
+  'Fizz Pop Bubbly Seltzer Float Effervesce Cola Sparkling', ['Fizz Burst', 'A fizzing blast startles the wild animals and speeds you up', 11, '🥤', '#b8f0ff', scare(4.4), ['speed', 55, 0, 'self', 'self', 3]]);
+H('moonwell', 'Moonwell', ['water', 'moon'], 0.4, 'epic', 'h', 'bubbles', '#cfe0ff', ['#c4d4f4', '#b4c8ee', '#d4e0f8', '#a8bce6'], [['#5c6bc0', '#b3e5fc', '#ffffff'], ['#7986cb', '#e1f5fe']],
+  'Reflect Basin Lunar Spring Mirrorpool Ripplelight Nightwater Gibbous', ['Healing Waters', 'Moonlit water heals you and friends a great deal', 16, '⛲', '#cfe0ff', heal(34, 4.6)]);
+H('mirror', 'Mirror', ['water', 'star'], 0.4, 'epic', 'h', 'stars', '#d8f0ff', ['#d0e4f8', '#c0d8f2', '#e0eefc', '#b4ccea'], [['#ffffff', '#4fc3f7', '#ffe082'], ['#b3e5fc', '#ffffff']],
+  'Reflection Glass Doppel Twin Still Lakeshine Echo Looking', ['Starry Reflection', 'A reflected star bursts back on hostile creatures and heals friends', 13, '🪞', '#d8f0ff', dmg(13, 4.6), heal(18, 4.6)]);
+H('daystar', 'Daystar', ['sun', 'star'], 0.35, 'legendary', 'wh', 'rays', '#fff5b0', ['#fff4c0', '#ffe9a0', '#fffadc', '#ffd980'], [['#ffffff', '#ffd600', '#ff8f00'], ['#fff59d', '#ffffff']],
+  'Sunrise Morningstar Lucent Beacon Radiant Zenith Aureole Prime', ['Daybreak', 'A blazing burst of light burns hostile creatures and lights the dark', 12, '🌅', '#fff5b0', dmg(16, 5.2), ['light', 0, 9, 'self', 'self']]);
+H('dawn', 'Dawn', ['sun', 'rainbow'], 0.4, 'epic', 'h', 'rainbow', '#ffd0a0', ['#ffe8d8', '#ffdcc8', '#fff0e4', '#ffd0b8'], [['#ff7043', '#ffca28', '#f48fb1', '#80deea'], ['#ffab91', '#fff59d']],
+  'Daybreak Aurorae Pinkglow Skylight Cockcrow Morning Orange Break', ['First Light', 'The first rays of the day heal you and friends and scare the dark away', 14, '🌄', '#ffd0a0', heal(26, 4.8), scare(4.8)]);
+H('nightbolt', 'Nightbolt', ['moon', 'lightning'], 0.4, 'epic', 'w', 'sparks', '#b0b8ff', ['#2a2f58', '#363c6c', '#202448', '#444a7c'], [['#7986cb', '#ffea00', '#ffffff'], ['#5c6bc0', '#ffd600']],
+  'Darkflash Umbral Shade Midnight Nocturn Murk Blackout Wraith', ['Night Strike', 'A bolt from a clear night sky smites hostile creatures ahead', 10, '🌩', '#b0b8ff', dmg(16, 5.4, 'cone')]);
+H('comet', 'Comet', ['star', 'lightning'], 0.4, 'epic', 'wh', 'stars', '#ffffa0', ['#262c70', '#30387e', '#1c2058', '#3c448c'], [['#ffff8d', '#ffffff', '#80d8ff'], ['#ffea00', '#b388ff']],
+  'Halley Tail Streak Bolide Meteor Flyby Perihelion Trail', ['Comet Strike', 'A streaking comet smashes hostile creatures and you speed away', 11, '☄', '#ffffa0', dmg(15, 4.6), ['speed', 60, 0, 'self', 'self', 3]]);
+H('stormbow', 'Stormbow', ['rainbow', 'lightning'], 0.4, 'epic', 'w', 'rainbow', '#ffffff', ['#f0f0fa', '#e4e8f8', '#faf4ff', '#dce4f6'], [['#ff1744', '#ffea00', '#00e5ff', '#d500f9'], ['#2979ff', '#ffd600', '#ffffff']],
+  'Prismatic Thunderbow Squallow Showers Arc Vividly Splendor Cloudburst', ['Rainbow Bolt', 'A forking rainbow of lightning hurts hostile creatures and heals friends', 11, '🌈', '#ffffff', dmg(14, 5, 'cone'), heal(18, 4.4)]);
+
+/* ---- more hybrids of hybrids ---- */
+H('ragnarok', 'Ragnarok', ['hellfire', 'maelstrom'], 0.25, 'legendary', 'wh', 'flames', '#ff5030', ['#1e0c10', '#2c1418', '#14080c', '#3a1c22'], [['#ff1744', '#80d8ff', '#ffea00'], ['#d50000', '#40c4ff', '#ffffff']],
+  'Doomsday Twilight Cataclysm Fimbul Surtr Calamity Endtimes Ruin', ['Ragnarok', 'Fire and storm tear down everything hostile near you', 18, '⚔', '#ff5030', dmg(28, 6.4), slow(80, 6.4, 4)]);
+H('genesis', 'Genesis', ['paradise', 'supernova'], 0.25, 'legendary', 'wh', 'stars', '#ffffff', ['#fffaf0', '#fff0ff', '#f0f8ff', '#fffce0'], [['#ffffff', '#ffd700', '#ff80ab', '#18ffff'], ['#fff176', '#ba68c8', '#ffffff']],
+  'Origin Alpha First Bigbang Creation Dawnborn Primal Seed', ['Genesis', 'A burst of creation heals you and friends enormously and sears hostile creatures', 20, '🌍', '#ffffff', heal(52, 6), dmg(18, 6)]);
+H('oblivion', 'Oblivion', ['singularity', 'hellfire'], 0.25, 'legendary', 'wh', 'stars', '#ff4060', ['#06040a', '#0e0814', '#0a0610', '#140c1c'], [['#000000', '#ff1744', '#8a5cff'], ['#311b92', '#ff3d00', '#ffffff']],
+  'Nullity Erasure Blotted Absence Finality Voidfire Omega Eclipse', ['Oblivion', 'Everything hostile nearby is erased, and the wild ones flee in terror', 20, '🕳', '#ff4060', dmg(30, 6.2), scare(6.4)]);
 })();

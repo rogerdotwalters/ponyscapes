@@ -21,16 +21,16 @@ test('every hybrid is a whole pony: a variety at the end of the table, its own k
     }
     const keys = all.filter(h => h.parents.length).map(h => h.parents.slice().sort().join('+')); if (new Set(keys).size !== keys.length) bad.push('two recipes share parents');
     return { n: all.length, bad }; })()`);
-  assert(r.n >= 25, 'plenty of hybrids: ' + r.n); assert.deepStrictEqual(r.bad, []);
+  assert(r.n >= 60, 'plenty of hybrids: ' + r.n); assert.deepStrictEqual(r.bad, []);
 });
 test('Ember x Star makes Plasma (35% of foals, either way round); other pairs make none; hybrids cross into hybrids and Chaos', () => {
   const r = J(`(() => { const S = new GameServer(4), mk = (v, kind, sex) => { const l = PonyLook.fromGene(7, Hybrids.variantIndex(v)); l[6] = sex === 'f' ? 128 : 0; return { type: kind, look: l, ped: null }; };
     const tally = (A, B) => { const c = {}; for (let i = 0; i < 800; i++) { const id = PonyVariants[S._foalLook(A, B)[4]].id; c[id] = (c[id] || 0) + 1; } return c; };
-    return { ab: tally(mk('ember', 'pony_plain', 'm'), mk('star', 'pony_plain', 'f')), ba: tally(mk('star', 'pony_plain', 'm'), mk('ember', 'pony_plain', 'f')), none: tally(mk('moss', 'pony_plain', 'm'), mk('frost', 'pony_plain', 'f')),
+    return { ab: tally(mk('ember', 'pony_plain', 'm'), mk('star', 'pony_plain', 'f')), ba: tally(mk('star', 'pony_plain', 'm'), mk('ember', 'pony_plain', 'f')), none: tally(mk('moss', 'pony_plain', 'm'), mk('ember', 'pony_plain', 'f')),
       tier3: tally(mk('plasma', 'pony_plasma', 'm'), mk('nebula', 'pony_nebula', 'f')), chaos: tally(mk('plasma', 'pony_plasma', 'm'), mk('prism', 'pony_prism', 'f')), same: tally(mk('plasma', 'pony_plasma', 'm'), mk('plasma', 'pony_plasma', 'f')),
       poss: Hybrids.possible('star', 'ember').map(h => h.id), possNone: Hybrids.possible('moss', 'ember').length }; })()`);
   for (const t of [r.ab, r.ba]) { assert(t.plasma > 800 * 0.35 * 0.7 && t.plasma < 800 * 0.35 * 1.3, 'about 35% plasma: ' + t.plasma); assert(t.ember && t.star, 'the rest take after a parent'); }
-  assert.deepStrictEqual(Object.keys(r.none).sort(), ['frost', 'moss']); assert(r.tier3.supernova > 100 && r.tier3.supernova < 400, 'supernova: ' + r.tier3.supernova);
+  assert.deepStrictEqual(Object.keys(r.none).sort(), ['ember', 'moss']); assert(r.tier3.supernova > 100 && r.tier3.supernova < 400, 'supernova: ' + r.tier3.supernova);
   assert(r.chaos.chaos > 20, 'two hybrids with no recipe may make chaos: ' + JSON.stringify(r.chaos)); assert.deepStrictEqual(Object.keys(r.same).sort(), ['plasma'], 'two plasma ponies breed true');
   assert.deepStrictEqual(r.poss, ['plasma']); assert.strictEqual(r.possNone, 0);
 });
