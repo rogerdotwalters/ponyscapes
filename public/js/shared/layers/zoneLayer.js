@@ -29,25 +29,27 @@ class ZoneLayer {
     const rollR = d => (Array.isArray(d.radius) ? d.radius[0] + (d.radius[1] - d.radius[0]) * hash3(seed, d.index, 1, 31) : d.radius);
     const roots = defs.filter(d => !d.parent);
     if (roots.length !== 1) throw new Error('zones need exactly one root (a zone with no parent)');
-    const free = (x, y, r, except) => nodes.every(n => n === except || Math.hypot(n.x - x, n.y - y) >= (n.r + r) * 1.06);   // (only related zones may overlap)
+    const free = (x, y, r, except, gap = 1.06) => nodes.every(n => n === except || Math.hypot(n.x - x, n.y - y) >= (n.r + r) * gap);   // (only related zones may overlap)
     const place = (def, parent, x, y, angle) => { const n = { def, x, y, r: rollR(def), parent, angle }; nodes[def.index] = n; return n; };
     const grow = node => {
       const kids = defs.filter(d => d.parent === node.def.id).sort((a, b) => a.index - b.index);
-      kids.forEach((kid, i) => {
-        const r = rollR(kid), span = node.parent ? Math.min(2.4, 0.95 * kids.length) : Math.PI * 2;
+      const sized = kids.map(kid => ({ kid, r: rollR(kid) })).sort((a, b) => b.r - a.r || a.kid.index - b.kid.index), placed = [];    // (the biggest first: they are the hardest to fit)
+      sized.forEach(({ kid, r }, i) => {
+        const span = node.parent ? Math.min(2.4, 0.95 * kids.length) : Math.PI * 2;
         const mid = node.parent ? node.angle : hash3(seed, node.def.index, 2, 32) * Math.PI * 2;                             // the root: all the way round, from a random start
         const slot = node.parent ? mid - span / 2 + span * (i + 0.5) / kids.length : mid + Math.PI * 2 * (i + 0.5) / kids.length, wiggle = (node.parent ? span : Math.PI * 2) / kids.length;
-        let best = null;
-        for (let attempt = 0; attempt < 80 && !best; attempt++) {
-          const a = slot + (hash3(seed, kid.index, attempt, 33) - 0.5) * wiggle * Math.min(1, 0.35 + attempt / 40);
-          const d = (node.r + r) * K, x = node.x + Math.cos(a) * d, y = node.y + Math.sin(a) * d;
-          if (free(x, y, r, node)) best = { x, y, a };
+        let best = null;                                                                                                  // the first free spot, looking outward from the slot: a little to one side, then the other, wider and wider, right round the zone
+        for (let pass = 0; pass < 5 && !best; pass++) for (let attempt = 0; attempt < 72 && !best; attempt++) {
+          const swing = Math.ceil(attempt / 2) * 0.09 * (attempt % 2 ? 1 : -1), a = slot + swing + (hash3(seed, kid.index, attempt + pass * 100, 33) - 0.5) * 0.12;
+          const d = (node.r + r) * (K + 0.015 * pass), x = node.x + Math.cos(a) * d, y = node.y + Math.sin(a) * d;
+          if (free(x, y, r, node, 1.06 - 0.02 * pass)) best = { x, y, a };                                                // (a crowded parent: later passes sit a little farther out and a little closer to their siblings)
         }
         if (!best) { const a = slot, d = (node.r + r) * K; best = { x: node.x + Math.cos(a) * d, y: node.y + Math.sin(a) * d, a }; }     // (nowhere clear: take the slot anyway)
         const child = place(kid, node, best.x, best.y, best.a);
         child.r = r;
-        grow(child);
+        placed.push(child);
       });
+      placed.forEach(grow);                                                                                               // (all of a zone's children are down before any of theirs, so nobody's children land on a sibling's spot)
     };
     grow(place(roots[0], null, o.x, o.y, 0));
     this.nodes = nodes;

@@ -120,6 +120,8 @@ class World {
     if (b === 255) { const tile = chunk.tiles[li]; b = isWaterTile(tile) ? 0 : BiomeIndex[this.terrain.biomeAt(tx, ty, tile)]; chunk.biomes[li] = b; }
     return BiomeIds[b];
   }
+  /** The biome of the zone a WATER tile lies in (biome() says 'meadow' for all water, so fishing and the like never change): what colours a lake or the sea. */
+  waterBiome(tx, ty) { return this.terrain.layers.biomes.at(tx, ty); }
   objAt(tx, ty) { return this.chunkOfTile(tx, ty).obj[((ty & CHUNK_MASK) << CHUNK_SHIFT) | (tx & CHUNK_MASK)]; }
   /** The layers this world is made of (rings, biomes, zones, dungeons). */
   get layers() { return this.terrain.layers; }
@@ -190,7 +192,7 @@ function generateChunk(world, cx, cy) {
     };
     const species = T.treeSpeciesAt ? T.treeSpeciesAt(tx, ty) : null, kind = species && TreeSpecies.get(species);
     if (kind) {                                                                                  // the biome's plant list says which tree (odd variants are pines, even ones leafy)
-      tree.sp = species; tree.v = 2 * Math.floor(hash3(T.seed, tx, ty, 4) * 4) + (kind.look === 'pine' ? 1 : 0);
+      tree.sp = species; tree.v = 2 * Math.floor(hash3(T.seed, tx, ty, 4) * 4) + (kind.look === 'pine' ? 1 : 0); if (kind.scale) tree.r *= kind.scale;      // (a giant stands bigger)
       if (kind.fruit) Object.assign(tree, { forage: 'apple_tree', drop: T.appleKindAt(tx, ty), ripe: true });
     } else if (T.appleTreeAt(tx, ty)) Object.assign(tree, { forage: 'apple_tree', drop: T.appleKindAt ? T.appleKindAt(tx, ty) : 'apple', ripe: true });   // fruit you can pick (the biome's kinds of apple); the tree can still be chopped
     addChunkProp(chunk, li, withSavedState(world, tx, ty, tree));

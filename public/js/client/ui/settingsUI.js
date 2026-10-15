@@ -223,8 +223,12 @@ class SettingsUI {
     const el = document.createElement('div'), rooms = Dungeons.all()[0] ? Dungeons.all()[0].rooms : []; el.className = 'admBox';
     el.innerHTML = '<div class="gtitle">Teleport <small>(testing: moves you, and the pony with you)</small></div><div class="admRow" style="flex-wrap:wrap;gap:6px">' +
       '<button data-tp="village" tabindex="-1">Village</button><button data-tp="cave" tabindex="-1">Cave mouth</button>' +
-      rooms.map((r, i) => `<button data-tp="room:${i}" tabindex="-1">Dungeon room ${i + 1}</button>`).join('') + '</div>';
-    el.addEventListener('click', e => { const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp); });
+      rooms.map((r, i) => `<button data-tp="room:${i}" tabindex="-1">Dungeon room ${i + 1}</button>`).join('') + '</div>' +
+      '<div class="gtitle" style="margin-top:8px">Zones <small>(go to the middle of a zone; the lock opens or shuts its gateway, whatever its guardian rule says)</small></div><div class="admRow" style="flex-wrap:wrap;gap:6px">' +
+      Zones.all().map(z => `<button data-tp="zone:${z.id}" tabindex="-1">${z.name.replace(/^The /, '')}</button>` + (z.parent ? `<button data-gate="${z.index}" tabindex="-1" title="open / shut the gateway into ${z.name}">\u{1F512}</button>` : '')).join('') + '</div>';
+    el.addEventListener('click', e => {
+      const g = e.target.closest('button[data-gate]'); if (g) { const zone = Number(g.dataset.gate); this.game.debugGate(zone, !this.game.worldMap.layers.rings.isUnlocked(zone)); return; }          // (the gate flips; the server tells everyone)
+      const b = e.target.closest('button[data-tp]'); if (b) this.game.debugTeleport(b.dataset.tp); });
     this.body.appendChild(el);
   }
 

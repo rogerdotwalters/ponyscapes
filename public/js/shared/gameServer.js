@@ -272,6 +272,7 @@ class GameServer {
         }
         break;   // the Admin page: speed, day split, time (sent to everyone)
       case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
+      case 'debugGate': if (id === this.hostId && Number.isInteger(cmd.zone)) { this.worldProgress.setGate(cmd.zone, !!cmd.open); this._notice(id, `${(this.map.layers.zones.def(cmd.zone) || {}).name || 'Zone'}: gateway ${cmd.open ? 'open' : 'shut'}`); } break;       // the host's gateway switch (Dev settings)
       case 'clearPonies': if (id === this.hostId) this._devClearPonies(); break;                                                              // the host's "clear all ponies" button (Dev settings)
       case 'spawnPony': if (id === this.hostId) this._devSpawnPonies(cmd.kind, cmd.count, cmd.variety); break;                                // the host's pony spawner (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)

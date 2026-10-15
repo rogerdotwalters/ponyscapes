@@ -45,16 +45,28 @@ Players can still point at any relay from the lobby ("Relay address") or with `?
 ## The world
 
 The map is a **tree of zones** (`public/js/data/zones/`, one small file each; `layers/zoneLayer.js` lays them out). The root, **The Meadows**, holds the village. Sub zones branch
-off it (now: the Orchard, the Mushroom Kingdom, and the Forest, the next zone on), and a sub zone can have sub zones of its own. A zone's children are placed at random angles
-round it, from the world seed.
+off it, and a sub zone can have sub zones of its own. A zone's children are placed at random angles round it, from the world seed:
+
+```
+The Meadows ─┬─ The Orchard            (oak + apple trees)
+             ├─ The Mushroom Kingdom   (ash trees, mushrooms)
+             └─ The Forest  (gateway shut) ─┬─ The Candy Lands   (syrup lakes, candy trees)
+                                            ├─ The Waterlands    (lakes, shallows, a WATER PARK)
+                                            ├─ The Giant Forest  (few trees, huge ones)
+                                            └─ The Jungle  (gateway shut) ─┬─ The Crystal Hollow
+                                                                           ├─ The Lava Fields (molten lakes)
+                                                                           └─ The Rainbow Skies (gateway shut; clouds)
+```
 
 * every zone has **one biome**, is walled in by **cliffs of that biome's colours**, and joins its parent through a **gateway** in the wall
 * the whole map floats in open sea, behind an **invisible barrier** (boats and flying ponies cannot leave)
 * a gateway can be **shut**: `locked: true` in the zone's data, opened by a guardian (`unlockedBy`) or by hand with `worldProgress.setGate(zoneIndex, true | false)`. A shut gate is a solid, shimmering barrier for now (visuals for story beats come later)
 * the Cave Bear's lair is the last layer of the Old Cavern, in the Meadows' hills
-* **plants**: each biome has a plant list (`public/js/data/flora/`, one file per biome): which trees, berry bushes and mushrooms grow there. Meadow: apple trees and some pine, raspberries. Orchard: oak and apple trees (many kinds of apple), no pine. Forest: hard pine and spruce, blackberries. Mushroom Kingdom: ash trees and five kinds of mushroom. Tree species (look, growing days, seasons, colour wash and how they **spread**) are in `data/trees/trees.js`. Once a day a tree near a player may seed a sapling of its own kind beside it (`shared/floraSystem.js`): only species its biome lists, only in a season it takes in, never on walls, gateways, paths or fields, never crowded, a dozen a day at most
+* **plants**: each biome has a plant list (`public/js/data/flora/`, one file per biome): which trees, berry bushes and mushrooms grow there. Meadow: apple trees and some pine, raspberries. Orchard: oak and apple trees (many kinds of apple), no pine. Forest: hard pine and spruce, blackberries. Mushroom Kingdom: ash trees and five kinds of mushroom. Candy Lands: gumdrop trees and candy cane pines. Waterlands: a few willows. Giant Forest: redwoods and great oaks (a species can have a `scale` and a `logs` multiplier: giants stand bigger and drop more). Jungle: mahogany and strangler figs. Crystal Hollow, Lava Fields and Rainbow Skies each have their own washed-colour trees. Tree species (look, growing days, seasons, colour wash and how they **spread**) are in `data/trees/trees.js`. Once a day a tree near a player may seed a sapling of its own kind beside it (`shared/floraSystem.js`): only species its biome lists, only in a season it takes in, never on walls, gateways, paths or fields, never crowded, a dozen a day at most
 
 **Going down in a dungeon** (`shared/downed.js`, rules in `CONFIG.sim.difficulty`): at 0 health inside a dungeon room or lair you drop to your knees and the view darkens instead of waking in the village. After 7 seconds you get up with half health; snacks (Use with food in hand) shorten the wait and add health, and a teammate pressing Interact beside you lifts you at once. There are easy / medium / hard modes (host: Settings > Difficulty); only easy is written, so all three use its rules for now. Check it with `npm run test:downed`.
+
+In Dev settings (the host) you can **teleport to any zone** and flip any gateway open or shut with its lock button; the Jungle and the Rainbow Skies stay shut until their guardians exist (`unlockedBy`).
 
 To see what the generator makes, open **`/map-preview.html`**: a Regenerate button (new random seed), a seed box, Previous, an auto-regenerate timer and an "open all gateways" switch. `?seed=123` opens one seed. It uses the game's own world code and never touches saved worlds.
 

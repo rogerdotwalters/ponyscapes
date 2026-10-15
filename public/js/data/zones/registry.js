@@ -7,6 +7,7 @@
  *   biome      the zone's biome id (js/data/biomes/)      radius   tiles; a number, or [min, max] to roll it from the seed
  *   parent     id of the zone it branches off (leave out for the one root zone, which holds the village). A zone with 3 children has them placed round it at random.
  *   locked     true: its gateway starts shut (a barrier you cannot pass) until it is opened      unlockedBy   id of the zone whose guardian opens it when beaten
+ *   setpiece   (optional) the id of a hand-made set piece placed once in the zone (a CLIFF_STAMPS entry with `zone`: layers/caveSites.js)
  *   fauna      which tier of creatures lives here (the creatures' `ring`; default: the zone's own index)
  *   levelMin / levelMax   the level band of the wild things (rising from the middle out)       boss   the guardian of the zone's dungeon lair (optional)
  * (The old five-ring world is kept in legacy/ring-world/.) */

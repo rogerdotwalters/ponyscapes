@@ -86,19 +86,46 @@
 <script src="js/data/biomes/beach.js"></script>
 <script src="js/data/biomes/clay.js"></script>
 <script src="js/data/biomes/mushroom.js"></script>
+<script src="js/data/biomes/giant_forest.js"></script>
+<script src="js/data/biomes/water.js"></script>
+<script src="js/data/flora/registry.js"></script>
+<script src="js/data/flora/normal.js"></script>
+<script src="js/data/flora/apple.js"></script>
+<script src="js/data/flora/forest.js"></script>
+<script src="js/data/flora/mushroom.js"></script>
+<script src="js/data/flora/candy.js"></script>
+<script src="js/data/flora/water.js"></script>
+<script src="js/data/flora/giant_forest.js"></script>
+<script src="js/data/flora/jungle.js"></script>
+<script src="js/data/flora/crystal.js"></script>
+<script src="js/data/flora/fire.js"></script>
+<script src="js/data/flora/rainbow.js"></script>
 <script src="js/data/friendship/levels.js"></script>
 <script src="js/data/zones/registry.js"></script>
 <script src="js/data/zones/zone1.js"></script>
 <script src="js/data/zones/forest.js"></script>
 <script src="js/data/zones/orchard.js"></script>
 <script src="js/data/zones/mushroom.js"></script>
+<script src="js/data/zones/candy.js"></script>
+<script src="js/data/zones/water.js"></script>
+<script src="js/data/zones/giant_forest.js"></script>
+<script src="js/data/zones/jungle.js"></script>
+<script src="js/data/zones/crystal.js"></script>
+<script src="js/data/zones/lava.js"></script>
+<script src="js/data/zones/rainbow.js"></script>
 <script src="js/data/dungeons/registry.js"></script>
 <script src="js/data/dungeons/cavern.js"></script>
+<script src="js/data/dungeons/slime_warren.js"></script>
+<script src="js/data/dungeons/castle_crypt.js"></script>
 <script src="js/data/ponies/registry.js"></script>
 <script src="js/data/ponies/variants.js"></script>
 <script src="js/data/ponies/abilities.js"></script>
 <script src="js/data/ponies/genes.js"></script>
 <script src="js/data/ponies/kinds.js"></script>
+<script src="js/data/ponies/skills.js"></script>
+<script src="js/data/ponies/skyPonies.js"></script>
+<script src="js/data/ponies/hybrids.js"></script>
+<script src="js/data/items/ponyCoins.js"></script>
 <script src="js/data/creatures/registry.js"></script>
 <script src="js/data/creatures/rabbit.js"></script>
 <script src="js/data/creatures/deer.js"></script>
@@ -150,7 +177,9 @@
 <script src="js/data/buildings/carpenter.js"></script>
 <script src="js/data/buildings/veterinary.js"></script>
 <script src="js/data/buildings/general_store.js"></script>
+<script src="js/data/buildings/blacksmith.js"></script>
 <script src="js/data/buildings/player_home.js"></script>
+<script src="js/data/buildings/pony_stable.js"></script>
 <script src="js/data/buildings/storehouse.js"></script>
 <script src="js/data/buildings/vacant_home.js"></script>
 <script src="js/data/buildings/npc_homes.js"></script>
@@ -161,11 +190,15 @@
 <script src="js/content/castleRooms.js"></script>
 <script src="js/data/buildings/castle.js"></script>
 <script src="js/shared/itemDefs.js"></script>
+<script src="js/content/lootTables.js"></script>
 <script src="js/shared/recipeDefs.js"></script>
 <script src="js/shared/resourceDefs.js"></script>
 <script src="js/shared/ponyDefs.js"></script>
 <script src="js/shared/ponyGenes.js"></script>
+<script src="js/shared/ponyPedigree.js"></script>
+<script src="js/shared/colorBreeding.js"></script>
 <script src="js/shared/animalDefs.js"></script>
+<script src="js/shared/lootTables.js"></script>
 <script src="js/shared/animalLevels.js"></script>
 <script src="js/shared/enemyCodes.js"></script>
 <script src="js/shared/ponyProgress.js"></script>
@@ -176,6 +209,8 @@
 <script src="js/shared/npcSystem.js"></script>
 <script src="js/shared/friendshipSystem.js"></script>
 <script src="js/shared/ponyAbilities.js"></script>
+<script src="js/shared/ponySkills.js"></script>
+<script src="js/shared/coins.js"></script>
 <script src="js/shared/inventory.js"></script>
 <script src="js/shared/layers/buildingSites.js"></script>
 <script src="js/shared/layers/interiorSpace.js"></script>
@@ -189,6 +224,7 @@
 <script src="js/shared/terrainGenerator.js"></script>
 <script src="js/shared/world.js"></script>
 <script src="js/shared/grids.js"></script>
+<script src="js/shared/slimeRooms.js"></script>
 <script src="js/shared/collision.js"></script>
 <script src="js/shared/boat.js"></script>
 <script src="js/shared/buildSystem.js"></script>
@@ -209,6 +245,8 @@
 <script src="js/shared/behaviors/nocturnal.js"></script>
 <script src="js/shared/behaviors/predator.js"></script>
 <script src="js/shared/behaviors/territorial.js"></script>
+<script src="js/shared/behaviors/slimeking.js"></script>
+<script src="js/shared/behaviors/slimeleap.js"></script>
 <script src="js/shared/animalSystem.js"></script>
 <script src="js/shared/craftingSystem.js"></script>
 <script src="js/shared/toolHandlers.js"></script>
@@ -220,20 +258,32 @@
 <script src="js/shared/interiorSystem.js"></script>
 <script src="js/shared/sleepSystem.js"></script>
 <script src="js/shared/downed.js"></script>
+<script src="js/shared/devLock.js"></script>
+<script src="js/shared/botSystem.js"></script>
+<script src="js/shared/castleSlimes.js"></script>
 <script src="js/shared/wildPonies.js"></script>
 <script src="js/shared/nightEvents.js"></script>
+<script src="js/shared/skyEvents.js"></script>
+<script src="js/shared/hybrids.js"></script>
 <script src="js/shared/wantSystem.js"></script>
 <script src="js/shared/puzzles.js"></script>
 <script src="js/shared/questSystem.js"></script>
+<script src="js/shared/waypoints.js"></script>
 <script src="js/shared/gameServer.js"></script>
 <script src="js/shared/serverOwned.js"></script>
 <script src="js/shared/tapActions.js"></script>
 <script src="js/shared/packSystem.js"></script>
 <script src="js/shared/shopSystem.js"></script>
+<script src="js/shared/appleSystem.js"></script>
 <script src="js/shared/homeCrafts.js"></script>
+<script src="js/shared/ponyPoster.js"></script>
+<script src="js/shared/stableSystem.js"></script>
+<script src="js/shared/ponyCare.js"></script>
+<script src="js/shared/ponyTrade.js"></script>
 <script src="js/shared/farming.js"></script>
 <script src="js/shared/weather.js"></script>
 <script src="js/shared/groves.js"></script>
+<script src="js/shared/floraSystem.js"></script>
 <script src="js/shared/hedges.js"></script>
 <script src="js/shared/grass.js"></script>
 <script src="js/shared/snapshotBuilder.js"></script>
@@ -282,6 +332,7 @@ function marks(T, Z, R, o, S) {                                              // 
   for (const n of Z.layout()) { const [px, py] = at(n.x, n.y + (n.def.index ? 0 : 55)); ctx.fillStyle = '#000a'; ctx.fillText(n.def.name, px + 1, py + 1); ctx.fillStyle = '#fff'; ctx.fillText(n.def.name, px, py); }
   dot(o.x, o.y, '#ffe9a8');
   for (const c of T.caveSites.caves()) dot(c.x, c.y, '#ff6a3d');
+  for (const p of T.caveSites.list().filter(q => q.id === 'water_park')) dot(p.x0 + p.w / 2, p.y0 + p.h / 2, '#ffffff');      // the water park
 }
 function describe(T, Z, seed) {
   const lines = ['Seed ' + seed, ''];
@@ -304,7 +355,7 @@ $('auto').onchange = tick; $('secs').onchange = tick;
 const key = $('key');
 for (const [n, c] of [['Sea / deep water', COLORS.water], ['Shallows', COLORS.shallow], ['Beach', COLORS.sand], ['Rock', COLORS.stone], ['Cliff wall', COLORS.wall], ['Open gateway', COLORS.gateOpen], ['Shut gateway', COLORS.gateShut], ['Beyond the map (invisible barrier)', COLORS.far]]) key.insertAdjacentHTML('beforeend', `<div class="key"><span class="sw" style="background:rgb(${c})"></span>${n}</div>`);
 for (const z of Zones.all()) { const b = Biomes.get(z.biome); key.insertAdjacentHTML('beforeend', `<div class="key"><span class="sw" style="background:${b.mapColor}"></span>${z.name} (${b.name})</div>`); }
-key.insertAdjacentHTML('beforeend', '<div class="key"><span class="sw" style="background:#ffe9a8"></span>Village</div><div class="key"><span class="sw" style="background:#ff6a3d"></span>Cave mouth</div>');
+key.insertAdjacentHTML('beforeend', '<div class="key"><span class="sw" style="background:#ffe9a8"></span>Village</div><div class="key"><span class="sw" style="background:#ff6a3d"></span>Cave mouth</div><div class="key"><span class="sw" style="background:#fff"></span>Water park</div>');
 const fromUrl = new URLSearchParams(location.search).get('seed');
 show(fromUrl !== null && fromUrl !== '' ? +fromUrl : randomSeed(), false);
 </script>

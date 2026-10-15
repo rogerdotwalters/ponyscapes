@@ -29,3 +29,18 @@ BiomeEffects.register({ id: 'rainbow', above: 0.7,                              
 BiomeEffects.register({ id: 'fireflies', above: 0.7, detail(ctx, x, y, noise, tx, ty, t) {
   const fl = Math.sin(t * 2.2 + tx * 1.3 + ty * 2.9); if (fl < 0.2) return; _glow(ctx, x + Math.sin(t + tx) * 4, y - 3 + Math.cos(t * 1.3 + ty) * 3, 1.6, `rgba(220,255,120,${(0.3 + 0.6 * fl).toFixed(2)})`);
 } });
+
+/* The Waterlands: little droplets and ripple rings on the wet ground. */
+BiomeEffects.register({ id: 'ripples', above: 0.62, detail(ctx, x, y, noise, tx, ty, t) {
+  const ph = (((t * 0.6 + tx * 0.37 + ty * 0.53) % 1) + 1) % 1, r = 1.5 + ph * 5; ctx.strokeStyle = `rgba(235,250,255,${(0.6 * (1 - ph)).toFixed(2)})`; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(x, y, r * 1.6, r * 0.8, 0, 0, Math.PI * 2); ctx.stroke();
+} });
+/* The Rainbow Skies: the ground is cloud, washed in drifting rainbow colours, with soft white clouds puffed up here and there. */
+BiomeEffects.register({ id: 'rainbowclouds', above: 0.55,
+  tint(ctx, tx, ty, t) { ctx.fillStyle = `hsla(${(tx * 9 + ty * 6 + t * 10) % 360},80%,72%,0.16)`; ctx.fill(); },
+  detail(ctx, x, y, noise, tx, ty, t) {
+    const drift = Math.sin(t * 0.4 + tx * 0.8 + ty * 0.5) * 2.2, s = 0.8 + noise * 0.7, cx = x + drift, cy = y - 3 * DETAIL;
+    ctx.fillStyle = 'rgba(120,140,190,.22)'; ctx.beginPath(); ctx.ellipse(cx, cy + 5 * s, 11 * s, 3.2 * s, 0, 0, Math.PI * 2); ctx.fill();                      // its soft shadow
+    for (const [dx, dy, r] of [[-6, 1, 4.6], [0, -2, 6], [6, 1, 4.8], [2, 2, 5]]) _glow(ctx, cx + dx * s, cy + dy * s, r * s, 'rgba(255,255,255,.93)');
+    for (const [dx, dy, r] of [[-5, 3, 3], [3, 4, 3.4]]) _glow(ctx, cx + dx * s, cy + dy * s, r * s, 'rgba(226,232,250,.8)');                                     // the shaded underside
+  } });

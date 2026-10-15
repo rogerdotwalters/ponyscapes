@@ -118,11 +118,25 @@ class DungeonSystem {
     s._notice(id, `${def.name}: room ${next + 1} of ${def.rooms.length}${def.lair !== undefined ? ' (and the lair)' : ''}`);
   }
 
-  /** Testing aid (the host, Dev settings): 'village', 'cave' (the first dungeon's mouth) or 'room:<n>' (inside its room n, as if you had walked in); 'warren' and 'warren:<n>' are the
+  /** Testing aid (the host, Dev settings): 'zone:<id>' (the middle of a zone), 'village', 'cave' (the first dungeon's mouth) or 'room:<n>' (inside its room n, as if you had walked in); 'warren' and 'warren:<n>' are the
    *  same for the Slime Warren (the second dungeon), whether or not the rubble has been cleared. */
   debugTeleport(id, p, to) {
     const s = this.server, caves = s.map.terrain.caveSites.caves(), mouth = caves[0], room = /^room:(\d{1,2})$/.exec(to), warren = /^warren(?::(\d{1,2}))?$/.exec(to), crypt = /^crypt(?::(\d{1,2}))?$/.exec(to);
     if (p.flying) { p.flying = false; p.flyT = 0; }
+    const zoneTo = /^zone:([a-z_]+)$/.exec(to);
+    if (zoneTo) {                                                                                             // the middle of a zone, on the nearest open ground
+      const z = Zones.all().find(q => q.id === zoneTo[1]);
+      if (!z) { s._notice(id, 'No such zone'); return; }
+      const c = s.map.layers.zones.centreOf(z.index), Zl = s.map.layers.zones;
+      for (let r = 0; r <= c.r * 0.7; r += 3) for (let k = 0; k < Math.max(1, Math.round(r / 2)); k++) {
+        const a = k / Math.max(1, Math.round(r / 2)) * Math.PI * 2, x = c.x + Math.cos(a) * r, y = c.y + Math.sin(a) * r, tx = Math.floor(x), ty = Math.floor(y);
+        if (Zl.at(tx, ty).index !== z.index || Zl.kindAt(tx, ty) !== ZONE_KIND.LAND) continue;
+        s.map.ensureAround(x, y, 1);
+        if (s.map.tile(tx, ty) !== TILE.GRASS || s.map.navBlocked(tx, ty)) continue;
+        s._moveToGrid(id, p, '', tx + 0.5, ty + 0.5); p.returnTo = null; s._notice(id, 'Teleported to ' + z.name); return;
+      }
+      s._notice(id, 'No open ground found'); return;
+    }
     if (to === 'village') { const at = Village.spawns[0]; s._moveToGrid(id, p, '', at.x, at.y); p.returnTo = null; }
     else if (to === 'cave' && mouth) { s._moveToGrid(id, p, '', mouth.x, mouth.y + 1.6); p.returnTo = null; }
     else if (crypt) {                                                                                         // the Slime Cellars, as if you had come down the castle's trapdoor

@@ -33,7 +33,7 @@ class TreeHarvestHandler {
     const p = this.getPlayer(id), side = (tree.x - tree.y) - (p.x - p.y) >= 0 ? 1 : -1;            // (screen x runs along x - y)
     this.emit({ type: 'fell', key, x: tree.x, y: tree.y, by: id, side });
     const bonus = this.rng() < Skills.bonusYieldChance(p.lv, 'woodcutting') + luckChance(p) ? 1 : 0;     // a sharper (or luckier) woodcutter gets more logs
-    const count = this.trees.rollLogCount() + bonus, ux = side / Math.SQRT2, uy = -side / Math.SQRT2;   // along the fall, on the ground
+    const count = (this.trees.rollLogCount() + bonus) * ((TreeSpecies.get(TreeSpecies.of(tree)) || {}).logs || 1), ux = side / Math.SQRT2, uy = -side / Math.SQRT2;   // along the fall, on the ground
     this.later(TreeDef.fallSeconds, () => {
       for (let i = 0; i < count; i++) {
         const d = 0.75 + i * 0.7, j = i % 2 ? 0.2 : -0.2;

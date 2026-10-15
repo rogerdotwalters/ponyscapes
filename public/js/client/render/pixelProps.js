@@ -70,8 +70,8 @@ const PixelProps = (() => {
 
   /** The trunk and crown canvases for one look. */
   /** fruit: the colour of the apples among its leaves, or null. */
-  function treeArt(variant, tint, fruit, wash) {
-    const pine = variant % 2 === 1, m = 0.95 + (variant % 5) * 0.05, key = `${pine ? 'p' : 'l'}|${m}|${tint || ''}|${fruit || ''}|${wash || ''}`;
+  function treeArt(variant, tint, fruit, wash, scale) {
+    const pine = variant % 2 === 1, m = (0.95 + (variant % 5) * 0.05) * (scale || 1), key = `${pine ? 'p' : 'l'}|${m}|${tint || ''}|${fruit || ''}|${wash || ''}`;
     if (cache.has(key)) return cache.get(key);
     const cw = Math.ceil(W * m), ch = Math.ceil(H * m), bark = BARK.map(c => tint && tint.includes('235,246,255') ? mix(c, '#dfe8ef', 0.35) : c);   // (snowy bark is a little frosted)
     const pal = (pine ? NEEDLE : LEAF).map(c => tinted(tinted(c, wash), tint));                 // (the species' own wash first, then the season's / biome's)
@@ -113,8 +113,8 @@ const PixelProps = (() => {
   }
 
   /** A standing tree at (sx, sy); the crown sways by shakeX (when chopped). fruit: an apple tree's forage state (apples while ripe). */
-  function drawTree(ctx, sx, sy, variant, shakeX, fruit, biome, tint, wash) {
-    const art = treeArt(variant, tint, fruit && fruit.ripe ? (ItemDefs[fruit.drop] && ItemDefs[fruit.drop].color) || '#d9382b' : null, wash), u = PX, left = sx - AX * art.m * u, top = sy - GROUND * art.m * u;
+  function drawTree(ctx, sx, sy, variant, shakeX, fruit, biome, tint, wash, scale) {
+    const art = treeArt(variant, tint, fruit && fruit.ripe ? (ItemDefs[fruit.drop] && ItemDefs[fruit.drop].color) || '#d9382b' : null, wash, scale), u = PX, left = sx - AX * art.m * u, top = sy - GROUND * art.m * u;
     ctx.fillStyle = 'rgba(0,0,0,.26)'; ctx.beginPath(); ctx.ellipse(sx + 5, sy + 3, 26 * art.m, 11 * art.m, 0, 0, Math.PI * 2); ctx.fill();
     ctx.save(); ctx.imageSmoothingEnabled = false;
     ctx.drawImage(art.trunk, left, top, art.w * u, art.h * u);
@@ -142,8 +142,8 @@ const PixelProps = (() => {
   }
 
   /** A felled tree toppling: rotated about its foot by `angle` (radians, + to the right), fading out by `alpha` as it breaks into logs. */
-  function drawFalling(ctx, sx, sy, variant, angle, alpha, tint, wash) {
-    const art = treeArt(variant, tint, null, wash), u = PX;
+  function drawFalling(ctx, sx, sy, variant, angle, alpha, tint, wash, scale) {
+    const art = treeArt(variant, tint, null, wash, scale), u = PX;
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alpha;
     ctx.translate(sx, sy - 2); ctx.rotate(angle);
     const left = -AX * art.m * u, top = -GROUND * art.m * u;
