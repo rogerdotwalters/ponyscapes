@@ -28,8 +28,8 @@ function setupFullscreenButton(button) {
 }
 
 function collectLayoutDom(game) {
-  const dom = { coinPanel: $('coinPanel'), controlsPanel: $('controlsPanel'), controlsBody: $('controlsBody'), dialoguePanel: $('dialoguePanel'), puzzlePanel: $('puzzlePanel'), stablePanel: $('stablePanel'), stableBody: $('stableBody'), isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnApple: $('btnApple'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), posterPanel: $('posterPanel'), posterBody: $('posterBody'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), energy: $('energyBar'), clock: $('clock'), season: $('seasonBar') };
-  ['btnMenu', 'btnCoins', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
+  const dom = { coinPanel: $('coinPanel'), ponyBagPanel: $('ponyBagPanel'), controlsPanel: $('controlsPanel'), controlsBody: $('controlsBody'), dialoguePanel: $('dialoguePanel'), puzzlePanel: $('puzzlePanel'), stablePanel: $('stablePanel'), stableBody: $('stableBody'), isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnApple: $('btnApple'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), posterPanel: $('posterPanel'), posterBody: $('posterBody'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), energy: $('energyBar'), clock: $('clock'), season: $('seasonBar') };
+  ['btnMenu', 'btnCoins', 'btnPonyCoins', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
 
@@ -89,7 +89,8 @@ function launch(choice, query) {
     const thirstBar = new VitalBar({ root: $('thirstBar'), fill: $('thirstFill'), label: $('thirstLabel'), config: CONFIG.sim.thirst, words: { ok: 'Hydrated', low: 'Thirsty', empty: 'Dehydrated!' } });
     const clockUI = new ClockUI({ root: $('seasonBar').querySelector('.sbClock') }), seasonUI = new SeasonUI({ root: $('seasonBar') });
     const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), body: $('invBody'), closeButton: $('invClose'), game, actions: { label: $('invPicked'), use: $('invUse'), drop1: $('invDrop1'), dropAll: $('invDropAll'), destroy: $('invDestroy') } });
-    const coinBagUI = new CoinBagUI({ panel: $('coinPanel'), canvas: $('coinCanvas'), count: $('coinCount'), breakdown: $('coinBreakdown'), mergeButton: $('coinMerge'), game, camera: renderer.camera });
+    const coinBagUI = new CoinBagUI({ panel: $('coinPanel'), canvas: $('coinCanvas'), count: $('coinCount'), breakdown: $('coinBreakdown'), mergeButton: $('coinMerge'), game, camera: renderer.camera });          // (money)
+    const ponyBagUI = new CoinBagUI({ kind: 'pony', panel: $('ponyBagPanel'), canvas: $('ponyBagCanvas'), count: $('ponyBagCount'), breakdown: $('ponyBagBreakdown'), game, camera: renderer.camera });      // (pony coins: a bag of their own)
     const gardenUI = new GardenUI({ panel: $('gardenPanel'), canvas: $('gardenCanvas'), seedList: $('gardenSeedList'), toolBar: $('gardenTools'), pouchHost: $('gardenPouches'), title: $('gardenTitle'), hint: $('gardenHint'), closeButton: $('gardenClose'), game, requestOpen: () => panels.open('garden') });
     const craftingUI = new CraftingUI({ panel: $('craftPanel'), list: $('craftList'), closeButton: $('craftClose'), game });
     const settingsUI = new SettingsUI({ panel: $('settingsPanel'), list: $('settingsList'), closeButton: $('settingsClose'), game });
@@ -102,7 +103,7 @@ function launch(choice, query) {
     const stableUI = new StableUI({ panel: $('stablePanel'), title: $('stableTitle'), body: $('stableBody'), closeButton: $('stableClose'), game, requestOpen: () => panels.open('stable') });
     const menuUI = new MenuUI({ panel: $('menuPanel'), body: $('menuBody'), closeButton: $('menuClose'), game, onPick: section => openSection(section) });
     const ponyUI = new PonyBookUI({ panel: $('ponyPanel'), body: $('ponyBody'), closeButton: $('ponyClose'), game });
-    const posterUI = new PosterUI({ panel: $('posterPanel'), body: $('posterBody'), closeButton: $('posterClose'), game, coinBag: coinBagUI });
+    const posterUI = new PosterUI({ panel: $('posterPanel'), body: $('posterBody'), closeButton: $('posterClose'), game, coinBag: ponyBagUI });
     const townUI = new TownUI({ panel: $('townPanel'), body: $('townBody'), closeButton: $('townClose'), game });
     const shopUI = new ShopUI({ panel: $('shopPanel'), body: $('shopBody'), closeButton: $('shopClose'), game, coinBag: coinBagUI, requestOpen: () => panels.open('shop') });
     const tradeUI = new TradeUI({ panel: $('tradePanel'), body: $('tradeBody'), closeButton: $('tradeClose'), game, requestOpen: () => panels.open('trade') });
@@ -139,7 +140,7 @@ function launch(choice, query) {
     game.events.on('openCoins', () => panels.open('coins'));
     game.events.on('openPoster', () => panels.open('poster'));
     game.events.on('openWardrobe', () => panels.open('gear')); game.events.on('openChest', () => panels.open('inventory'));       // (the wardrobe and the worn chest in your home)
-    panels.register('coins', coinBagUI); panels.register('poster', posterUI); panels.register('garden', gardenUI); panels.register('inventory', inventoryUI); panels.register('crafting', craftingUI); panels.register('settings', settingsUI); panels.register('gear', gearUI); panels.register('ponies', ponyUI); panels.register('journal', journalUI); panels.register('menu', menuUI); if (sessionUI) panels.register('session', sessionUI); panels.register('confirm', confirmUI); panels.register('stable', stableUI); panels.register('map', mapUI); panels.register('trade', tradeUI); panels.register('town', townUI); panels.register('shop', shopUI); panels.register('controls', controlsUI); panels.register('dialogue', dialogueUI); panels.register('puzzle', puzzleUI);
+    panels.register('coins', coinBagUI); panels.register('ponyCoins', ponyBagUI); panels.register('poster', posterUI); panels.register('garden', gardenUI); panels.register('inventory', inventoryUI); panels.register('crafting', craftingUI); panels.register('settings', settingsUI); panels.register('gear', gearUI); panels.register('ponies', ponyUI); panels.register('journal', journalUI); panels.register('menu', menuUI); if (sessionUI) panels.register('session', sessionUI); panels.register('confirm', confirmUI); panels.register('stable', stableUI); panels.register('map', mapUI); panels.register('trade', tradeUI); panels.register('town', townUI); panels.register('shop', shopUI); panels.register('controls', controlsUI); panels.register('dialogue', dialogueUI); panels.register('puzzle', puzzleUI);
     /** The Menu: every section opens from here (and closes the menu). */
     function openSection(section) {
       if (section === 'skills') { panels.closeAll(); journalUI.openTab('skills'); return; }
@@ -188,6 +189,7 @@ function launch(choice, query) {
     $('btnMenu').addEventListener('click', () => panels.toggle('menu'));
     $('btnMap').addEventListener('click', () => panels.toggle('map'));
     $('btnCoins').addEventListener('click', () => panels.toggle('coins'));
+    $('btnPonyCoins').addEventListener('click', () => panels.toggle('ponyCoins'));
     $('btnDbg').addEventListener('click', () => debug.toggle());
     setupFullscreenButton($('btnFs'));
 
@@ -205,7 +207,7 @@ function launch(choice, query) {
     if (castleParam && adapter.server) setTimeout(() => adapter.server.interiors.setRestored('castle', castleParam === 'restored'), 200);   // ?castle=restored|ruined: see the castle as it will be once the village has restored it (testing)
     const weatherParam = new URLSearchParams(location.search).get('weather');
     if (weatherParam && adapter.server && Weather.TYPES[weatherParam]) setTimeout(() => adapter.server.weather.force(weatherParam), 300);     // ?weather=thunderstorm: start under that sky (testing)
-    window.ponyscapes = { coinBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
+    window.ponyscapes = { coinBagUI, ponyBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
 
     let stallShown = null, rideShown = null, leashShown = null, appleShown = null, lassoShown = null, attackShown = false, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
     /** The ridden pony's rarity abilities: a strip above the vitals (desktop) and the power button (touch), with cooldowns. */

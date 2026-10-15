@@ -8,6 +8,7 @@ class StableUI {
   constructor({ panel, title, body, closeButton, game, requestOpen }) {
     Object.assign(this, { panel, title, body, game, requestOpen }); this.menu = null;
     closeButton.addEventListener('click', () => this.close());
+    GeneticsView.onChange(() => { const m = this.menu; if (this.isOpen && m && !m.desk && !m.vendor) this.show(m); });                 // (the genetics switch redraws the breeding box)
   }
   get isOpen() { return !this.panel.hidden; }
   open() { this.panel.hidden = false; }
@@ -43,10 +44,10 @@ class StableUI {
     const br = menu.breed;
     if (br && (inside.length || br.busy)) {                       // breeding: exactly two of your ponies, a stallion and a mare, alone in the stall
       const pair = inside.length === 2 ? `<div class="stPair">${sexTag(inside[0])}<b>${esc(inside[0].name)}</b><i>\u2764</i><b>${esc(inside[1].name)}</b>${sexTag(inside[1])}</div>` : '';
-      html += section('Breeding') + '<div class="stBreedBox">' + pair;
+      html += section('Breeding') + '<div class="stBreedBox">' + pair + GeneticsView.pairHtml(br.pair);
       if (br.busy) html += `<p class="stHint">Breeding... ${br.pct}%</p><div class="stProg"><i style="width:${Math.max(0, Math.min(100, br.pct | 0))}%"></i></div><button class="stStop" data-act="breedStop">Stop breeding</button>`;
       else html += `<button class="stBreed${br.can ? '' : ' off'}" data-act="breed"${br.can ? '' : ' disabled'}>\u2764 Breed these two</button>` + (br.can ? '' : `<p class="stHint">${esc(br.reason)}</p>`);
-      html += '</div>';
+      html += GeneticsView.toggleHtml() + '</div>';
     }
     if (inside.length) html += section('In this stall') + inside.map(o => row(o, 'out')).join('');
     if (care) html += section('Food &amp; water') + bowlRow('Food', '\uD83C\uDF4E', 'Food', care.food) + bowlRow('Water', '\uD83D\uDCA7', 'Water', care.water) +
@@ -58,6 +59,7 @@ class StableUI {
     else if (inside.length + (menu.others || 0) >= cap) html += `<p class="stHint">${care ? 'Every pony has its own stall. Only a stallion and a mare can share one, to breed.' : `This stall is full (${cap} ponies).`}</p>`;
     else html += '<p class="stHint">To add another pony, put it on a leash (the Leash button) and come back.</p>';
     this.body.innerHTML = html;
+    this.body.querySelectorAll('.gtog').forEach(c => c.addEventListener('change', () => GeneticsView.set(c.checked)));
     this.body.querySelectorAll('button').forEach(b => b.addEventListener('click', () => this.pick(b.dataset.act, b.dataset.id, b.dataset.act === 'rename' ? this.body.querySelector('#stName').value : b.dataset.what)));
   }
   /** The stable desk (shared/ponyCare.js, ponyTrade.js): the bank for pony coins, the stable's size, the tanks and a list to send ponies away. @param {object} d the 'deskMenu' event */

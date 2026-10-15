@@ -247,12 +247,12 @@ Object.assign(GameServer.prototype, {
     if (inside.length !== 2 || inside.some(a => a.owner !== id)) return { can: false, reason: 'Breeding needs exactly two of your ponies in the stall: a stallion and a mare' };
     const [a, b] = inside, sexes = [PonyLook.sexOf(a.look), PonyLook.sexOf(b.look)].sort().join('');
     if (sexes !== 'fm') return { can: false, reason: 'It takes a stallion and a mare' };
-    const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal` };
-    const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first` };
+    const pair = this._pairView(a, b), young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal`, pair };
+    const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first`, pair };
     const mine = Object.values(this.animals.animals).filter(x => x.owner === id && AnimalDefs[x.type].pony).length;
     const cap = this._ponyCapOf(id);
-    if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: upgrade your stable at the desk` };
-    return { can: true, reason: '' };
+    if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: upgrade your stable at the desk`, pair };
+    return { can: true, reason: '', pair };
   },
   /** The Breed button (and Stop) in a stall's menu. */
   _breedPick(id, p, map, cmd) {
@@ -307,8 +307,40 @@ Object.assign(GameServer.prototype, {
     for (const x of [a, b]) x.breedRest = Stable.BREED_REST;
     if (this.players[owner]) this._remember(owner, foal);
     const info = PonyLook.sexInfo(PonyLook.sexOf(foal.look)), name = Stable.nameOf(foal);
-    if (this.players[owner]) this._notice(owner, `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name})`);
+    foal.ped = Pedigree.foalNode(() => this.rng(), a, b, name, PonyLook.sexOf(foal.look));                                // (its family tree: both parents' trees, five generations deep: shared/ponyPedigree.js)
+    const rep = Pedigree.reportOf(foal), inbred = rep.F > 1e-9 ? ` Inbreeding ${Pedigree.pct(rep.F)}%.` : '';
+    if (this.players[owner]) this._notice(owner, `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name}). Diversity ${rep.rating.grade} (${rep.rating.word}).${inbred}`);
     this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name });
+  },
+
+  /* ---------------------------------------- pedigrees: family trees, inbreeding and the diversity rating (shared/ponyPedigree.js) ---------------------------------------- */
+  /** The ratings of a mating as the stall menu shows them (numbers rounded; the client decides how much of it to show). */
+  _pairView(a, b) {
+    const r = Pedigree.pairReport(a, b, () => this.rng()), P = Pedigree.pct;
+    return { f: P(r.F), rel: P(r.R, 1), het: P(r.het, 0), score: r.rating.score, grade: r.rating.grade, word: r.rating.word, color: r.rating.color, band: r.rating.band.name, note: r.rating.band.note, depth: r.depth, tooClose: r.tooClose,
+      shared: r.shared.map(s => ({ gene: s.gene, allele: s.allele.name, color: s.allele.color, chance: P(s.chance, 0) })), common: r.common.map(c => ({ name: c.name, sex: c.sex, up: c.up })) };
+  },
+  /** A pony's family tree, genes and descendants (the Pony Book's Family tree button). */
+  _lineage(id, aid) {
+    const a = this.animals.animals[aid];
+    if (!a || a.owner !== id || !a.look || !AnimalDefs[a.type].pony) return;
+    const ped = Pedigree.ensure(a, () => this.rng()), rep = Pedigree.reportOf(a), P = Pedigree.pct, g = Pedigree.graph(ped);
+    const common = ped[Pedigree.S] && ped[Pedigree.D] ? Pedigree.commonAncestors(g, ped[Pedigree.S][0], ped[Pedigree.D][0]).map(c => ({ name: c.name, sex: c.sex, up: c.up })) : [];
+    const kids = [];
+    for (const x of Object.values(this.animals.animals)) {
+      if (x === a || x.owner !== id || !x.ped) continue;
+      const up = Pedigree.depthOfAncestor(x.ped, ped[Pedigree.U]); if (up) kids.push({ id: x.id, name: Stable.nameOf(x), sex: PonyLook.sexOf(x.look), up });
+    }
+    kids.sort((p, q) => p.up - q.up);
+    this.pendingEvents.push({ type: 'lineage', to: id, animal: aid, name: Stable.nameOf(a), sex: PonyLook.sexOf(a.look), tree: ped, kids,
+      f: P(rep.F), rel: P(Math.min(1, 2 * rep.F), 1), het: P(rep.het, 0), score: rep.rating.score, grade: rep.rating.grade, word: rep.rating.word, color: rep.rating.color, band: rep.rating.band.name, note: rep.rating.band.note, common,
+      known: rep.known, gens: rep.gens, founder: rep.founder });
+  },
+  /** The diversity of everything the player keeps (the Pony Book's herd card). */
+  _herdGenetics(id) {
+    const mine = Object.values(this.animals.animals).filter(x => x.owner === id && x.look && AnimalDefs[x.type].pony), r = Pedigree.herdReport(mine, () => this.rng()), P = Pedigree.pct;
+    this.pendingEvents.push({ type: 'herdGenetics', to: id, herd: r ? { n: r.n, mk: P(r.meanKinship), ne: Math.round(r.ne * 10) / 10, founders: r.founders, fe: Math.round(r.effectiveFounders * 10) / 10, rich: Math.round(r.richness * 10) / 10,
+      he: P(r.he, 0), ho: P(r.ho, 0), fis: P(r.fis, 0), meanF: P(r.meanF), score: r.score, grade: r.grade, word: r.word, color: r.color } : null });
   },
 
   /** Open or shut the gate of the stall at (fx, fy) (from its menu). */

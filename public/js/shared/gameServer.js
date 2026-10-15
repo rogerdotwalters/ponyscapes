@@ -280,6 +280,8 @@ class GameServer {
       case 'vendorPick': this._vendorPick(id, cmd); break;                                                    // the pony vendor's menu (ponyTrade.js)
       case 'openStall': this._openStall(id, cmd); break;                                                      // the stall button: open that stall's menu (stableSystem.js)
       case 'deskPick': this._deskPick(id, cmd); break;                                                        // a button in the stable desk's menu (ponyCare.js)
+      case 'lineage': if (typeof cmd.animal === 'string') this._lineage(id, cmd.animal); break;                  // a pony's family tree and genes (stableSystem.js)
+      case 'herdGenetics': this._herdGenetics(id); break;                                                      // the herd's diversity (stableSystem.js)
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
