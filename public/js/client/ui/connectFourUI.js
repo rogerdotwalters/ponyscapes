@@ -57,7 +57,7 @@ class ConnectFourUI {
     const tall = rows + 1.5 + 1.6;                                                                       // the room above the board (a coin falls from there), the board, the table with the stack
     const cell = side ? Math.min((vw - 300) / (cols + 0.52), (vh - 64) / tall) : Math.min((vw - 52) / (cols + 0.52), (vh - 252) / tall);
     this.cell = Math.max(26, Math.min(72, Math.floor(cell))); const c = this.cell;
-    this.pad = Math.round(c * 0.26); this.A = Math.max(2, Math.round(c / 15)); this.bx = this.pad; this.by = Math.round(c * 1.5);      // (A: screen pixels to one pixel of the pixel art)
+    this.pad = Math.round(c * 0.26); this.A = Math.max(1, c / 30); this.bx = this.pad; this.by = Math.round(c * 1.5);      // (A: screen pixels to one pixel of the pixel art: twice as fine as the world's, to match the coins)
     this.bw = c * cols; this.bh = c * rows; this.table = this.by + this.bh + this.pad;                   // (the table top, below the board)
     this.cv.width = this.bw + this.pad * 2; this.cv.height = this.table + Math.round(c * 1.6);
     this.cv.style.width = this.cv.width + 'px'; this.cv.style.height = this.cv.height + 'px';
@@ -191,20 +191,20 @@ class ConnectFourUI {
     if (this.board) return this.board;
     const N = ConnectFourUI.noise, A = this.A, cellA = this.cell / A, padA = Math.round(this.pad / A), COLS = ConnectFour.COLS, ROWS = ConnectFour.ROWS;
     return (this.board = this._pixels(this.bw + 2 * this.pad, this.bh + 2 * this.pad, (g, w, h) => {
-      const px = (x, y, ww, hh, c) => { g.fillStyle = c; g.fillRect(x, y, ww, hh); };
+      const px = (x, y, ww, hh, c) => { g.fillStyle = c; g.fillRect(x, y, ww, hh); }, K = 2;
       const OAK = ['#a8763f', '#9a6a38', '#8a5a33', '#b5834a'], INK = '#1c140e';
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {                                          // the oak frame: planks with grain
-        const row = Math.floor(y / 5), seam = y % 5 === 0, grain = N(Math.floor(x / 4), row, 7) > 0.8;
+        const row = Math.floor(y / (5 * K)), seam = y % (5 * K) === 0, grain = N(Math.floor(x / (4 * K)), row, 7) > 0.8 && y % K === 0;
         px(x, y, 1, 1, seam ? '#6d4429' : grain ? '#8a5a33' : OAK[Math.floor(N(row, 3, 1) * 4)]);
       }
       const f = Math.max(2, padA - 1);                                                                    // the painted face, inset in the frame
       for (let y = f; y < h - f; y++) for (let x = f; x < w - f; x++) {
         const cx = Math.floor((x - padA) / cellA), n = N(x, y, 5), seam = (x - padA) % Math.round(cellA * 2) === 0;
-        px(x, y, 1, 1, seam ? '#1d3f78' : n > 0.93 ? '#4a82d4' : n < 0.06 ? '#2a5496' : y < f + 2 ? '#4a82d4' : (cx + Math.floor((y - padA) / cellA)) % 2 ? '#356cb8' : '#3a72c4');
+        px(x, y, 1, 1, seam ? '#1d3f78' : n > 0.93 ? '#4a82d4' : n < 0.06 ? '#2a5496' : y < f + K ? '#4a82d4' : (cx + Math.floor((y - padA) / cellA)) % 2 ? '#356cb8' : '#3a72c4');
       }
-      px(f - 1, f - 1, w - 2 * f + 2, 1, INK); px(f - 1, h - f, w - 2 * f + 2, 1, INK); px(f - 1, f - 1, 1, h - 2 * f + 2, INK); px(w - f, f - 1, 1, h - 2 * f + 2, INK);   // an ink line round the face
-      px(0, 0, w, 1, INK); px(0, h - 1, w, 1, INK); px(0, 0, 1, h, INK); px(w - 1, 0, 1, h, INK);        // ...and round the whole board, with a lit top-left edge and a dark bottom-right one
-      px(1, 1, w - 2, 1, '#d6a263'); px(1, 1, 1, h - 2, '#d6a263'); px(1, h - 2, w - 2, 1, '#5a3a20'); px(w - 2, 1, 1, h - 2, '#5a3a20');
+      px(f - K, f - K, w - 2 * f + 2 * K, K, INK); px(f - K, h - f, w - 2 * f + 2 * K, K, INK); px(f - K, f - K, K, h - 2 * f + 2 * K, INK); px(w - f, f - K, K, h - 2 * f + 2 * K, INK);   // an ink line round the face
+      px(0, 0, w, K, INK); px(0, h - K, w, K, INK); px(0, 0, K, h, INK); px(w - K, 0, K, h, INK);        // ...and round the whole board, with a lit top-left edge and a dark bottom-right one
+      px(K, K, w - 2 * K, K, '#d6a263'); px(K, K, K, h - 2 * K, '#d6a263'); px(K, h - 2 * K, w - 2 * K, K, '#5a3a20'); px(w - 2 * K, K, K, h - 2 * K, '#5a3a20');
       g.globalCompositeOperation = 'destination-out';                                                      // the holes
       const rA = cellA * 0.4;
       for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -214,19 +214,19 @@ class ConnectFourUI {
       g.globalCompositeOperation = 'source-over';
       for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {                                      // a brass ring round each hole: lit on its upper left, shaded on its lower right
         const cx = padA + (c + 0.5) * cellA, cy = padA + (r + 0.5) * cellA;
-        for (let y = Math.floor(cy - rA - 3); y <= Math.ceil(cy + rA + 3); y++) for (let x = Math.floor(cx - rA - 3); x <= Math.ceil(cx + rA + 3); x++) {
+        for (let y = Math.floor(cy - rA - 5); y <= Math.ceil(cy + rA + 5); y++) for (let x = Math.floor(cx - rA - 5); x <= Math.ceil(cx + rA + 5); x++) {
           const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
-          if (d > rA && d <= rA + 1) px(x, y, 1, 1, x + y < cx + cy ? '#f6dc7a' : '#b98a2a');
-          else if (d > rA + 1 && d <= rA + 1.8) px(x, y, 1, 1, '#4a3314');
-          else if (d > rA - 1.2 && d <= rA) px(x, y, 1, 1, 'rgba(10,18,40,.55)');                        // the shadowed lip inside the hole
+          if (d > rA && d <= rA + 2) px(x, y, 1, 1, x + y < cx + cy ? '#f6dc7a' : '#b98a2a');
+          else if (d > rA + 2 && d <= rA + 3.4) px(x, y, 1, 1, '#4a3314');
+          else if (d > rA - 2.4 && d <= rA) px(x, y, 1, 1, 'rgba(10,18,40,.55)');                        // the shadowed lip inside the hole
         }
       }
       const plate = (x0, y0, dx, dy) => {                                                                    // iron corner plates with rivets
-        const L = Math.max(5, padA * 2), T = Math.max(3, padA - 1);
+        const L = Math.max(10, padA * 2), T = Math.max(6, padA - 2);
         for (let i = 0; i < L; i++) for (let t = 0; t < T; t++) { px(x0 + dx * i, y0 + dy * t, 1, 1, '#6d6d76'); px(x0 + dx * t, y0 + dy * i, 1, 1, '#6d6d76'); }
-        px(x0 + dx, y0 + dy, 1, 1, '#c9c9d0'); px(x0 + dx * 3, y0 + dy, 1, 1, '#c9c9d0'); px(x0 + dx, y0 + dy * 3, 1, 1, '#c9c9d0');
+        px(x0 + dx * K, y0 + dy * K, K, K, '#c9c9d0'); px(x0 + dx * 3 * K, y0 + dy * K, K, K, '#c9c9d0'); px(x0 + dx * K, y0 + dy * 3 * K, K, K, '#c9c9d0');
       };
-      plate(1, 1, 1, 1); plate(w - 2, 1, -1, 1); plate(1, h - 2, 1, -1); plate(w - 2, h - 2, -1, -1);
+      plate(K, K, 1, 1); plate(w - K - 1, K, -1, 1); plate(K, h - K - 1, 1, -1); plate(w - K - 1, h - K - 1, -1, -1);
     }));
   }
   /** The tavern wall behind the board: dark vertical planks. */
@@ -235,7 +235,7 @@ class ConnectFourUI {
     const N = ConnectFourUI.noise;
     return (this.wall = this._pixels(this.cv.width, this.table, (g, w, h) => {
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const pl = Math.floor(x / 9), seam = x % 9 === 0, n = N(x, Math.floor(y / 3), pl), knot = Math.hypot((x % 9) - 4, ((y + pl * 13) % 40) - 20) < 1.6 && N(pl, 1, 9) > 0.6;
+        const pl = Math.floor(x / 18), seam = x % 18 === 0, n = N(Math.floor(x / 2), Math.floor(y / 6), pl), knot = Math.hypot((x % 18) - 8, ((y + pl * 26) % 80) - 40) < 3.2 && N(pl, 1, 9) > 0.6;
         g.fillStyle = seam ? '#1c1208' : knot ? '#2a1a0c' : n > 0.9 ? '#52381f' : ['#43301c', '#3d2b18', '#48341f'][pl % 3];
         g.fillRect(x, y, 1, 1);
       }
@@ -247,11 +247,11 @@ class ConnectFourUI {
     const N = ConnectFourUI.noise;
     return (this.tableArt = this._pixels(this.cv.width, this.cv.height - this.table, (g, w, h) => {
       for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const row = Math.floor(y / 7), seam = y % 7 === 0, joint = (x + row * 31) % 57 === 0 && !seam, n = N(Math.floor(x / 3), row, 4);
-        g.fillStyle = y === 0 ? '#1c140e' : y === 1 ? '#e0b070' : seam || joint ? '#6d4429' : n > 0.82 ? '#a8763f' : ['#c18d50', '#b98248', '#c9965a'][row % 3];
+        const row = Math.floor(y / 14), seam = y % 14 === 0, joint = (x + row * 62) % 114 === 0 && !seam, n = N(Math.floor(x / 6), row, 4);
+        g.fillStyle = y < 2 ? '#1c140e' : y < 4 ? '#e0b070' : seam || joint ? '#6d4429' : n > 0.82 ? '#a8763f' : ['#c18d50', '#b98248', '#c9965a'][row % 3];
         g.fillRect(x, y, 1, 1);
       }
-      for (const nx of [6, w - 8]) for (let r = 0; r * 7 + 4 < h; r++) { g.fillStyle = '#3a3a42'; g.fillRect(nx, r * 7 + 3, 2, 2); g.fillStyle = '#9a9aa4'; g.fillRect(nx, r * 7 + 3, 1, 1); }   // nail heads
+      for (const nx of [12, w - 16]) for (let r = 0; r * 14 + 8 < h; r++) { g.fillStyle = '#3a3a42'; g.fillRect(nx, r * 14 + 6, 4, 4); g.fillStyle = '#9a9aa4'; g.fillRect(nx, r * 14 + 6, 2, 2); }   // nail heads
     }));
   }
   _coin(g, k, x, y, alpha, scale = 1, nocache = false) {
