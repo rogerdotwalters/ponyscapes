@@ -109,6 +109,18 @@ test('the real lasso throw (L, pointed at a sheep) ropes it through the ordinary
   assert.strictEqual(sheep(0).by, run('ids[0]'));
 });
 
+test('riding up to the gate brings your pony in, and it comes back out with you', () => {
+  fresh(1);
+  run(`(() => { const p = S.players[ids[0]], a = S._mainPonyOf(ids[0]); a.x = p.x; a.y = p.y; S._mount(ids[0], p, a); })()`);
+  assert(run(`!!S.players[ids[0]].mount`), 'mounted');
+  assert.strictEqual(run(`Interactions.find(S.map, {}, S.players[ids[0]], '', S.animals.animals, ids[0], {}, {}).kind`), 'start_roundup');
+  begin(); goLive();
+  assert.strictEqual(run(`S.animals.animals[S.players[ids[0]].mount].grid`), 'roundup:1');
+  hitAlways(); place(0, 20, 17); stand(0, 16.5, 17); assert.strictEqual(cast(0, 0), true);
+  run(`CM().t = 0.01`); secs(10);
+  assert.strictEqual(run(`S.players[ids[0]].grid`), ''); assert.strictEqual(run(`S.animals.animals[S.players[ids[0]].mount].grid`), '');
+});
+
 test('a rope that is stretched too far snaps and the sheep bolts', () => {
   fresh(2); begin(); goLive(); hitAlways();
   place(0, 20, 17); stand(0, 16, 17); cast(0, 0); assert.strictEqual(sheep(0).st, 'roped');

@@ -25,7 +25,7 @@ function segmentDistance(px, py, ax, ay, bx, by) {
 
 /** Pure (client + server): the Use key at the old fence's gate, or beside a pole in the arena. { kind, label, dist } or null. `animals` is every animal the caller knows. */
 function findRoundupInteraction(map, p, held, animals, selfId = p.id) {
-  if (p.mount || p.boat || p.asleep || p.down > 0 || p.flying) return null;
+  if (p.boat || p.asleep || p.down > 0 || p.flying) return null;                                 // (on a pony is fine: ride up to the gate to bring it along)
   if (map.kind === 'world') {
     if (p.grid || !Village.roundup) return null;
     const d = Math.hypot(p.x - Village.roundup.gate.x, p.y - Village.roundup.gate.y);
@@ -87,7 +87,6 @@ class RoundupSystem {
     this.matches.set(grid, m);
     crowd.forEach((q, i) => {
       const team = i % 2, k = Math.floor(i / 2), at = RoundupArena.start(team, k);
-      if (q.mount) s._dismount(q.id, q);
       m.people[q.id] = { id: q.id, team, k, human: true, name: q.name || 'Player', stun: 0, tied: 0, stolen: 0, cut: 0 };
       m.order.push(q.id);
       q.returnTo = { grid: '', x: gate.x, y: gate.y + 0.3 };
@@ -95,7 +94,7 @@ class RoundupSystem {
       s._moveToGrid(q.id, q, grid, at.x, at.y);
       q.facing = team ? Math.PI : 0;
     });
-    for (const a of Object.values(s.animals.animals)) if (a.grid === grid && !a.game) this._sendOut(a, gate);   // (ponies and pets that came along wait outside: a round-up is on foot)
+    for (const a of Object.values(s.animals.animals)) if (a.grid === grid && !a.game && !crowd.some(q => q.mount === a.id)) this._sendOut(a, gate);   // (pets and an unridden main pony wait outside: only the pony you ride in on comes along)
     if (crowd.length === 1) this._addRival(m);
     const count = R.sheep.base + R.sheep.extra * Math.max(0, crowd.length - 2);
     RoundupArena.sheepSpots(count, m.seed).forEach(spot => this._spawnSheep(m, spot));
