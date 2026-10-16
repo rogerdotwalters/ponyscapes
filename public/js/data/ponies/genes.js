@@ -47,4 +47,9 @@ PonyGeneTable.register({ id: 'maneShade', part: 'mane', name: 'Mane depth', kind
 /* MUTATIONS (added last): one gene whose first allele is "none". The others are the mutations of mutations.js: a DOMINANT one shows at once, a RECESSIVE one only with two copies (a carrier looks ordinary and can pass it on).
  * A few ordinary ponies carry a hidden recessive one (PonyGenes.CARRIER_ODDS) and about 1 foal in 200 gets a new one of its own (PonyGenes.MUTATION_ODDS). */
 PonyGeneTable.register({ id: 'mutation', part: 'body', name: 'Mutation', kind: 'mutation', alleles: [{ id: 'none', name: 'None', weight: 1 }].concat(PonyMutationTable.all().map(m => ({ id: m.id, name: m.name, weight: 1, dominant: m.dominant }))) });
+/* RAINBOW TRAIL (added after the mutations): how big a rainbow a pony lays behind it as it runs (client/render/rainbowTrail.js). Its colours are the pony's MANE colours, so they follow the mane through breeding
+ * (colour breeding, mutations). It is additive like the depths, but a pony shows the LOWER half (so a single copy of a weak one is hidden): none, a short trail, a rainbow, a grand rainbow. Rainbow-themed varieties
+ * (accessory 'rainbow') always have at least a rainbow; two strong parents can intensify it (PonyGenes.inherit); a few plain ponies have a short trail. */
+PonyGeneTable.register({ id: 'trail', part: 'tail', name: 'Rainbow trail', kind: 'shade', additive: true, floor: true, alleles: [
+  { id: 'none', name: 'No trail', weight: 1 }, { id: 'short', name: 'Short trail', weight: 1 }, { id: 'rainbow', name: 'Rainbow trail', weight: 1 }, { id: 'grand', name: 'Grand rainbow', weight: 1 }] });
 })();

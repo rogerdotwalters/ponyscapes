@@ -69,9 +69,10 @@ const PonyLook = {
     const P = PonyPalette, l = look || [0, 0, 0, 0, 0], v = l[4] | 0, V = v ? PonyVariants[v] : null;
     const rarity = RarityDefs[RarityOrder[clamp(l[5] | 0, 0, RarityOrder.length - 1)]], sex = PonyLook.sexOf(l);
     const gene = PonyGenes.phenotype(l);                                                    // the shapes and colours its genes give it (genes.js)
+    const trail = gene.trailLevel ? { level: gene.trailLevel, colors: PonyGenes.trailColors(gene.maneColors, gene.trailLevel) } : null;        // its rainbow trail, in its mane colours
     const fx = gene.mutation || {}, coatBase = fx.coat || ((V || P).coats[l[0]] && fx.coatMix ? PonyGenes.blend((V || P).coats[l[0]], fx.coatMix[0], fx.coatMix[1]) : (V || P).coats[l[0]]);       // (a mutation can change the coat too)
     const coatHex = fx.coat ? fx.coat : PonyGenes.shade(coatBase, gene.coatShade), aura = PonyGenes.auraColor(gene.maneColors[0], coatHex), mglow = fx.glow === 'aura' ? aura : fx.glow || null;              // its glow: the colour of its mane
-    if (!V) return { sex, coat: coatHex, mane: P.manes[l[1]], mark: P.marks[l[2]], name: PonyNames.at(null, l[3]), variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: fx.accessory || null, glow: mglow, rarity, gene, aura };
-    return { sex, coat: coatHex, mane: V.manes[l[1]], mark: V.marks[l[2]], name: PonyNames.at(V, l[3]), variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory || fx.accessory || null, glow: V.glow || mglow, rarity, gene, aura };
+    if (!V) return { sex, coat: coatHex, mane: P.manes[l[1]], mark: P.marks[l[2]], name: PonyNames.at(null, l[3]), variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: fx.accessory || null, glow: mglow, rarity, gene, aura, trail };
+    return { sex, coat: coatHex, mane: V.manes[l[1]], mark: V.marks[l[2]], name: PonyNames.at(V, l[3]), variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory || fx.accessory || null, glow: V.glow || mglow, rarity, gene, aura, trail };
   }
 };

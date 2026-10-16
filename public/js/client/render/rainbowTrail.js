@@ -3,15 +3,16 @@
  * with where its tail is; `draw()` (called from Effects.draw, on the real canvas and not through the sprite cache) paints a wavy ribbon of six bands through the
  * recent positions that fades away behind it. A pony that stops stops laying rainbow, and what it laid fades out. */
 const RainbowTrail = (() => {
-  const COLORS = ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#2979ff', '#d500f9'];
-  const BAND = 4.5, LIFE = 1700, MAX_POINTS = 70, MIN_STEP = 3, MAX_GAP = 90;            // band thickness (px), ms a point lasts, points kept, spacing, jump that breaks the ribbon
+  const BAND = 4.5, LIFE = 1700, LIFE_OF = { 1: 1100, 2: 1700, 3: 2300 }, MAX_POINTS = 90, MIN_STEP = 3, MAX_GAP = 90;            // band thickness (px), ms a point lasts, points kept, spacing, jump that breaks the ribbon
+  const DEFAULT = ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#2979ff', '#d500f9'];                       // (a trail with no colours given: the classic rainbow)
   const trails = new Map();                                                                // pony id -> { pts: [{ x, y, t, brk }], seen }
 
-  /** The pony's tail is at (x, y) (iso pixels) this frame; `moving` says whether it lays rainbow now. */
-  function note(id, x, y, now, moving) {
+  /** The pony's tail is at (x, y) (iso pixels) this frame; `moving` says whether it lays rainbow now. `trail` is the look's { level, colors }: the colours are the pony's mane colours
+   *  and the level (1 short, 2 rainbow, 3 grand) sets how long it lasts and how many bands it has. */
+  function note(id, x, y, now, moving, trail) {
     let tr = trails.get(id);
     if (!tr) { if (!moving) return; tr = { pts: [], seen: now }; trails.set(id, tr); }
-    tr.seen = now;
+    tr.seen = now; if (trail) tr.trail = trail;
     if (!moving) return;
     const last = tr.pts[tr.pts.length - 1];
     if (last) {
@@ -26,15 +27,15 @@ const RainbowTrail = (() => {
    *  fades smoothly along its length). Points are [x, y] in iso pixels. Used by both backends: `draw` (a 2D context) and `drawPixi` (a PIXI.Graphics). */
   function strokes(now, stroke) {
     for (const [id, tr] of trails) {
-      const pts = tr.pts;
-      while (pts.length && now - pts[0].t > LIFE) pts.shift();
-      if (!pts.length) { if (now - tr.seen > LIFE) trails.delete(id); continue; }
+      const pts = tr.pts, COLORS = tr.trail ? tr.trail.colors : DEFAULT, life = LIFE_OF[tr.trail ? tr.trail.level : 2] || LIFE, band = Math.max(2.4, Math.min(BAND, 27 / COLORS.length));
+      while (pts.length && now - pts[0].t > life) pts.shift();
+      if (!pts.length) { if (now - tr.seen > life) trails.delete(id); continue; }
       for (let j = 0; j < COLORS.length; j++) {
-        const off = (j - (COLORS.length - 1) / 2) * BAND;
+        const off = (j - (COLORS.length - 1) / 2) * band;
         let run = null, runAlpha = 0;
-        const flush = () => { if (run && run.length > 1) stroke(run, COLORS[j], runAlpha); run = null; };
+        const flush = () => { if (run && run.length > 1) stroke(run, COLORS[j], runAlpha, band); run = null; };
         for (let i = 0; i < pts.length; i++) {
-          const b = pts[i], age = (now - b.t) / LIFE, wob = Math.sin(now / 160 - i * 0.55) * 3 * (1 - age * 0.5);
+          const b = pts[i], age = (now - b.t) / life, wob = Math.sin(now / 160 - i * 0.55) * 3 * (1 - age * 0.5);
           const point = [b.x, b.y + off + wob];
           if (b.brk) { flush(); run = [point]; continue; }
           const alpha = Math.max(0, 0.9 * (1 - age) * (1 - age * 0.3)) * Math.min(1, (pts.length - i) / 4 + 0.35);     // (the newest few points swell in: the ribbon grows out of the tail)
@@ -49,8 +50,8 @@ const RainbowTrail = (() => {
   function draw(ctx, now) {
     if (!trails.size) return;
     ctx.save(); ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; ctx.lineWidth = BAND + 0.8;
-    strokes(now, (pts, color, alpha) => {
-      ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    strokes(now, (pts, color, alpha, band) => {
+      ctx.lineWidth = band + 0.8; ctx.globalAlpha = alpha; ctx.strokeStyle = color; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
       ctx.stroke();
     });
@@ -61,10 +62,10 @@ const RainbowTrail = (() => {
   function drawPixi(gfx, now, colour) {
     gfx.clear();
     if (!trails.size) return;
-    strokes(now, (pts, color, alpha) => {
+    strokes(now, (pts, color, alpha, band) => {
       gfx.moveTo(pts[0][0], pts[0][1]);
       for (let i = 1; i < pts.length; i++) gfx.lineTo(pts[i][0], pts[i][1]);
-      gfx.stroke({ width: BAND + 0.8, color: colour(color), alpha, cap: 'butt', join: 'round' });
+      gfx.stroke({ width: band + 0.8, color: colour(color), alpha, cap: 'butt', join: 'round' });
     });
   }
 

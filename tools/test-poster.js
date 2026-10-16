@@ -10,7 +10,7 @@ test('every live variety has a pony coin item', () => {
   const ids = run('PonyCoins.ids');
   for (const need of ['meadow', 'jungle', 'candy', 'ember']) assert(ids.includes(need), need);
   for (const id of ids) assert(run(`!!ItemDefs['pony_coin_${id}']`), id);
-  assert(!run(`PonyCoins.ids.includes('marsh')`), 'retired varieties have no coin');
+  assert(!run(`PonyCoins.ids.includes('dune') || PonyCoins.ids.includes('blossom')`), 'retired varieties have no coin');
   assert.strictEqual(run(`PonyCoins.varietyOf('pony_coin_candy')`), 'candy');
 });
 test('catching a pony drops the coin of its variety', () => {
