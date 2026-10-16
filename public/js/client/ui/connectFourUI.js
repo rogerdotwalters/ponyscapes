@@ -82,7 +82,7 @@ class ConnectFourUI {
 
   /* ---------------------------------------- what you do ---------------------------------------- */
   _say(text) { this.msg = text; this.msgAt = performance.now(); }
-  /** Pressed on the canvas: on your stack, the top coin comes away in your hand. */
+  /** Pressed on the canvas: on your stack, a copy of the coin comes away in your hand. */
   _grab(pt, e) {
     const c = this.game.connect4; if (!c) return;
     if (this._nearStack(pt, this.myStack)) {
@@ -91,7 +91,7 @@ class ConnectFourUI {
       this.drag = { who: c.seat, x: pt.x, y: pt.y, o: CoinSpin.identity(), dx: 0, dy: 0, id: e.pointerId };
       try { this.cv.setPointerCapture(e.pointerId); } catch (err) { /* (a pointer that cannot be captured still drags inside the canvas) */ }
       this._say('');
-    } else if (this._colAt(pt) >= 0) { this._say('Press and hold a coin on your stack, then drag it to a column'); this.shake = 0.5; }
+    } else if (this._colAt(pt) >= 0) { this._say('Press your coin and drag it to a column'); this.shake = 0.5; }
   }
   /** Let go: over a column the coin drops; anywhere else it goes back on the stack. */
   _release(e, cancelled) {
@@ -260,11 +260,11 @@ class ConnectFourUI {
     CoinSpin.blit(g, x, y, r, tier, k.o, false, nocache ? null : k);
     g.globalAlpha = 1;
   }
-  /** A stack of coins lying one on another (seen a little from above), the top one face up; `shake` (0..1) rattles it; the coin being dragged off is not in it. */
+  /** One coin lying face up: pressing it spawns a copy in your hand (the coin itself stays); `shake` (0..1) rattles it. */
   _drawStack(g, st, who, now, shaking, label, lifted) {
-    const c = this.cell, s = st.s, n = 8, th = c * 0.1 * s, jig = shaking ? Math.sin(now / 30) * c * 0.025 : 0, tilt = 1.0, o = [Math.cos(tilt / 2), Math.sin(tilt / 2), 0, 0];
-    g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(st.x, st.y + c * 0.2 * s, c * 0.5 * s, c * 0.14 * s, 0, 0, Math.PI * 2); g.fill();
-    for (let i = 0; i < n - (lifted ? 1 : 0); i++) this._coin(g, { who, o }, st.x + jig + (i % 2 ? 0.6 : -0.6), st.y + c * 0.12 * s - i * th, 1, s * 0.95, true);
+    const c = this.cell, s = st.s, jig = shaking ? Math.sin(now / 30) * c * 0.025 : 0;
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(st.x, st.y + c * 0.3 * s, c * 0.4 * s, c * 0.1 * s, 0, 0, Math.PI * 2); g.fill();
+    this._coin(g, { who, o: CoinSpin.identity() }, st.x + jig, st.y, 1, s * 1.1, true);
     if (label) { g.font = `600 ${Math.max(10, Math.round(c * 0.25))}px Georgia, serif`; g.textAlign = 'center'; g.fillStyle = '#f6efe0'; g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3; g.strokeText(label, st.x, st.y + c * 0.62 * s); g.fillText(label, st.x, st.y + c * 0.62 * s); }
   }
   _draw(now) {
@@ -319,7 +319,7 @@ class ConnectFourUI {
     let text = '';
     if (hint) text = hint;
     else if (c.status === 'waiting') text = 'Wait for another player to sit across the table, or play the innkeeper’s computer.';
-    else if (c.status === 'playing') text = c.turn === me ? (this.drag ? 'Let go over a column.' : 'Your turn: press and hold a coin on your stack and drag it to a column.') : `${c.names[opp]} is choosing...`;
+    else if (c.status === 'playing') text = c.turn === me ? (this.drag ? 'Let go over a column.' : 'Your turn: press your coin and drag it to a column.') : `${c.names[opp]} is choosing...`;
     else text = c.winner < 0 ? 'A draw! The board is full.' : c.winner === me ? 'Four in a row! You win!' : `${c.names[opp]} lines up four. Better luck next time!`;
     this.status.textContent = text;
     this.btnAi.hidden = !(c.status === 'waiting' && !c.ai);
