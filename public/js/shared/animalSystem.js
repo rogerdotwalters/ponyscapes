@@ -430,15 +430,19 @@ class AnimalSystem {
 
   /** What an owner sees in their Pony Book: every pet they own (wherever it is) + whether it is fenced in, plus wild ponies they are gentling. */
   petsOf(ownerId, tick) {
-    const out = [];
+    const memo = this._petsMemo;                                                         // (the snapshot asks three times a tick: pets, Pony Book, varieties)
+    if (memo && memo.tick === tick && memo.owner === ownerId) return memo.out;
+    const out = [], PEN_BUDGET = 6;                                                      // (pens are re-checked a few at a time so they never all land on one tick)
+    let checked = 0;
     for (const id in this.animals) {
       const a = this.animals[id];
       if (a.owner !== ownerId && a.captor !== ownerId) continue;
-      if (a.owner && tick - a.penTick > 30) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; }
+      if (a.owner && tick - a.penTick > 30 && checked < PEN_BUDGET) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; checked++; }
       const fruit = a.captor ? AnimalLevels.tameFruit(AnimalDefs[a.type], a.level) : null;
       const gentling = a.captor ? { have: a.trust, need: a.applesNeed || fruit.count, item: fruit.item, progress: this.tameProgress(a) } : null;
       out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, foalMin: a.foal > 0 ? Math.ceil(a.foal / 60) : 0, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null, gen: a.owner && a.look && AnimalDefs[a.type].pony ? Pedigree.summaryOf(a) : undefined });
     }
+    this._petsMemo = { tick, owner: ownerId, out };
     return out;
   }
 

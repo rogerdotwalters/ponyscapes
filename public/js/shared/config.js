@@ -142,4 +142,5 @@ const CONFIG = {
 
 const TICK_DT = 1 / CONFIG.sim.tickRate;
 const TICK_MS = 1000 * TICK_DT;
+const MAX_CATCHUP_TICKS = 6, MAX_TICKS_PER_PUMP = 3, PUMP_BUDGET_MS = 12;       // a local/host server never owes more than 6 ticks, runs at most 3 per pump and yields after ~12 ms (so one slow tick cannot snowball)
 const secondsToTicks = seconds => Math.round(seconds * CONFIG.sim.tickRate);
