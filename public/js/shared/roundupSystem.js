@@ -1,8 +1,8 @@
 'use strict';
 /* SHARED - the Round-Up minigame (rules in js/data/minigames/roundup.js, the arena in roundupPlan.js, the quest in data/quests/shepherd_wool.js).
  *
- * START   Stand at the gate of the old fence east of the village (Village.roundup) and press Use: everybody standing near comes along, alternately to side 0 and side 1 (a lone player is
- *         matched with a computer Rival Rancher). They are taken into a new arena instance ('roundup:<n>'), a COUNTDOWN runs, and at GO the sheep scatter.
+ * START   Stand at the gate of the old fence east of the village (Village.roundup) and press Use: every connected player is asked yes / no; those who say yes come along (wherever they were, and
+ *         they go back there), alternately to side 0 and side 1 (a lone player is matched with a computer Rival Rancher). They are taken into a new arena instance ('roundup:<n>'), a COUNTDOWN runs, and at GO the sheep scatter.
  * LASSO   The ordinary lasso throw (L / right click / the lasso button) at a sheep. A hit puts it on your ROPE: it strains while it calms, and the calm bar fills only while you
  *         stay within `rope.calm` of it (past `rope.max` the rope snaps). A calm sheep is LED: it trots after you. You can hold `rope.lead` ropes at once.
  * TIE     Use beside your own pole: every sheep you lead is tied up there (it counts for your side). Use beside the OTHER side's pole to untie one of theirs (slower for every
@@ -14,7 +14,7 @@
  *   { st: 'free' | 'roped' | 'led' | 'pole', team: side holding it (-1 none), by: who holds it ('' none), tame: 0..1, slot: place on the pole (-1 none), ... }
  * and is sent with the animal so every client can draw the ropes. */
 const RoundupRules = Minigames.get('roundup');
-const ROUNDUP_GATE_REACH = 1.7, ROUNDUP_GATHER = 9, ROUNDUP_POLE_REACH = 3.2, ROUNDUP_FLEE_RADIUS = 4.6, ROUNDUP_TEAMS = Object.freeze([
+const ROUNDUP_GATE_REACH = 1.7, ROUNDUP_POLE_REACH = 3.2, ROUNDUP_FLEE_RADIUS = 4.6, ROUNDUP_TEAMS = Object.freeze([
   Object.freeze({ name: 'Red Ranch', color: '#d9534f' }), Object.freeze({ name: 'Blue Ranch', color: '#3b7ddd' })]);
 
 /** Distance from point (px, py) to the segment a-b. */
@@ -52,7 +52,7 @@ InteractionHandlers.tie_sheep = (server, id, p) => server.roundup.tie(id, p);
 InteractionHandlers.untie_sheep = (server, id, p) => server.roundup.beginSteal(id, p);
 
 class RoundupSystem {
-  constructor(server) { this.s = server; this.matches = new Map(); this.next = 1; this.cool = {}; }
+  constructor(server) { this.s = server; this.matches = new Map(); this.next = 1; this.cool = {}; this.invite = null; }
 
   /* ---------------------------------------- who is where ---------------------------------------- */
   matchAt(grid) { return grid ? this.matches.get(grid) || null : null; }
@@ -72,29 +72,56 @@ class RoundupSystem {
   _free(q) { return q && !gridOf(q) && !q.boat && !q.asleep && !(q.down > 0) && !q.flying && q.rt !== 0 && q.rt !== 1; }
 
   /* ---------------------------------------- starting ---------------------------------------- */
-  /** Use at the gate: everybody nearby (up to four) goes into a new arena. */
+  /** Use at the gate: everybody connected to the game is asked (yes / no, `seconds.invite` to answer); whoever says yes (up to four with you) is taken into a new arena. Alone, it starts at once. */
   start(id, p) {
     const s = this.s, R = RoundupRules;
-    if (this.matchOf(p) || (this.cool[id] || 0) > s.tick) return;
+    if (this.invite || this.matchOf(p) || (this.cool[id] || 0) > s.tick) return;
     this.cool[id] = s.tick + 30;
     if (!this._free(p)) return;
-    const gate = Village.roundup.gate;
-    const crowd = s.humanIds().map(i => s.players[i]).filter(q => q && (q.id === id || (this._free(q) && Math.hypot(q.x - gate.x, q.y - gate.y) <= ROUNDUP_GATHER)))
-      .sort((a, b) => (a.id === id ? -1 : b.id === id ? 1 : Math.hypot(a.x - gate.x, a.y - gate.y) - Math.hypot(b.x - gate.x, b.y - gate.y))).slice(0, CONFIG.sim.maxPlayers);
+    const asked = s.humanIds().filter(i => i !== id && this._canJoin(s.players[i]));
+    if (!asked.length) { this._launch([id]); return; }
+    for (const q of asked) if (!s.players[q].bot) s.pendingEvents.push({ type: 'roundupInvite', to: q, from: p.name || 'A player', seconds: R.seconds.invite });
+    this.invite = { host: id, t: R.seconds.invite, asked, votes: Object.fromEntries(asked.filter(q => s.players[q].bot).map(q => [q, true])) };
+    s._notice(id, `Asked ${asked.length} other player${asked.length > 1 ? 's' : ''} to join the round-up...`);
+    this._checkInvite();
+  }
+  /** Could this player be taken into a round (wherever they are: in the village, a building, a cave)? */
+  _canJoin(q) { return !!q && !q.boat && !q.asleep && !(q.down > 0) && !q.flying && q.rt !== 0 && q.rt !== 1; }
+  /** A player's answer to the invitation. */
+  answer(id, yes) {
+    const inv = this.invite;
+    if (!inv || !inv.asked.includes(id) || inv.votes[id] !== undefined) return;
+    inv.votes[id] = !!yes;
+    this.s.pendingEvents.push({ type: 'roundupInviteEnd', to: id });
+    this._checkInvite();
+  }
+  _checkInvite(force) {
+    const inv = this.invite;
+    if (!inv) return;
+    if (!force && inv.asked.some(q => this.s.players[q] && inv.votes[q] === undefined)) return;
+    this.invite = null;
+    for (const q of inv.asked) if (inv.votes[q] === undefined) this.s.pendingEvents.push({ type: 'roundupInviteEnd', to: q });
+    const yes = inv.asked.filter(q => inv.votes[q] && this._canJoin(this.s.players[q]));
+    if (this._free(this.s.players[inv.host])) this._launch([inv.host, ...yes].slice(0, CONFIG.sim.maxPlayers));
+  }
+
+  /** Take these players (the first starts it) into a new arena: alternately to each side; each is sent back to where they were when it ends. */
+  _launch(ids) {
+    const s = this.s, R = RoundupRules, crowd = ids.map(i => s.players[i]).filter(Boolean);
     const n = this.next++, grid = Grids.roundup(n), world = s.grids.get(grid);
-    if (world.grid !== grid) { s._notice(id, 'The round-up field is not ready yet'); return; }
+    if (world.grid !== grid) { s._notice(ids[0], 'The round-up field is not ready yet'); return; }
     const m = { n, grid, phase: 'countdown', t: R.seconds.countdown, people: {}, order: [], teams: ROUNDUP_TEAMS.map(t => ({ name: t.name, color: t.color, slots: [] })), sheep: [], rival: null, steals: {}, result: null, seed: (s.tick * 31 + n * 7919) | 0 };
     this.matches.set(grid, m);
     crowd.forEach((q, i) => {
       const team = i % 2, k = Math.floor(i / 2), at = RoundupArena.start(team, k);
-      m.people[q.id] = { id: q.id, team, k, human: true, name: q.name || 'Player', stun: 0, tied: 0, stolen: 0, cut: 0 };
+      m.people[q.id] = { id: q.id, team, k, human: true, name: q.name || 'Player', stun: 0, tied: 0, stolen: 0, cut: 0, back: { grid: gridOf(q), x: q.x, y: q.y }, prevReturn: q.returnTo || null };
       m.order.push(q.id);
-      q.returnTo = { grid: '', x: gate.x, y: gate.y + 0.3 };
+      q.returnTo = { grid: gridOf(q), x: q.x, y: q.y };                                                 // (a save made mid-round puts them back where they were)
       q.rt = team; q.rsteal = 0;
       s._moveToGrid(q.id, q, grid, at.x, at.y);
       q.facing = team ? Math.PI : 0;
     });
-    for (const a of Object.values(s.animals.animals)) if (a.grid === grid && !a.game && !crowd.some(q => q.mount === a.id)) this._sendOut(a, gate);   // (pets and an unridden main pony wait outside: only the pony you ride in on comes along)
+    for (const a of Object.values(s.animals.animals)) if (a.grid === grid && !a.game && !crowd.some(q => q.mount === a.id)) this._sendOut(m, a, crowd);   // (pets and an unridden main pony wait where their owner was: only the pony you ride in on comes along)
     if (crowd.length === 1) this._addRival(m);
     const count = R.sheep.base + R.sheep.extra * Math.max(0, crowd.length - 2);
     RoundupArena.sheepSpots(count, m.seed).forEach(spot => this._spawnSheep(m, spot));
@@ -104,10 +131,11 @@ class RoundupSystem {
     }
   }
 
-  /** A pet or pony that followed its owner in is put back by the gate. */
-  _sendOut(a, gate) {
-    const map = this.s.map, spot = findLanding(map, gate.x - 1.5 - this.s.rng(), gate.y + 0.8 + this.s.rng(), AnimalDefs[a.type].radius);
-    a.grid = ''; a.x = spot.x; a.y = spot.y; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; a.state = 'idle';
+  /** A pet or pony that followed its owner in is put back where the owner was. */
+  _sendOut(m, a, crowd) {
+    const owner = crowd.find(q => q.id === a.owner || q.id === a.captor), back = (owner && m.people[owner.id].back) || { grid: '', x: Village.roundup.gate.x, y: Village.roundup.gate.y };
+    const spot = back.grid ? { x: back.x, y: back.y } : findLanding(this.s.map, back.x - 1 - this.s.rng(), back.y + 0.8, AnimalDefs[a.type].radius);
+    a.grid = back.grid; a.x = spot.x; a.y = spot.y; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; a.state = 'idle';
   }
 
   _addRival(m) {
@@ -127,6 +155,7 @@ class RoundupSystem {
 
   /* ---------------------------------------- every tick ---------------------------------------- */
   update() {
+    if (this.invite) { this.invite.t -= TICK_DT; if (this.invite.t <= 0) this._checkInvite(true); }
     for (const m of [...this.matches.values()]) this._tick(m);
   }
 
@@ -168,7 +197,7 @@ class RoundupSystem {
     delete m.steals[pid]; delete m.people[pid]; m.order = m.order.filter(x => x !== pid);
   }
   /** A player's seat is going away: take them out of any round. */
-  forget(id) { const p = this.s.players[id], m = this.matchOf(p); if (m && m.people[id]) { this._leave(m, id); if (!this._humans(m).length) this._close(m, false); } delete this.cool[id]; }
+  forget(id) { if (this.invite && this.invite.host === id) { this.invite.asked.forEach(q => this.s.pendingEvents.push({ type: 'roundupInviteEnd', to: q })); this.invite = null; } else if (this.invite) this._checkInvite(); const p = this.s.players[id], m = this.matchOf(p); if (m && m.people[id]) { this._leave(m, id); if (!this._humans(m).length) this._close(m, false); } delete this.cool[id]; }
 
   /* ---------------------------------------- the sheep ---------------------------------------- */
   _sheepStep(m, dt) {
@@ -524,8 +553,8 @@ class RoundupSystem {
       const p = s.players[id]; if (!p) continue;
       p.rt = -1; p.rsteal = 0;
       if (bring && gridOf(p) === m.grid) {
-        const back = p.returnTo || { grid: '', x: Village.roundup.gate.x, y: Village.roundup.gate.y + 0.3 }, reward = (m.people[id] || {}).reward;
-        s._moveToGrid(id, p, back.grid || '', back.x, back.y); p.returnTo = null; p.facing = -Math.PI / 2;
+        const me = m.people[id] || {}, back = me.back || { grid: '', x: Village.roundup.gate.x, y: Village.roundup.gate.y + 0.3 }, reward = me.reward;
+        s._moveToGrid(id, p, back.grid || '', back.x, back.y); p.returnTo = me.prevReturn || null; p.facing = -Math.PI / 2;
         s.pendingEvents.push({ type: 'roundupLeft', to: id });
         if (reward) {                                                                                   // the prize: wool (a full bag spills into the pony's pack, or the ground by the gate) and coins
           const inventory = s.inventories[id];

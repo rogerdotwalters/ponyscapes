@@ -340,7 +340,7 @@ A **minigame** is played in an INSTANCE (its own grid, `js/shared/grids.js`) tha
 scoreboard, `client/render/roundupSprites.js` the fence, poles and ropes; `node tools/test-roundup.js` checks it in Node).
 
 * **Where**: east of the village, **Marnie the shepherd** (she needs wool; her quest *Wool for Marnie* is `data/quests/shepherd_wool.js`) waits by an **old fence** (`Village.roundup`). Stand at its gate (the gap
-  beside the signpost) and press **Use**: *Round up the flock*. Everybody standing within 9 tiles comes along (up to four), alternately to the **Red** and **Blue Ranch**. A lone player is matched with a computer
+  beside the signpost) and press **Use**: *Round up the flock*. **Every connected player is asked yes / no** (a prompt with a 15 s timer, wherever they are); those who say yes come along (up to four), alternately to the **Red** and **Blue Ranch**, and **go back to where they were** when it ends. A lone player is matched with a computer
   **Rival Rancher** (a villager-looking figure driven by the server, slower and less lucky than a person: `lasso.rivalLuck`, `speed.rival`).
 * **The arena** is a new instance `roundup:<n>`: a meadow in the starter area's style (the same grass, flowers, trees) inside the same wooden rails the players build (`wood_fence` slabs, placed by the plan on both
   machines), a **pole** at each end for each side, always daylight. Pets and a pony you are not riding wait outside; **ride your main pony up to the gate and it comes in with you** (faster than the sheep and the rival, so it suits a lone player against the Rival Rancher best). After a **countdown** (4 s, the sheep mill about) comes **GO**, and a round is 150 s.

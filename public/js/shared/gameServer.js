@@ -289,6 +289,7 @@ class GameServer {
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
+      case 'roundupJoin': this.roundup.answer(id, !!cmd.yes); break;                                        // yes / no to a Round-Up invitation (roundupSystem.js)
       case 'questAccept': if (typeof cmd.quest === 'string') this.quests.accept(id, cmd.quest); break;       // at a villager's dialogue window (questSystem.js)
       case 'questDeliver': if (typeof cmd.quest === 'string') this.quests.deliver(id, cmd.quest); break;
       case 'puzzleSolve': if (typeof cmd.node === 'string') this.quests.solve(id, cmd.node, cmd.moves); break;   // the client played a puzzle: replay its moves
