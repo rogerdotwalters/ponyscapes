@@ -23,6 +23,7 @@ class ClientGame {
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
     this.questLog = QuestLog.empty();                  // the host world's quests (questSystem.js)
+    this.connect4 = null;                              // the Connect Four game you sit at (connectFour.js stateFor), else null
     this.roundup = null;                               // the Round-Up scoreboard and clock while you are in an arena (roundupSystem.js stateFor), else null
     this.chest = null;                                 // the chest you have open (homeCrafts.js)
     this.pack = null;                                  // the pack of the pony you ride or stand next to: { id, name, bags, riding, inventory } (packSystem.js)
@@ -115,6 +116,10 @@ class ClientGame {
     if (wire) { Object.assign(log.done, wire.done || {}); for (const id in wire.active || {}) log.active[id] = { step: wire.active[id][0], progress: wire.active[id][1] }; }
     this.questLog = log; this.events.emit('questsChanged');
   }
+  c4Drop(col) { this.net.sendCommand({ type: 'c4Drop', col }); }
+  c4Leave() { this.net.sendCommand({ type: 'c4Leave' }); }
+  c4Ai() { this.net.sendCommand({ type: 'c4Ai' }); }
+  c4Again() { this.net.sendCommand({ type: 'c4Again' }); }
   roundupJoin(yes) { this.net.sendCommand({ type: 'roundupJoin', yes: !!yes }); }
   questAccept(quest) { this.net.sendCommand({ type: 'questAccept', quest }); }
   questDeliver(quest) { this.net.sendCommand({ type: 'questDeliver', quest }); }
@@ -402,7 +407,7 @@ class ClientGame {
 
   onSnapshot(snapshot) {
     this.serverTick = snapshot.tick;
-    this.roundup = snapshot.roundup || null;
+    this.roundup = snapshot.roundup || null; this.connect4 = snapshot.connect4 || null;
     if (snapshot.npcs) this.npcs = snapshot.npcs;                                  // (a remote player is only sent them when one moves or speaks)
     if (snapshot.friends) { this.friends = snapshot.friends; this.events.emit('friendsChanged', this.friends); }
     for (const id in snapshot.animals || {}) this.beingTypes[id] = snapshot.animals[id].type;          // remember what each animal is, so the Journal can list your friends when they are far away

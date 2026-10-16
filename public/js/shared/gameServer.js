@@ -65,6 +65,7 @@ class GameServer {
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
+    this.connect4 = new ConnectFourSystem(this);                              // Connect Four at the Pony Inn (connectFour.js)
     this.roundup = new RoundupSystem(this);                                  // the Round-Up minigame at the old fence (roundupSystem.js)
     this.downed = new DownedSystem(this);                                    // going down in a dungeon instead of waking in the village (downed.js)
     this.castleSlimes = new CastleSlimes(this);                              // the ruined castle's slimes (castleSlimes.js)
@@ -216,7 +217,7 @@ class GameServer {
   removePlayer(id) {
     this._dismount(id, this.players[id]);
     this._parkPets(id);                                                  // their ponies stay in the world, waiting for them (serverOwned.js)
-    this.friendship.forget(id); this.quests.forget(id); this.roundup.forget(id);                                          // the next person to sit here must not inherit these friendships
+    this.friendship.forget(id); this.quests.forget(id); this.roundup.forget(id); this.connect4.forget(id);                                          // the next person to sit here must not inherit these friendships
     this.trade.cancel(id, 'Trade cancelled: player left');
     this.interiors.leave_(id); this.interiors.releaseSeat(id); delete this.playerKeys[id]; delete this.petsClaimed[id]; delete this.charIds[id];
     const boat = this.boats[this.players[id] && this.players[id].boat];
@@ -289,6 +290,10 @@ class GameServer {
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
+      case 'c4Drop': this.connect4.drop(id, cmd.col); break;                                                 // Connect Four (connectFour.js): a coin into a column,
+      case 'c4Leave': this.connect4.leave(id); break;                                                         // stand up,
+      case 'c4Ai': this.connect4.playAi(id); break;                                                           // play the computer,
+      case 'c4Again': this.connect4.again(id); break;                                                         // and another game
       case 'roundupJoin': this.roundup.answer(id, !!cmd.yes); break;                                        // yes / no to a Round-Up invitation (roundupSystem.js)
       case 'questAccept': if (typeof cmd.quest === 'string') this.quests.accept(id, cmd.quest); break;       // at a villager's dialogue window (questSystem.js)
       case 'questDeliver': if (typeof cmd.quest === 'string') this.quests.deliver(id, cmd.quest); break;
@@ -642,6 +647,7 @@ class GameServer {
     for (const id in this.players) this._tickPlayer(id, this.players[id]);
     this.trade.update();
     this.dungeons.update();                                                           // the Slime Warren's waves (dungeonSystem.js)
+    this.connect4.update(this.tick);                                                  // people who walk away from a Connect Four table stand up (connectFour.js)
     this.roundup.update();                                                            // the Round-Up arenas: sheep, ropes, rivals, the clock (roundupSystem.js)
     this.trees.update(this.tick);
     this.forage.update(this.tick);
