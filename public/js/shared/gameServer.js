@@ -455,7 +455,8 @@ class GameServer {
     if (!ability) { this._notice(id, index ? 'Your pony has no power in that slot' : 'Your pony has no powers yet (rare ponies have one; a pony learns skills as it levels up: Pony Book)'); return; }
     if (p.abilityCd[index] > 0) return;
     p.abilityCd = p.abilityCd.slice(); p.abilityCd[index] = ability.cooldown;
-    const scale = SkillAbilityDefs[ability.id] ? PonySkills.scale(p.mountLevel) : 1;                                    // (a skill grows with its pony's level)
+    const mount = this.animals.animals[p.mount], hybrid = /^hybrid_/.test(ability.id) && mount && mount.look ? PonyQuality.of(mount).powerScale : 1;      // (a hybrid's power follows how well bred it is: ponyQuality.js)
+    const scale = (SkillAbilityDefs[ability.id] ? PonySkills.scale(p.mountLevel) : 1) * hybrid;                         // (a skill grows with its pony's level)
     const hits = [];                                                                                                   // who each effect reached, so the clients can show it (client/render/powerFx.js)
     for (const effect of ability.effectDefs) this._applyEffect(id, p, effect, scale, hits);
     this.pendingEvents.push({ type: 'ability', ability: ability.id, x: p.x, y: p.y, facing: p.facing, by: id, hits: hits.slice(0, 14) });

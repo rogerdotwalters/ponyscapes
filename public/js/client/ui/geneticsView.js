@@ -24,6 +24,9 @@ const GeneticsView = (() => {
       if (!pet.look || !pet.gen) return '';
       const s = pet.gen, parents = s.sire || s.dam ? `Sire ${esc(s.sire || 'unknown')} &middot; Dam ${esc(s.dam || 'unknown')}` : 'Founder: caught or bought, no known parents';
       let html = `<div class="gline">${chip(s.g, s.w, s.c, s.s)} <small>${parents}</small> <button class="gtree" data-id="${esc(pet.id)}">Family tree</button></div>`;
+      const q = s.q;
+      if (q) html += `<div class="gline"><span class="gchip" style="--c:${esc(q.c)}" title="Quality ${q.s}/100: genetic diversity, how true it is to its morph, and inbreeding">Quality ${esc(q.g)} &middot; ${esc(q.w)}</span> <small>${q.h ? `${esc(q.m)} morph, ${q.al}% true` : `${q.al}% true to its line`}${q.h ? ` &middot; power x${q.x}` : ''}</small></div>`;
+      if (on && q) html += `<div class="gtraits">${q.t.map(t => `<span>${esc(t)}</span>`).join('')}</div>`;
       if (on) {
         html += `<div class="gnums"><span title="Inbreeding coefficient: the chance its two copies of a gene come from one ancestor">Inbreeding ${s.f}%</span><span title="Share of its genes holding two different alleles">Heterozygous ${s.h}%</span>` +
           `<span title="Generations of ancestors on record">${s.gens} generation${s.gens === 1 ? '' : 's'} known</span><span>Diversity ${s.s}/100</span></div>${GeneticsView.genomeHtml(pet.look)}`;
@@ -44,7 +47,7 @@ const GeneticsView = (() => {
       let html = `<div class="gpair">${chip(pair.grade, pair.word, pair.color, pair.score)} <small>${esc(pair.band)}: ${esc(pair.note)}</small></div>`;
       if (pair.tooClose) html += `<p class="stHint gwarn">These two are very close kin: a foal would be about ${pair.f}% inbred.</p>`;
       if (on) {
-        html += `<div class="gdetail">${row('Foal inbreeding (COI)', pair.f + '%')}${row('Parents related by', pair.rel + '%')}${row('Expected heterozygosity', pair.het + '%')}${row('Diversity score', pair.score + '/100')}` +
+        html += `<div class="gdetail">${row('New mutation chance', '1 in 200 per foal')}${row('Foal inbreeding (COI)', pair.f + '%')}${row('Parents related by', pair.rel + '%')}${row('Expected heterozygosity', pair.het + '%')}${row('Diversity score', pair.score + '/100')}` +
           `${row('Pedigree known', pair.depth + ' generation' + (pair.depth === 1 ? '' : 's'))}`;
         html += pair.common.length ? `<div class="grow2 wide"><span>Common ancestors</span><b>${pair.common.map(c => `${sym(c.sex)} ${esc(c.name)} (${c.up[0]} up the sire's side, ${c.up[1]} the dam's)`).join('; ')}</b></div>` : '<div class="grow2 wide"><span>Common ancestors</span><b>none on record</b></div>';
         html += pair.shared.length ? `<div class="grow2 wide"><span>Hidden in both</span><b>${pair.shared.map(s => `${swatch(s.color)}${esc(s.gene)}: ${esc(s.allele)} (${s.chance}% of foals)`).join('; ')}</b></div>` : '';

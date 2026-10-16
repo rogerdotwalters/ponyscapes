@@ -11,7 +11,7 @@
  *   - hidden recessives both parents carry (a quarter of their foals show it), and for a herd: mean kinship, effective population size, allele richness, expected heterozygosity, F_IS.
  * The outcrossing rating folds the pedigree (65%) and the genes (35%) into one 0..100 score and a grade A..F. Nothing here changes how a pony plays; it only tells you what the breeding is doing. */
 const Pedigree = (() => {
-  const DEPTH = 5, MAX_NODES = 80, U = 0, N = 1, X = 2, S = 3, D = 4;
+  const DEPTH = 5, MAX_NODES = 80, U = 0, N = 1, X = 2, S = 3, D = 4, V = 5;                       // (V: the variety id of the pony, an optional sixth part of a node: older trees have none)
   const HET_REF = 0.7;                                                                       // (about the heterozygosity of two unrelated wild ponies: the score's 100% mark)
   const GRADES = [[85, 'A', 'Excellent', '#4caf50'], [70, 'B', 'Good', '#8bc34a'], [55, 'C', 'Fair', '#e0b020'], [40, 'D', 'Poor', '#ff9800'], [0, 'F', 'Risky', '#e53935']];
   const BANDS = [[0.25, 'Extreme inbreeding', 'full siblings or parent and offspring'], [0.125, 'Close inbreeding', 'half siblings'], [0.0625, 'Linebreeding', 'first cousins'],
@@ -21,29 +21,33 @@ const Pedigree = (() => {
   /* ---------------------------------------------- the trees ---------------------------------------------- */
   const base36 = (v, n) => Math.floor(v * Math.pow(36, n)).toString(36).padStart(n, '0');
   const newUid = (rng = Math.random) => Date.now().toString(36).slice(-4) + base36(Math.random(), 4) + base36(rng(), 2);   // (time + chance: unique even when a world is reloaded and its seeded random numbers start again)
-  const founder = (name, sex, rng) => [newUid(rng), String(name || 'Pony').slice(0, 24), sex === 'f' ? 'f' : 'm', null, null];
+  const node = (u, n, x, s, d, v) => (v ? [u, n, x, s, d, v] : [u, n, x, s, d]);
+  const varietyOf = look => (look && PonyVariants[look[4] | 0] ? PonyVariants[look[4] | 0].id : null);
+  const founder = (name, sex, rng, variety) => node(newUid(rng), String(name || 'Pony').slice(0, 24), sex === 'f' ? 'f' : 'm', null, null, variety);
   /** The tree of an animal; makes it a founder (and keeps that) when it has none. */
   function ensure(a, rng) {
-    if (!Array.isArray(a.ped)) a.ped = founder(a.look ? PonyLook.describe(a.look).name : '', a.look ? PonyLook.sexOf(a.look) : 'm', rng);
+    if (!Array.isArray(a.ped)) a.ped = founder(a.look ? PonyLook.describe(a.look).name : '', a.look ? PonyLook.sexOf(a.look) : 'm', rng, varietyOf(a.look));
     return a.ped;
   }
   /** A node with `d` generations of ancestors kept above it. */
-  function trim(node, d) { return node ? [node[U], node[N], node[X], d > 0 ? trim(node[S], d - 1) : null, d > 0 ? trim(node[D], d - 1) : null] : null; }
+  function trim(node, d) { return node ? as5(node, d > 0 ? trim(node[S], d - 1) : null, d > 0 ? trim(node[D], d - 1) : null) : null; }
+  const as5 = (n, s, d) => node(n[U], n[N], n[X], s, d, n[V]);
   /** The tree of a foal of two animals (the sire is the stallion of the pair). */
-  function foalNode(rng, a, b, name, sex) {
+  function foalNode(rng, a, b, name, sex, variety) {
     const ma = a.look ? PonyLook.sexOf(a.look) : 'm', sire = ma === 'm' ? a : b, dam = sire === a ? b : a;
-    return [newUid(rng), String(name || 'Foal').slice(0, 24), sex === 'f' ? 'f' : 'm', trim(ensure(sire, rng), DEPTH - 1), trim(ensure(dam, rng), DEPTH - 1)];
+    return node(newUid(rng), String(name || 'Foal').slice(0, 24), sex === 'f' ? 'f' : 'm', trim(ensure(sire, rng), DEPTH - 1), trim(ensure(dam, rng), DEPTH - 1), variety);
   }
   /** Check a tree that came from a save or a message: shape, lengths and size (null when it is not one). */
   function clean(node, budget = { n: MAX_NODES }, depth = 0) {
     if (node === null || node === undefined) return null;
-    if (!Array.isArray(node) || node.length !== 5 || depth > DEPTH + 1 || --budget.n < 0) return undefined;
-    const [u, n, x, s, d] = node;
+    if (!Array.isArray(node) || (node.length !== 5 && node.length !== 6) || depth > DEPTH + 1 || --budget.n < 0) return undefined;
+    const [u, n, x, s, d, v] = node;
     if (typeof u !== 'string' || !/^[a-z0-9]{4,12}$/.test(u) || typeof n !== 'string') return undefined;
     const sire = clean(s, budget, depth + 1), dam = clean(d, budget, depth + 1);
     if (sire === undefined || dam === undefined) return undefined;
-    return [u, n.replace(/[^A-Za-z0-9 '\-]/g, '').slice(0, 24) || 'Pony', x === 'f' ? 'f' : 'm', sire, dam];
+    return node2(u, n.replace(/[^A-Za-z0-9 '\-]/g, '').slice(0, 24) || 'Pony', x === 'f' ? 'f' : 'm', sire, dam, typeof v === 'string' && /^[a-z]{2,16}$/.test(v) ? v : null);
   }
+  const node2 = node;
   /** A tree from a save: the cleaned tree, or null for none/bad. */
   const fromSave = raw => { const c = clean(raw); return c ? c : null; };
 
@@ -54,7 +58,7 @@ const Pedigree = (() => {
     const walk = node => {
       if (!node) return;
       const known = g.get(node[U]), has = !!(node[S] || node[D]);
-      if (!known || (has && !known.s && !known.d)) g.set(node[U], { u: node[U], n: node[N], x: node[X], s: node[S] ? node[S][U] : null, d: node[D] ? node[D][U] : null, gen: -1 });
+      if (!known || (has && !known.s && !known.d)) g.set(node[U], { u: node[U], n: node[N], x: node[X], v: node[V] || null, s: node[S] ? node[S][U] : null, d: node[D] ? node[D][U] : null, gen: -1 });
       walk(node[S]); walk(node[D]);
     };
     for (const r of roots) walk(r);
@@ -119,7 +123,9 @@ const Pedigree = (() => {
   function genomeRows(look) {
     const g = PonyGenes.genomeOf(look), v = look[4] | 0;
     return PonyGenes.LOCI.map((L, i) => {
-      const [x, y] = g[i], lo = Math.min(x, y), hi = Math.max(x, y);
+      const [x, y] = g[i];
+      let lo = Math.min(x, y), hi = Math.max(x, y);
+      if (L.kind === 'mutation') { const s = PonyGenes.shownMutation(L, [x, y]); lo = s; hi = x === s ? y : x; }       // (a dominant mutation shows though it is the higher number)
       return { id: L.id, gene: L.name, het: x !== y, shown: alleleLabel(L, lo, v), hidden: x !== y ? alleleLabel(L, hi, v) : null, alleles: [lo, hi] };
     });
   }
@@ -137,7 +143,7 @@ const Pedigree = (() => {
       for (const [k, p] of pa) {
         const q = pb.get(k) || 0; same += p * q;
         const hiddenA = ga[i][0] !== ga[i][1] && k === Math.max(...ga[i]), hiddenB = gb[i][0] !== gb[i][1] && k === Math.max(...gb[i]);
-        if (q && p * q >= 0.25 && (hiddenA || hiddenB) && k > 0 && L.kind !== 'switch') shared.push({ gene: L.name, allele: alleleLabel(L, k, v), chance: p * q });
+        if (q && p * q >= 0.25 && (hiddenA || hiddenB) && k > 0 && L.kind !== 'switch' && !L.additive && !(L.kind === 'mutation' && L.alleles[k].dominant)) shared.push({ gene: L.name, allele: alleleLabel(L, k, v), chance: p * q });
       }
       het += 1 - same;
     });

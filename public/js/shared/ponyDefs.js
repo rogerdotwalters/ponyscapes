@@ -20,6 +20,18 @@ const PonyPalette = Object.freeze({
           'Ember', 'Marigold', 'Zephyr', 'Lilac', 'Nimbus', 'Pebble', 'Aurora', 'Sorrel', 'Bramble', 'Skye', 'Maple', 'Dandelion']
 });
 
+/** MORE NAMES, shared by every variety: after a variety's own names come these (sweet, sunny, storybook names in the spirit of pastel pony tales). A name is an index into [the variety's names, then these]: new names are only
+ *  ever added at the END, so saved ponies keep theirs. */
+const PonyNamePool = Object.freeze(['Sweetie', 'Sparkle', 'Starshine', 'Sugarplum', 'Cupcake', 'Sprinkles', 'Moonbeam', 'Skydancer', 'Peppermint', 'Snowdrop', 'Jellybean', 'Marshmallow', 'Pudding', 'Buttons', 'Honeydew', 'Wildflower',
+  'Rosebud', 'Tulip', 'Poppy', 'Bluebell', 'Primrose', 'Lavender', 'Hyacinth', 'Violet', 'Cherry', 'Berry', 'Peaches', 'Apricot', 'Caramel', 'Cocoa', 'Cinnamon', 'Nutmeg', 'Ginger', 'Pumpkin', 'Sunny', 'Rainy', 'Cloudy', 'Stormy', 'Breezy',
+  'Dizzy', 'Lucky', 'Giggles', 'Wiggles', 'Bubbles', 'Fizz', 'Pip', 'Pixie', 'Twinkletoes', 'Dazzle', 'Shimmer', 'Glimmer', 'Glitter', 'Tinsel', 'Confetti', 'Ribbon', 'Locket', 'Charm', 'Cuddles', 'Snuggles', 'Whisper', 'Mistletoe',
+  'Sundrop', 'Rainbowbright', 'Starlily', 'Moondancer', 'Skyflower', 'Cloudberry', 'Heartstring', 'Lullaby', 'Harmony', 'Melody', 'Serenade', 'Sonnet', 'Carol', 'Tiptoe', 'Whiskers', 'Muffin', 'Biscuit', 'Waffles', 'Pancake', 'Sherbet']);
+/** How many names a pony of this variety (null: meadow) can have, and the one at an index. */
+const PonyNames = Object.freeze({
+  count: V => (V || PonyPalette).names.length + PonyNamePool.length,
+  at: (V, i) => { const own = (V || PonyPalette).names; return i < own.length ? own[i] : PonyNamePool[(i - own.length) % PonyNamePool.length]; }
+});
+
 /** UNIQUE PONIES PER BIOME. Index 0 is the ordinary meadow pony (the palette above); every other biome has its own coats, manes, cutie marks, names
  *  and a signature accessory / effect, so you can tell where a pony came from at a glance: a Blossom pony wears a flower crown, a Crystal pony grows gem
  *  shards, a Starlit pony is dusted with stars, an Ember pony has a mane of flame. */
@@ -33,7 +45,7 @@ const PonyLook = {
    *  The rarity (an index into RarityOrder, never below `minRarity`) and the trait seed decide its buffs and abilities (PonyRarity). */
   fromGene(gene, variant = 0, minRarity = 'common') {
     const rng = mulberry32(gene | 0), V = variant ? PonyVariants[variant] : null, P = PonyPalette;
-    const coats = V ? V.coats.length : P.base.coats, manes = V ? V.manes.length : P.base.manes, marks = V ? V.marks.length : P.marks.length, names = V ? V.names.length : P.names.length;
+    const coats = V ? V.coats.length : P.base.coats, manes = V ? V.manes.length : P.base.manes, marks = V ? V.marks.length : P.marks.length, names = PonyNames.count(V);
     const look = [Math.floor(rng() * coats), Math.floor(rng() * manes), Math.floor(rng() * marks), Math.floor(rng() * names), variant | 0];
     look.push(PonyRarity.rollRarity(rng, minRarity), Math.floor(rng() * 65536));
     return PonyGenes.roll(rng, look, variant | 0);                    // (the genes come last, so the older numbers of a gene are what they always were)
@@ -57,8 +69,9 @@ const PonyLook = {
     const P = PonyPalette, l = look || [0, 0, 0, 0, 0], v = l[4] | 0, V = v ? PonyVariants[v] : null;
     const rarity = RarityDefs[RarityOrder[clamp(l[5] | 0, 0, RarityOrder.length - 1)]], sex = PonyLook.sexOf(l);
     const gene = PonyGenes.phenotype(l);                                                    // the shapes and colours its genes give it (genes.js)
-    const coatHex = PonyGenes.shade((V || P).coats[l[0]], gene.coatShade), aura = PonyGenes.auraColor(gene.maneColors[0], coatHex);              // its glow: the colour of its mane
-    if (!V) return { sex, coat: coatHex, mane: P.manes[l[1]], mark: P.marks[l[2]], name: P.names[l[3]], variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: null, glow: null, rarity, gene, aura };
-    return { sex, coat: coatHex, mane: V.manes[l[1]], mark: V.marks[l[2]], name: V.names[l[3]], variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory, glow: V.glow, rarity, gene, aura };
+    const fx = gene.mutation || {}, coatBase = fx.coat || ((V || P).coats[l[0]] && fx.coatMix ? PonyGenes.blend((V || P).coats[l[0]], fx.coatMix[0], fx.coatMix[1]) : (V || P).coats[l[0]]);       // (a mutation can change the coat too)
+    const coatHex = fx.coat ? fx.coat : PonyGenes.shade(coatBase, gene.coatShade), aura = PonyGenes.auraColor(gene.maneColors[0], coatHex), mglow = fx.glow === 'aura' ? aura : fx.glow || null;              // its glow: the colour of its mane
+    if (!V) return { sex, coat: coatHex, mane: P.manes[l[1]], mark: P.marks[l[2]], name: PonyNames.at(null, l[3]), variant: 0, variantName: 'Meadow', variantId: 'meadow', accessory: fx.accessory || null, glow: mglow, rarity, gene, aura };
+    return { sex, coat: coatHex, mane: V.manes[l[1]], mark: V.marks[l[2]], name: PonyNames.at(V, l[3]), variant: v, variantName: V.name, variantId: V.id, accessory: V.accessory || fx.accessory || null, glow: V.glow || mglow, rarity, gene, aura };
   }
 };

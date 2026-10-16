@@ -78,8 +78,8 @@ H('singularity', 'Singularity', ['cosmic', 'eclipse'], 0.25, 'legendary', 'wh', 
   'Horizon Abyss Void Paradox Nadir Collapse Antimatter Tesseract', ['Event Horizon', 'Space folds in: hostile creatures are crushed and the wild ones bolt', 18, '⚫', '#8a5cff', dmg(24, 6), scare(6)]);
 H('paradise', 'Paradise', ['prism', 'confetti'], 0.3, 'legendary', 'wh', 'rainbow', '#ffffff', ['#ffffff', '#fff4fa', '#f4fff8', '#f4f8ff'], [['#ff1744', '#ff9100', '#ffea00', '#00e676', '#2979ff', '#d500f9'], ['#ffffff', '#ff80ab', '#18ffff']],
   'Utopia Eden Elysia Bliss Heaven Jubilant Radiance Harmony', ['Paradise', 'A burst of pure joy heals you and everyone beside you a great deal', 18, '🌺', '#ffffff', heal(46, 5.4)]);
-H('hellfire', 'Hellfire', ['plasma', 'wildfire'], 0.3, 'legendary', 'wh', 'flames', '#ff3d00', ['#2a0a0a', '#3a1010', '#1e0606', '#4a1414'], [['#ff1744', '#ff6d00', '#ffea00'], ['#d50000', '#ff9100', '#ffffff']],
-  'Inferno Brimstone Cinder Conflagra Pyra Ashen Furnace Blaze', ['Hellfire', 'A firestorm engulfs hostile creatures all round you', 13, '🌋', '#ff3d00', dmg(22, 5.4), scare(5.4)]);
+H('hellfire', 'Blazeheart', ['plasma', 'wildfire'], 0.3, 'legendary', 'wh', 'flames', '#ff9a30', ['#6a2a1a', '#7a3420', '#5a2216', '#8a4026'], [['#ff5252', '#ff9100', '#ffea00'], ['#ff8a65', '#ffd54f', '#ffffff']],
+  'Blaze Flicker Cinder Toasty Hearth Sparky Kindle Glowheart', ['Heartflame', 'A warm wave of golden flame sweeps hostile creatures away from you', 13, '🔥', '#ff9a30', dmg(22, 5.4), scare(5.4)]);
 H('chaos', 'Chaos', [], 0.12, 'legendary', 'wh', 'stars', '#ff40ff', ['#101010', '#ff0050', '#00e5ff', '#ffee00'], [['#ff1744', '#00e5ff', '#ffea00', '#d500f9'], ['#76ff03', '#ff6d00', '#2979ff']],
   'Entropy Havoc Mayhem Wild Glitch Rift Anarchy Flux', ['Wild Magic', 'Anything can happen: a wave of raw magic hurts hostile creatures and heals your friends', 12, '🎲', '#ff40ff', dmg(14, 5), heal(14, 5)], { marks: MARKS });
 /* ---- more crosses (added after the first batch: they sit at the end of the variety table so saved ponies keep their numbers) ---- */
@@ -153,4 +153,37 @@ H('genesis', 'Genesis', ['paradise', 'supernova'], 0.25, 'legendary', 'wh', 'sta
   'Origin Alpha First Bigbang Creation Dawnborn Primal Seed', ['Genesis', 'A burst of creation heals you and friends enormously and sears hostile creatures', 20, '🌍', '#ffffff', heal(52, 6), dmg(18, 6)]);
 H('oblivion', 'Oblivion', ['singularity', 'hellfire'], 0.25, 'legendary', 'wh', 'stars', '#ff4060', ['#06040a', '#0e0814', '#0a0610', '#140c1c'], [['#000000', '#ff1744', '#8a5cff'], ['#311b92', '#ff3d00', '#ffffff']],
   'Nullity Erasure Blotted Absence Finality Voidfire Omega Eclipse', ['Oblivion', 'Everything hostile nearby is erased, and the wild ones flee in terror', 20, '🕳', '#ff4060', dmg(30, 6.2), scare(6.4)]);
+/* ---- friendly morphs: gentle, sunny crosses with healing and cheering powers (they go alongside the fiery and stormy ones) ---- */
+H('friendship', 'Friendship', ['meadow', 'orchard'], 0.5, 'uncommon', '', 'leaves', '#ffd0e0', ['#fde8d8', '#fbe0e8', '#f4ecd0', '#e8f2d8'], [['#ec407a', '#ffca28', '#8bc34a'], ['#f48fb1', '#ffe082']],
+  'Buddy Sweetie Pal Cheery Hugsy Chum Dearie Posy', ['Friendly Cheer', 'A warm hug of friendship heals you and the friends beside you', 14, '💗', '#ffd0e0', heal(24, 4.4)]);
+H('kindness', 'Kindness', ['meadow', 'sun'], 0.45, 'rare', '', 'rays', '#ffe9a8', ['#fff3d6', '#ffe9c4', '#fdf5e0', '#ffe0b8'], [['#ffb74d', '#fff176', '#f48fb1'], ['#ffd54f', '#ffffff']],
+  'Gentle Tender Soft Mercy Sunnyside Warmth Gracie Cosy', ['Kind Heart', 'A gentle glow heals you and your friends a good deal', 15, '🌼', '#ffe9a8', heal(32, 4.6)]);
+H('laughter', 'Laughter', ['candy', 'sun'], 0.45, 'rare', '', 'sprinkles', '#fff0a0', ['#fff0b3', '#ffd1e8', '#d1f5e0', '#ffe0c0'], [['#ff4081', '#ffeb3b', '#00e5ff'], ['#ffca28', '#ff80ab']],
+  'Giggles Chuckle Snickers Wiggles Tickle Guffaw Bubbly Punchline', ['Giggle Burst', 'Giggles startle the wild animals and cheer up your friends', 12, '😄', '#fff0a0', scare(4.4), heal(18, 4.4)]);
+H('generosity', 'Generosity', ['orchard', 'crystal'], 0.4, 'epic', 'h', 'crystals', '#ffe6a0', ['#f6e8c8', '#f2dcc0', '#fdf0d8', '#e8dcc0'], [['#c62828', '#ffd54f', '#80deea'], ['#ef5350', '#fff59d']],
+  'Bounty Giver Plenty Sharing Gifty Largesse Treasure Kindle', ['Generous Gifts', 'Gifts of apples and glowing warmth for you and your friends', 24, '🎁', '#ffe6a0', ['gift', 3, 0, 'self', 'self'], heal(20, 4.4)]);
+H('loyalty', 'Loyalty', ['meadow', 'frost'], 0.45, 'rare', '', 'frost', '#cfe8ff', ['#eaf2fa', '#dde9f4', '#f2f7fc', '#d0e0ee'], [['#42a5f5', '#e3f2fd', '#ffffff'], ['#64b5f6', '#bbdefb']],
+  'Steadfast True Faithful Trusty Staunch Constant Bluebell Stalwart', ['Steadfast Shield', 'A steady chill heals you and friends and slows anything hostile near you', 14, '🛡', '#cfe8ff', heal(22, 4.4), slow(55, 4, 3)]);
+H('honesty', 'Honesty', ['meadow', 'crystal'], 0.45, 'rare', 'h', 'crystals', '#dff8ff', ['#e8f8ff', '#d8f0fa', '#f0fcff', '#cce8f4'], [['#26c6da', '#ffffff', '#fff59d'], ['#4dd0e1', '#e0f7fa']],
+  'Truthful Clearly Plain Candor Sincere Honest Lucid Sparkly', ['Clear Light', 'A pure bright light heals you and chases the shadows away', 15, '💎', '#dff8ff', heal(24, 4.4), ['light', 0, 8, 'self', 'self']]);
+H('sparkle', 'Sparkle', ['starlit', 'sun'], 0.4, 'epic', 'wh', 'stars', '#fff0c0', ['#3a3470', '#fff0c0', '#2c2858', '#4a4088'], [['#ffd54f', '#f48fb1', '#80deea'], ['#ffffff', '#ffca28', '#b39ddb']],
+  'Glitterbug Starbeam Gleam Twinklestar Shiny Spangle Aglow Brightly', ['Sparkle Shower', 'A shower of sparkles heals your friends and dazzles hostile creatures', 13, '✨', '#fff0c0', heal(26, 4.8), dmg(10, 4.6)]);
+H('cuddle', 'Cuddle', ['meadow', 'moon'], 0.45, 'rare', '', 'stars', '#e0e4ff', ['#e8eaf8', '#f0e8f8', '#e0e8f4', '#f6eef6'], [['#9fa8da', '#f8bbd0', '#ffffff'], ['#b39ddb', '#e1bee7']],
+  'Snuggles Cosy Pillow Blanket Teddy Hushabye Nuzzle Lullaby', ['Cuddle Cloud', 'A cosy cloud lulls the wild animals to sleep and wraps you in warmth', 14, '🧸', '#e0e4ff', slow(85, 4.4, 5), ['heal', 20, 0, 'self', 'self']]);
+H('twinkle', 'Twinkle', ['candy', 'star'], 0.4, 'epic', 'h', 'stars', '#ffe6ff', ['#261c58', '#3a2a78', '#ffd1e8', '#ffe6ff'], [['#fff176', '#ff80ab', '#80deea'], ['#ffffff', '#f48fb1']],
+  'Twinkletoes Sugarstar Candystar Wishful Pixiedust Shimmerpop Starlight Bonbon', ['Twinkle Wish', 'A sweet wish on a star heals your friends and speeds you along', 13, '🌟', '#ffe6ff', heal(22, 4.6), ['speed', 55, 0, 'self', 'self', 3]]);
+H('gumdrop', 'Gumdrop', ['candy', 'moss'], 0.5, 'uncommon', '', 'sprinkles', null, ['#c8f0d0', '#f8d0e8', '#fff0b8', '#d8e8ff'], [['#66bb6a', '#ff80ab', '#ffee58'], ['#81c784', '#f48fb1']],
+  'Jellybean Sourdrop Licorice Lollipop Chewy Mintcake Rockcandy Bonbon', ['Sticky Sweets', 'Gooey gumdrops slow the wild animals and give you a little cheer', 11, '🍬', '#ff80ab', slow(70, 3.8, 3), ['heal', 14, 0, 'self', 'self']]);
+H('petalpuff', 'Petal Puff', ['jungle', 'candy'], 0.45, 'rare', '', 'leaves', '#ffb8e0', ['#ffd0e4', '#d8f0c8', '#fff0c0', '#e8d0f8'], [['#ec407a', '#ffee58', '#66bb6a'], ['#ff80ab', '#ffd54f']],
+  'Blossomy Petalpop Bloomie Posie Tulipa Marigold Fragrant Pollen', ['Petal Storm', 'A flurry of sweet petals heals friends and slows the wild animals', 12, '🌸', '#ffb8e0', heal(20, 4.4), slow(60, 4.4)]);
+H('sunshower', 'Sunshower', ['sun', 'water'], 0.5, 'rare', '', 'bubbles', '#ffe9a8', ['#ffeeb8', '#bfe4fa', '#fff3c7', '#cfe9f8'], [['#ffca28', '#4fc3f7', '#ffffff'], ['#ffd54f', '#81d4fa']],
+  'Drizzly Raindrop Rainbowbeam Puddles Splashy Dewy Showery Brightdrop', ['Rainbow Shower', 'A sparkling sunny shower heals you and everyone beside you', 14, '🌦', '#ffe9a8', heal(28, 4.6)]);
+H('harmony', 'Harmony', ['friendship', 'kindness'], 0.3, 'legendary', 'wh', 'rainbow', '#fff0f8', ['#fff8fc', '#fdf0f8', '#f8f4ff', '#fffaf0'], [['#ec407a', '#ffca28', '#42a5f5', '#66bb6a'], ['#ba68c8', '#ff7043', '#26c6da']],
+  'Concord Accord Serenade Chorus Melody Unison Carol Rhapsody', ['Harmony', 'Pure harmony heals you and all your friends greatly and calms the wild animals', 18, '🎶', '#fff0f8', heal(48, 6), slow(60, 5.6, 4)]);
+H('unity', 'Unity', ['generosity', 'honesty'], 0.3, 'legendary', 'wh', 'crystals', '#ffffff', ['#fff6e0', '#e8f8ff', '#fff0f0', '#f0fff0'], [['#ffd54f', '#80deea', '#ffffff'], ['#ef5350', '#26c6da', '#fff176']],
+  'Together Allied Bondling Kinship Tandem Oneness Teamwork Joined', ['Together', 'Everyone pulling together: a great healing glow and a warm, bright light', 18, '🤝', '#ffffff', heal(44, 6), ['light', 0, 10, 'self', 'self']]);
+H('celebration', 'Celebration', ['laughter', 'twinkle'], 0.3, 'legendary', 'wh', 'sprinkles', '#ffffff', ['#fff0f8', '#f0f8ff', '#fffbe0', '#f0ffe8'], [['#ff4081', '#ffea00', '#00e5ff', '#76ff03'], ['#e040fb', '#ff9100', '#18ffff']],
+  'Festive Jubilation Partytime Hooray Fanfare Streamers Cheer Revelry', ['Grand Party', 'A big party: cheering streamers heal your friends and send the wild animals scampering', 16, '🎊', '#ffffff', heal(36, 5.6), scare(5.6)]);
+H('everbloom', 'Everbloom', ['petalpuff', 'sunshower'], 0.3, 'legendary', 'wh', 'leaves', '#ffffd0', ['#f8fce0', '#fff0f4', '#e8f8e0', '#fffadc'], [['#ec407a', '#76ff03', '#ffeb3b'], ['#ff80ab', '#69f0ae', '#ffd740']],
+  'Springtide Evergreen Perennial Meadowlark Greenwing Fullbloom Eden Lush', ['Everbloom', 'Flowers burst into bloom everywhere: a big healing and a field of calming petals', 17, '🌷', '#ffffd0', heal(40, 5.8), slow(65, 5.4, 4)]);
 })();

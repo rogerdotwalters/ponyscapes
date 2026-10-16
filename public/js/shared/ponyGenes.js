@@ -7,6 +7,10 @@
  * mane colour, so everything that read them before still works; ponies saved before genes existed have no genome and read as a plain one (classic shapes, tail the mane's colour): nothing to migrate. */
 const PonyGenes = (() => {
   const LOCI = PonyGeneTable.all(), BASE = 7, PACK = 64, MUTATION = 0.06, LEN = BASE + LOCI.length;
+  const MUTATION_ODDS = 1 / 200, CARRIER_ODDS = 1 / 17, WILD_DOMINANT_ODDS = 1 / 250, MUTATIONS = PonyMutationTable.all();   // (a new mutation in a foal; a wild pony carrying a hidden recessive one; a wild pony showing a dominant one)
+  /** Mix two colours: `t` of the way from a to b. */
+  const blend = (a, b, t) => { const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16), c = s => Math.round(((pa >> s) & 255) * (1 - t) + ((pb >> s) & 255) * t); return '#' + [16, 8, 0].map(s => c(s).toString(16).padStart(2, '0')).join(''); };
+  const mutationIds = (L, dominant) => L.alleles.map((a, i) => i).filter(i => i > 0 && !!L.alleles[i].dominant === dominant);
   const at = id => LOCI.findIndex(L => L.id === id);
   /** How many alleles a gene has for a variety (a palette gene has one per colour of the variety). */
   const sizeOf = (L, variant) => L.palette ? (variant ? PonyVariants[variant] : PonyPalette)[L.palette].length : L.alleles.length;
@@ -30,12 +34,18 @@ const PonyGenes = (() => {
   const patterned = (list, pattern) => pattern === 1 ? [list[0]] : pattern === 2 ? [...list, turn(list[0], 100), turn(list[list.length - 1], -100), turn(list[0], 200)].slice(0, Math.max(4, list.length)) : list;
   const pick = (rng, weights) => { let t = weights.reduce((a, b) => a + b, 0) * rng(); for (let i = 0; i < weights.length; i++) { t -= weights[i]; if (t < 0) return i; } return weights.length - 1; };
   return {
-    LOCI, BASE, LEN, at, genomeOf, sizeOf, shade, toHsl, fromHsl,
+    LOCI, BASE, LEN, at, genomeOf, sizeOf, shade, toHsl, fromHsl, blend, MUTATION_ODDS, CARRIER_ODDS, MUTATIONS,
+    /** The mutation a pair of alleles shows (an index into the gene's alleles, 0 = none): a dominant one at once, a recessive one only when both copies are the same. */
+    shownMutation(L, pair) { const dom = pair.filter(k => k > 0 && L.alleles[k] && L.alleles[k].dominant); return dom.length ? Math.min(...dom) : pair[0] === pair[1] ? pair[0] : 0; },
     hasGenome: look => !!look && look.length >= LEN,
     /** A wild pony's genome, appended to `look` (which already holds its shown coat and mane). Each gene's shown allele is rolled by its weights; the carried one is any allele after it. */
     roll(rng, look, variant) {
       const R = variant ? 0 : PonyPalette.recessive.count;                                       // (only the meadow palette has the recessive colours, black and silver)
       for (const L of LOCI) {
+        if (L.kind === 'mutation') {                                                              // (most ponies have none; about 1 in 17 carries a hidden recessive one; now and then a wild pony shows a dominant one)
+          const r = rng(), dom = mutationIds(L, true), rec = mutationIds(L, false), a = r < WILD_DOMINANT_ODDS ? dom[Math.floor(rng() * dom.length)] : r < WILD_DOMINANT_ODDS + CARRIER_ODDS ? rec[Math.floor(rng() * rec.length)] : 0;
+          look.push(rng() < 0.5 ? a * PACK : a); continue;
+        }
         if (L.additive) { const w = L.alleles.map(a => a.weight || 1); look.push(pick(rng, w) * PACK + pick(rng, w)); continue; }                // (a depth: both alleles drawn by their weights)
         const n = sizeOf(L, variant), common = n - (L.palette ? R : 0);                          // the colours that are not recessive
         let shown = L.slot !== undefined ? Math.min(look[L.slot] | 0, n - 1) : L.palette ? Math.floor(rng() * common) : pick(rng, L.alleles ? L.alleles.map(a => a.weight || 1) : new Array(n).fill(1));
@@ -63,6 +73,10 @@ const PonyGenes = (() => {
       return LOCI.map((L, i) => {
         const n = sizeOf(L, variant);
         let x = ga[i][rng() < 0.5 ? 0 : 1], y = gb[i][rng() < 0.5 ? 0 : 1];
+        if (L.kind === 'mutation') {                                                              // about 1 foal in 200 gets a brand new mutation in one of its two copies: it is then carried and passed on like any gene
+          if (rng() < MUTATION_ODDS) { const k = 1 + Math.floor(rng() * (n - 1)); if (rng() < 0.5) x = k; else y = k; }
+          return x * PACK + y;
+        }
         if (L.additive) {                                                                         // a depth drifts a step either way
           if (rng() < MUTATION) x = clamp(x + (rng() < 0.5 ? -1 : 1), 0, n - 1);
           if (rng() < MUTATION) y = clamp(y + (rng() < 0.5 ? -1 : 1), 0, n - 1);
@@ -91,7 +105,7 @@ const PonyGenes = (() => {
     /** The genes as they SHOW: { geneId: allele index }, the rule genes applied (a matched tail takes the mane's colour). */
     express(look) {
       const g = genomeOf(look), v = look[4] | 0, out = {};
-      LOCI.forEach((L, i) => { const n = sizeOf(L, v); out[L.id] = (L.slot !== undefined ? look[L.slot] | 0 : L.additive ? Math.round((g[i][0] + g[i][1]) / 2) : Math.min(g[i][0], g[i][1])) % n; });
+      LOCI.forEach((L, i) => { const n = sizeOf(L, v); out[L.id] = (L.slot !== undefined ? look[L.slot] | 0 : L.additive ? Math.round((g[i][0] + g[i][1]) / 2) : L.kind === 'mutation' ? PonyGenes.shownMutation(L, g[i]) : Math.min(g[i][0], g[i][1])) % n; });
       for (const L of LOCI) if (L.link && out[L.id] === 0) out[L.link[1]] = out[L.link[0]];
       return out;
     },
@@ -114,12 +128,17 @@ const PonyGenes = (() => {
         else if (carried.length) traits.push({ part, text: `carries ${[...new Set(carried)].map(a => R.names[a - (n - R.count)].toLowerCase()).join(' and ')}` });
       }
       for (const [id, part] of [['coatShade', 'Coat'], ['maneShade', 'Mane']]) if (ex[id] > 0) traits.push({ part, text: `${LOCI[at(id)].alleles[ex[id]].name.toLowerCase()} colour (bred deeper)` });
+      const mut = ex.mutation ? MUTATIONS[ex.mutation - 1] : null;
+      if (mut) traits.push({ part: 'Mutation', text: `${mut.name}: ${mut.desc}` });
       const talent = PonyGenes.talentOf(look); if (talent) traits.push({ part: 'Skill', text: `${talent.name}, inherited (level ${talent.level})` });
+      const fx = mut || {}, pat = fx.pattern !== undefined ? fx.pattern : ex.manePattern, tpat = fx.pattern !== undefined ? fx.pattern : tailPattern;       // (a mutation can change the mane's colours and pattern)
       return {
-        eyeShape: ex.eyeShape, eyeColor: allele('eyeColor').color, maneShape: ex.maneShape, tailShape: ex.tailShape, bodyShape: ex.bodyShape,
-        hoofShape: ex.hoofShape, hoofColor: allele('hoofColor').color, headShape: ex.headShape, tailLinked,
-        manePattern: ex.manePattern, tailPattern, maneColors: patterned(manes[ex.maneColor], ex.manePattern).map(c => shade(c, ex.maneShade)), tailMane: patterned(manes[ex.tailColor], tailPattern).map(c => shade(c, ex.maneShade)), coatShade: ex.coatShade, maneShade: ex.maneShade, traits,
-        key: LOCI.filter(L => L.slot === undefined && L.kind !== 'skill').map(L => L.id === 'tailColor' && tailLinked ? 'm' : ex[L.id]).join('')
+        eyeShape: ex.eyeShape, eyeColor: fx.eye || allele('eyeColor').color, maneShape: fx.maneShape !== undefined ? fx.maneShape : ex.maneShape, tailShape: fx.tailShape !== undefined ? fx.tailShape : ex.tailShape, bodyShape: ex.bodyShape,
+        hoofShape: fx.hoofShape !== undefined ? fx.hoofShape : ex.hoofShape, hoofColor: fx.hoof || allele('hoofColor').color, headShape: ex.headShape, tailLinked,
+        manePattern: pat, tailPattern: tpat,
+        maneColors: fx.mane ? patterned(fx.mane, pat) : patterned(manes[ex.maneColor], pat).map(c => shade(c, ex.maneShade)), tailMane: fx.mane ? patterned(fx.mane, tpat) : patterned(manes[ex.tailColor], tpat).map(c => shade(c, ex.maneShade)),
+        coatShade: ex.coatShade, maneShade: ex.maneShade, mutation: mut, traits,
+        key: LOCI.filter(L => L.slot === undefined && L.kind !== 'skill').map(L => L.id === 'tailColor' && tailLinked ? 'm' : ex[L.id]).join(',')
       };
     }
   };
