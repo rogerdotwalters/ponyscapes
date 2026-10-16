@@ -52,6 +52,7 @@ const SnapshotBuilder = {
     if (grid) snapshot.boats = {};
     snapshot.events = SnapshotBuilder.eventsFor(base.events, id, grid);
     snapshot.pets = server.petsFor(id); snapshot.book = server.bookFor(id); snapshot.varieties = server.varietiesFor(id);   // the Pony Book, every snapshot (it is small)
+    snapshot.connect4 = server.connect4.stateFor(id);                                                                 // the Connect Four game you are sitting at (else null)
     snapshot.roundup = server.roundup.stateFor(id);                                                                   // the Round-Up's scoreboard and clock, while you are in an arena (else null)
     const inventory = server.inventoryUpdateFor(id);   if (inventory) snapshot.inventory = inventory;
     const coins = server.coinsUpdateFor(id);           if (coins !== null) snapshot.coins = coins;           // the coin purse, only when it changed

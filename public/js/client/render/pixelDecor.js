@@ -248,6 +248,20 @@ const PixelDecor = (() => {
       s.box(0.1, 0.1, w - 0.1, h - 0.1, z - 4, z - 3, M.solid(shade(top, 0.7)));
       if (c.pad) s.box(0.14, 0.16, w - 0.14, h - 0.16, z, z + 1, M.cloth(c.pad));
     },
+    /** A table with a Connect Four board standing across its middle (the players sit at its two ends, facing each other). */
+    game_table(s, def, w, h, rot) {
+      BUILD.table(s, def, w, h, rot);
+      const z = A(def.height || 26), c = def.colors, mx = w / 2, y0 = 0.22, y1 = h - 0.22, bh = 15;
+      s.box(mx - 0.07, y0 - 0.04, mx + 0.07, y0 + 0.06, z, z + 3, M.solid(c.frame));                      // the board's two feet
+      s.box(mx - 0.07, y1 - 0.06, mx + 0.07, y1 + 0.04, z, z + 3, M.solid(c.frame));
+      s.box(mx - 0.045, y0, mx + 0.045, y1, z + 2, z + 2 + bh, M.solid(c.board));
+      s.box(mx - 0.055, y0 - 0.02, mx + 0.055, y0 + 0.02, z + 2, z + 2 + bh, M.solid(c.frame));              // its frame
+      s.box(mx - 0.055, y1 - 0.02, mx + 0.055, y1 + 0.02, z + 2, z + 2 + bh, M.solid(c.frame));
+      s.decal((g, P, px, rect) => {                                                                          // coins in its holes: red and yellow, as on a real board
+        const cols = ['#e2b43a', '#d0453b', '#0b1530'];
+        for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) { const [x, y] = P(mx + 0.045, y0 + 0.06 + i * (y1 - y0 - 0.12) / 5.2, z + 4.5 + j * 3.3); rect(x - 1, y - 1, 2, 2, cols[(i * 2 + j * 3 + (i > 3 ? 1 : 0)) % 3 === 2 && j > 1 ? 2 : (i + j) % 2]); }
+      });
+    },
     workbench(s, def, w, h, rot) {
       BUILD.table(s, def, w, h, rot);
       const z = A(def.height || 24), c = def.colors, mx = w / 2, my = h / 2;

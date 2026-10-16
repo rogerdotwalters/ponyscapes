@@ -187,5 +187,30 @@ window.PONYSCAPES_INTERIORS = {
       { "id": "lamp", "x": 7, "y": 1, "rot": 0 }, { "id": "crate", "x": 10, "y": 7, "rot": 0 }
     ],
     "exit": [5, 8]
+  },
+  "pony_inn": {
+    "name": "The Pony Inn",
+    "tiles": [
+      "WVWWWVWWWVWWW",
+      "WwwwwwwwwwwwW",
+      "WwwwwwwwwwwwW",
+      "WwwwwwwwwwwwW",
+      "WwwwwwwwwwwwW",
+      "WwwwwwwwwwwwW",
+      "WwwwwwwwwwwwW",
+      "WwwwwwwwwwwwW",
+      "WwwwwwwwwwwwW",
+      "WWWWWWmWWWWWW"
+    ],
+    "furniture": [
+      { "id": "bar_counter", "x": 1, "y": 2, "rot": 0 }, { "id": "goods_shelf", "x": 5, "y": 1, "rot": 0 }, { "id": "lamp", "x": 7, "y": 1, "rot": 0 }, { "id": "fireplace", "x": 9, "y": 1, "rot": 0 },
+      { "id": "potted_plant", "x": 11, "y": 1, "rot": 0 }, { "id": "potted_plant", "x": 1, "y": 8, "rot": 0 }, { "id": "potted_plant", "x": 11, "y": 8, "rot": 0 },
+      { "id": "rug", "x": 5, "y": 4, "rot": 0 },
+      { "id": "connect4_table", "x": 2, "y": 5, "rot": 0 }, { "id": "chair", "x": 1, "y": 5, "rot": 0 }, { "id": "chair", "x": 4, "y": 5, "rot": 0 },
+      { "id": "connect4_table", "x": 8, "y": 5, "rot": 0 }, { "id": "chair", "x": 7, "y": 5, "rot": 0 }, { "id": "chair", "x": 10, "y": 5, "rot": 0 },
+      { "id": "table", "x": 4, "y": 7, "rot": 0 }, { "id": "chair", "x": 4, "y": 8, "rot": 0 }, { "id": "chair", "x": 5, "y": 8, "rot": 0 }
+    ],
+    "exit": [6, 9]
   }
+
 };

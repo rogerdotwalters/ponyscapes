@@ -357,6 +357,20 @@ scoreboard, `client/render/roundupSprites.js` the fence, poles and ropes; `node 
 * **Adding another minigame**: register it in `js/data/minigames/`, give its grid kind a plan in `Grids.parse` / `Grids.plan` (a `decorate(world)` hook on the plan builds fixed pieces such as the fence), write its
   system (start it from an `Interactions.extra` finder + `InteractionHandlers`, drive it from `GameServer.step`), and send its state to the players with `SnapshotBuilder.personalize`.
 
+## The Pony Inn and Connect Four
+
+**The Pony Inn** (`data/buildings/pony_inn.js`, room `pony_inn` in `js/content/interiors.js`, south of the plaza) has **Hattie the innkeeper** (`data/npcs/innkeeper.js`) behind her bar from 8:00 to 23:00 and two
+**Connect Four tables** (`data/furniture/inn.js` `connect4_table`, drawn by the `game_table` style in `pixelDecor.js`). Stand at a table and press **Use** (*Play Connect Four*) to sit. The first to sit takes seat 0, the next seat 1
+and the game starts; alone you can press **Play the computer** (`ConnectFour.bestMove`: it takes and blocks wins, otherwise looks 5 moves ahead and slips 10% of the time, so a person can win).
+
+* **The game** is server-side (`js/shared/connectFour.js`: rules, the computer, `ConnectFourSystem` keeping one table per furniture piece): turns are enforced, a full column refuses a coin, four in a row (any direction) wins, a
+  full board is a draw, **Play again** needs both players and the other side starts. Walking away from the table or the room, or closing the window, **stands you up** and gives a game in progress to your opponent.
+  `server.connect4.stateFor(id)` travels in every snapshot (`snapshot.connect4`, also to remote players); commands `c4Drop`, `c4Ai`, `c4Again`, `c4Leave`.
+* **Pony coin tokens**: each side plays with the collector coin of its **main pony's variety** (`PonyCoins`); if both match, or a side has no pony, another variety is used (the computer plays ember or crystal).
+* **The screen** (`js/client/ui/connectFourUI.js`, a window in the `PanelGroup` as `connect4`) uses the **coin physics**: coins are the game's 3D pixel coins (`CoinSpin` + `PonyCoinArt`). A dropped coin tumbles, falls
+  *behind* the blue board so it shows through the holes, bounces on the stack and settles face on; the winning four spin; a new game lets the old coins drop out of the bottom. **Seat 1 sees the board mirrored**
+  (column 0 on the right), as if sitting across the table. Click or tap a column, or use the arrow keys + Enter, or the keys 1-7; Escape stands up.
+
 ## The map
 
 Drag the map (mouse or finger) to look around; **Centre on me** brings it back. An arrow on the edge always points the way to **town** (with the

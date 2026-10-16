@@ -36,6 +36,7 @@
     "test:elasticbag": "node tools/test-elasticbag.js",
     "test:sleep": "node tools/test-sleep.js",
     "test:roundup": "node tools/test-roundup.js",
+    "test:connect4": "node tools/test-connect4.js",
     "bench:server": "node tools/bench-ponies.js",
     "bench:render": "node tools/bench-render.js"
   },
