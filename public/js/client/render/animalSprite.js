@@ -25,7 +25,7 @@ class AnimalSprite {
    *  @param {{procedural?:boolean}} [opts] procedural: ignore images (the editor's previews of the built-in art) */
   draw(animal, id, sx, sy, now, view, opts = {}) {
     const ctx = this.g.ctx;
-    const st = this.state[id] || (this.state[id] = { phase: 0, last: now, flip: 1 });
+    const st = this.state[id] || (this.state[id] = { phase: 0, last: now, flip: 1, id });
     const speed = isoLength(animal.vx || 0, animal.vy || 0);                  // legs follow how fast it looks like it is moving
     st.phase += speed * Math.min(0.1, (now - st.last) / 1000) * 7; st.last = now;
     const [ux] = IsoProjection.worldDeltaToScreen(Math.cos(animal.facing), Math.sin(animal.facing));
@@ -58,6 +58,10 @@ class AnimalSprite {
       if (look.glow) this._glow(look.aura, now);                                                // (in the colour of its mane)
       if (def.mystical) this.g.ellipse(0, -22, 30, 24, this._rgba(look.aura, 0.10 + 0.04 * Math.sin(now / 500)));
       ctx.restore();
+    }
+    if (look.accessory === 'rainbow') {                                                           // it lays a rainbow behind it (rainbowTrail.js): from the tail, which is at the back of its side view
+      const tail = dir === 'right' ? -26 : dir === 'left' ? 26 : 0;
+      RainbowTrail.note(st.id, sx + tail, sy - 26, now, speed > 0.2);
     }
     PixelPony.draw(ctx, look, dir, sx, sy, { moving: speed > 0.2, phase: st.phase, now, seed: seed * 0.13, lift: animal.lift, flying: !!animal.flying,
       kind: { wings: !!def.wings, horn: !!def.horn, mystical: !!def.mystical } });
