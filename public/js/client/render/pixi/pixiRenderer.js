@@ -44,7 +44,7 @@ class PixiRenderer extends Renderer {
     this.worldB.addChild(this.grass, this.marker, this.items);                       // over it: grass, the tap marker, the depth-sorted items
     this.worldC = new PIXI.Container(); this.names = new PIXI.Container(); this.worldC.addChild(this.names);                   // building names, over the items
     this.lightLayer = new PIXI.Container();                                          // night (lighting)
-    this.worldD = new PIXI.Container(); this.particles = new PIXI.Container(); this.strokes = new PIXI.Container(); this.worldD.addChild(this.particles, this.strokes);   // particles, floating text
+    this.worldD = new PIXI.Container(); this.particles = new PIXI.Container(); this.strokes = new PIXI.Container(); this.rainbowGfx = new PIXI.Graphics(); this.worldD.addChild(this.rainbowGfx, this.particles, this.strokes);   // particles, floating text
     this.ready = this.app.init({
       canvas: this.view, width: Math.max(1, this.canvas.width), height: Math.max(1, this.canvas.height), resolution: 1, autoDensity: false,
       antialias: false, backgroundAlpha: 1, background: OCEAN_COLOR, autoStart: false, preference: 'webgl', powerPreference: 'high-performance', roundPixels: false,
@@ -202,6 +202,7 @@ class PixiRenderer extends Renderer {
     if (!this._ready) return;
     const fx = this.effects, dt = frameMs / 1000;
     fx.advanceParticles(dt);
+    RainbowTrail.drawPixi(this.rainbowGfx, performance.now(), PixiRenderer.colour);                    // (a rainbow pony's ribbon: drawn as geometry, not as a picture)
     const list = this.particlePool;
     fx.particles.forEach((p, i) => {
       let sp = list[i];
