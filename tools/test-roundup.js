@@ -52,7 +52,7 @@ test('a lone player is taken into a fenced meadow with a rival rancher and eight
   assert.strictEqual(run(`S.players[ids[0]].rt`), 0);
   assert.strictEqual(m.phase, 'countdown');
   assert.strictEqual(run(`CM().rival ? 1 : 0`), 1);
-  assert.strictEqual(run(`CM().sheep.length`), 8);
+  assert.strictEqual(run(`CM().sheep.length`), 9, 'eight sheep and the golden one');
   assert.strictEqual(run(`S.grids.get('roundup:1').kind`), 'roundup');
   assert.strictEqual(run(`RoundupArena.inside(S.players[ids[0]].x, S.players[ids[0]].y)`), true);
   run(`(() => { const p = S.players[ids[0]]; p.returnTo; })()`);
@@ -161,12 +161,71 @@ test('a rival who walks across a rope cuts it; your own side can cross it', () =
   assert.strictEqual(sheep(0).st, 'roped', 'a teammate does not cut it');
 });
 
-test('a lasso thrown at a sheep somebody else holds steals it', () => {
+test('a lasso thrown at a sheep somebody else holds starts a tug of war: mashing Use decides it', () => {
   fresh(2); begin(); goLive(); hitAlways();
   place(0, 20, 17); stand(0, 17, 17); cast(0, 0); secs(4); assert.strictEqual(sheep(0).st, 'led');
   stand(1, 23, 19); assert.strictEqual(cast(1, 0), true);
-  assert.strictEqual(sheep(0).st, 'roped'); assert.strictEqual(sheep(0).by, run('ids[1]')); assert.strictEqual(sheep(0).team, 1);
+  assert.strictEqual(sheep(0).by, run('ids[0]'), 'still the holder\'s while they pull');
+  const act = run(`Interactions.find(S.grids.get(S.players[ids[1]].grid), {}, S.players[ids[1]], '', S.animals.animals, ids[1], {}, {})`);
+  assert.strictEqual(act.kind, 'mash');
+  assert(run(`S.roundup._sheep(CM())[0].rs.ct.bar`) > 0.5, 'a led sheep starts in the holder\'s favour');
+  assert.strictEqual(run(`S.roundup.lassoFind(S.players[ids[0]], ItemDB.getTool('leash'))`), null, 'nobody else can throw at it meanwhile');
+  for (let i = 0; i < 12; i++) { run(`S._interact(ids[1], S.players[ids[1]])`); secs(0.05); }                  // the challenger mashes
+  assert.strictEqual(sheep(0).by, run('ids[1]')); assert.strictEqual(sheep(0).st, 'roped'); assert.strictEqual(sheep(0).team, 1);
   assert(sheep(0).tame > 0.3 && sheep(0).tame < 0.7, 'it starts partly settled: ' + sheep(0).tame);
+  assert.strictEqual(run(`S.roundup._sheep(CM())[0].rs.ct`), undefined);
+});
+
+test('the holder who mashes harder keeps the sheep; with no one mashing the holder keeps it when time runs out', () => {
+  fresh(2); begin(); goLive(); hitAlways();
+  place(0, 20, 17); stand(0, 17, 17); cast(0, 0); stand(1, 23, 19); cast(1, 0);
+  for (let i = 0; i < 40; i++) { run(`S._interact(ids[0], S.players[ids[0]])`); if (i % 4 === 0) run(`S._interact(ids[1], S.players[ids[1]])`); secs(0.04); }
+  assert.strictEqual(sheep(0).by, run('ids[0]')); assert.strictEqual(run(`S.roundup._sheep(CM())[0].rs.ct`), undefined, 'the tug is over');
+  place(1, 20, 14); stand(0, 17, 14); stand(1, 23, 14); cast(0, 1); cast(1, 1); secs(8);
+  assert.strictEqual(sheep(1).by, run('ids[0]'), 'nobody mashed: the holder keeps it');
+});
+
+test('crossing a rope in a tug of war cuts it free; a sheep tied to a pole is safe from lassos', () => {
+  fresh(3); begin(); goLive(); hitAlways();
+  place(0, 20, 17); stand(0, 17, 17); cast(0, 0); stand(1, 23, 19); cast(1, 0);
+  stand(2, 21.5, 18); secs(0.1);                                                                         // (a player of the holder's side stands on the challenger's rope: that cuts it)
+  assert.strictEqual(sheep(0).st, 'free');
+  place(1, 20, 14); run(`(() => { const m = CM(), a = S.roundup._sheep(m)[1]; m.teams[0].slots[0] = a.id; Object.assign(a.rs, { st: 'pole', team: 0, slot: 0, by: '', tame: 1 }); })()`);
+  stand(1, 14, 14);
+  const target = run(`(() => { const t = S.roundup.lassoFind(S.players[ids[1]], ItemDB.getTool('leash')); return t && t.ref; })()`);
+  assert.notStrictEqual(target, sheep(1).id, 'the penned sheep is not a target');
+  const near = RoundupPole1();
+  stand(1, near.x - 2.2, near.y);
+  const a = run(`Interactions.find(S.grids.get(S.players[ids[1]].grid), {}, S.players[ids[1]], '', S.animals.animals, ids[1], {}, {})`);
+  assert(!a || a.kind !== 'untie_sheep', 'no way to untie');
+});
+function RoundupPole1() { return run('RoundupArena.poles[0]'); }
+
+test('one golden sheep runs among the others: harder to catch, worth three', () => {
+  fresh(2); begin();
+  const gold = run(`S.roundup._sheep(CM()).filter(a => a.rs.gold).length`); assert.strictEqual(gold, 1);
+  assert.strictEqual(run(`S.roundup._sheep(CM()).length`), 9);
+  goLive();
+  const g = run(`S.roundup._sheep(CM()).findIndex(a => a.rs.gold)`), n = run(`S.roundup._sheep(CM()).findIndex(a => !a.rs.gold)`);
+  hitAlways(); place(g, 20, 17); stand(0, 16.5, 17); cast(0, g);
+  secs(3); assert.strictEqual(sheep(g).st, 'roped', 'the golden sheep takes longer than the 2.4 s of an ordinary one');
+  secs(2.5); assert.strictEqual(sheep(g).st, 'led');
+  const ru = run(`RoundupRules.gold.points`); assert.strictEqual(ru, 3);
+  run(`(() => { const m = CM(), a = S.roundup._sheep(m)[${g}]; m.teams[0].slots[0] = a.id; Object.assign(a.rs, { st: 'pole', team: 0, slot: 0, by: '' }); })()`);
+  assert.strictEqual(run(`S.roundup._score(CM(), 0)`), 3);
+  assert.strictEqual(run(`S.roundup.stateFor(ids[0]).teams[0].s`), 3);
+  // the lasso lands less often on it than on an ordinary sheep (same distance)
+  hitNormal();
+  const landed = (idx) => { let n = 0; for (let i = 0; i < 400; i++) { run(`(() => { const m = CM(), a = S.roundup._sheep(m)[${idx}]; const rs = a.rs; Object.assign(rs, { st: 'free', by: '', team: -1, tame: 0, slot: -1 }); delete rs.ct; a.x = 20; a.y = 17; a.vx = a.vy = 0; S.players[ids[0]].x = 16.5; S.players[ids[0]].y = 17; })()`); if (run(`(() => { const m = CM(); return S.roundup._cast(m, ids[0], S.roundup._sheep(m)[${idx}], 'leash'); })()`)) n++; } return n; };
+  run(`CM().teams[0].slots[0] = null`);
+  const a = landed(g), b = landed(n);
+  assert(a < b - 40, 'gold ' + a + ' vs ordinary ' + b + ' of 400');
+});
+
+test('sheep start at random places in the middle of the arena', () => {
+  const spots = seed => run(`RoundupArena.sheepSpots(9, (() => { let s = ${seed}; return () => (s = (s * 16807) % 2147483647) / 2147483647; })())`).map(p => p.x.toFixed(2) + ',' + p.y.toFixed(2)).join(' ');
+  assert.notStrictEqual(spots(7), spots(8), 'different every round');
+  assert(run(`RoundupArena.sheepSpots(9).every(p => Math.abs(p.x - (RoundupArena.box.x0 + RoundupArena.box.x1) / 2) <= 7.01 && Math.abs(p.y - RoundupArena.midY) <= 4.51)`), 'all in the middle');
 });
 
 test('a missed throw sends the sheep running', () => {
@@ -182,41 +241,6 @@ test('you can lead three at once and no more', () => {
   assert.strictEqual(run(`S.roundup._ropes(CM(), ids[0]).length`), 3);
   place(3, 19, 20); stand(0, 16, 20);
   assert.strictEqual(run(`S.roundup.lassoFind(S.players[ids[0]], ItemDB.getTool('leash'))`), null, 'a fourth is refused');
-});
-
-test('you can untie a sheep from the other pole: quick when it is unguarded, slow when defenders stand near', () => {
-  const setup = () => {
-    fresh(2); begin(); goLive(); hitAlways();
-    const p1 = run(`RoundupArena.poles[1]`);
-    for (let i = 0; i < 2; i++) { place(i, p1.x - 1.5, p1.y); }
-    run(`(() => { const m = CM(); for (let i = 0; i < 2; i++) { const a = S.roundup._sheep(m)[i]; m.teams[1].slots[i] = a.id; Object.assign(a.rs, { st: 'pole', team: 1, slot: i, by: '', tame: 1 }); } })()`);
-    return p1;
-  };
-  let p1 = setup();
-  stand(0, p1.x - 2.2, p1.y); stand(1, p1.x + 12, p1.y);                                                  // (the thief at their pole; the defender far away)
-  const a = run(`Interactions.find(S.grids.get(S.players[ids[0]].grid), {}, S.players[ids[0]], '', S.animals.animals, ids[0], {}, {})`);
-  assert.strictEqual(a.kind, 'untie_sheep', JSON.stringify(a));
-  run(`S._interact(ids[0], S.players[ids[0]])`);
-  secs(0.8); assert.strictEqual(run(`CM().teams[1].slots.filter(Boolean).length`), 2, 'not yet');
-  secs(0.8); assert.strictEqual(run(`CM().teams[1].slots.filter(Boolean).length`), 1, 'untied in about a second and a half');
-  const taken = run(`S.roundup._ropes(CM(), ids[0])`);
-  assert.strictEqual(taken.length, 1); assert.strictEqual(taken[0].rs.st, 'led');
-  p1 = setup();
-  stand(0, p1.x - 2.2, p1.y); stand(1, p1.x + 1, p1.y + 1);                                               // (the defender right there)
-  run(`S._interact(ids[0], S.players[ids[0]])`);
-  secs(1.7); assert.strictEqual(run(`CM().teams[1].slots.filter(Boolean).length`), 2, 'a guard doubles the time');
-  secs(1.5); assert.strictEqual(run(`CM().teams[1].slots.filter(Boolean).length`), 1, 'but cannot stop it for ever');
-});
-
-test('walking away from the pole gives up the untying', () => {
-  fresh(2); begin(); goLive();
-  const p1 = run(`RoundupArena.poles[1]`);
-  place(0, p1.x - 1.5, p1.y);
-  run(`(() => { const m = CM(), a = S.roundup._sheep(m)[0]; m.teams[1].slots[0] = a.id; Object.assign(a.rs, { st: 'pole', team: 1, slot: 0, by: '', tame: 1 }); })()`);
-  stand(0, p1.x - 2.2, p1.y); run(`S._interact(ids[0], S.players[ids[0]])`); secs(0.4);
-  assert(run(`S.players[ids[0]].rsteal`) > 0);
-  stand(0, p1.x - 9, p1.y); secs(0.2);
-  assert.strictEqual(run(`S.players[ids[0]].rsteal`), 0); assert.strictEqual(JSON.stringify(run(`Object.keys(CM().steals)`)), JSON.stringify([]));
 });
 
 test('the rival rancher plays: it ropes sheep and ties them to its pole, but does not clear the field alone', () => {
@@ -288,7 +312,7 @@ test('snapshots: the scoreboard, the sheep ropes and the rival reach the player;
   fresh(1); begin(); goLive(); hitAlways();
   place(0, 19, 17); stand(0, 16, 17); cast(0, 0);
   const snap = run(`(() => { const s = SnapshotBuilder.snapshotsFor(S, [ids[0]])[ids[0]]; return { ru: s.roundup, sheep: Object.values(s.animals).filter(a => a.rs).length, rs: Object.values(s.animals).filter(a => a.rs && a.rs.s === 'roped').length, rival: !!s.npcs.rival, npcs: Object.keys(s.npcs).length }; })()`);
-  assert.strictEqual(snap.ru.ph, 'play'); assert.strictEqual(snap.ru.you, 0); assert.strictEqual(snap.sheep, 8); assert.strictEqual(snap.rs, 1); assert.strictEqual(snap.rival, true); assert.strictEqual(snap.npcs, 1, 'only the rival is on this grid');
+  assert.strictEqual(snap.ru.ph, 'play'); assert.strictEqual(snap.ru.you, 0); assert.strictEqual(snap.sheep, 9); assert.strictEqual(snap.rs, 1); assert.strictEqual(snap.rival, true); assert.strictEqual(snap.npcs, 1, 'only the rival is on this grid');
   fresh(2);
   assert.strictEqual(run(`SnapshotBuilder.snapshotsFor(S, [ids[0]])[ids[0]].roundup`), null);
 });

@@ -257,13 +257,13 @@ class Renderer {
       const me = this.game.local, lvs = me.lv ? me.lv.s : {}, def = AnimalDefs[a.type];
       const close = Math.hypot(a.x - me.x, a.y - me.y), friend = this.game.friendOf(item.id);
       const view = { friend, invite: !friend && close < 2.8 && canBefriendAnimal(a.type) && !a.captor && a.state !== 'flee', near: close < 9, wantNear: close < (def.boss ? 16 : 9), holding: this.game.heldItemId(), ref: def.pony || def.tameable ? (lvs.horsemanship || 1) : (lvs.hunting || 1) };   // level colours compare with the skill you would use on it
-      if (a.rs) { view.near = false; view.invite = false; view.wantNear = false; if (a.rs.s !== 'free') RoundupSprites.ring(this.ctx, sx, sy, 15, 6, a.rs.t); }      // a Round-Up sheep: no name tag, a ring in the colour of the side that has it
+      if (a.rs) { view.near = false; view.invite = false; view.wantNear = false; if (a.rs.g) RoundupSprites.goldAura(this.ctx, sx, sy, now); if (a.rs.s !== 'free') RoundupSprites.ring(this.ctx, sx, sy, 15, 6, a.rs.t); }      // a Round-Up sheep: no name tag, a ring in the colour of the side that has it
       const lift = a.lift || 0;
       if (lift > 0) g.ellipse(sx, sy + 3, 20 * (1 - 0.3 * lift), 7 * (1 - 0.3 * lift), `rgba(0,0,0,${(0.3 * (1 - 0.4 * lift)).toFixed(2)})`);        // the shadow stays on the ground as the pair climbs
       if (a.foal > 0) { const k = 0.62 + 0.38 * (1 - a.foal); this.ctx.save(); this.ctx.translate(sx, sy); this.ctx.scale(k, k); this.ctx.translate(-sx, -sy); }          // a foal is smaller until it has grown
       this.animalSprite.draw(a, item.id, sx, sy - lift * FLY_HEIGHT, now, view);
       if (a.foal > 0) this.ctx.restore();
-      if (a.rs) this._drawRoundupRope(a, sx, sy, now);
+      if (a.rs) { this._drawRoundupRope(a, sx, sy, now); if (a.rs.g) RoundupSprites.goldSparkle(this.ctx, sx, sy, now); }
       const holder = a.owner || a.captor;
       if (a.leashed && holder && this.players && this.players[holder]) this._drawLeash(sx, sy, a, this.players[holder]);
       if (a.captor && a.tame !== undefined) { this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.tame, now); this._drawRopeBar(sx, sy - lift * FLY_HEIGHT, a.rope === undefined ? 1 : a.rope, now); }
@@ -317,8 +317,8 @@ class Renderer {
     else if (prop.t === 'roundup_sign') RoundupSprites.sign(this.ctx, item.gx, item.gy);
     else if (prop.t === 'flowers') RoundupSprites.flowers(this.ctx, item.gx, item.gy, prop.v, now);
     else if (prop.t === 'roundup_pole') {
-      const ru = this.game.roundup, steal = ru && ru.steals ? ru.steals.filter(s => s.team === prop.team).reduce((m, s) => Math.max(m, s.p), 0) : 0;
-      RoundupSprites.pole(this.ctx, item.gx, item.gy, prop.team, { score: ru ? ru.teams[prop.team].s : 0, steal }, now);
+      const ru = this.game.roundup;
+      RoundupSprites.pole(this.ctx, item.gx, item.gy, prop.team, { score: ru ? ru.teams[prop.team].s : 0 }, now);
     }
     else if (prop.t === 'dungeon_chest') PropSprites.drawChest(g, item.gx, item.gy, !!prop.opened);
     else if (prop.t === 'clay') { if (prop.ripe) PropSprites.drawClay(g, item.gx, item.gy, prop.v); }
@@ -469,8 +469,15 @@ class Renderer {
     const holder = (this.players && this.players[rs.by]) || (this.npcsNow && this.npcsNow[rs.by]);
     if (!holder) return;
     const taut = rs.s === 'roped' && Math.hypot(a.x - holder.x, a.y - holder.y) > RoundupRules.rope.calm;
-    RoundupSprites.rope(ctx, isoX(holder.x, holder.y), isoY(holder.x, holder.y) - 18, sx, sy - 14, rs.t, taut);
-    if (rs.s === 'roped') this._drawTameBar(sx, sy + 16, rs.p, now);
+    RoundupSprites.rope(ctx, isoX(holder.x, holder.y), isoY(holder.x, holder.y) - 18, sx, sy - 14, rs.t, taut || rs.c !== undefined);
+    if (rs.c !== undefined) {                                                                          // a tug of war: the second roper's rope, and a bar that swings between the two sides
+      const chal = (this.players && this.players[rs.cb]) || (this.npcsNow && this.npcsNow[rs.cb]);
+      if (chal) RoundupSprites.rope(ctx, isoX(chal.x, chal.y), isoY(chal.x, chal.y) - 18, sx, sy - 10, 1 - rs.t, true);
+      const w = 54, h = 9, x = Math.round(sx - w / 2), y = Math.round(sy - 50), cut = Math.round(w * rs.c);
+      ctx.fillStyle = 'rgba(8,14,24,.85)'; ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+      ctx.fillStyle = RoundupSprites.TEAM[rs.t]; ctx.fillRect(x, y, cut, h); ctx.fillStyle = RoundupSprites.TEAM[1 - rs.t]; ctx.fillRect(x + cut, y, w - cut, h);
+      ctx.fillStyle = '#fff'; ctx.fillRect(x + cut - 1, y - 3, 2, h + 6);
+    } else if (rs.s === 'roped') this._drawTameBar(sx, sy + 16, rs.p, now);
   }
 
   /** The taming timer over a caught pony: a bar that fills with rainbow as it is gentled (0..1; it only grows once it has been fed the fruit it wants). */

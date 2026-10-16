@@ -346,10 +346,12 @@ scoreboard, `client/render/roundupSprites.js` the fence, poles and ropes; `node 
   machines), a **pole** at each end for each side, always daylight. Pets and a pony you are not riding wait outside; **ride your main pony up to the gate and it comes in with you** (faster than the sheep and the rival, so it suits a lone player against the Rival Rancher best). After a **countdown** (4 s, the sheep mill about) comes **GO**, and a round is 150 s.
 * **Lasso** a sheep with the ordinary lasso (L, right click, the lasso button; it needs no lasso upgrade). A landed loop puts it on your rope: it strains while it **calms**, and the bar fills only while you stay within
   4.2 tiles of it (past 6.4 the rope snaps). A calm sheep is **led**: it trots after you. You can hold 3 at once. Press **Use** next to your own pole to **tie them up**: they count for your side.
-* **Breaking lassos and stealing**: a rival who **walks across your rope cuts it** (the sheep bolts, you are slow to throw again); a lasso thrown at a sheep somebody else is **roping or leading takes it** (a led sheep
-  starts half calmed); and **Use beside the other side's pole unties one of their sheep** (1.3 s, +1 s for every defender within 4.5 tiles of the pole, so defend it; walk away and you give up). Everything the
+* **Breaking lassos and stealing**: a rival who **walks across your rope cuts it** (the sheep bolts, you are slow to throw again). A lasso thrown at a sheep somebody else is **roping or leading** starts a
+  **tug of war**: both ropers **mash Use** (each press pulls a bar their way; the holder keeps the sheep if time runs out, a led sheep starts in the holder's favour, the Rival Rancher pulls about 4 times a second),
+  and the winner has it. A sheep **tied to a pole is safe**: nobody can take it from there. Everything the
   server decides: the sheep are ordinary animals marked `game: 'roundup'` that `RoundupSystem` drives itself (`AnimalSystem` skips them), and the rope state (`rs`) travels with each animal's snapshot (also in the
   remote players' animal deltas) so every client draws the ropes.
+* **Sheep and the golden sheep**: eight sheep start at random places in the middle of the arena, and one **golden sheep** joins them: faster, shyer, harder to land a loop on and slower to calm, but worth 3 sheep.
 * **The end**: when the clock runs out (or every sheep is tied up) the side with more sheep wins. Everyone gets **wool** (one per sheep tied to their pole, +3 for winning) and the winners 8 coins, handed over back at the gate;
   a `minigame` quest step (`{ type: 'minigame', game: 'roundup', sheep: 3 }`) is done when a side with a player in it ends a round with that many sheep.
 * **Adding another minigame**: register it in `js/data/minigames/`, give its grid kind a plan in `Grids.parse` / `Grids.plan` (a `decorate(world)` hook on the plan builds fixed pieces such as the fence), write its

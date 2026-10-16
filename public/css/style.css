@@ -989,3 +989,5 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 #roundupInvite button.riNo{background:#6b3434}
 #roundupInvite .riBar{height:5px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}
 #roundupInvite .riBar i{display:block;height:100%;width:100%;background:#ffb04a}
+#roundupHud .ruTug{position:absolute;top:22%;left:50%;transform:translateX(-50%);width:min(520px,92vw);text-align:center;font-size:20px;color:#ffe08a;opacity:0;transition:opacity .15s}
+#roundupHud .ruTug.on{opacity:1}

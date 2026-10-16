@@ -700,6 +700,7 @@ class GameServer {
   _interact(id, p) {
     if (p.flying) return;                                                                          // nothing to pick, open or enter from the air: land first
     if (this.downed.lift(id, p)) return;                                                           // a teammate on their knees beside you: pick them up
+    if (this.roundup.mash(id, p)) return;                                                          // in a Round-Up tug of war every press is a pull (roundupSystem.js)
     const map = this.mapOf(p), outside = !gridOf(p);
     if (!p.boat) { const cave = findCaveInteraction(map, p); if (cave) { InteractionHandlers[cave.kind](this, id, p, cave); return; } }   // a cave mouth wins, even from a pony's back
     if (p.boat) {

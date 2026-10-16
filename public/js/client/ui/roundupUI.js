@@ -7,11 +7,11 @@ class RoundupUI {
     const el = this.root = document.createElement('div');
     el.id = 'roundupHud'; el.setAttribute('aria-live', 'polite');
     el.innerHTML = '<div class="ruBoard"><div class="ruTeam t0"><b></b><i></i><span></span></div><div class="ruClock"></div><div class="ruTeam t1"><b></b><i></i><span></span></div></div>'
-      + '<div class="ruBig"></div><div class="ruHint"></div>'
+      + '<div class="ruBig"></div><div class="ruTug"></div><div class="ruHint"></div>'
       + '<div class="ruResult"><h2></h2><div class="ruScore"></div><div class="ruPrize"></div></div>';
     document.body.appendChild(el);
     const q = s => el.querySelector(s);
-    this.team = [q('.t0'), q('.t1')]; this.clock = q('.ruClock'); this.big = q('.ruBig'); this.hint = q('.ruHint'); this.result = q('.ruResult');
+    this.team = [q('.t0'), q('.t1')]; this.clock = q('.ruClock'); this.big = q('.ruBig'); this.hint = q('.ruHint'); this.tug = q('.ruTug'); this.result = q('.ruResult');
     const inv = this.invite = document.createElement('div');                                                              // the invitation: Join / No thanks
     inv.id = 'roundupInvite'; inv.innerHTML = '<div class="riText"></div><div class="riBtns"><button class="riYes">Join</button><button class="riNo">No thanks</button></div><div class="riBar"><i></i></div>';
     document.body.appendChild(inv);
@@ -27,8 +27,17 @@ class RoundupUI {
     game.events.on('roundupLeft', () => { this.prize = null; });
   }
 
+  /** In a tug of war the prompt to mash Use (it is the one in the middle of the screen: the bar itself hangs over the sheep). */
+  _tug(ru) {
+    const me = this.game.myId, animals = this.game.latestAnimals();
+    let on = false;
+    for (const id in animals) { const rs = animals[id].rs; if (rs && rs.c !== undefined && (rs.by === me || rs.cb === me)) { on = true; break; } }
+    if (on !== this.tugOn) { this.tugOn = on; this.tug.textContent = on ? 'Tug of war! MASH the Use key (E / Space / the action button)!' : ''; this.tug.classList.toggle('on', on); }
+  }
+
   update() {
     const ru = this.game.roundup, play = RoundupRules.seconds.play;
+    if (ru) this._tug(ru);
     if (!ru) { if (this.shown) { this.shown = ''; this.root.classList.remove('on', 'over'); this.prize = null; } return; }
     const secs = Math.max(0, Math.ceil(ru.t)), left = ru.ph === 'play' ? secs : ru.ph === 'countdown' ? play : 0;
     const big = ru.ph === 'countdown' ? (ru.t > RoundupRules.seconds.countdown - 1 ? 'Get ready!' : String(Math.max(1, Math.ceil(ru.t)))) : ru.ph === 'play' && ru.t > play - 1.2 ? 'GO!' : '';
@@ -47,7 +56,7 @@ class RoundupUI {
     });
     this.clock.textContent = ru.ph === 'over' ? 'Time!' : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
     this.big.textContent = big; this.big.classList.toggle('on', !!big);
-    this.hint.textContent = 'Lasso a sheep (L, right click or the lasso button) and stay close till it calms. Lead it to your pole and press Use. Cross a rival’s rope to cut it.';
+    this.hint.textContent = 'Lasso a sheep (L, right click or the lasso button) and stay close till it calms. Lead it to your pole and press Use. Cross a rival’s rope to cut it. If you both rope one sheep, mash Use! The golden sheep is worth 3.';
     this.hint.classList.toggle('on', showHint);
     if (ru.ph === 'over' && ru.res) {
       const r = ru.res, mine = ru.you, won = r.winner === mine;
