@@ -956,3 +956,5 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .mapway b{font-size:11px;color:#f4e6c1}.mapway label{display:flex;align-items:center;gap:6px;cursor:pointer}.mapway input{accent-color:#e3c27a}
 .mapway .wq{color:#ffd24a}.mapway .wi{color:#ff7a6a}.mapway .wh{color:#7fd1ff}
 .maplegend .qst{color:#ffd24a}
+.gtraits{display:flex;flex-direction:column;gap:1px;font-size:10.5px;color:#cfd8e3;margin:2px 0}
+.gtraits span::before{content:'\2022  ';color:#e3c27a}

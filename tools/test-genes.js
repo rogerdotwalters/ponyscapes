@@ -14,8 +14,9 @@ test('a pony from a gene number is the same every time, and its coat and mane sl
   assert.deepStrictEqual(J('PonyLook.fromGene(99, 0)'), J('PonyLook.fromGene(99, 0)'));
   for (let g = 1; g < 200; g++) { const l = J(`PonyLook.fromGene(${g}, ${g % 3})`); assert.strictEqual(l.length, run('PonyGenes.LEN')); const e = J(`PonyGenes.express(PonyLook.fromGene(${g}, ${g % 3}))`); assert.strictEqual(e.bodyColor, l[0]); assert.strictEqual(e.maneColor, l[1]); }
 });
-test('the first seven numbers of a pony are what they were before genes (saved herds look the same)', () => {
-  assert.deepStrictEqual(J('PonyLook.fromGene(7, 0).slice(2, 7)'), [7, 16, 0, 0, 26576]);
+test('the first seven numbers of a pony are what they were before genes (saved herds look the same); only the name is drawn from the longer name list', () => {
+  const l = J('PonyLook.fromGene(7, 0).slice(2, 7)');
+  assert.deepStrictEqual([l[0], l[2], l[3], l[4]], [7, 0, 0, 26576]); assert(l[1] >= 0 && l[1] < run('PonyNames.count(null)'), 'a name index into the names and the shared pool');
 });
 test('an older pony (no genome) reads as classic, with its tail the colour of its mane', () => {
   const g = J('PonyLook.describe([3, 2, 1, 0, 0, 0, 200]).gene');

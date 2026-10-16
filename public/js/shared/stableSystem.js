@@ -293,7 +293,7 @@ Object.assign(GameServer.prototype, {
   _foalLook(a, b) {
     const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B;
     const idOf = l => (PonyVariants[l[4] | 0] || PonyVariants[0]).id, hybrid = Hybrids.cross(r, idOf(A), idOf(B)), variant = hybrid ? Hybrids.variantIndex(hybrid.id) : pickParent[4] | 0;   // (a recipe's hybrid: shared/hybrids.js)
-    const V = variant ? PonyVariants[variant] : null, P = PonyPalette, marks = (V || P).marks.length, names = (V || P).names.length;
+    const V = variant ? PonyVariants[variant] : null, P = PonyPalette, marks = (V || P).marks.length, names = PonyNames.count(V);
     const same = [A, B].filter(l => (l[4] | 0) === variant);
     const mark = r() < 0.1 || !same.length ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();
     const look = [0, 0, mark, Math.floor(r() * names), variant];
@@ -310,13 +310,15 @@ Object.assign(GameServer.prototype, {
     for (const x of [a, b]) x.breedRest = Stable.BREED_REST;
     if (this.players[owner]) this._remember(owner, foal);
     const info = PonyLook.sexInfo(PonyLook.sexOf(foal.look)), name = Stable.nameOf(foal);
-    foal.ped = Pedigree.foalNode(() => this.rng(), a, b, name, PonyLook.sexOf(foal.look));                                // (its family tree: both parents' trees, five generations deep: shared/ponyPedigree.js)
+    foal.ped = Pedigree.foalNode(() => this.rng(), a, b, name, PonyLook.sexOf(foal.look), PonyVariants[look[4] | 0].id);                                // (its family tree: both parents' trees, five generations deep: shared/ponyPedigree.js)
     const rep = Pedigree.reportOf(foal), inbred = rep.F > 1e-9 ? ` Inbreeding ${Pedigree.pct(rep.F)}%.` : '';
     const pv = [a, b].map(x => (x.look ? x.look[4] | 0 : 0)), isNew = Hybrids.isHybrid(PonyVariants[look[4] | 0].id) && !pv.includes(look[4] | 0), hy = HybridTable.get(PonyVariants[look[4] | 0].id);
     if (isNew) this._dropOnGround(PonyCoins.itemOf(hy.id), 1, at.x, at.y, grid);                                         // (a hybrid is never wild: its collector coin comes with its first foal)
     else if (crossed && this.players[owner]) this._notice(owner, `${AnimalDefs[type].name}! A new kind of pony`);
+    const mi = PonyGenes.express(look).mutation, seen = [a, b].map(x => (x.look ? PonyGenes.express(x.look).mutation : 0)), mut = mi && !seen.includes(mi) ? PonyGenes.MUTATIONS[mi - 1] : null;     // (a mutation that shows and neither parent had)
+    if (mut && this.players[owner]) this._notice(owner, `MUTATION! ${name} was born with the ${mut.name} mutation: ${mut.desc}. It can pass it on`);
     if (this.players[owner]) this._notice(owner, isNew ? `HYBRID! ${PonyVariants[look[4] | 0].name} ${AnimalDefs[type].name}: ${name} ${info.symbol} is a brand new kind. Diversity ${rep.rating.grade}.${inbred}` : `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name}). Diversity ${rep.rating.grade} (${rep.rating.word}).${inbred}`);
-    this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name, hybrid: isNew ? hy.name : undefined });
+    this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name, hybrid: isNew ? hy.name : undefined, mutation: mut ? mut.name : undefined });
   },
 
   /* ---------------------------------------- pedigrees: family trees, inbreeding and the diversity rating (shared/ponyPedigree.js) ---------------------------------------- */

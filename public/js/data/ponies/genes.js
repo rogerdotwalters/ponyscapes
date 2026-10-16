@@ -44,4 +44,7 @@ PonyGeneTable.register({ id: 'talent', part: 'skills', name: 'Inherited skill', 
 const depths = [['Natural', 70], ['Rich', 18], ['Deep', 8], ['Vivid', 3], ['Intense', 1]].map(([name, weight], i) => ({ id: 'depth' + i, name, weight }));
 PonyGeneTable.register({ id: 'coatShade', part: 'body', name: 'Coat depth', kind: 'shade', additive: true, alleles: depths });
 PonyGeneTable.register({ id: 'maneShade', part: 'mane', name: 'Mane depth', kind: 'shade', additive: true, alleles: depths });
+/* MUTATIONS (added last): one gene whose first allele is "none". The others are the mutations of mutations.js: a DOMINANT one shows at once, a RECESSIVE one only with two copies (a carrier looks ordinary and can pass it on).
+ * A few ordinary ponies carry a hidden recessive one (PonyGenes.CARRIER_ODDS) and about 1 foal in 200 gets a new one of its own (PonyGenes.MUTATION_ODDS). */
+PonyGeneTable.register({ id: 'mutation', part: 'body', name: 'Mutation', kind: 'mutation', alleles: [{ id: 'none', name: 'None', weight: 1 }].concat(PonyMutationTable.all().map(m => ({ id: m.id, name: m.name, weight: 1, dominant: m.dominant }))) });
 })();
