@@ -367,7 +367,7 @@ and the game starts; alone you can press **Play the computer** (`ConnectFour.bes
   full board is a draw, **Play again** needs both players and the other side starts. Walking away from the table or the room, or closing the window, **stands you up** and gives a game in progress to your opponent.
   `server.connect4.stateFor(id)` travels in every snapshot (`snapshot.connect4`, also to remote players); commands `c4Drop`, `c4Ai`, `c4Again`, `c4Leave`.
 * **Pony coin tokens**: each side plays with the collector coin of its **main pony's variety** (`PonyCoins`); if both match, or a side has no pony, another variety is used (the computer plays ember or crystal).
-* **Stacks of tokens**: each side has a **stack of its own coin** (the opponent's in the top corner, yours on the table under the board). **Press and hold the top coin of your stack and drag it** (mouse or finger):
+* **Your coin**: each side has a single **coin of its own token** (the opponent's in the top corner, yours on the table under the board). **Press your coin: a copy spawns in your hand; drag it** (mouse or finger):
   let go over a column and it drops there; let go anywhere else and it goes back. The coin stays **flat, facing you**, as it slides over its column and falls down the track. Keys: arrows + Enter, or 1-7.
   Your opponent's coins slide out of their stack. The window fits phones: portrait stacks names, board and buttons; a short wide screen puts the names, status and buttons in a column beside the board.
 * **The screen** (`js/client/ui/connectFourUI.js`, a window in the `PanelGroup` as `connect4`) uses the **coin physics**: coins are the game's 3D pixel coins (`CoinSpin` + `PonyCoinArt`). A dropped coin tumbles, falls
