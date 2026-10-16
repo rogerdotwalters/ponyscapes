@@ -12,6 +12,17 @@ class RoundupUI {
     document.body.appendChild(el);
     const q = s => el.querySelector(s);
     this.team = [q('.t0'), q('.t1')]; this.clock = q('.ruClock'); this.big = q('.ruBig'); this.hint = q('.ruHint'); this.result = q('.ruResult');
+    const inv = this.invite = document.createElement('div');                                                              // the invitation: Join / No thanks
+    inv.id = 'roundupInvite'; inv.innerHTML = '<div class="riText"></div><div class="riBtns"><button class="riYes">Join</button><button class="riNo">No thanks</button></div><div class="riBar"><i></i></div>';
+    document.body.appendChild(inv);
+    const answer = yes => { inv.classList.remove('on'); clearInterval(this.inviteTimer); game.roundupJoin(yes); };
+    inv.querySelector('.riYes').onclick = () => answer(true); inv.querySelector('.riNo').onclick = () => answer(false);
+    game.events.on('roundupInvite', e => {
+      inv.querySelector('.riText').textContent = `${e.from} is starting a Round-Up at the old fence. Join?`; inv.classList.add('on');
+      const t0 = performance.now(), bar = inv.querySelector('.riBar i'); clearInterval(this.inviteTimer);
+      this.inviteTimer = setInterval(() => { bar.style.width = Math.max(0, 100 - (performance.now() - t0) / (e.seconds * 10)) + '%'; }, 100);
+    });
+    game.events.on('roundupInviteEnd', () => { inv.classList.remove('on'); clearInterval(this.inviteTimer); });
     game.events.on('roundupEnd', e => { this.prize = e; });
     game.events.on('roundupLeft', () => { this.prize = null; });
   }

@@ -115,6 +115,7 @@ class ClientGame {
     if (wire) { Object.assign(log.done, wire.done || {}); for (const id in wire.active || {}) log.active[id] = { step: wire.active[id][0], progress: wire.active[id][1] }; }
     this.questLog = log; this.events.emit('questsChanged');
   }
+  roundupJoin(yes) { this.net.sendCommand({ type: 'roundupJoin', yes: !!yes }); }
   questAccept(quest) { this.net.sendCommand({ type: 'questAccept', quest }); }
   questDeliver(quest) { this.net.sendCommand({ type: 'questDeliver', quest }); }
   puzzleSolve(node, moves) { this.net.sendCommand({ type: 'puzzleSolve', node, moves }); }

@@ -16,7 +16,7 @@ const fresh = (n = 1, seed = 4242) => {
     ids.forEach((id, i) => { const p = S.players[id]; p.x = Village.roundup.gate.x + i * 0.6; p.y = Village.roundup.gate.y; p.vx = p.vy = 0; });
     globalThis.rng0 = S.rng; globalThis.CM = () => S.roundup.matches.values().next().value;`);
 };
-const begin = () => { run(`S._interact(ids[0], S.players[ids[0]])`); return run(`S.roundup.matchOf(S.players[ids[0]])`); };
+const begin = () => { run(`S._interact(ids[0], S.players[ids[0]]); ids.slice(1).forEach(id => S.roundup.answer(id, true))`); return run(`S.roundup.matchOf(S.players[ids[0]])`); };
 const goLive = () => secs(5);                                              // (past the 4 second countdown)
 const M = () => run(`CM()`);
 /** Put a sheep somewhere and quiet it (no one near is scaring it). */
@@ -74,6 +74,27 @@ test('two players near the gate are split between the sides, with no rival', () 
   const a = run(`RoundupArena.start(0, 0)`), b = run(`RoundupArena.start(1, 0)`);
   assert(Math.hypot(run(`S.players[ids[0]].x`) - a.x, run(`S.players[ids[0]].y`) - a.y) < 0.01 && Math.hypot(run(`S.players[ids[1]].x`) - b.x, run(`S.players[ids[1]].y`) - b.y) < 0.01, 'they start at opposite ends');
   assert(b.x - a.x > 15, 'a long way apart');
+});
+
+test('everyone connected is asked yes or no; those who decline stay, those who accept come and later go back to where they were', () => {
+  fresh(3);
+  run(`(() => { const p = S.players[ids[2]]; p.x = 5; p.y = 45; S.map.ensureAround(5, 45, 2); const q = S.players[ids[1]]; q.x = 30; q.y = 30; })()`);   // (far from the gate: still asked)
+  run(`S._interact(ids[0], S.players[ids[0]])`);
+  assert.strictEqual(run(`S.roundup.matches.size`), 0, 'waiting for answers');
+  assert.strictEqual(run(`S.pendingEvents.filter(e => e.type === 'roundupInvite').map(e => e.to).join()`), run(`ids[1] + ',' + ids[2]`));
+  run(`S.roundup.answer(ids[1], true); S.roundup.answer(ids[2], false)`);
+  assert.strictEqual(run(`S.roundup.matches.size`), 1);
+  assert.strictEqual(run(`[S.players[ids[0]].rt, S.players[ids[1]].rt, S.players[ids[2]].rt].join()`), '0,1,-1');
+  assert.strictEqual(run(`S.players[ids[2]].grid`), '', 'the one who declined is where they were');
+  secs(5); run(`CM().t = 0.01`); secs(10);
+  const at = run(`S.players[ids[1]].x.toFixed(0) + ',' + S.players[ids[1]].y.toFixed(0) + ',' + S.players[ids[1]].grid`);
+  assert.strictEqual(at, '30,30,', 'back where they were');
+});
+
+test('an unanswered invitation times out; nobody asked means it starts at once', () => {
+  fresh(2); run(`S._interact(ids[0], S.players[ids[0]])`); secs(14); assert.strictEqual(run(`S.roundup.matches.size`), 0);
+  secs(2); assert.strictEqual(run(`S.roundup.matches.size`), 1); assert.strictEqual(run(`S.players[ids[1]].rt`), -1); assert.strictEqual(run(`!!CM().rival`), true, 'a lone player gets the rival');
+  fresh(1); begin(); assert.strictEqual(run(`S.roundup.matches.size`), 1);
 });
 
 test('countdown first: no lasso until GO, sheep stay put and then scatter', () => {
