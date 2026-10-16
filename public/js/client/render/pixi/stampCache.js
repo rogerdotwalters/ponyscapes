@@ -15,9 +15,15 @@ class StampCache {
 
   beginFrame(scale) {
     this.frame++; this.stats.made = 0; this.stats.hits = 0;
-    for (const pool of Object.values(this.pools)) {                                                 // (the one-frame overflow pages are dropped)
+    for (const pool of Object.values(this.pools)) {                                                 // (the one-frame overflow pages are emptied, and kept for the next time one is needed)
       if (!pool.pages.some(p => p.overflow)) continue;
-      pool.pages = pool.pages.filter(p => { if (!p.overflow) return true; for (const k of p.keys) this.map.delete(k); p.source.destroy(); return false; });
+      pool.spares = pool.spares || [];
+      pool.pages = pool.pages.filter(p => {
+        if (!p.overflow) return true;
+        for (const k of p.keys) this.map.delete(k);
+        if (pool.spares.length < 2) { p.overflow = false; p.spare = true; this._wipe(p); pool.spares.push(p); } else p.source.destroy();      // (a 2048 page made and thrown away every frame stalls the GPU)
+        return false;
+      });
     }
     if (scale !== this.scale) { this.clear(); this.scale = scale; }
   }
@@ -27,6 +33,8 @@ class StampCache {
   _wipe(p) { for (const k of p.keys) this.map.delete(k); p.keys.length = 0; p.x = p.y = p.rowH = 0; p.ctx.setTransform(1, 0, 0, 1, 0, 0); p.ctx.clearRect(0, 0, p.canvas.width, p.canvas.height); p.dirty = true; this.stats.wipes++; }
 
   _page(pool) {
+    const spare = pool.spares && pool.spares.pop();
+    if (spare) { spare.spare = false; spare.used = this.frame; pool.pages.push(spare); return spare; }
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = pool.size;
     const page = { canvas, ctx: canvas.getContext('2d'), x: 0, y: 0, rowH: 0, keys: [], used: this.frame, dirty: false, source: new PIXI.CanvasSource({ resource: canvas, scaleMode: 'nearest', autoGenerateMipmaps: false }) };
     pool.pages.push(page); return page;

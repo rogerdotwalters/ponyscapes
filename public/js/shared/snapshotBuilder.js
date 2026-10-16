@@ -24,7 +24,13 @@ const SnapshotBuilder = {
    *  the same read-only objects until something changes, and `treesSame` / `forageSame` tell the game it already has them. `memo` is kept between calls. */
   copyForLocal(snap, memo) {
     const { trees, forage } = snap, rest = Object.assign({}, snap); delete rest.trees; delete rest.forage;
-    const copy = JSON.parse(JSON.stringify(rest));
+    const reuse = memo.json || (memo.json = {}), copy = {};
+    for (const k in rest) {                                                                // (the Pony Book lists are big and often unchanged: parse them again only when they differ)
+      const v = rest[k];
+      if (k !== 'pets' && k !== 'varieties' && k !== 'book') { copy[k] = v === undefined ? v : JSON.parse(JSON.stringify(v)); continue; }
+      const json = JSON.stringify(v), hit = reuse[k];
+      copy[k] = hit && hit.json === json ? hit.value : (reuse[k] = { json, value: JSON.parse(json) }).value;
+    }
     copy.trees = trees; copy.forage = forage;
     copy.treesSame = trees === memo.trees; copy.forageSame = forage === memo.forage;
     memo.trees = trees; memo.forage = forage;

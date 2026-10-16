@@ -45,7 +45,8 @@ class LocalAdapter extends NetAdapter {
   _pump() {
     const now = performance.now();
     this.accumulator += Math.min(now - this.lastTime, 250); this.lastTime = now;
-    while (this.accumulator >= TICK_MS) {
+    if (this.accumulator > TICK_MS * MAX_CATCHUP_TICKS) this.accumulator = TICK_MS * MAX_CATCHUP_TICKS;        // after a hitch the world runs a little slow instead of spiralling
+    for (let steps = 0; this.accumulator >= TICK_MS && steps < MAX_TICKS_PER_PUMP && performance.now() - now < PUMP_BUDGET_MS; steps++) {
       this.accumulator -= TICK_MS;
       this.server.step();
       if (this.server.tick % CONFIG.net.snapshotEvery === 0) this._sendSnapshot();

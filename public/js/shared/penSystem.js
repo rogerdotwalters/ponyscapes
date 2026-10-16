@@ -1,22 +1,22 @@
 'use strict';
 /* SHARED - is this spot inside a PEN? A pen is a region fully closed off by fences, walls, closed gates / doors,
  * water or solid structures. Flood-fill outward tile by tile; if it spills past `limit` tiles it is not a pen. */
+const PEN_DX = [1, -1, 0, 0], PEN_DY = [0, 0, 1, -1];
 const PenSystem = {
   /** @returns {{enclosed:boolean, area:number}} */
   analyze(map, x, y, limit = 160) {
-    const sx = Math.floor(x), sy = Math.floor(y), seen = new Set([tileKey(sx, sy)]), queue = [[sx, sy]];
-    const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    for (let head = 0; head < queue.length; head++) {
-      if (queue.length > limit) return { enclosed: false, area: limit };
-      const [tx, ty] = queue[head];
-      for (const [dx, dy] of STEPS) {
-        const nx = tx + dx, ny = ty + dy, key = tileKey(nx, ny);
+    const sx = Math.floor(x), sy = Math.floor(y), seen = new Set([tileKey(sx, sy)]), qx = [sx], qy = [sy];       // (flat queues: no array per tile)
+    for (let head = 0; head < qx.length; head++) {
+      if (qx.length > limit) return { enclosed: false, area: limit };
+      const tx = qx[head], ty = qy[head];
+      for (let k = 0; k < 4; k++) {
+        const dx = PEN_DX[k], dy = PEN_DY[k], nx = tx + dx, ny = ty + dy, key = tileKey(nx, ny);
         const built = map.built[key];
         if (seen.has(key) || edgeBlocked(map, tx, ty, dx, dy) || map.isSolid(nx, ny) || (built && built.c)) continue;      // 'c' = a station (table, furnace) fills the tile   // water, buildings and stations are boundaries too
-        seen.add(key); queue.push([nx, ny]);
+        seen.add(key); qx.push(nx); qy.push(ny);
       }
     }
-    return { enclosed: true, area: queue.length };
+    return { enclosed: true, area: qx.length };
   }
 };
 

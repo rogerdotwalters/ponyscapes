@@ -57,6 +57,8 @@ class PixiRenderer extends Renderer {
       this.lighting = new PixiLighting(this, this.lightLayer);
       this.stamps = new StampCache(); this.seeThrough = SeeThrough.create();
       this._ready = true; this._fit();
+      this.view.addEventListener('webglcontextlost', e => { e.preventDefault(); this._lost = true; console.warn('WebGL context lost: waiting for it to come back'); });      // (without preventDefault the browser never gives it back)
+      this.view.addEventListener('webglcontextrestored', () => { this._lost = false; this._reupload(); console.warn('WebGL context restored'); });
     });
   }
 
@@ -254,7 +256,7 @@ class PixiRenderer extends Renderer {
   }
 
   _endFrame() {
-    if (!this._ready) return;
+    if (!this._ready || this._lost) return;
     for (const b of this.blocks.values()) if (b.seen !== this.frameNo) b.sprite.visible = false;
     if (this.frameNo % 300 === 0) this._forgetBlocks();
     for (const p of [this.grassPool, this.itemPool, this.markerPool, this.namePool, this.strokePool]) p.end();
@@ -266,6 +268,15 @@ class PixiRenderer extends Renderer {
     if (this.overlayDirty.dirty) this.overlaySprite.texture.source.update();
     this._useLayer(this.groundCanvas, this.groundCtx);
     this.app.render();
+  }
+
+  /** After a lost WebGL context every texture is gone from the GPU: upload the pictures kept in canvases again. */
+  _reupload() {
+    for (const p of this.atlas.pages) p.dirty = true;
+    for (const pool of Object.values(this.stamps.pools)) for (const p of pool.pages) p.dirty = true;
+    for (const b of this.blocks.values()) { b.sprite.texture.source.update(); }
+    this.groundSprite.texture.source.update(); this.overlaySprite.texture.source.update();
+    this.groundDirty.dirty = this.overlayDirty.dirty = true;
   }
 
   /** Free the textures of blocks not seen for ~10 s. */
