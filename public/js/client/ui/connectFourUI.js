@@ -55,15 +55,15 @@ class ConnectFourUI {
     const vw = window.innerWidth, vh = window.innerHeight, cols = ConnectFour.COLS, rows = ConnectFour.ROWS, side = vw > vh && vh < 520;
     this.root.classList.toggle('side', side);
     const tall = rows + 1.5 + 1.6;                                                                       // the room above the board (a coin falls from there), the board, the table with the stack
-    const cell = side ? Math.min((vw - 300) / (cols + 0.4), (vh - 64) / tall) : Math.min((vw - 52) / (cols + 0.4), (vh - 252) / tall);
+    const cell = side ? Math.min((vw - 300) / (cols + 0.52), (vh - 64) / tall) : Math.min((vw - 52) / (cols + 0.52), (vh - 252) / tall);
     this.cell = Math.max(26, Math.min(72, Math.floor(cell))); const c = this.cell;
-    this.pad = Math.round(c * 0.2); this.bx = this.pad; this.by = Math.round(c * 1.5);
+    this.pad = Math.round(c * 0.26); this.A = Math.max(2, Math.round(c / 15)); this.bx = this.pad; this.by = Math.round(c * 1.5);      // (A: screen pixels to one pixel of the pixel art)
     this.bw = c * cols; this.bh = c * rows; this.table = this.by + this.bh + this.pad;                   // (the table top, below the board)
     this.cv.width = this.bw + this.pad * 2; this.cv.height = this.table + Math.round(c * 1.6);
     this.cv.style.width = this.cv.width + 'px'; this.cv.style.height = this.cv.height + 'px';
     this.myStack = { x: this.cv.width - c * 0.95, y: this.table + c * 0.62, s: 1 };                      // yours stands on the table, the opponent's in the top corner
     this.oppStack = { x: this.cv.width - c * 0.8, y: c * 0.9, s: 0.72 };
-    this.board = null; this.root.style.setProperty('--c4w', this.cv.width + 'px');
+    this.board = null; this.wall = null; this.tableArt = null; this.root.style.setProperty('--c4w', this.cv.width + 'px');
   }
   /** Canvas coordinates of a pointer event. */
   _xy(e) { const r = this.cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * (this.cv.width / r.width), y: (e.clientY - r.top) * (this.cv.height / r.height) }; }
@@ -179,23 +179,83 @@ class ConnectFourUI {
   _clink(n) { try { Sfx.chime(n ? 0.18 : 0.3, 0); } catch (e) { /* a sound must never stop the game */ } }
 
   /* ---------------------------------------- drawing ---------------------------------------- */
+  /** Pixel art, painted small and scaled up with hard edges (the game's own look): `fn(g, w, h)` paints a w x h grid of art pixels with fillRect. */
+  _pixels(wpx, hpx, fn) {
+    const A = this.A, w = Math.ceil(wpx / A), h = Math.ceil(hpx / A), c = document.createElement('canvas'); c.width = w; c.height = h;
+    fn(c.getContext('2d'), w, h); c.drawW = w * A; c.drawH = h * A; return c;
+  }
+  _blit(g, art, x, y) { g.imageSmoothingEnabled = false; g.drawImage(art, 0, 0, art.width, art.height, x, y, art.drawW, art.drawH); }
+  static noise(x, y, k = 0) { let h = (x * 374761393 + y * 668265263 + k * 2246822519) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967296; }
+  /** The board: an oak frame (planks, grain, iron corner plates with rivets) round a face of painted royal-blue wood, with round holes ringed in brass. */
   _boardArt() {
     if (this.board) return this.board;
-    const cell = this.cell, c = document.createElement('canvas'), g = c.getContext('2d'), w = this.bw + 2 * this.pad, h = this.bh + 2 * this.pad;
-    c.width = w; c.height = h;
-    const grad = g.createLinearGradient(0, 0, w, h); grad.addColorStop(0, '#3b67c4'); grad.addColorStop(1, '#27498f');
-    g.fillStyle = grad; g.beginPath(); g.roundRect ? g.roundRect(0, 0, w, h, cell * 0.22) : g.rect(0, 0, w, h); g.fill();
-    g.strokeStyle = '#1a3470'; g.lineWidth = 3; g.stroke();
-    g.globalCompositeOperation = 'destination-out';
-    for (let r = 0; r < ConnectFour.ROWS; r++) for (let cc = 0; cc < ConnectFour.COLS; cc++) { g.beginPath(); g.arc(this.pad + (cc + 0.5) * cell, this.pad + (r + 0.5) * cell, cell * 0.43, 0, Math.PI * 2); g.fill(); }
-    g.globalCompositeOperation = 'source-over';
-    g.strokeStyle = 'rgba(15,35,90,.9)'; g.lineWidth = Math.max(2, cell * 0.05);
-    for (let r = 0; r < ConnectFour.ROWS; r++) for (let cc = 0; cc < ConnectFour.COLS; cc++) { g.beginPath(); g.arc(this.pad + (cc + 0.5) * cell, this.pad + (r + 0.5) * cell, cell * 0.45, 0, Math.PI * 2); g.stroke(); }
-    g.fillStyle = 'rgba(255,255,255,.1)'; g.fillRect(4, 4, w - 8, Math.max(3, cell * 0.12));
-    return (this.board = c);
+    const N = ConnectFourUI.noise, A = this.A, cellA = this.cell / A, padA = Math.round(this.pad / A), COLS = ConnectFour.COLS, ROWS = ConnectFour.ROWS;
+    return (this.board = this._pixels(this.bw + 2 * this.pad, this.bh + 2 * this.pad, (g, w, h) => {
+      const px = (x, y, ww, hh, c) => { g.fillStyle = c; g.fillRect(x, y, ww, hh); };
+      const OAK = ['#a8763f', '#9a6a38', '#8a5a33', '#b5834a'], INK = '#1c140e';
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {                                          // the oak frame: planks with grain
+        const row = Math.floor(y / 5), seam = y % 5 === 0, grain = N(Math.floor(x / 4), row, 7) > 0.8;
+        px(x, y, 1, 1, seam ? '#6d4429' : grain ? '#8a5a33' : OAK[Math.floor(N(row, 3, 1) * 4)]);
+      }
+      const f = Math.max(2, padA - 1);                                                                    // the painted face, inset in the frame
+      for (let y = f; y < h - f; y++) for (let x = f; x < w - f; x++) {
+        const cx = Math.floor((x - padA) / cellA), n = N(x, y, 5), seam = (x - padA) % Math.round(cellA * 2) === 0;
+        px(x, y, 1, 1, seam ? '#1d3f78' : n > 0.93 ? '#4a82d4' : n < 0.06 ? '#2a5496' : y < f + 2 ? '#4a82d4' : (cx + Math.floor((y - padA) / cellA)) % 2 ? '#356cb8' : '#3a72c4');
+      }
+      px(f - 1, f - 1, w - 2 * f + 2, 1, INK); px(f - 1, h - f, w - 2 * f + 2, 1, INK); px(f - 1, f - 1, 1, h - 2 * f + 2, INK); px(w - f, f - 1, 1, h - 2 * f + 2, INK);   // an ink line round the face
+      px(0, 0, w, 1, INK); px(0, h - 1, w, 1, INK); px(0, 0, 1, h, INK); px(w - 1, 0, 1, h, INK);        // ...and round the whole board, with a lit top-left edge and a dark bottom-right one
+      px(1, 1, w - 2, 1, '#d6a263'); px(1, 1, 1, h - 2, '#d6a263'); px(1, h - 2, w - 2, 1, '#5a3a20'); px(w - 2, 1, 1, h - 2, '#5a3a20');
+      g.globalCompositeOperation = 'destination-out';                                                      // the holes
+      const rA = cellA * 0.4;
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const cx = padA + (c + 0.5) * cellA, cy = padA + (r + 0.5) * cellA;
+        for (let y = Math.floor(cy - rA); y <= Math.ceil(cy + rA); y++) for (let x = Math.floor(cx - rA); x <= Math.ceil(cx + rA); x++) if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= rA) px(x, y, 1, 1, '#000');
+      }
+      g.globalCompositeOperation = 'source-over';
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {                                      // a brass ring round each hole: lit on its upper left, shaded on its lower right
+        const cx = padA + (c + 0.5) * cellA, cy = padA + (r + 0.5) * cellA;
+        for (let y = Math.floor(cy - rA - 3); y <= Math.ceil(cy + rA + 3); y++) for (let x = Math.floor(cx - rA - 3); x <= Math.ceil(cx + rA + 3); x++) {
+          const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+          if (d > rA && d <= rA + 1) px(x, y, 1, 1, x + y < cx + cy ? '#f6dc7a' : '#b98a2a');
+          else if (d > rA + 1 && d <= rA + 1.8) px(x, y, 1, 1, '#4a3314');
+          else if (d > rA - 1.2 && d <= rA) px(x, y, 1, 1, 'rgba(10,18,40,.55)');                        // the shadowed lip inside the hole
+        }
+      }
+      const plate = (x0, y0, dx, dy) => {                                                                    // iron corner plates with rivets
+        const L = Math.max(5, padA * 2), T = Math.max(3, padA - 1);
+        for (let i = 0; i < L; i++) for (let t = 0; t < T; t++) { px(x0 + dx * i, y0 + dy * t, 1, 1, '#6d6d76'); px(x0 + dx * t, y0 + dy * i, 1, 1, '#6d6d76'); }
+        px(x0 + dx, y0 + dy, 1, 1, '#c9c9d0'); px(x0 + dx * 3, y0 + dy, 1, 1, '#c9c9d0'); px(x0 + dx, y0 + dy * 3, 1, 1, '#c9c9d0');
+      };
+      plate(1, 1, 1, 1); plate(w - 2, 1, -1, 1); plate(1, h - 2, 1, -1); plate(w - 2, h - 2, -1, -1);
+    }));
+  }
+  /** The tavern wall behind the board: dark vertical planks. */
+  _wallArt() {
+    if (this.wall) return this.wall;
+    const N = ConnectFourUI.noise;
+    return (this.wall = this._pixels(this.cv.width, this.table, (g, w, h) => {
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const pl = Math.floor(x / 9), seam = x % 9 === 0, n = N(x, Math.floor(y / 3), pl), knot = Math.hypot((x % 9) - 4, ((y + pl * 13) % 40) - 20) < 1.6 && N(pl, 1, 9) > 0.6;
+        g.fillStyle = seam ? '#1c1208' : knot ? '#2a1a0c' : n > 0.9 ? '#52381f' : ['#43301c', '#3d2b18', '#48341f'][pl % 3];
+        g.fillRect(x, y, 1, 1);
+      }
+    }));
+  }
+  /** The table the board stands on: planks seen from above, nailed down. */
+  _tableArtPix() {
+    if (this.tableArt) return this.tableArt;
+    const N = ConnectFourUI.noise;
+    return (this.tableArt = this._pixels(this.cv.width, this.cv.height - this.table, (g, w, h) => {
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const row = Math.floor(y / 7), seam = y % 7 === 0, joint = (x + row * 31) % 57 === 0 && !seam, n = N(Math.floor(x / 3), row, 4);
+        g.fillStyle = y === 0 ? '#1c140e' : y === 1 ? '#e0b070' : seam || joint ? '#6d4429' : n > 0.82 ? '#a8763f' : ['#c18d50', '#b98248', '#c9965a'][row % 3];
+        g.fillRect(x, y, 1, 1);
+      }
+      for (const nx of [6, w - 8]) for (let r = 0; r * 7 + 4 < h; r++) { g.fillStyle = '#3a3a42'; g.fillRect(nx, r * 7 + 3, 2, 2); g.fillStyle = '#9a9aa4'; g.fillRect(nx, r * 7 + 3, 1, 1); }   // nail heads
+    }));
   }
   _coin(g, k, x, y, alpha, scale = 1, nocache = false) {
-    const r = Math.max(5, Math.round(this.cell * 0.4 * scale)), c = this.game.connect4, tier = { pony: c ? c.tokens[k.who] : 'meadow' };
+    const r = Math.max(5, Math.round(this.cell * 0.37 * scale)), c = this.game.connect4, tier = { pony: c ? c.tokens[k.who] : 'meadow' };
     if (alpha !== undefined) g.globalAlpha = alpha;
     CoinSpin.blit(g, x, y, r, tier, k.o, false, nocache ? null : k);
     g.globalAlpha = 1;
@@ -210,16 +270,16 @@ class ConnectFourUI {
   _draw(now) {
     const g = this.g, c = this.game.connect4, cell = this.cell, W = this.cv.width, H = this.cv.height;
     g.clearRect(0, 0, W, H);
-    g.fillStyle = '#9b6a3a'; g.fillRect(0, this.table, W, H - this.table);                               // the table the board stands on
-    g.fillStyle = '#b98a52'; g.fillRect(0, this.table, W, 4);
-    g.fillStyle = 'rgba(0,0,0,.12)'; for (let x = 0; x < W; x += Math.round(cell * 0.9)) g.fillRect(x, this.table + 6, 2, H - this.table);
-    g.fillStyle = '#1f3c7a'; g.fillRect(this.bx + 4, this.by + this.bh, this.pad + 6, this.pad * 2); g.fillRect(this.bx + this.bw - this.pad - 10, this.by + this.bh, this.pad + 6, this.pad * 2);   // the board's feet
+    this._blit(g, this._wallArt(), 0, 0);                                                                 // the wall, the table and the board's two wooden feet
+    this._blit(g, this._tableArtPix(), 0, this.table);
+    const fy = this.by + this.bh, fh = this.table - fy + this.A * 2, fw = Math.round(this.pad * 1.3);
+    for (const fx of [this.bx + this.pad * 0.5, this.bx + this.bw - this.pad * 0.5 - fw]) { g.fillStyle = '#1c140e'; g.fillRect(fx - this.A, fy, fw + this.A * 2, fh); g.fillStyle = '#8a5a33'; g.fillRect(fx, fy, fw, fh - this.A); g.fillStyle = '#b5834a'; g.fillRect(fx, fy, this.A, fh - this.A); }
     for (const k of this.coins.values()) {                                                                 // (behind the board, so they show through its holes)
-      if (k.win && c && c.status === 'done' && k.state === 'rest') { g.fillStyle = `rgba(255,232,120,${(0.35 + 0.25 * Math.sin(now / 160)).toFixed(2)})`; g.beginPath(); g.arc(k.x, k.y, cell * 0.52, 0, Math.PI * 2); g.fill(); }
+      if (k.win && c && c.status === 'done' && k.state === 'rest') { g.fillStyle = `rgba(255,232,120,${(0.35 + 0.25 * Math.sin(now / 160)).toFixed(2)})`; const r = Math.round(cell * 0.5); for (let yy = -r; yy <= r; yy += this.A) { const ww = Math.round(Math.sqrt(r * r - yy * yy)); g.fillRect(Math.round(k.x - ww), Math.round(k.y + yy), ww * 2, this.A); } }
       if (k.state === 'move') continue;                                                                    // (flying over the column: drawn in front, below)
       this._coin(g, k, k.x, k.y);
     }
-    g.drawImage(this._boardArt(), this.bx - this.pad, this.by - this.pad);                               // the board's front, with its holes
+    this._blit(g, this._boardArt(), this.bx - this.pad, this.by - this.pad);                              // the board's front, with its holes
     for (const k of this.coins.values()) if (k.state === 'move') this._coin(g, k, k.x, k.y);
     if (c) {
       const opp = 1 - c.seat;
@@ -227,7 +287,7 @@ class ConnectFourUI {
       this._drawStack(g, this.myStack, c.seat, now, this.shake > 0, this.drag ? '' : 'drag a coin', !!this.drag);
       if (this.drag) {                                                                                     // the coin in your hand, flat, and the column it would fall in
         const d = this.drag, col = this._colAt(d), dc = col < 0 ? -1 : this._dcol(col);
-        if (this._mine() && dc >= 0 && ConnectFour.rowFor(this._cells(c.board), col) >= 0) { g.fillStyle = 'rgba(255,255,255,.14)'; g.fillRect(this.bx + dc * cell, this.by, cell, this.bh); }
+        if (this._mine() && dc >= 0 && ConnectFour.rowFor(this._cells(c.board), col) >= 0) { g.fillStyle = 'rgba(255,236,160,.2)'; g.fillRect(this.bx + dc * cell, this.by, cell, this.bh); g.fillStyle = 'rgba(255,214,90,.9)'; g.fillRect(this.bx + dc * cell, this.by - this.A * 2, cell, this.A * 2); }
         this._coin(g, d, d.x, d.y - cell * 0.35, 1, 1.15);
       }
     }
