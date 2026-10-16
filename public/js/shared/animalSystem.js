@@ -527,7 +527,9 @@ class AnimalSystem {
         if (a.breedP !== undefined) out[id].breed = Math.round(a.breedP * 100) / 100;           // breeding in a stall: the same rainbow bar (0..1)
         if (a.foal > 0) out[id].foal = Math.round(a.foal / Stable.FOAL_SECONDS * 100) / 100;     // a foal: how much of its growing up is left (1 = just born)
         if (a.stall) out[id].stall = true;                                                    // in a stall of the stable: it stays put and cannot be ridden
-        if (a.rs) out[id].rs = { s: a.rs.st, t: a.rs.team, by: a.rs.by, p: Math.round(a.rs.tame * 100) / 100, k: a.rs.slot };   // a minigame sheep: where it stands in the round (roundupSystem.js)
+        if (a.rs) out[id].rs = { s: a.rs.st, t: a.rs.team, by: a.rs.by, p: Math.round(a.rs.tame * 100) / 100, k: a.rs.slot };
+        if (a.rs && a.rs.gold) out[id].rs.g = 1;
+        if (a.rs && a.rs.ct) { out[id].rs.c = Math.round(a.rs.ct.bar * 100) / 100; out[id].rs.cb = a.rs.ct.by; }   // a minigame sheep: where it stands in the round (roundupSystem.js)
         if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)
       }

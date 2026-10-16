@@ -5,13 +5,14 @@
  *         they go back there), alternately to side 0 and side 1 (a lone player is matched with a computer Rival Rancher). They are taken into a new arena instance ('roundup:<n>'), a COUNTDOWN runs, and at GO the sheep scatter.
  * LASSO   The ordinary lasso throw (L / right click / the lasso button) at a sheep. A hit puts it on your ROPE: it strains while it calms, and the calm bar fills only while you
  *         stay within `rope.calm` of it (past `rope.max` the rope snaps). A calm sheep is LED: it trots after you. You can hold `rope.lead` ropes at once.
- * TIE     Use beside your own pole: every sheep you lead is tied up there (it counts for your side). Use beside the OTHER side's pole to untie one of theirs (slower for every
- *         defender standing near the pole): the sheep is then yours to lead home.
- * STEAL   A rival who walks across your rope CUTS it (the sheep bolts); a lasso thrown at a sheep somebody else is roping or leading takes it from them.
+ * TIE     Use beside your own pole: every sheep you lead is tied up there (it counts for your side). A sheep tied to a pole is safe: nobody can take it from there.
+ * STEAL   A rival who walks across your rope CUTS it (the sheep bolts). A lasso thrown at a sheep somebody else is roping or leading starts a TUG OF WAR: both ropers MASH the Use key,
+ *         each press pulls the bar their way; first to fill it keeps (or takes) the sheep, and if nobody gets there in `tug.seconds` the holder keeps it.
+ * GOLD    One golden sheep runs among the others: it is faster, shies from farther off, is harder to land a loop on and takes longer to calm, and it is worth `gold.points` sheep.
  * END     When the time is up (or every sheep is tied up) the side with more sheep on its pole wins. Wool and coins are shared out, the quest hears about it, and everyone is taken back.
  *
  * Sheep here are ordinary animals marked `game: 'roundup'` that this system drives itself (AnimalSystem leaves them alone); `rs` is their round-up state:
- *   { st: 'free' | 'roped' | 'led' | 'pole', team: side holding it (-1 none), by: who holds it ('' none), tame: 0..1, slot: place on the pole (-1 none), ... }
+ *   { st: 'free' | 'roped' | 'led' | 'pole', team: side holding it (-1 none), by: who holds it ('' none), tame: 0..1, slot: place on the pole (-1 none), gold: the golden one, ct: { by, bar, t } a tug of war with a second roper ... }
  * and is sent with the animal so every client can draw the ropes. */
 const RoundupRules = Minigames.get('roundup');
 const ROUNDUP_GATE_REACH = 1.7, ROUNDUP_POLE_REACH = 3.2, ROUNDUP_FLEE_RADIUS = 4.6, ROUNDUP_TEAMS = Object.freeze([
@@ -31,25 +32,23 @@ function findRoundupInteraction(map, p, held, animals, selfId = p.id) {
     const d = Math.hypot(p.x - Village.roundup.gate.x, p.y - Village.roundup.gate.y);
     return d <= ROUNDUP_GATE_REACH ? { kind: 'start_roundup', label: 'Round up the flock', dist: d } : null;
   }
-  if (map.kind !== 'roundup' || (p.rt !== 0 && p.rt !== 1) || p.rsteal > 0) return null;
-  const mine = RoundupArena.poles[p.rt], other = RoundupArena.poles[1 - p.rt], dMine = Math.hypot(p.x - mine.x, p.y - mine.y), dOther = Math.hypot(p.x - other.x, p.y - other.y);
-  let led = 0, held_ = 0, theirs = 0;
+  if (map.kind !== 'roundup' || (p.rt !== 0 && p.rt !== 1)) return null;
+  const mine = RoundupArena.poles[p.rt], dMine = Math.hypot(p.x - mine.x, p.y - mine.y);
+  let led = 0;
   for (const id in animals) {
-    const rs = animals[id].rs;                                                                       // (the server's own sheep say st / team, the copies in a snapshot s / t)
+    const rs = animals[id].rs;                                                                       // (the server's own sheep say st / ct, the copies in a snapshot s / c)
     if (!rs || !sameGrid(animals[id], p)) continue;
-    const st = rs.s || rs.st, team = rs.t !== undefined ? rs.t : rs.team;
-    if (rs.by === selfId && (st === 'led' || st === 'roped')) held_++;
+    const st = rs.s || rs.st, tug = rs.c !== undefined || !!rs.ct, challenger = rs.cb || (rs.ct && rs.ct.by);
+    if (tug && (rs.by === selfId || challenger === selfId)) return { kind: 'mash', label: 'Pull!', dist: 0 };      // a tug of war: mash Use
     if (rs.by === selfId && st === 'led') led++;
-    if (st === 'pole' && team === 1 - p.rt) theirs++;
   }
   if (led && dMine <= ROUNDUP_POLE_REACH) return { kind: 'tie_sheep', label: led > 1 ? `Tie up ${led} sheep` : 'Tie up the sheep', dist: dMine };
-  if (theirs && dOther <= RoundupRules.steal.reach && held_ < RoundupRules.rope.lead) return { kind: 'untie_sheep', label: 'Untie a sheep', dist: dOther };
   return null;
 }
 Interactions.extra.push(findRoundupInteraction);
 InteractionHandlers.start_roundup = (server, id, p) => server.roundup.start(id, p);
 InteractionHandlers.tie_sheep = (server, id, p) => server.roundup.tie(id, p);
-InteractionHandlers.untie_sheep = (server, id, p) => server.roundup.beginSteal(id, p);
+InteractionHandlers.mash = () => {};                                                                    // (the press itself is counted in GameServer._interact: roundup.mash)
 
 class RoundupSystem {
   constructor(server) { this.s = server; this.matches = new Map(); this.next = 1; this.cool = {}; this.invite = null; }
@@ -64,7 +63,8 @@ class RoundupSystem {
   _say(m, pid, text) { if (pid !== 'rival') this.s._notice(pid, text); }
   _emit(m, e) { e.grid = m.grid; this.s.pendingEvents.push(e); }
   _humans(m) { return m.order.filter(id => id !== 'rival'); }
-  _score(m, team) { return m.teams[team].slots.filter(Boolean).length; }
+  /** A side's score: its sheep on the pole (the golden one counts for several). */
+  _score(m, team) { return m.teams[team].slots.reduce((n, id) => { const a = id && this.s.animals.animals[id]; return n + (a ? (a.rs.gold ? RoundupRules.gold.points : 1) : 0); }, 0); }
   _world(m) { return this.s.grids.get(m.grid); }
   _sheep(m) { return m.sheep.map(id => this.s.animals.animals[id]).filter(Boolean); }
   /** The sheep this person holds on a rope (being calmed, or led). */
@@ -110,21 +110,21 @@ class RoundupSystem {
     const s = this.s, R = RoundupRules, crowd = ids.map(i => s.players[i]).filter(Boolean);
     const n = this.next++, grid = Grids.roundup(n), world = s.grids.get(grid);
     if (world.grid !== grid) { s._notice(ids[0], 'The round-up field is not ready yet'); return; }
-    const m = { n, grid, phase: 'countdown', t: R.seconds.countdown, people: {}, order: [], teams: ROUNDUP_TEAMS.map(t => ({ name: t.name, color: t.color, slots: [] })), sheep: [], rival: null, steals: {}, result: null, seed: (s.tick * 31 + n * 7919) | 0 };
+    const m = { n, grid, phase: 'countdown', t: R.seconds.countdown, people: {}, order: [], teams: ROUNDUP_TEAMS.map(t => ({ name: t.name, color: t.color, slots: [] })), sheep: [], rival: null, result: null, seed: (s.tick * 31 + n * 7919) | 0 };
     this.matches.set(grid, m);
     crowd.forEach((q, i) => {
       const team = i % 2, k = Math.floor(i / 2), at = RoundupArena.start(team, k);
       m.people[q.id] = { id: q.id, team, k, human: true, name: q.name || 'Player', stun: 0, tied: 0, stolen: 0, cut: 0, back: { grid: gridOf(q), x: q.x, y: q.y }, prevReturn: q.returnTo || null };
       m.order.push(q.id);
       q.returnTo = { grid: gridOf(q), x: q.x, y: q.y };                                                 // (a save made mid-round puts them back where they were)
-      q.rt = team; q.rsteal = 0;
+      q.rt = team;
       s._moveToGrid(q.id, q, grid, at.x, at.y);
       q.facing = team ? Math.PI : 0;
     });
     for (const a of Object.values(s.animals.animals)) if (a.grid === grid && !a.game && !crowd.some(q => q.mount === a.id)) this._sendOut(m, a, crowd);   // (pets and an unridden main pony wait where their owner was: only the pony you ride in on comes along)
     if (crowd.length === 1) this._addRival(m);
     const count = R.sheep.base + R.sheep.extra * Math.max(0, crowd.length - 2);
-    RoundupArena.sheepSpots(count, m.seed).forEach(spot => this._spawnSheep(m, spot));
+    RoundupArena.sheepSpots(count + 1, () => s.rng()).forEach((spot, i, all) => this._spawnSheep(m, spot, i === all.length - 1));        // (random places in the middle; the last one is the golden sheep)
     for (const q of crowd) {
       s._notice(q.id, `Round-Up! You are on ${m.teams[m.people[q.id].team].name}: lasso the sheep and tie them to your pole`);
       s.pendingEvents.push({ type: 'roundupStart', to: q.id, team: m.people[q.id].team, solo: !!m.rival });
@@ -145,10 +145,10 @@ class RoundupSystem {
     m.order.push('rival');
   }
 
-  _spawnSheep(m, spot) {
+  _spawnSheep(m, spot, gold) {
     const animals = this.s.animals, id = animals.spawn('sheep', spot.x, spot.y, undefined, { grid: m.grid, level: 1 }), a = animals.animals[id];
     a.game = 'roundup'; a.home = { x: spot.x, y: spot.y };
-    a.rs = { st: 'free', team: -1, by: '', tame: 0, slot: -1, wt: 0.5 + this.s.rng() * 2, tx: spot.x, ty: spot.y, fleeT: 0, fx: 0, fy: 0 };
+    a.rs = { gold: !!gold, st: 'free', team: -1, by: '', tame: 0, slot: -1, wt: 0.5 + this.s.rng() * 2, tx: spot.x, ty: spot.y, fleeT: 0, fx: 0, fy: 0 };
     m.sheep.push(id);
     return a;
   }
@@ -173,7 +173,7 @@ class RoundupSystem {
       this._sheepStep(m, dt);
       this._rivalStep(m, dt);
       this._cuts(m);
-      this._steals(m, dt);
+      this._contests(m, dt);
       if (m.t <= 0 || !this._sheep(m).some(a => a.rs.st !== 'pole')) this._end(m);
     } else if (m.phase === 'over') {
       m.t -= dt;
@@ -192,9 +192,10 @@ class RoundupSystem {
   }
   _leave(m, pid) {
     const q = this.s.players[pid];
-    if (q) { q.rt = -1; q.rsteal = 0; }
+    if (q) q.rt = -1;
+    for (const a of this._sheep(m)) if (a.rs.ct && a.rs.ct.by === pid) delete a.rs.ct;
     for (const a of this._ropes(m, pid)) this._release(m, a, null);
-    delete m.steals[pid]; delete m.people[pid]; m.order = m.order.filter(x => x !== pid);
+    delete m.people[pid]; m.order = m.order.filter(x => x !== pid);
   }
   /** A player's seat is going away: take them out of any round. */
   forget(id) { if (this.invite && this.invite.host === id) { this.invite.asked.forEach(q => this.s.pendingEvents.push({ type: 'roundupInviteEnd', to: q })); this.invite = null; } else if (this.invite) this._checkInvite(); const p = this.s.players[id], m = this.matchOf(p); if (m && m.people[id]) { this._leave(m, id); if (!this._humans(m).length) this._close(m, false); } delete this.cool[id]; }
@@ -234,16 +235,17 @@ class RoundupSystem {
   _thinkFree(m, a, dt) {
     const rs = a.rs, R = RoundupRules;
     let fx = 0, fy = 0, scare = 0;
+    const radius = rs.gold ? RoundupRules.gold.scare : ROUNDUP_FLEE_RADIUS, G = rs.gold ? RoundupRules.gold.flee : 1;
     if (m.phase === 'play') for (const pid of m.order) {                                              // run from anybody close
       const q = this._who(m, pid); if (!q) continue;
       const d = Math.hypot(a.x - q.x, a.y - q.y);
-      if (d < ROUNDUP_FLEE_RADIUS) { const w = 1 - d / ROUNDUP_FLEE_RADIUS; fx += (a.x - q.x) / (d || 1) * w; fy += (a.y - q.y) / (d || 1) * w; scare = Math.max(scare, w); }
+      if (d < radius) { const w = 1 - d / radius; fx += (a.x - q.x) / (d || 1) * w; fy += (a.y - q.y) / (d || 1) * w; scare = Math.max(scare, w); }
     }
     if (rs.fleeT > 0) { rs.fleeT -= dt; fx += rs.fx * 1.4; fy += rs.fy * 1.4; scare = Math.max(scare, 0.9); }
     const [ix, iy] = this._inward(a);
     if (scare > 0.02) {
       const wobble = Math.sin(this.s.tick / 9 + a.x) * 0.25;                                          // a little zig-zag
-      this._drive(m, a, fx + ix * 1.2 - fy * wobble, fy + iy * 1.2 + fx * wobble, R.speed.flee * (0.55 + 0.45 * Math.min(1, scare * 1.6)), dt, 11);
+      this._drive(m, a, fx + ix * 1.2 - fy * wobble, fy + iy * 1.2 + fx * wobble, R.speed.flee * G * (0.55 + 0.45 * Math.min(1, scare * 1.6)), dt, 11);
       rs.wt = 0.4;
       return;
     }
@@ -263,10 +265,11 @@ class RoundupSystem {
     if (!h || !m.people[rs.by]) { this._release(m, a, null); return; }
     const dx = a.x - h.x, dy = a.y - h.y, d = Math.hypot(dx, dy) || 1e-6;
     if (d > R.rope.max) { this._snap(m, a, 'far'); return; }
+    if (rs.ct) { this._drive(m, a, 0, 0, 0, dt, 7); return; }                                         // (a tug of war: it stands where it is)
     const sway = Math.sin(this.s.tick / 7 + a.y) , ux = dx / d, uy = dy / d;
     const pull = d < R.rope.calm - 0.6 ? 0.45 : 0;                                                      // (it strains outward only while it is well inside the calm range)
     this._drive(m, a, ux * pull - uy * sway * 0.8, uy * pull + ux * sway * 0.8, Math.min(1.4, 0.4 + Math.abs(sway) * 1.0), dt, 7);
-    if (d <= R.rope.calm) rs.tame = Math.min(1, rs.tame + dt / R.rope.tame);
+    if (d <= R.rope.calm) rs.tame = Math.min(1, rs.tame + dt / (R.rope.tame * (rs.gold ? R.gold.tame : 1)));
     if (rs.tame >= 1) {
       rs.st = 'led'; rs.tame = 1;
       this._emit(m, { type: 'roundup', ev: 'calm', x: a.x, y: a.y, id: a.id });
@@ -280,6 +283,7 @@ class RoundupSystem {
     if (!h || !m.people[rs.by]) { this._release(m, a, null); return; }
     const dx = h.x - a.x, dy = h.y - a.y, d = Math.hypot(dx, dy);
     if (d > 10) { this._snap(m, a, 'lost'); return; }
+    if (rs.ct) { this._drive(m, a, 0, 0, 0, dt, 8); return; }
     if (d > 1.7) this._drive(m, a, dx, dy, Math.min(R.speed.led, 0.5 + (d - 1.7) * 1.8), dt, 8);
     else this._drive(m, a, 0, 0, 0, dt, 8);
     for (const b of this._sheep(m)) {                                                                 // led sheep do not pile on top of one another
@@ -300,7 +304,7 @@ class RoundupSystem {
   /** A sheep is let go: free, and off in a hurry away from `from` (a person, or null). */
   _release(m, a, from) {
     const rs = a.rs;
-    rs.st = 'free'; rs.team = -1; rs.by = ''; rs.tame = 0; rs.slot = -1; rs.wt = 0.3;
+    rs.st = 'free'; rs.team = -1; rs.by = ''; rs.tame = 0; rs.slot = -1; rs.wt = 0.3; delete rs.ct;
     if (from) { const dx = a.x - from.x, dy = a.y - from.y, d = Math.hypot(dx, dy) || 1; rs.fx = dx / d; rs.fy = dy / d; rs.fleeT = 1.6; }
     else { const ang = this.s.rng() * Math.PI * 2; rs.fx = Math.cos(ang); rs.fy = Math.sin(ang); rs.fleeT = 1.2; }
   }
@@ -314,25 +318,30 @@ class RoundupSystem {
   }
 
   /* ---------------------------------------- cutting ropes ---------------------------------------- */
-  /** A rival who passes through a rope cuts it. */
+  /** A rival who passes through a rope cuts it (a sheep in a tug of war has two ropes; cutting either frees it). */
   _cuts(m) {
     const cut = RoundupRules.rope.cut;
     for (const a of this._sheep(m)) {
       const rs = a.rs;
       if (rs.st !== 'roped' && rs.st !== 'led') continue;
-      const h = this._who(m, rs.by); if (!h) continue;
-      for (const pid of m.order) {
-        const z = m.people[pid], q = this._who(m, pid);
-        if (!z || !q || z.team === rs.team) continue;
-        if (segmentDistance(q.x, q.y, h.x, h.y, a.x, a.y) > cut) continue;
-        const holder = rs.by, me = m.people[holder];
-        this._release(m, a, q);
-        z.cut++;
-        if (me) me.stun = Math.max(me.stun, RoundupRules.lasso.stun);
-        this._emit(m, { type: 'roundup', ev: 'cut', x: (a.x + h.x) / 2, y: (a.y + h.y) / 2, id: a.id });
-        this._say(m, holder, `${this._name(m, pid)} cut your rope!`);
-        this._say(m, pid, 'You cut their rope!');
-        break;
+      const ropes = [{ pid: rs.by, team: rs.team }];
+      if (rs.ct && m.people[rs.ct.by]) ropes.push({ pid: rs.ct.by, team: m.people[rs.ct.by].team });
+      let done = false;
+      for (const rope of ropes) {
+        const h = this._who(m, rope.pid); if (!h || done) continue;
+        for (const pid of m.order) {
+          const z = m.people[pid], q = this._who(m, pid);
+          if (!z || !q || z.team === rope.team) continue;
+          if (segmentDistance(q.x, q.y, h.x, h.y, a.x, a.y) > cut) continue;
+          const holders = [rs.by, rs.ct && rs.ct.by].filter(Boolean);
+          this._release(m, a, q);
+          z.cut++; done = true;
+          for (const hp of holders) if (m.people[hp]) m.people[hp].stun = Math.max(m.people[hp].stun, RoundupRules.lasso.stun);
+          this._emit(m, { type: 'roundup', ev: 'cut', x: (a.x + h.x) / 2, y: (a.y + h.y) / 2, id: a.id });
+          this._say(m, rope.pid, `${this._name(m, pid)} cut your rope!`);
+          this._say(m, pid, 'You cut their rope!');
+          break;
+        }
       }
     }
   }
@@ -348,7 +357,7 @@ class RoundupSystem {
     let best = null;
     for (const a of this._sheep(m)) {
       const rs = a.rs;
-      if (rs.st === 'pole' || ((rs.st === 'roped' || rs.st === 'led') && rs.team === me.team)) continue;
+      if (rs.st === 'pole' || rs.ct || ((rs.st === 'roped' || rs.st === 'led') && rs.team === me.team)) continue;
       const r = AnimalDefs[a.type].radius, gap = Math.hypot(a.x - p.x, a.y - p.y) - r;
       if (gap > tool.reach) continue;
       const off = aim ? Math.hypot(a.x - aim.x, a.y - aim.y) - r : Infinity, angle = Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing));
@@ -367,7 +376,7 @@ class RoundupSystem {
     const m = this.matchOf(p), me = m && m.people[p.id], a = this.s.animals.animals[target.ref];
     if (!m || !me || !a || !a.rs || m.phase !== 'play' || me.stun > 0) return false;
     const rs = a.rs;
-    if (rs.st === 'pole' || ((rs.st === 'roped' || rs.st === 'led') && rs.team === me.team)) return false;
+    if (rs.st === 'pole' || rs.ct || ((rs.st === 'roped' || rs.st === 'led') && rs.team === me.team)) return false;
     return Math.hypot(a.x - p.x, a.y - p.y) - AnimalDefs[a.type].radius <= tool.reach + 1.2;          // it may have moved while the loop was in the air
   }
   lassoApply(id, target) {
@@ -382,20 +391,63 @@ class RoundupSystem {
     let chance = lerp(R.lasso.near, R.lasso.far, clamp((d - 1.6) / Math.max(0.5, reach - 1.6), 0, 1));
     if (rs.st === 'free' && Math.hypot(a.vx, a.vy) > 1.6) chance -= 0.1;                                // harder on a running sheep
     if (rs.st === 'roped' || rs.st === 'led') chance -= 0.08;
+    if (rs.gold) chance *= R.gold.luck;
     if (pid === 'rival') chance *= R.lasso.rivalLuck;
     const hit = this.s.rng() < chance;
     this._emit(m, { type: 'lasso', x0: q.x, y0: q.y, x1: a.x, y1: a.y, hit, by: pid, item: item || 'leash' });
     if (!hit) { const dx = a.x - q.x, dy = a.y - q.y, dd = Math.hypot(dx, dy) || 1; Object.assign(rs, { fx: dx / dd, fy: dy / dd, fleeT: Math.max(rs.fleeT, 1.1) }); this._say(m, pid, 'Missed! It bolted'); return false; }
-    const from = rs.by, wasLed = rs.st === 'led', wasHeld = rs.st === 'roped' || rs.st === 'led';
-    rs.st = 'roped'; rs.by = pid; rs.team = me.team; rs.slot = -1;
-    rs.tame = wasHeld ? (wasLed ? R.rope.stolenStart : Math.max(0.2, Math.min(rs.tame, R.rope.stolenStart))) : 0;
-    if (wasHeld && from && from !== pid) {
-      const holder = m.people[from]; if (holder) holder.stolen++;
-      this._emit(m, { type: 'roundup', ev: 'stolen', x: a.x, y: a.y, id: a.id });
-      this._say(m, from, `${this._name(m, pid)} lassoed your sheep!`);
-      this._say(m, pid, 'Got it! Hold it close until it calms');
-    } else this._say(m, pid, 'Caught! Stay close while it calms down');
+    const wasLed = rs.st === 'led', wasHeld = rs.st === 'roped' || rs.st === 'led';
+    if (wasHeld && rs.by !== pid) {                                                                     // somebody else's sheep: a tug of war
+      rs.ct = { by: pid, bar: wasLed ? R.tug.holderLead : 0.5, t: R.tug.seconds };
+      this._emit(m, { type: 'roundup', ev: 'tug', x: a.x, y: a.y, id: a.id });
+      this._say(m, pid, 'Tug of war! Mash the Use key!');
+      this._say(m, rs.by, `${this._name(m, pid)} roped your sheep! Mash the Use key!`);
+      return true;
+    }
+    rs.st = 'roped'; rs.by = pid; rs.team = me.team; rs.slot = -1; rs.tame = 0;
+    this._say(m, pid, 'Caught! Stay close while it calms down');
     return true;
+  }
+
+  /* ---------------------------------------- the tug of war ---------------------------------------- */
+  /** A press of the Use key by someone in a tug of war: it pulls the bar their way. Returns true if the press was theirs to give. */
+  mash(id, p) {
+    const m = this.matchOf(p);
+    if (!m || m.phase !== 'play') return false;
+    const a = this._sheep(m).find(x => x.rs.ct && (x.rs.by === id || x.rs.ct.by === id));
+    if (!a) return false;
+    this._pull(m, a, id);
+    return true;
+  }
+  _pull(m, a, pid) {
+    const ct = a.rs.ct, step = RoundupRules.tug.press;
+    ct.bar = clamp(ct.bar + (pid === a.rs.by ? step : -step), 0, 1);
+  }
+  /** Ends a tug of war the sheep's holder or challenger has lost track of, runs the rival's pulling, and decides it. */
+  _contests(m, dt) {
+    const R = RoundupRules;
+    for (const a of this._sheep(m)) {
+      const rs = a.rs, ct = rs.ct;
+      if (!ct) continue;
+      const holder = this._who(m, rs.by), chal = this._who(m, ct.by), hp = m.people[rs.by], cp = m.people[ct.by];
+      if (!holder || !hp || (rs.st !== 'roped' && rs.st !== 'led')) { delete rs.ct; continue; }
+      if (!chal || !cp || Math.hypot(chal.x - a.x, chal.y - a.y) > R.rope.max) { delete rs.ct; if (cp) cp.stun = Math.max(cp.stun, R.lasso.stun); this._say(m, ct.by, 'Your rope slipped'); continue; }
+      for (const pid of [rs.by, ct.by]) if (pid === 'rival') {                                          // the rival pulls about as fast as a keen player presses
+        const ai = m.rival.ai; ai.mash = (ai.mash || 0) + dt * R.tug.rivalRate * (0.7 + 0.6 * Math.abs(Math.sin(this.s.tick / 11)));
+        while (ai.mash >= 1) { ai.mash -= 1; this._pull(m, a, 'rival'); }
+      }
+      ct.t -= dt;
+      if (ct.bar >= 1 || (ct.t <= 0 && ct.bar >= 0.5)) {                                               // the holder keeps it
+        delete rs.ct; cp.stun = Math.max(cp.stun, R.lasso.stun * 0.6);
+        this._say(m, rs.by, 'You held on to it!'); this._say(m, ct.by, 'It slipped out of your loop');
+      } else if (ct.bar <= 0 || ct.t <= 0) {                                                            // the challenger takes it, half calmed
+        const from = rs.by, wasLed = rs.st === 'led';
+        delete rs.ct; hp.stun = Math.max(hp.stun, R.lasso.stun * 0.6); hp.stolen++;
+        Object.assign(rs, { st: 'roped', by: ct.by, team: cp.team, tame: wasLed ? R.rope.stolenStart : Math.min(rs.tame, R.rope.stolenStart) });
+        this._emit(m, { type: 'roundup', ev: 'stolen', x: a.x, y: a.y, id: a.id });
+        this._say(m, ct.by, 'Got it! Hold it close until it calms'); this._say(m, from, `${this._name(m, ct.by)} pulled the sheep away!`);
+      }
+    }
   }
 
   /* ---------------------------------------- poles ---------------------------------------- */
@@ -420,49 +472,6 @@ class RoundupSystem {
     return tied;
   }
 
-  /** Use beside the other side's pole: start untying one of their sheep. */
-  beginSteal(id, p) { const m = this.matchOf(p); if (m) this._beginSteal(m, id); }
-  _beginSteal(m, pid) {
-    const me = m.people[pid], q = this._who(m, pid);
-    if (!me || !q || m.phase !== 'play' || m.steals[pid] || me.stun > 0) return false;
-    const victim = 1 - me.team, pole = RoundupArena.poles[victim];
-    if (Math.hypot(q.x - pole.x, q.y - pole.y) > RoundupRules.steal.reach || !m.teams[victim].slots.some(Boolean)) return false;
-    if (this._ropes(m, pid).length >= RoundupRules.rope.lead) { this._say(m, pid, 'Your hands are full'); return false; }
-    m.steals[pid] = { team: victim, prog: 0 };
-    if (pid !== 'rival') q.rsteal = 0.001;
-    this._say(m, pid, 'Untying a sheep... stay by the pole');
-    for (const h of this._humans(m)) if (m.people[h].team === victim) this._say(m, h, `${this._name(m, pid)} is untying one of your sheep!`);
-    return true;
-  }
-  _steals(m, dt) {
-    const R = RoundupRules.steal;
-    for (const pid of Object.keys(m.steals)) {
-      const st = m.steals[pid], me = m.people[pid], q = this._who(m, pid), pole = RoundupArena.poles[st.team];
-      const stop = () => { delete m.steals[pid]; if (pid !== 'rival' && q) q.rsteal = 0; };
-      if (!me || !q || me.stun > 0 || Math.hypot(q.x - pole.x, q.y - pole.y) > R.reach + 0.9 || !m.teams[st.team].slots.some(Boolean) || this._ropes(m, pid).length >= RoundupRules.rope.lead) { stop(); continue; }
-      let guards = 0;
-      for (const gid of m.order) {
-        const g = m.people[gid], gq = this._who(m, gid);
-        if (g && gq && g.team === st.team && Math.hypot(gq.x - pole.x, gq.y - pole.y) <= R.guard) guards++;
-      }
-      st.prog += dt / (R.base + R.perGuard * guards);
-      if (pid !== 'rival') q.rsteal = Math.max(0.001, Math.min(1, st.prog));
-      if (st.prog < 1) continue;
-      const team = m.teams[st.team];
-      let slot = -1;
-      for (let k = team.slots.length - 1; k >= 0; k--) if (team.slots[k]) { slot = k; break; }
-      const a = slot >= 0 && this.s.animals.animals[team.slots[slot]];
-      stop();
-      if (!a) continue;
-      team.slots[slot] = null;
-      Object.assign(a.rs, { st: 'led', team: me.team, by: pid, slot: -1, tame: 1 });
-      me.stolen++;
-      this._emit(m, { type: 'roundup', ev: 'untied', x: a.x, y: a.y, id: a.id, team: st.team });
-      this._say(m, pid, 'Untied! Lead it back to your pole');
-      for (const h of this._humans(m)) if (m.people[h].team === st.team) this._say(m, h, `${this._name(m, pid)} took a sheep from your pole!`);
-    }
-  }
-
   /* ---------------------------------------- the rival rancher ---------------------------------------- */
   _rivalStep(m, dt) {
     const r = m.rival;
@@ -472,21 +481,19 @@ class RoundupSystem {
     let goal = null, speed = R.speed.rival;
     const ropes = this._ropes(m, 'rival'), roped = ropes.filter(a => a.rs.st === 'roped'), led = ropes.filter(a => a.rs.st === 'led');
     const toward = (x, y) => ({ x, y });
-    if (ai.wait > 0 || m.steals.rival) { goal = null; speed = 0; }                                     // busy untying a sheep, or catching its breath
+    if (ai.wait > 0 || ropes.some(a => a.rs.ct)) { goal = null; speed = 0; }                         // catching its breath, or busy in a tug of war
     else if (roped.length) {                                                                          // stay close while it calms
       const a = roped.reduce((b, c) => (Math.hypot(c.x - r.x, c.y - r.y) < Math.hypot(b.x - r.x, b.y - r.y) ? c : b));
       if (Math.hypot(a.x - r.x, a.y - r.y) > R.rope.calm - 1.4) goal = toward(a.x, a.y); else speed = 0;
     } else if (led.length) {                                                                           // it takes each one home at once (it never leads two)
       goal = toward(mine.x - 1.4, mine.y);
       if (Math.hypot(r.x - mine.x, r.y - mine.y) <= ROUNDUP_POLE_REACH - 0.4) this._tie(m, 'rival');
-    } else if (m.steals && Object.values(m.steals).some(s => s.team === 1)) {                          // somebody is raiding our pole: stand guard
-      goal = toward(mine.x + 1.2, mine.y);
     } else {
       let best = null;
       for (const a of this._sheep(m)) {
         const rs = a.rs;
-        if (rs.st === 'pole' || ((rs.st === 'roped' || rs.st === 'led') && rs.team === 1)) continue;
-        const d = Math.hypot(a.x - r.x, a.y - r.y), score = d + (rs.st === 'free' ? 0 : 2.5) + (Math.hypot(a.x - mine.x, a.y - mine.y) > 14 ? 3 : 0);
+        if (rs.st === 'pole' || rs.ct || ((rs.st === 'roped' || rs.st === 'led') && rs.team === 1)) continue;
+        const d = Math.hypot(a.x - r.x, a.y - r.y), score = d - (rs.gold ? 2 : 0) + (rs.st === 'free' ? 0 : 2.5) + (Math.hypot(a.x - mine.x, a.y - mine.y) > 14 ? 3 : 0);
         if (rs.st !== 'free' && d > 9) continue;
         if (!best || score < best.score) best = { a, d, score };
       }
@@ -494,11 +501,7 @@ class RoundupSystem {
       else if (best) {
         if (best.d <= 4.3 && ai.cool <= 0 && me.stun <= 0 && ropes.length < 1) { this._cast(m, 'rival', best.a, 'leash'); ai.cool = R.lasso.rivalEvery * (0.8 + this.s.rng() * 0.6); speed = 0; }
         else goal = toward(best.a.x, best.a.y);
-      } else {                                                                                        // nothing left to catch: raid the other pole
-        const theirs = RoundupArena.poles[0];
-        if (m.teams[0].slots.some(Boolean)) { goal = toward(theirs.x + 1.6, theirs.y); if (Math.hypot(r.x - theirs.x, r.y - theirs.y) <= R.steal.reach - 0.3) this._beginSteal(m, 'rival'); }
-        else goal = toward(mine.x + 2, mine.y);
-      }
+      } else goal = toward(mine.x + 2, mine.y);                                                       // nothing left to catch: wait by its own pole
     }
     if (me.stun > 0) speed *= 0.4;
     let tvx = 0, tvy = 0;
@@ -526,9 +529,7 @@ class RoundupSystem {
   _end(m) {
     const s = this.s, R = RoundupRules;
     m.phase = 'over'; m.t = R.seconds.over;
-    for (const pid of Object.keys(m.steals)) { const q = this._who(m, pid); if (pid !== 'rival' && q) q.rsteal = 0; }
-    m.steals = {};
-    for (const a of this._sheep(m)) if (a.rs.st === 'roped' || a.rs.st === 'led') this._release(m, a, null);
+    for (const a of this._sheep(m)) if (a.rs.st === 'roped' || a.rs.st === 'led') this._release(m, a, null);      // (a tug of war in progress is over: _release clears it)
     const scores = [this._score(m, 0), this._score(m, 1)], winner = scores[0] > scores[1] ? 0 : scores[1] > scores[0] ? 1 : -1;
     m.result = { scores, winner };
     for (const id of this._humans(m)) {
@@ -551,7 +552,7 @@ class RoundupSystem {
     this.matches.delete(m.grid);
     for (const id of this._humans(m)) {
       const p = s.players[id]; if (!p) continue;
-      p.rt = -1; p.rsteal = 0;
+      p.rt = -1;
       if (bring && gridOf(p) === m.grid) {
         const me = m.people[id] || {}, back = me.back || { grid: '', x: Village.roundup.gate.x, y: Village.roundup.gate.y + 0.3 }, reward = me.reward;
         s._moveToGrid(id, p, back.grid || '', back.x, back.y); p.returnTo = me.prevReturn || null; p.facing = -Math.PI / 2;
@@ -575,8 +576,6 @@ class RoundupSystem {
     if (!m) return null;
     const out = { ph: m.phase, t: Math.round(m.t * 10) / 10, you: m.people[id] ? m.people[id].team : -1, rival: !!m.rival, sheep: m.sheep.length,
       teams: m.teams.map((t, i) => ({ n: t.name, c: t.color, s: this._score(m, i), w: m.order.filter(x => m.people[x].team === i).map(x => m.people[x].name) })) };
-    const steals = Object.keys(m.steals).map(pid => ({ by: pid, team: m.steals[pid].team, p: Math.round(m.steals[pid].prog * 100) / 100 }));
-    if (steals.length) out.steals = steals;
     if (m.result) out.res = m.result;
     return out;
   }

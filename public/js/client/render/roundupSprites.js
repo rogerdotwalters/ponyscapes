@@ -43,7 +43,7 @@ const RoundupSprites = (() => {
     }), sx, sy, [11, 4]);
   }
 
-  /** A side's pole: a cairn, a post with a ring for the ropes and a banner in the side's colour that shows its score. `info`: { score, steal (0..1 or 0), name }. */
+  /** A side's pole: a cairn, a post with a ring for the ropes and a banner in the side's colour that shows its score. `info`: { score }. */
   function pole(ctx, sx, sy, team, info, now) {
     stamp(ctx, art('pole', s => {
       const wood = M.wood('#7a5230', { dir: 'v', pw: 3, seed: 2 }), stone = M.stone('#9a958a', { course: 4, seed: 6 });
@@ -63,11 +63,6 @@ const RoundupSprites = (() => {
     ctx.font = '700 12px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 2.6;
     const label = String(info ? info.score : 0), lx = sx + 2 + w * 0.5, ly = top + h * 0.56 + wave(3) * 2;
     ctx.strokeText(label, lx, ly); ctx.fillText(label, lx, ly);
-    if (info && info.steal > 0) {                                                               // somebody is untying a sheep: how far they have got
-      const bw = 48, bx = Math.round(sx - bw / 2), by = Math.round(top - 16);
-      ctx.fillStyle = 'rgba(20,14,8,.78)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 9);
-      ctx.fillStyle = '#ffb04a'; ctx.fillRect(bx, by, Math.round(bw * Math.min(1, info.steal)), 5);
-    }
   }
   /** Where a rope tied to the pole is fastened (screen). */
   const poleRing = (sx, sy) => ({ x: sx, y: sy - RING });
@@ -99,5 +94,21 @@ const RoundupSprites = (() => {
     ctx.beginPath(); ctx.ellipse(sx, sy + 1, rx, ry, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
   }
 
-  return { fence, sign, pole, poleRing, flowers, rope, ring, TEAM, POLE_TOP };
+  /** The golden sheep's glow (behind it) and its twinkles (in front): `lift` is how high its back is on screen. */
+  function goldAura(ctx, sx, sy, now) {
+    const pulse = 0.5 + 0.5 * Math.sin(now / 260);
+    ctx.fillStyle = `rgba(255,214,64,${(0.22 + 0.14 * pulse).toFixed(2)})`; ctx.beginPath(); ctx.ellipse(sx, sy - 10, 27 + pulse * 3, 20 + pulse * 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,226,120,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 17, 7, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  function goldSparkle(ctx, sx, sy, now) {
+    for (let i = 0; i < 4; i++) {
+      const t = (now / 900 + i / 4) % 1, x = sx + Math.sin(i * 2.4 + now / 700) * 18, y = sy - 8 - t * 34, a = Math.sin(t * Math.PI);
+      ctx.fillStyle = `rgba(255,240,170,${a.toFixed(2)})`; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 3, 2, 6); ctx.fillRect(Math.round(x) - 3, Math.round(y) - 1, 6, 2);
+    }
+    ctx.fillStyle = '#ffd23f'; ctx.strokeStyle = '#7a5a0a'; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const r = i % 2 ? 4 : 9, a = -Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(sx + Math.cos(a) * r, sy - 46 + Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+
+  return { goldAura, goldSparkle, fence, sign, pole, poleRing, flowers, rope, ring, TEAM, POLE_TOP };
 })();

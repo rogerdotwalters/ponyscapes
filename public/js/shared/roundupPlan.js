@@ -20,11 +20,11 @@ const RoundupArena = (() => {
   }
   /** Where the k-th person of a side starts: between their pole and the middle. */
   function start(team, k) { const pole = poles[team], dir = team ? -1 : 1; return { x: pole.x + dir * 3.4, y: midY + (k % 2 ? 1 : -1) * (1.2 + Math.floor(k / 2) * 1.8) }; }
-  /** Sheep start in the middle third, spread out: n points, at least `gap` apart (a pure function of n and the salt). */
-  function sheepSpots(n, salt = 1) {
-    const out = [], cx = (box.x0 + box.x1) / 2, rx = W / 2 - A.inset - 5, ry = H / 2 - 2.5;
-    for (let i = 0, tries = 0; out.length < n && tries < 400; tries++, i++) {
-      const x = cx + (hash3(salt, i, 1, 11) * 2 - 1) * rx, y = midY + (hash3(salt, i, 2, 11) * 2 - 1) * ry;
+  /** n random places in the middle of the arena (`rand`: () => 0..1), at least 2.2 apart. */
+  function sheepSpots(n, rand = Math.random) {
+    const out = [], cx = (box.x0 + box.x1) / 2, rx = 7, ry = 4.5;
+    for (let tries = 0; out.length < n && tries < 600; tries++) {
+      const x = cx + (rand() * 2 - 1) * rx, y = midY + (rand() * 2 - 1) * ry;
       if (out.every(o => Math.hypot(o.x - x, o.y - y) >= 2.2)) out.push({ x, y });
     }
     return out;

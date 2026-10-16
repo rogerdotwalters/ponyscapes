@@ -21,7 +21,7 @@ function createPlayer(slot, spawn) {
     down: 0, downHp: 0, downMax: 0, graceT: 0,                               // downed in a dungeon (downed.js): seconds until you get up (0 = on your feet), health stored by snacks, the wait you began with, and the safe moment after
     energy: CONFIG.sim.energy.max,                                           // tiredness (vitalsSystem.js): drains awake, sleeping and a little eating fill it
     asleep: false, sleepT: 0, camping: false,                                // sleeping (sleepSystem.js): in your bed at home or camping outdoors: seconds asleep
-    rt: -1, rsteal: 0                                                        // the Round-Up (roundupSystem.js): the side you play for (-1: not playing), and how far you are through untying a sheep (0..1)
+    rt: -1                                                                   // the Round-Up (roundupSystem.js): the side you play for (-1: not playing)
   };
 }
 const noBuffs = () => ({ movement: 0, health: 0, luck: 0, friendship: 0, carry: 0 });
