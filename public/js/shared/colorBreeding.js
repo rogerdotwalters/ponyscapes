@@ -93,5 +93,17 @@ const ColorBreeding = (() => {
     }
     return out;
   }
-  return Object.freeze({ HUES, INTENSIFY, MAX_DEPTH, APPLY, DEEPEN, DOMINANT, classify, ruleFor, nameOf, decide, apply, forecast });
+  /** What a pair does to the RAINBOW TRAIL (the `trail` gene: its colours are the mane colours, so they follow the mane rules above): { a, b (their levels), names, chances: [{ level, name, chance (0..1) }], colors (the expected mane colours spread over the trail) }.
+   *  A foal gets one trail allele from each parent and shows the lower half of the two; two strong trails (rainbow or better) intensify to a grander one 3 times in 10; a foal of a rainbow-themed variety always has at least a rainbow. */
+  function forecastTrail(A, B, maneColors) {
+    const L = PonyGenes.LOCI[PonyGenes.at('trail')], ga = PonyGenes.genomeOf(A)[PonyGenes.at('trail')], gb = PonyGenes.genomeOf(B)[PonyGenes.at('trail')], n = L.alleles.length, lv = p => Math.floor((p[0] + p[1]) / 2);
+    const a = lv(ga), b = lv(gb), strong = a >= 2 && b >= 2, chance = new Array(n).fill(0);
+    for (const x of ga) for (const y of gb) {
+      const p = 0.25, plain = Math.floor((x + y) / 2), up = Math.min(n - 1, Math.max(x, y) + 1);
+      if (strong) { chance[plain] += p * (1 - PonyGenes.TRAIL_INTENSIFY); chance[up] += p * PonyGenes.TRAIL_INTENSIFY; } else chance[plain] += p;
+    }
+    const cols = maneColors || PonyLook.describe(A).gene.maneColors, level = chance.reduce((best, v, i) => (v > chance[best] ? i : best), 0);
+    return { a, b, names: L.alleles.map(x => x.name), chances: chance.map((v, i) => ({ level: i, name: L.alleles[i].name, chance: v })).filter(x => x.chance > 0.005), colors: level > 0 ? PonyGenes.trailColors(cols, level) : [] };
+  }
+  return Object.freeze({ forecastTrail, HUES, INTENSIFY, MAX_DEPTH, APPLY, DEEPEN, DOMINANT, classify, ruleFor, nameOf, decide, apply, forecast });
 })();

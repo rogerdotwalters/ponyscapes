@@ -316,6 +316,8 @@ Object.assign(GameServer.prototype, {
     if (isNew) this._dropOnGround(PonyCoins.itemOf(hy.id), 1, at.x, at.y, grid);                                         // (a hybrid is never wild: its collector coin comes with its first foal)
     else if (crossed && this.players[owner]) this._notice(owner, `${AnimalDefs[type].name}! A new kind of pony`);
     const mi = PonyGenes.express(look).mutation, seen = [a, b].map(x => (x.look ? PonyGenes.express(x.look).mutation : 0)), mut = mi && !seen.includes(mi) ? PonyGenes.MUTATIONS[mi - 1] : null;     // (a mutation that shows and neither parent had)
+    const tl = PonyGenes.express(look).trail, pt = Math.max(...[a, b].map(x => (x.look ? PonyGenes.express(x.look).trail : 0)));
+    if (tl > pt && tl >= 2 && this.players[owner]) this._notice(owner, `${name} lays a ${PonyGenes.LOCI[PonyGenes.at('trail')].alleles[tl].name.toLowerCase()}: grander than either parent's!`);                  // (a trail that two strong parents intensified)
     if (mut && this.players[owner]) this._notice(owner, `MUTATION! ${name} was born with the ${mut.name} mutation: ${mut.desc}. It can pass it on`);
     if (this.players[owner]) this._notice(owner, isNew ? `HYBRID! ${PonyVariants[look[4] | 0].name} ${AnimalDefs[type].name}: ${name} ${info.symbol} is a brand new kind. Diversity ${rep.rating.grade}.${inbred}` : `A foal is born! ${name} ${info.symbol} (${AnimalDefs[type].name}). Diversity ${rep.rating.grade} (${rep.rating.word}).${inbred}`);
     this.pendingEvents.push({ type: 'foalBorn', to: owner, animal: foal.id, x: at.x, y: at.y, grid, name, hybrid: isNew ? hy.name : undefined, mutation: mut ? mut.name : undefined });
@@ -334,7 +336,9 @@ Object.assign(GameServer.prototype, {
     const hybrids = Hybrids.possible(idOf(a), idOf(b)).map(h => ({ name: h.name, chance: P(h.chance, 0), rarity: h.rarity, color: rarityOf(h.rarity).color }));
     const kinds = SkyPonies.isBound(a.type) || SkyPonies.isBound(b.type) ? [] : Hybrids.kindOptions(a.type, b.type).map(k => ({ name: k.name, chance: P(k.chance, 1) }));
     const colors = ColorBreeding.forecast(a.look || [0, 0, 0, 0, 0, 0, 0], b.look || a.look || [0, 0, 0, 0, 0, 0, 0]);
-    return { hybrids, kinds, colors, from: [PonyVariants[(a.look && a.look[4]) | 0].name, PonyVariants[(b.look && b.look[4]) | 0].name] };
+    const trail = ColorBreeding.forecastTrail(a.look || [0, 0, 0, 0, 0, 0, 0], b.look || a.look || [0, 0, 0, 0, 0, 0, 0], colors[1].result ? [colors[1].result.color] : null);
+    trail.chances = trail.chances.map(c => ({ level: c.level, name: c.name, chance: Pedigree.pct(c.chance, 0) }));
+    return { hybrids, kinds, colors, trail, from: [PonyVariants[(a.look && a.look[4]) | 0].name, PonyVariants[(b.look && b.look[4]) | 0].name] };
   },
   /** A pony's family tree, genes and descendants (the Pony Book's Family tree button). */
   _lineage(id, aid) {

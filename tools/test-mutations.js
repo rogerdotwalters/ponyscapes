@@ -11,13 +11,13 @@ const PRE = `const MI = PonyGenes.at('mutation'), idx = id => PonyGenes.LOCI[MI]
   const S = new GameServer(5), r = () => S.rng(), foal = (A, B) => ({ look: PonyGenes.sync([0, 0, 0, 0, 0, 0, 0].concat(PonyGenes.inherit(r, A.look, B.look, 0))) });
   const shows = k => PonyGenes.express(k.look).mutation;`;
 
-test('mutations are a gene at the end of the table, and every one draws (a pearl pony is pearly, a midnight one dark, a silk mane flows)', () => {
+test('mutations are a gene near the end of the table, and every one draws (a pearl pony is pearly, a midnight one dark, a silk mane flows)', () => {
   const r = J(`(() => { ${PRE}
-    const last = PonyGenes.LOCI[PonyGenes.LOCI.length - 1].id, out = {};
+    const ids = PonyGenes.LOCI.map(L => L.id), last = ids[ids.length - 1], hasMutation = ids.indexOf('mutation') > ids.indexOf('maneShade'), out = {};
     for (const m of PonyGenes.MUTATIONS) { const p = pony(idx(m.id), idx(m.id)), d = PonyLook.describe(p.look); out[m.id] = { shows: shows(p) === idx(m.id), coat: d.coat, glow: d.glow, accessory: d.accessory, key: d.gene.key, traits: d.gene.traits.some(t => t.part === 'Mutation') }; }
     const plain = PonyLook.describe(pony(0, 0).look);
-    return { last, n: PonyGenes.MUTATIONS.length, out, plain: { coat: plain.coat, glow: plain.glow } }; })()`);
-  assert.strictEqual(r.last, 'mutation'); assert(r.n >= 12);
+    return { last, hasMutation, n: PonyGenes.MUTATIONS.length, out, plain: { coat: plain.coat, glow: plain.glow } }; })()`);
+  assert(r.hasMutation, 'the mutation gene is in the table, after the depth genes'); assert(r.n >= 12);
   for (const id in r.out) { assert(r.out[id].shows && r.out[id].traits, id + ' shows'); }
   assert.strictEqual(r.out.pearl.coat, '#fdf8f2'); assert.strictEqual(r.out.midnight.coat, '#15151f'); assert(r.out.shimmer.glow, 'a shimmer pony glows'); assert.strictEqual(r.out.gilded.glow, '#ffd54f'); assert.notStrictEqual(r.out.gilded.coat, r.plain.coat);
   assert.strictEqual(r.out.starfreckle.accessory, 'stars'); assert.strictEqual(r.plain.glow, null);

@@ -64,8 +64,10 @@ const GeneticsView = (() => {
       const dot = c => `<i class="gsw big" style="background:${esc(c)}"></i>`;
       const co = (cross.colors || []).map(c => `<div class="gcolor ${esc(c.rule)}">${dot(c.a.color)}<span>${esc(c.a.name)}</span> + ${dot(c.b.color)}<span>${esc(c.b.name)}</span>` +
         (c.result ? ` &rarr; ${dot(c.result.color)}<b>${esc(c.result.name)}</b>` : '') + `<small>${esc(c.part)}: ${esc(c.text)}</small></div>`).join('');
-      if (!hy && !ki && !co) return '';
-      return `<div class="gcross">${co ? `<div><small>Colours</small></div>${co}` : ''}${hy ? `<div><small>${esc(cross.from[0])} x ${esc(cross.from[1])} can make a hybrid</small></div><div class="gline">${hy}</div>` : ''}${ki ? `<div><small>Foals may also be a new kind of pony</small></div><div class="gline">${ki}</div>` : ''}</div>`;
+      const t = cross.trail, tr = t && (t.a > 0 || t.b > 0 || t.chances.some(c => c.level > 0)) ? `<div class="gcolor trail"><span class="gradbar" style="background:linear-gradient(90deg,${(t.colors.length ? t.colors : ['#888', '#888']).map(esc).join(',')})"></span>` +
+        `<b>Rainbow trail</b>: ${esc(t.names[t.a])} + ${esc(t.names[t.b])} &rarr; ${t.chances.map(c => `${esc(c.name.toLowerCase())} ${c.chance}%`).join(', ')}<small>Its colours follow the mane colours; two strong trails can make a grander one</small></div>` : '';
+      if (!hy && !ki && !co && !tr) return '';
+      return `<div class="gcross">${co ? `<div><small>Colours</small></div>${co}` : ''}${tr}${hy ? `<div><small>${esc(cross.from[0])} x ${esc(cross.from[1])} can make a hybrid</small></div><div class="gline">${hy}</div>` : ''}${ki ? `<div><small>Foals may also be a new kind of pony</small></div><div class="gline">${ki}</div>` : ''}</div>`;
     },
 
     /** One pedigree chart: the pony on the left, its parents to the right, theirs further right. Ancestors met more than once (inbreeding) are ringed in gold. */

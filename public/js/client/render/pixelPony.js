@@ -474,9 +474,9 @@ const PixelPony = (() => {
       const t = ((now / 2600) + i * 0.5) % 1; dot((side ? 36 : CX) + Math.sin(now / 500 + i * 3) * 4 + i * 4, -1 + t * 40, '#ffb3d1', 1 - t);
     }
     if ((acc === 'stars' || acc === 'crystals') && Math.sin(now / 340 + seed * 9) > 0.3) plus(side ? 18 + (Math.floor(now / 2200) % 3) * 6 : CX + 5, side ? 14 : 16, acc === 'stars' ? '#fff5b0' : '#bff3ff', 0.9, false);
-    if (acc === 'rainbow' && !moving) {                                                            // standing still: rainbow sparkles drift up (running, it lays a rainbow trail behind it: rainbowTrail.js)
-      const cols = ['#ff1744', '#ff9100', '#ffea00', '#00e676', '#2979ff', '#d500f9'];
-      for (let i = 0; i < 3; i++) { const t = ((now / 1800) + i / 3) % 1; plus(CX + Math.cos(i * 2.1) * 14, 24 - t * 24, cols[(i * 2) % 6], 1 - t, false); }
+    if (look.trail && !moving) {                                                            // standing still: rainbow sparkles drift up (running, it lays a rainbow trail behind it: rainbowTrail.js)
+      const cols = look.trail.colors;                                                              // (in its mane colours)
+      for (let i = 0; i < 3; i++) { const t = ((now / 1800) + i / 3) % 1; plus(CX + Math.cos(i * 2.1) * 14, 24 - t * 24, cols[(i * 2) % cols.length], 1 - t, false); }
     }
     if (acc === 'sparks') {                                                                        // lightning: little bolts crackling round the body
       const step = Math.floor(now / 110);
