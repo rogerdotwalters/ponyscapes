@@ -71,6 +71,7 @@ class AnimalSystem {
     const moved = [];                                                                    // the animals that moved this tick (they push each other apart below)
     for (const id in this.animals) {
       const a = this.animals[id], near = byGrid[gridOf(a)];
+      if (a.game) continue;                                                              // a minigame's animal: its system moves it (roundupSystem.js)
       if (a.shornUntil && tick >= a.shornUntil) a.shornUntil = 0;                       // its wool has grown back
       if (a.rider || !near || !near.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_ACTIVE_RADIUS)) continue;     // a ridden pony is steered by its rider
       const def = AnimalDefs[a.type];
@@ -307,14 +308,14 @@ class AnimalSystem {
   }
 
   /** Pets and protected species (ponies) are never prey. */
-  _huntable(a) { return !a.owner && !AnimalDefs[a.type].protected; }
+  _huntable(a) { return !a.owner && !a.game && !AnimalDefs[a.type].protected; }
 
   /** Nearest animal you could put a leash on: tameable, and not somebody else's. */
   nearestTameable(p, reach) {
     let best = null;
     for (const id in this.animals) {
       const a = this.animals[id], def = AnimalDefs[a.type], gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
-      if (def.tameable && sameGrid(a, p) && !a.captor && !a.rider && (!a.owner || (a.owner === p.id && !a.leashed)) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
+      if (def.tameable && !a.game && sameGrid(a, p) && !a.captor && !a.rider && (!a.owner || (a.owner === p.id && !a.leashed)) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
     }
     return best;
   }
@@ -333,7 +334,7 @@ class AnimalSystem {
     let best = null;
     for (const id in this.animals) {
       const a = this.animals[id], def = AnimalDefs[a.type];
-      if (!canBefriendAnimal(a.type) || !sameGrid(a, p) || a.captor || a.rider || a.stall || (a.owner && (a.owner !== p.id || a.leashed || def.pony))) continue;   // (your own ponies have the Leash button)
+      if (!canBefriendAnimal(a.type) || a.game || !sameGrid(a, p) || a.captor || a.rider || a.stall || (a.owner && (a.owner !== p.id || a.leashed || def.pony))) continue;   // (your own ponies have the Leash button)
       const gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
       if (gap > reach) continue;
       if (aim) {                                                          // pointed at: the animal nearest the click wins
@@ -526,6 +527,7 @@ class AnimalSystem {
         if (a.breedP !== undefined) out[id].breed = Math.round(a.breedP * 100) / 100;           // breeding in a stall: the same rainbow bar (0..1)
         if (a.foal > 0) out[id].foal = Math.round(a.foal / Stable.FOAL_SECONDS * 100) / 100;     // a foal: how much of its growing up is left (1 = just born)
         if (a.stall) out[id].stall = true;                                                    // in a stall of the stable: it stays put and cannot be ridden
+        if (a.rs) out[id].rs = { s: a.rs.st, t: a.rs.team, by: a.rs.by, p: Math.round(a.rs.tame * 100) / 100, k: a.rs.slot };   // a minigame sheep: where it stands in the round (roundupSystem.js)
         if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
         if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)
       }

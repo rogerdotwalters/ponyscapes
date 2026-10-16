@@ -333,6 +333,28 @@ when a quest's current step asks for them; otherwise they only hum. A puzzle is 
 glow, then repeat the order) and **slide** (sliding tiles). A new mechanic is a new entry in `PuzzleKinds` and a way to draw it in `puzzleUI.js`; a new puzzle or quest is a new data file
 (also add it to `index.html` and `editor.html`).
 
+## Minigames: the Round-Up
+
+A **minigame** is played in an INSTANCE (its own grid, `js/shared/grids.js`) that the players are taken into and brought back out of when it ends; each is one entry in `js/data/minigames/`
+(its tunables) plus a system in `js/shared/`. The first is the **Round-Up** (`roundupSystem.js` the rules, `roundupPlan.js` the arena, `data/minigames/roundup.js` the numbers, `client/ui/roundupUI.js` the
+scoreboard, `client/render/roundupSprites.js` the fence, poles and ropes; `node tools/test-roundup.js` checks it in Node).
+
+* **Where**: east of the village, **Marnie the shepherd** (she needs wool; her quest *Wool for Marnie* is `data/quests/shepherd_wool.js`) waits by an **old fence** (`Village.roundup`). Stand at its gate (the gap
+  beside the signpost) and press **Use**: *Round up the flock*. Everybody standing within 9 tiles comes along (up to four), alternately to the **Red** and **Blue Ranch**. A lone player is matched with a computer
+  **Rival Rancher** (a villager-looking figure driven by the server, slower and less lucky than a person: `lasso.rivalLuck`, `speed.rival`).
+* **The arena** is a new instance `roundup:<n>`: a meadow in the starter area's style (the same grass, flowers, trees) inside the same wooden rails the players build (`wood_fence` slabs, placed by the plan on both
+  machines), a **pole** at each end for each side, always daylight. Ponies and pets wait outside: it is played on foot. After a **countdown** (4 s, the sheep mill about) comes **GO**, and a round is 150 s.
+* **Lasso** a sheep with the ordinary lasso (L, right click, the lasso button; it needs no lasso upgrade). A landed loop puts it on your rope: it strains while it **calms**, and the bar fills only while you stay within
+  4.2 tiles of it (past 6.4 the rope snaps). A calm sheep is **led**: it trots after you. You can hold 3 at once. Press **Use** next to your own pole to **tie them up**: they count for your side.
+* **Breaking lassos and stealing**: a rival who **walks across your rope cuts it** (the sheep bolts, you are slow to throw again); a lasso thrown at a sheep somebody else is **roping or leading takes it** (a led sheep
+  starts half calmed); and **Use beside the other side's pole unties one of their sheep** (1.3 s, +1 s for every defender within 4.5 tiles of the pole, so defend it; walk away and you give up). Everything the
+  server decides: the sheep are ordinary animals marked `game: 'roundup'` that `RoundupSystem` drives itself (`AnimalSystem` skips them), and the rope state (`rs`) travels with each animal's snapshot (also in the
+  remote players' animal deltas) so every client draws the ropes.
+* **The end**: when the clock runs out (or every sheep is tied up) the side with more sheep wins. Everyone gets **wool** (one per sheep tied to their pole, +3 for winning) and the winners 8 coins, handed over back at the gate;
+  a `minigame` quest step (`{ type: 'minigame', game: 'roundup', sheep: 3 }`) is done when a side with a player in it ends a round with that many sheep.
+* **Adding another minigame**: register it in `js/data/minigames/`, give its grid kind a plan in `Grids.parse` / `Grids.plan` (a `decorate(world)` hook on the plan builds fixed pieces such as the fence), write its
+  system (start it from an `Interactions.extra` finder + `InteractionHandlers`, drive it from `GameServer.step`), and send its state to the players with `SnapshotBuilder.personalize`.
+
 ## The map
 
 Drag the map (mouse or finger) to look around; **Centre on me** brings it back. An arrow on the edge always points the way to **town** (with the

@@ -8,6 +8,7 @@
  *                'room:<site>:<n>'   a player's own copy of a room (their home; n = their home number, handed out by the server)
  *                'cave:<ring>'       a ring's boss lair
  *                'dungeon:<d>:<r>'   room <r> of room dungeon <d> (js/data/dungeons/ lists them; each room is a picture-sized 2D list: roomCodes.js)
+ *                'roundup:<n>'       the n-th Round-Up arena of this session (a minigame instance: roundupPlan.js, roundupSystem.js); it lives only while its round is played
  *   entities     players, animals and items on the ground carry `grid`; villagers and boats only live in the overworld.
  *                Two things are only ever near each other if they are on the SAME grid (sameGrid).
  *   GridSet      the worlds one machine holds: the server builds an instance the first time someone enters it, the client the one it stands in.
@@ -158,13 +159,16 @@ const Grids = {
   room: (siteIndex, n) => (n === undefined || n === null ? `room:${siteIndex}` : `room:${siteIndex}:${n}`),
   cave: ring => `cave:${ring}`,
   dungeon: (d, r) => `dungeon:${d}:${r}`,
-  /** { kind: 'room', site, n } | { kind: 'cave', ring } | { kind: 'dungeon', dungeon, room } | null for the overworld or anything malformed. */
+  roundup: n => `roundup:${n}`,
+  /** { kind: 'room', site, n } | { kind: 'cave', ring } | { kind: 'dungeon', dungeon, room } | { kind: 'roundup', n } | null for the overworld or anything malformed. */
   parse(id) {
     if (typeof id !== 'string' || !id) return null;
     let m = /^room:(\d{1,2})(?::(\d{1,5}))?$/.exec(id);
     if (m) return { kind: 'room', site: Number(m[1]), n: m[2] === undefined ? undefined : Number(m[2]) };
     m = /^dungeon:(\d{1,2}):(\d{1,2})$/.exec(id);
     if (m) return { kind: 'dungeon', dungeon: Number(m[1]), room: Number(m[2]) };
+    m = /^roundup:(\d{1,6})$/.exec(id);
+    if (m) return { kind: 'roundup', n: Number(m[1]) };
     m = /^cave:(\d)$/.exec(id);
     return m ? { kind: 'cave', ring: Number(m[1]) } : null;
   },
@@ -173,6 +177,7 @@ const Grids = {
     const g = Grids.parse(id);
     if (!g) return null;
     if (g.kind === 'cave') return g.ring < DungeonSpace.COUNT ? new CavePlan(g.ring) : null;
+    if (g.kind === 'roundup') return typeof RoundupPlan !== 'undefined' ? new RoundupPlan(id, g.n) : null;
     if (g.kind === 'dungeon') {
       const dungeon = Dungeons.all()[g.dungeon], room = dungeon && CaveRooms.get(dungeon.rooms[g.room]);
       return room ? new DungeonRoomPlan(id, dungeon, g.room, room) : null;                          // (a room missing from js/content/caveRooms.js is simply not there)
@@ -192,7 +197,13 @@ const Grids = {
   valid(id) { return id === '' || !!Grids.plan(id); },
   /** The building site a room grid belongs to (null for caves and the overworld). */
   siteOf(id) { const g = Grids.parse(id); return g && g.kind === 'room' ? BuildingSites.list[g.site] || null : null; },
-  create(seed, id) { const plan = Grids.plan(id), g = Grids.parse(id); return plan ? new InstanceWorld(seed, id, g.kind, plan) : null; }
+  create(seed, id) {
+    const plan = Grids.plan(id), g = Grids.parse(id);
+    if (!plan) return null;
+    const world = new InstanceWorld(seed, id, g.kind, plan);
+    if (plan.decorate) plan.decorate(world);                                              // (an arena builds its own fence)
+    return world;
+  }
 };
 
 /** The grids one machine holds: the overworld, plus an instance for each grid id asked for (built on first use). */

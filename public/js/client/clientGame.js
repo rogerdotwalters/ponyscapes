@@ -23,6 +23,7 @@ class ClientGame {
     this.clockTick = 0;                                // smooth tick counter for the time of day
     this.inventory = new Inventory(); this.selectedSlot = 0;
     this.questLog = QuestLog.empty();                  // the host world's quests (questSystem.js)
+    this.roundup = null;                               // the Round-Up scoreboard and clock while you are in an arena (roundupSystem.js stateFor), else null
     this.chest = null;                                 // the chest you have open (homeCrafts.js)
     this.pack = null;                                  // the pack of the pony you ride or stand next to: { id, name, bags, riding, inventory } (packSystem.js)
     this.localSwingT = 0;                              // cosmetic swing so our own tool feels instant
@@ -400,6 +401,7 @@ class ClientGame {
 
   onSnapshot(snapshot) {
     this.serverTick = snapshot.tick;
+    this.roundup = snapshot.roundup || null;
     if (snapshot.npcs) this.npcs = snapshot.npcs;                                  // (a remote player is only sent them when one moves or speaks)
     if (snapshot.friends) { this.friends = snapshot.friends; this.events.emit('friendsChanged', this.friends); }
     for (const id in snapshot.animals || {}) this.beingTypes[id] = snapshot.animals[id].type;          // remember what each animal is, so the Journal can list your friends when they are far away
@@ -460,6 +462,7 @@ class ClientGame {
     if (!this.grid) return { x: this.local.x, y: this.local.y };
     const site = Grids.siteOf(this.grid), g = Grids.parse(this.grid);
     if (site) return BuildingSites.doorFront(site);
+    if (g && g.kind === 'roundup') return { x: Village.roundup.gate.x, y: Village.roundup.gate.y };
     const cave = g && g.kind === 'cave' ? this.worldMap.layers.dungeons.site(g.ring) : g && g.kind === 'dungeon' ? this.worldMap.terrain.caveSites.caves().find(c => c.index === g.dungeon) : null;
     return cave ? { x: cave.x, y: cave.y } : { x: this.local.x, y: this.local.y };
   }

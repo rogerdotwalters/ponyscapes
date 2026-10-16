@@ -56,7 +56,7 @@ class ShearHandler {
     let best = null, shorn = null;
     for (const a of Object.values(this.animals.animals)) {
       const def = AnimalDefs[a.type];
-      if (!def.shear || a.rider || !sameGrid(a, p)) continue;
+      if (!def.shear || a.game || a.rider || !sameGrid(a, p)) continue;
       const d = Math.hypot(a.x - p.x, a.y - p.y);
       if (d > tool.reach + def.radius) continue;
       if (a.shornUntil) { shorn = a; continue; }
@@ -231,6 +231,7 @@ class LeashHandler {
   constructor(deps) { Object.assign(this, deps); }
 
   find(p, tool) {
+    if (this.roundup().active(p)) return this.roundup().lassoFind(p, tool);                  // in a Round-Up arena the lasso works on the sheep there (roundupSystem.js)
     const hit = this.animals.nearestLassoable(p, tool.reach);
     if (!hit) { this.emit({ type: 'notice', to: p.id, text: 'Nothing to lasso there (ponies come to apples)' }); return null; }
     const cap = Skills.leashCap(p.lv), mine = hit.animal.owner === p.id;
@@ -239,6 +240,7 @@ class LeashHandler {
   }
 
   isValid(p, target, tool) {
+    if (this.roundup().active(p)) return this.roundup().lassoValid(p, target, tool);
     const a = this.animals.animals[target.ref];
     if (!a || a.captor || a.rider) return false;
     const def = AnimalDefs[a.type], free = !a.owner || (a.owner === p.id && !a.leashed);
@@ -246,6 +248,7 @@ class LeashHandler {
   }
 
   apply(id, target) {
+    if (this.roundup().active(this.getPlayer(id))) { this.roundup().lassoApply(id, target); return; }
     const inventory = this.getInventory(id), a = this.animals.animals[target.ref], p = this.getPlayer(id), def = AnimalDefs[a.type];
     const item = p.held, lasso = ItemDB.getLasso(item) || { tier: 1, chance: 0 }, fromSlot = p.lassoSwing && p.gear.lasso === item;   // thrown from the lasso slot (L), or held from the bar
     if (!fromSlot && !inventory.has(item, 1)) return;

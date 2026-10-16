@@ -26,6 +26,11 @@ const Grass = (() => {
   }
   /** How tall the grass at a tile grows by itself, before the season: 0 (not grass) .. 3. Remembered per tile. */
   function natural(map, tx, ty) {
+    if (map && map.kind === 'roundup') {                                                       // the Round-Up meadow: short grass, drifts of longer, none by the poles
+      if (map.tile(tx, ty) !== TILE.GRASS) return 0;
+      const s = patch(map.seed, tx, ty) * 0.9 + (hash3(map.seed, tx, ty, 402) - 0.5) * 0.3;
+      return RoundupArena.poles.some(p => Math.hypot(p.x - tx - 0.5, p.y - ty - 0.5) < 3.4) ? 1 : s > 0.7 ? 2 : 1;
+    }
     if (!map || map.kind !== 'world') return 0;
     const k = tx * 65536 + ty;
     let v = cache.get(k);

@@ -26,6 +26,7 @@ const Waypoints = {
     switch (step.type) {
       case 'deliver': return Waypoints.npcSpot(game, q.giver);
       case 'talk': return Waypoints.npcSpot(game, step.npc);
+      case 'minigame': return { x: Village.roundup.gate.x, y: Village.roundup.gate.y, near: 3 };                // (the Round-Up: the gate of the old fence)
       case 'puzzle': { const n = PuzzleNodes.get(step.node); return n ? { x: n.x, y: n.y } : null; }
       case 'visit': { const spot = QuestWhere.ofStep(map, step); return spot && Object.assign({ near: step.radius || 3 }, spot); }
       case 'event': {

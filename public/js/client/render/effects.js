@@ -59,6 +59,7 @@ class Effects {
     game.events.on('carried', e => { this._burst(e.x, e.y, 6, HEART_COLORS, 12); this._float(e, 'Picked up'); });
     game.events.on('released', e => { this._burst(e.x, e.y, 8, HEART_COLORS, 12); this._float(e, 'Released'); });
     game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, look: lassoLook(e.item), age: 0 }));
+    game.events.on('roundup', e => this._onRoundup(e));
     game.events.on('caught', e => this._burst(e.x, e.y, 12, HEART_COLORS, 24));        // (the server's notice already says what to do next)
     game.events.on('fed', e => { this._burst(e.x, e.y, 10, HEART_COLORS, 26); this._float(e, `Fed ${e.have}/${e.need}`); });
     game.events.on('letGo', e => { this._burst(e.x, e.y, 8, DUST_COLORS, 12); this._float(e, 'It ran off'); });
@@ -82,6 +83,17 @@ class Effects {
     game.events.on('ability', e => this._onAbility(e));
     game.events.on('deposit', e => { this._burst(e.x, e.y, 10, DUST_COLORS, 16); this._float(e, 'Delivered ' + Object.entries(e.moved).map(([item, n]) => `${n} ${ItemDefs[item] ? ItemDefs[item].name : item}`).join(', ') + (e.full ? ' (now full)' : '')); });
     game.events.on('upgraded', e => { this._burst(e.tx + 0.5, e.ty + 0.5, 22, GOLD_COLORS, 30); if (e.by === this.game.myId) this._float({ to: e.by }, `${e.name} is now level ${e.level}!`, 'levelup'); });
+  }
+
+  /** The Round-Up (roundupSystem.js): a sheep tied up, calmed, a rope cut or snapped, a sheep stolen. */
+  _onRoundup(e) {
+    if (e.x === undefined) return;
+    if (e.ev === 'tied') { this._burst(e.x, e.y, 16, GOLD_COLORS, 24); this._float(e, 'Tied up!', 'levelup'); }
+    else if (e.ev === 'calm') { this._burst(e.x, e.y, 8, HEART_COLORS, 20); this._float(e, 'Calm'); }
+    else if (e.ev === 'snap') { this._burst(e.x, e.y, 8, DUST_COLORS, 14); this._float(e, 'Snap!'); }
+    else if (e.ev === 'cut') { this._burst(e.x, e.y, 10, DUST_COLORS, 16); this._float(e, 'Cut!'); }
+    else if (e.ev === 'stolen') { this._burst(e.x, e.y, 10, ['#ffe08a', '#ffffff', '#ffb04a'], 18); this._float(e, 'Stolen!'); }
+    else if (e.ev === 'untied') { this._burst(e.x, e.y, 8, DUST_COLORS, 14); this._float(e, 'Untied!'); }
   }
 
   /** A pony power: its own picture for every effect it is made of (powerFx.js), and its name above the rider. */

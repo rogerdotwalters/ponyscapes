@@ -55,7 +55,7 @@ class WeatherFx {
     this.pulses = this.pulses.filter(p => this.t - p.t0 < 1.2);
     for (const p of this.pulses) if (this.t >= p.t0) flash = Math.max(flash, p.amp * Math.exp(-(this.t - p.t0) * p.k));
     this.flash = flash;
-    const kind = this.game.map.kind, indoors = kind === 'world' ? 0 : kind === 'room' ? 0.7 : 1;
+    const kind = this.game.map.kind, indoors = kind === 'world' || kind === 'roundup' ? 0 : kind === 'room' ? 0.7 : 1;
     for (let i = this.thunders.length - 1; i >= 0; i--) {
       const th = this.thunders[i];
       if (this.t < th.at) continue;
@@ -70,7 +70,7 @@ class WeatherFx {
     this.update(dt);
     const c = this.cur, kind = this.game.map.kind;
     if (kind === 'cave' || kind === 'dungeon') return;
-    const outdoors = kind === 'world';
+    const outdoors = kind === 'world' || kind === 'roundup';
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (outdoors) {
       const day = DayCycle.daylight(this.game.hour()), veil = Math.min(0.46, c.rain * 0.36 + c.snow * 0.12 + c.lightning * 0.14 + c.wind * 0.04) * (0.4 + 0.6 * day);

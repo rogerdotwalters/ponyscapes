@@ -17,7 +17,7 @@ Object.assign(GameServer.prototype, {
 
   _animalAct(id, animalId, act) {
     const p = this.players[id], a = typeof animalId === 'string' ? this.animals.animals[animalId] : null;
-    if (!p || !a || !sameGrid(a, p) || p.boat) return;
+    if (!p || !a || a.game || !sameGrid(a, p) || p.boat) return;                          // (a minigame's sheep are for the lasso only)
     const def = AnimalDefs[a.type], reach = CONFIG.sim.friendship.petReach + def.radius + 0.3, held = p.held, inventory = this.inventories[id];
     if (Math.hypot(a.x - p.x, a.y - p.y) > reach) { this._notice(id, `Get closer to the ${def.name.toLowerCase()}`); return; }
     if (a.captor === id) { if (ItemDB.isApple(held)) this._feedPony(id, a); else this._notice(id, 'Hold an apple to feed it'); return; }

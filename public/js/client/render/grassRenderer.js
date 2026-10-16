@@ -53,7 +53,7 @@ const GrassRenderer = (() => {
    *  backend draws them as sprites) instead of them being drawn here. */
   function draw(ctx, map, bounds, range, tick, now, movers, onFar) {
     const near = [];
-    if (!map || map.kind !== 'world' || typeof Grass === 'undefined') return near;
+    if (!map || (map.kind !== 'world' && map.kind !== 'roundup') || typeof Grass === 'undefined') return near;
     const t = now / 1000, season = Seasons.at(tick).season.id, { minX, maxX, minY, maxY } = bounds, farm = map.farm || {}, floors = map.floors || {};
     const close = movers.filter(m => m.x > range.tx0 - 2 && m.x < range.tx1 + 2 && m.y > range.ty0 - 2 && m.y < range.ty1 + 2);
     const sky = Weather.view, blow = sky ? sky.wind : 0, lean = sky && blow > 0.15 ? Math.sign(Math.cos(sky.dir) - Math.sin(sky.dir)) * blow * 1.8 : 0;
