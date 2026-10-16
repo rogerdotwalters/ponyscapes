@@ -210,7 +210,15 @@ Object.assign(GameServer.prototype, {
 
   /* ---------------------------------------- your main pony ---------------------------------------- */
   /** Your main pony: the one pony that follows you everywhere (into buildings and caves too). */
-  _mainPonyOf(id) { return Object.values(this.animals.animals).find(a => a.owner === id && a.main) || null; },
+  _mainPonyOf(id) { return Object.values(this.animals.animals).find(a => a.owner === id && a.main && !a.stall) || null; },        // (a pony in a stall is never the main pony)
+  /** A pony in a stall cannot be the main pony: one that still is (an old save, a stall filled some other way) gives it up, so it stays put instead of being pulled out to you. */
+  _releaseStalledMain(id) {
+    for (const a of Object.values(this.animals.animals)) {
+      if (a.owner !== id || !a.main || !a.stall) continue;
+      a.main = false;
+      this._notice(id, `${Stable.nameOf(a)} is in a stall, so it is no longer your main pony: set it again after taking it out`);
+    }
+  },
   /** Riding one of your own ponies: make it your main pony (the old one stays where it is, near its new home). */
   _makeMainPony(id) {
     const p = this.players[id], a = p && this.animals.animals[p.mount];
@@ -226,6 +234,7 @@ Object.assign(GameServer.prototype, {
   /** A main pony left far behind (you galloped off on another pony, or it is on another grid) catches up beside you. */
   _keepMainPoniesClose() {
     for (const id of this.humanIds()) {
+      this._releaseStalledMain(id);
       const p = this.players[id], a = this._mainPonyOf(id);
       if (!p || !a || a.rider || a.leashed || p.mount === a.id || p.boat) continue;
       if (sameGrid(a, p) && Math.hypot(a.x - p.x, a.y - p.y) < 12) continue;
@@ -236,7 +245,7 @@ Object.assign(GameServer.prototype, {
   /** Somebody with ponies but no main pony (an older save): their first pony becomes it. */
   _ensureMainPony(id) {
     if (this._mainPonyOf(id)) return;
-    const first = Object.values(this.animals.animals).find(a => a.owner === id && AnimalDefs[a.type].pony && !a.trial);
+    const first = Object.values(this.animals.animals).find(a => a.owner === id && AnimalDefs[a.type].pony && !a.trial && !a.stall);
     if (first) first.main = true;
   },
 
