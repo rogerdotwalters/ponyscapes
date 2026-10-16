@@ -135,6 +135,22 @@ test('stalls can be renamed from the menu (and numbered again); stabling a main 
   assert.strictEqual(r.before, 'Stable 1'); assert.strictEqual(r.after, 'Starblight'); assert.strictEqual(r.menu, 'Starblight'); assert(r.snap && Object.values(r.snap).includes('Starblight'));
   assert.strictEqual(r.saved, 'Starblight'); assert.strictEqual(r.reset, 'Stable 1'); assert(r.stalled); assert.strictEqual(r.main, false, 'stabled: no longer main'); assert.strictEqual(r.mainAfterOut, false, 'taking it out does not make it main again');
 });
+test('a pony in a stall that is still marked main (old save) gives it up and is not pulled out to the player', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
+    for (const k of Object.keys(S.animals.animals)) if (S.animals.animals[k].owner === A) delete S.animals.animals[k];
+    S.interiors.enter(A, P, BuildingSites.list.find(x => x.def.id === 'pony_stable').index);
+    const map = S.mapOf(P), f = map.plan.layout.furniture.find(g => g.id === 'stall' && g.x === 1 && g.y === 1); P.x = f.x + 1.5; P.y = f.y + 5.5;
+    const id = S.animals.spawn('pony_plain', f.x + 1, f.y + 1, 0, { level: 1 }), a = S.animals.animals[id];
+    a.owner = A; a.leashed = true; a.grid = gridOf(P); a.x = P.x + 0.5; a.y = P.y;
+    S._stallPick(A, { act: 'in', animal: id, fx: f.x, fy: f.y });
+    a.main = true;                                                                                      // (as an old save could leave it)
+    const at = { x: a.x, y: a.y }; P.x += 9; P.y += 9;
+    S._keepMainPoniesClose();
+    return JSON.stringify({ stalled: !!a.stall, main: !!a.main, moved: Math.hypot(a.x - at.x, a.y - at.y), found: !!S._mainPonyOf(A) });
+  })()`));
+  assert(r.stalled); assert.strictEqual(r.main, false, 'a stalled pony is not the main pony'); assert.strictEqual(r.moved, 0, 'it stays in its stall'); assert.strictEqual(r.found, false);
+});
 test('dev: clear all ponies removes every pony (wild, owned, stalled, ridden) and nothing else, only for the host', () => {
   const r = JSON.parse(run(`(() => {
     const S = new GameServer(7), A = S.addPlayer(), P = S.players[A];
