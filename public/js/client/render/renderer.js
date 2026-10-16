@@ -225,6 +225,7 @@ class Renderer {
     for (const id in state.animals) { const a = state.animals[id]; moving.push({ kind: 'animal', depth: a.x + a.y + (a.rider ? (SpriteRegistry.dirOf(a.facing) === 'down' ? 0.05 : -0.05) : 0) + (a.lift || 0) * 4, id, animal: a }); }   // a ridden pony is drawn just under its rider (but over it when it faces the camera: its head and chest come before the rider)
     for (const id in (state.npcs || {})) { const n = state.npcs[id]; moving.push({ kind: 'npc', depth: n.x + n.y, id, npc: n }); }
     for (const gr of this.nearGrass || []) moving.push({ kind: 'grass', depth: gr.depth, draw: gr.draw });   // the grass around people's feet
+    for (const piece of RainbowTrail.items(performance.now())) moving.push(piece);                           // the rainbows ponies leave behind them, in pieces sorted by depth (rainbowTrail.js)
     const farm = this.game.map.farm;                                                 // crops growing in the fields (farming.js)
     if (farm) for (const item of this._farmItems(farm)) if (item.tx >= tiles.tx0 && item.tx <= tiles.tx1 && item.ty >= tiles.ty0 && item.ty <= tiles.ty1) moving.push(item);
     this.frameState = state;
@@ -243,6 +244,7 @@ class Renderer {
   }
 
   _drawItem(item, now) {
+    if (item.kind === 'trail') return RainbowTrail.drawPiece(this.ctx, item, now);
     if (item.kind === 'grass') { const sm = this.ctx.imageSmoothingEnabled; this.ctx.imageSmoothingEnabled = false; item.draw(); this.ctx.imageSmoothingEnabled = sm; return; }
     const g = this.g;
     if (item.kind === 'structure') return StructureSprites.draw(g, item, item.gx, item.gy);

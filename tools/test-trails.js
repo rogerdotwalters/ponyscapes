@@ -54,17 +54,40 @@ test('the trail gene is saved with the pony and passes down with the genome', ()
     return { len: saved.look.length === PonyGenes.LEN, same: saved.look[PonyGenes.BASE + TI] === p.look[PonyGenes.BASE + TI], level: lvl(saved.look), old: lvl(p.look.slice(0, PonyGenes.BASE + TI)) }; })()`);
   assert(r.len && r.same); assert.strictEqual(r.level, 2); assert.strictEqual(r.old, 0, 'an older pony (no trail gene) has none');
 });
-test('the ribbon is drawn in the trail\'s own colours, with one band per colour', () => {
+const loadTrail = () => {
   const sandbox = { performance: { now: () => 0 }, Math, Map, Array, Object };
-  const code = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client', 'render', 'rainbowTrail.js'), 'utf8') + '\n;this.RainbowTrail = RainbowTrail;';
-  const c = vm.createContext(sandbox); vm.runInContext(code, c);
-  const T = sandbox.RainbowTrail, styles = [], widths = new Set();
-  const g = { save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() { styles.push(this.strokeStyle); widths.add(this.lineWidth); }, set globalAlpha(v) {} };
-  const cols = ['#112233', '#445566', '#778899'];
-  for (let i = 0; i < 12; i++) T.note('p1', i * 6, 0, i * 40, true, { level: 1, colors: cols });
-  T.draw(g, 480);
-  assert(styles.length > 0 && styles.every(s => cols.includes(s)), 'only its colours: ' + [...new Set(styles)]); assert.deepStrictEqual([...new Set(styles)].sort(), cols.slice().sort());
-  styles.length = 0; for (let i = 0; i < 12; i++) T.note('p2', i * 6, 40, i * 40, true, { level: 3, colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#880000', '#008800'] });
-  T.draw(g, 480); assert(new Set(styles).size >= 8, 'a grand rainbow has eight bands'); assert(Math.max(...widths) <= 5.3 && Math.min(...widths) >= 3, 'bands get thinner as there are more: ' + [...widths]);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client', 'render', 'rainbowTrail.js'), 'utf8') + '\n;this.RainbowTrail = RainbowTrail;', vm.createContext(sandbox));
+  return sandbox.RainbowTrail;
+};
+const fakeCtx = () => { const g = { styles: [], widths: new Set(), save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() { g.styles.push(this.strokeStyle); g.widths.add(this.lineWidth); }, set globalAlpha(v) {} }; return g; };
+test('the ribbon is drawn in the trail\'s own colours, one band per colour, in pieces', () => {
+  const T = loadTrail(), g = fakeCtx(), cols = ['#112233', '#445566', '#778899'];
+  for (let i = 0; i < 12; i++) T.note('p1', i * 6, 0, i * 40, true, { level: 1, colors: cols }, 10 + i * 0.1);
+  for (const it of T.items(480)) T.drawPiece(g, it, 480);
+  assert(g.styles.length > 0 && g.styles.every(s => cols.includes(s)), 'only its colours: ' + [...new Set(g.styles)]); assert.deepStrictEqual([...new Set(g.styles)].sort(), cols.slice().sort());
+  const h = fakeCtx(); for (let i = 0; i < 12; i++) T.note('p2', i * 6, 40, i * 40, true, { level: 3, colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#880000', '#008800'] }, 10);
+  for (const it of T.items(480)) if (it.id === 'p2') T.drawPiece(h, it, 480);
+  assert(new Set(h.styles).size >= 8, 'a grand rainbow has eight bands'); assert(Math.max(...h.widths) <= 5.3 && Math.min(...h.widths) >= 3, 'bands get thinner as there are more: ' + [...h.widths]);
+});
+test('the ribbon is depth-sorted into the picture: behind the pony that lays it, behind what is in front of it, in front of what is behind it', () => {
+  const T = loadTrail(), cols = ['#ff0000', '#00ff00', '#0000ff'];
+  // a pony running down the picture (its depth grows from 10 to 14): the ribbon behind it lies at smaller depths
+  for (let i = 0; i < 60; i++) T.note('down', i * 4, i * 2, i * 10, true, { level: 2, colors: cols }, 10 + i * 4 / 60);
+  const down = T.items(600).filter(x => x.id === 'down'), pony = 14;
+  assert(down.length >= 4, 'the ribbon is several pieces: ' + down.length); assert(down.every(x => x.depth < pony), 'every piece is behind its pony');
+  const depths = down.map(x => x.depth); assert(Math.max(...depths) - Math.min(...depths) > 1, 'pieces keep their own depths (a tree between them and the pony can hide the right ones)');
+  const tree = 12.5; assert(down.some(x => x.depth < tree) && down.some(x => x.depth > tree), 'the pieces either side of a tree sort either side of it');
+  // a pony running up the picture (depth shrinking): the ribbon lies in front, at greater depths, except what is close to the pony itself, which stays behind it
+  for (let i = 0; i < 60; i++) T.note('up', i * 4, 200 - i * 2, i * 10, true, { level: 2, colors: cols }, 30 - i * 4 / 60);
+  const up = T.items(600).filter(x => x.id === 'up'), ponyUp = 30 - 59 * 4 / 60;
+  assert(up.some(x => x.depth > ponyUp + 1), 'far pieces of the ribbon of a pony running away are in front of it'); assert(up.filter(x => Math.abs(x.depth - ponyUp) < 1.4).every(x => x.depth < ponyUp), 'but never over the pony itself');
+  const seen = T.items(600); assert(seen.every(x => x.kind === 'trail' && Number.isFinite(x.gx) && Number.isFinite(x.gy)), 'each piece has a place and a kind the renderer sorts');
+});
+test('a still pony lays nothing and what it laid fades away; the pieces carry a snapshot of the points', () => {
+  const T = loadTrail(); for (let i = 0; i < 20; i++) T.note('s', i * 5, 0, i * 20, true, { level: 1, colors: ['#111111', '#222222'] }, 5);
+  const before = T.items(400); assert(before.length > 0);
+  T.note('s', 100, 0, 420, false, { level: 1, colors: ['#111111', '#222222'] }, 5); assert.strictEqual(T.items(420).reduce((n, x) => n + x.pts.length, 0) >= before.reduce((n, x) => n + x.pts.length, 0) - 2, true, 'standing still adds no points');
+  assert.strictEqual(T.items(400 + 5000).length, 0, 'it has all faded');
+  const snap = before[0].pts.length; T.note('s2', 0, 0, 0, true, { level: 2, colors: ['#111111', '#222222'] }, 5); assert.strictEqual(before[0].pts.length, snap, 'a piece is a snapshot');
 });
 console.log(`\n${passed} passed`);

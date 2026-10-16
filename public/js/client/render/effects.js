@@ -159,7 +159,6 @@ class Effects {
   draw(g, frameMs) {
     const ctx = g.ctx, dt = frameMs / 1000;
     this.advanceParticles(dt);
-    RainbowTrail.draw(ctx, performance.now());                                                       // a rainbow pony's ribbon, under the sparks
     for (const p of this.particles) { ctx.globalAlpha = 1 - p.age / p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }
     ctx.globalAlpha = 1;
     this.drawStrokes(g, dt);
