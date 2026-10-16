@@ -90,6 +90,7 @@ const Village = (() => {
     if (Math.hypot(tx + 0.5 - 20.5, ty + 0.5 - 26.5) < 4) return true;
     if (tx >= HOME.x0 - 2 && tx <= HOME.x1 + 2 && ty >= HOME.y0 - 2 && ty <= HOME.y1 + 3) return true;   // keep the starter home's yard clear
     if (tx >= PADDOCK.x0 - 1 && tx <= PADDOCK.x1 + 1 && ty >= PADDOCK.y0 - 1 && ty <= PADDOCK.y1 + 1) return true;   // ...and the paddock
+    if (tx >= ROUNDUP.area.x0 && tx <= ROUNDUP.area.x1 && ty >= ROUNDUP.area.y0 && ty <= ROUNDUP.area.y1) return true;   // ...and the old fence
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (obj(tx + dx, ty + dy)) return true;
     return spurAt(tx, ty);                                                                  // (the concrete paths stay clear)
   }
@@ -107,10 +108,15 @@ const Village = (() => {
   [[19, 33], [12, 33], [18, 36]].forEach(([tx, ty], i) => props.set(tileKey(tx, ty), {
     t: 'tree', x: tx + 0.5, y: ty + 0.5, r: 0.33 / TILE_SCALE, v: 2 + i, hp: TreeDef.maxHp, forage: 'apple_tree', drop: 'apple', ripe: true
   }));
+  // THE OLD FENCE (the Round-Up minigame: roundupSystem.js): a weathered rail fence east of the village, a gap in it for a gate, a signpost beside the gap, and Marnie the shepherd (data/npcs/shepherd.js) nearby.
+  // Stand on the GATE spot (just south of the gap) and press Use to start a round-up.
+  const ROUNDUP = { fence: [[44, 37], [45, 37], [46, 37], [49, 37], [50, 37], [51, 37]], sign: { x: 47.5, y: 37.5 }, gate: { x: 48.5, y: 38.45 }, area: { x0: 42, y0: 35, x1: 53, y1: 41 } };
+  ROUNDUP.fence.forEach(([tx, ty], i) => props.set(tileKey(tx, ty), { t: 'old_fence', x: tx + 0.5, y: ty + 0.5, r: 0.46, v: i, rot: 0 }));
+  props.set(tileKey(47, 37), { t: 'roundup_sign', x: ROUNDUP.sign.x, y: ROUNDUP.sign.y, r: 0.3 / TILE_SCALE, v: 0 });
   const propAtTile = (tx, ty) => props.get(tileKey(tx, ty)) || null;
 
   /** Chunks that contain the lake / pond always get a boat. */
   const hasBoatFeature = (cx, cy) => (cx === (LAKE.cx >> CHUNK_SHIFT) && cy === (LAKE.cy >> CHUNK_SHIFT)) || (cx === (POND.cx >> CHUNK_SHIFT) && cy === (POND.cy >> CHUNK_SHIFT));
 
-  return { tile, obj, influence, blocksTrees, propAtTile, hasBoatFeature, spawns: SPAWNS, home: HOME, workshop: WORKSHOP, paddock: PADDOCK, area: AREA };
+  return { tile, obj, influence, blocksTrees, propAtTile, hasBoatFeature, spawns: SPAWNS, home: HOME, workshop: WORKSHOP, paddock: PADDOCK, area: AREA, roundup: ROUNDUP };
 })();

@@ -65,6 +65,7 @@ class GameServer {
     this.worldProgress = new WorldProgress(this.map.layers.rings);                       // which guardians are down; which rings are open
     this.dungeons = new DungeonSystem(this); this.ringsSentRev = {};
     this.interiors = new InteriorSystem(this);                               // rooms inside buildings (interiorSystem.js)
+    this.roundup = new RoundupSystem(this);                                  // the Round-Up minigame at the old fence (roundupSystem.js)
     this.downed = new DownedSystem(this);                                    // going down in a dungeon instead of waking in the village (downed.js)
     this.castleSlimes = new CastleSlimes(this);                              // the ruined castle's slimes (castleSlimes.js)
     this.bots = new BotSystem(this);                                         // the test bot (botSystem.js)
@@ -182,6 +183,7 @@ class GameServer {
       tick: () => this.tick, forage: this.forage,
       cutBush: (id, found) => this._cutBush(id, found), trimHedge: (id, found) => this._trimHedge(id, found), digHedge: (id, found) => this._digHedge(id, found),
       till: (id, cx, cy) => this._till(id, cx, cy), water: (id, cx, cy) => this._water(id, cx, cy),
+      roundup: () => this.roundup,
       later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
     const hunt = new HuntHandler(deps), grass = new GrassCutHandler(Object.assign({}, deps, { cutGrass: (id, tiles) => this._cutGrass(id, tiles) }));
@@ -214,7 +216,7 @@ class GameServer {
   removePlayer(id) {
     this._dismount(id, this.players[id]);
     this._parkPets(id);                                                  // their ponies stay in the world, waiting for them (serverOwned.js)
-    this.friendship.forget(id); this.quests.forget(id);                                          // the next person to sit here must not inherit these friendships
+    this.friendship.forget(id); this.quests.forget(id); this.roundup.forget(id);                                          // the next person to sit here must not inherit these friendships
     this.trade.cancel(id, 'Trade cancelled: player left');
     this.interiors.leave_(id); this.interiors.releaseSeat(id); delete this.playerKeys[id]; delete this.petsClaimed[id]; delete this.charIds[id];
     const boat = this.boats[this.players[id] && this.players[id].boat];
@@ -639,6 +641,7 @@ class GameServer {
     for (const id in this.players) this._tickPlayer(id, this.players[id]);
     this.trade.update();
     this.dungeons.update();                                                           // the Slime Warren's waves (dungeonSystem.js)
+    this.roundup.update();                                                            // the Round-Up arenas: sheep, ropes, rivals, the clock (roundupSystem.js)
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
@@ -1066,7 +1069,7 @@ class GameServer {
   takeSnapshot() {
     const players = {};
     for (const id in this.players) players[id] = clonePlayer(this.players[id]);
-    const snapshot = { tick: this.tick, players, boats: this.boatStates(), trees: collectTreeStates(this.map), forage: collectForageStates(this.map), animals: this.animals.states(this._humans()), npcs: this.npcs.states(), drops: this.dropStates(), events: this.pendingEvents };
+    const snapshot = { tick: this.tick, players, boats: this.boatStates(), trees: collectTreeStates(this.map), forage: collectForageStates(this.map), animals: this.animals.states(this._humans()), npcs: Object.assign(this.npcs.states(), this.roundup.rivalStates()), drops: this.dropStates(), events: this.pendingEvents };
     this.pendingEvents = GridEvents.of(this);
     return snapshot;
   }

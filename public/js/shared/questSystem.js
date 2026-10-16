@@ -144,6 +144,14 @@ class QuestSystem {
     }
   }
 
+  /** A minigame round ended (roundupSystem.js): a "minigame" step for it is done if a side that had a player in it finished with enough sheep. */
+  onMinigame(game, result) {
+    for (const q of QuestDefs.all()) {
+      const cur = QuestLog.current(this.log, q);
+      if (cur && cur.step.type === 'minigame' && cur.step.game === game && (result.best | 0) >= cur.step.sheep) this._advance(q);
+    }
+  }
+
   /* ---------------------------------------- puzzle nodes ---------------------------------------- */
   _nodeNear(id, nodeId) {
     const p = this.s.players[id], node = PuzzleNodes.get(nodeId);

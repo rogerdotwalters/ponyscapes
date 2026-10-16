@@ -77,7 +77,7 @@ class Renderer {
   }
 
   render(state, frameMs, now) {
-    this.players = state.players; PixelPony.beginFrame();
+    this.players = state.players; this.npcsNow = state.npcs; PixelPony.beginFrame();
     const me = state.players[this.game.myId], ctx = this.ctx;
     this.camera.follow(isoX(me.x, me.y), isoY(me.x, me.y) - 18, frameMs);
 
@@ -144,7 +144,7 @@ class Renderer {
       const flick = lightFlicker(l.kind, l.x, l.y, performance.now());                // the flame's brightness; the pool of light breathes with it
       return { x, y, radius: l.radius * TILE_TO_SCREEN * TILE_HALF_W * s * (1 + (flick - 1) * 0.5), kind: l.kind, flick, rgb: l.look ? PonyLook.auraRgb(l.look) : undefined };   // (a pony's light shines in its own colour)
     });
-    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, this.game.map.kind === 'cave' || this.game.map.kind === 'dungeon' ? 0 : this.game.map.kind === 'room' ? 12 : this.game.hour(), px, py, s, lights);
+    this.lighting.draw(this.ctx, this.canvas.width, this.canvas.height, this.game.map.kind === 'cave' || this.game.map.kind === 'dungeon' ? 0 : this.game.map.kind === 'room' || this.game.map.kind === 'roundup' ? 12 : this.game.hour(), px, py, s, lights);      // (the round-up is always played in daylight)
     this.camera.applyTransform(this.ctx);
   }
 
@@ -257,11 +257,13 @@ class Renderer {
       const me = this.game.local, lvs = me.lv ? me.lv.s : {}, def = AnimalDefs[a.type];
       const close = Math.hypot(a.x - me.x, a.y - me.y), friend = this.game.friendOf(item.id);
       const view = { friend, invite: !friend && close < 2.8 && canBefriendAnimal(a.type) && !a.captor && a.state !== 'flee', near: close < 9, wantNear: close < (def.boss ? 16 : 9), holding: this.game.heldItemId(), ref: def.pony || def.tameable ? (lvs.horsemanship || 1) : (lvs.hunting || 1) };   // level colours compare with the skill you would use on it
+      if (a.rs) { view.near = false; view.invite = false; view.wantNear = false; if (a.rs.s !== 'free') RoundupSprites.ring(this.ctx, sx, sy, 15, 6, a.rs.t); }      // a Round-Up sheep: no name tag, a ring in the colour of the side that has it
       const lift = a.lift || 0;
       if (lift > 0) g.ellipse(sx, sy + 3, 20 * (1 - 0.3 * lift), 7 * (1 - 0.3 * lift), `rgba(0,0,0,${(0.3 * (1 - 0.4 * lift)).toFixed(2)})`);        // the shadow stays on the ground as the pair climbs
       if (a.foal > 0) { const k = 0.62 + 0.38 * (1 - a.foal); this.ctx.save(); this.ctx.translate(sx, sy); this.ctx.scale(k, k); this.ctx.translate(-sx, -sy); }          // a foal is smaller until it has grown
       this.animalSprite.draw(a, item.id, sx, sy - lift * FLY_HEIGHT, now, view);
       if (a.foal > 0) this.ctx.restore();
+      if (a.rs) this._drawRoundupRope(a, sx, sy, now);
       const holder = a.owner || a.captor;
       if (a.leashed && holder && this.players && this.players[holder]) this._drawLeash(sx, sy, a, this.players[holder]);
       if (a.captor && a.tame !== undefined) { this._drawTameBar(sx, sy - lift * FLY_HEIGHT, a.tame, now); this._drawRopeBar(sx, sy - lift * FLY_HEIGHT, a.rope === undefined ? 1 : a.rope, now); }
@@ -270,7 +272,8 @@ class Renderer {
     }
     if (item.kind === 'npc') {                                                           // a villager: drawn with the same sprite as a player
       const n = item.npc, sx = isoX(n.x, n.y), sy = isoY(n.x, n.y), def = Npcs.get(n.type), friend = this.game.friendOf(item.id), close = Math.hypot(n.x - this.game.local.x, n.y - this.game.local.y);
-      const pose = this.playerSprite.draw({ id: item.id, slot: [...item.id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 8, name: `${n.name} \u00b7 ${def ? def.role : ''}`, appearance: n.look, gear: n.gear, x: n.x, y: n.y, vx: n.vx, vy: n.vy, facing: n.facing, state: n.state === 'walk' ? 'walk' : 'idle', held: '', swingT: 0, hurtT: 0, mount: '', boat: '', emote: '', emoteT: 0 }, item.id, sx, sy, false, now, 0, false);
+      if (n.type === 'roundup_rival') RoundupSprites.ring(this.ctx, sx, sy, 14, 6, 1);
+      const pose = this.playerSprite.draw({ id: item.id, slot: [...item.id].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 8, name: def ? `${n.name} \u00b7 ${def.role}` : n.name, appearance: n.look, gear: n.gear, x: n.x, y: n.y, vx: n.vx, vy: n.vy, facing: n.facing, state: n.state === 'walk' ? 'walk' : 'idle', held: '', swingT: 0, hurtT: 0, mount: '', boat: '', emote: '', emoteT: 0 }, item.id, sx, sy, false, now, 0, false);
       const top = pose.headY - 40;
       if (friend || close < 2.8) HeartMeter.draw(g.ctx, sx, top, friend, now);
       const mark = n.say ? '' : QuestLog.markerFor(this.game.questLog, n.type);                // a ! or ? over someone with a quest (not while they talk)
@@ -288,6 +291,7 @@ class Renderer {
       if (p.asleep) return this._drawSleeper(g, isoX(p.x, p.y), isoY(p.x, p.y), p, now);
       const rowPhase = p.boat ? this.boatSprite.phaseOf(p.boat) : 0;
       const wading = !p.boat && !p.mount && this.game.map.tile(Math.floor(p.x), Math.floor(p.y)) === TILE.SHALLOW;
+      if ((p.rt === 0 || p.rt === 1) && this.game.roundup) RoundupSprites.ring(this.ctx, isoX(p.x, p.y), isoY(p.x, p.y), 14, 6, p.rt);      // in a Round-Up: a ring in the colour of your side
       return this.playerSprite.draw(p, item.id, isoX(p.x, p.y), isoY(p.x, p.y) - (p.lift || 0) * FLY_HEIGHT, item.id === this.game.myId, now, rowPhase, wading);
     }
     const prop = item.prop;
@@ -309,6 +313,13 @@ class Renderer {
     else if (prop.t === 'flax') PropSprites.drawFlax(g, item.gx, item.gy, prop);
     else if (prop.t === 'chest') PropSprites.drawChest(g, item.gx, item.gy, !!(this.game.local && this.game.local.looted));
     else if (prop.t === 'stalagmite') PixelBuildings.drawSpire(g.ctx, prop.v | 0, item.gx, item.gy);
+    else if (prop.t === 'old_fence') RoundupSprites.fence(this.ctx, item.gx, item.gy, prop.v);
+    else if (prop.t === 'roundup_sign') RoundupSprites.sign(this.ctx, item.gx, item.gy);
+    else if (prop.t === 'flowers') RoundupSprites.flowers(this.ctx, item.gx, item.gy, prop.v, now);
+    else if (prop.t === 'roundup_pole') {
+      const ru = this.game.roundup, steal = ru && ru.steals ? ru.steals.filter(s => s.team === prop.team).reduce((m, s) => Math.max(m, s.p), 0) : 0;
+      RoundupSprites.pole(this.ctx, item.gx, item.gy, prop.team, { score: ru ? ru.teams[prop.team].s : 0, steal }, now);
+    }
     else if (prop.t === 'dungeon_chest') PropSprites.drawChest(g, item.gx, item.gy, !!prop.opened);
     else if (prop.t === 'clay') { if (prop.ripe) PropSprites.drawClay(g, item.gx, item.gy, prop.v); }
     else if (prop.t === 'mound') { if (prop.ripe) PropSprites.drawMound(g, item.gx, item.gy, prop.v, now); }
@@ -448,6 +459,18 @@ class Renderer {
   /** A pile on the ground, coins or anything else: it is thrown or dropped in, bounces and comes to rest (coinFx.js). */
   _drawDrop(gx, gy, d, now) {
     if (CoinFx.isCoin(d.item)) this._drawCoinPile(d, now); else this._drawItemPile(d, now);
+  }
+
+  /** A Round-Up sheep's rope: to whoever has it (a person), or to the ring of the pole it is tied to; a sheep still being calmed shows its bar. */
+  _drawRoundupRope(a, sx, sy, now) {
+    const rs = a.rs, ctx = this.ctx;
+    if (rs.s === 'free') return;
+    if (rs.s === 'pole') { const pole = RoundupArena.poles[rs.t], r = RoundupSprites.poleRing(isoX(pole.x, pole.y), isoY(pole.x, pole.y)); RoundupSprites.rope(ctx, r.x, r.y, sx, sy - 14, rs.t, false); return; }
+    const holder = (this.players && this.players[rs.by]) || (this.npcsNow && this.npcsNow[rs.by]);
+    if (!holder) return;
+    const taut = rs.s === 'roped' && Math.hypot(a.x - holder.x, a.y - holder.y) > RoundupRules.rope.calm;
+    RoundupSprites.rope(ctx, isoX(holder.x, holder.y), isoY(holder.x, holder.y) - 18, sx, sy - 14, rs.t, taut);
+    if (rs.s === 'roped') this._drawTameBar(sx, sy + 16, rs.p, now);
   }
 
   /** The taming timer over a caught pony: a bar that fills with rainbow as it is gentled (0..1; it only grows once it has been fed the fruit it wants). */

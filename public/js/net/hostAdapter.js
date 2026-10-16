@@ -93,12 +93,12 @@ class HostAdapter extends LocalAdapter {
     const boats = {};
     for (const id in snap.boats) { const b = snap.boats[id]; if (Math.hypot(b.x - me.x, b.y - me.y) < 120) boats[id] = b; }
     const movedBoats = r.gates.boats.changed(D.quantize(boats)); if (movedBoats) out.boats = movedBoats;               // boats are only sent when one moves
-    const npcDelta = r.npcEnc.encode(D.quantizeEntities(snap.npcs, shared)); if (Object.values(npcDelta).some(d => Object.keys(d).length)) out.npcs = npcDelta;      // the villagers: only the fields that changed, and only when something did
+    const npcDelta = r.npcEnc.encode(D.quantizeEntities(snap.npcs, shared)), npcIds = Object.keys(npcDelta).join(); if (npcIds !== r.npcIds || Object.values(npcDelta).some(d => Object.keys(d).length)) { out.npcs = npcDelta; r.npcIds = npcIds; }      // (also when somebody appeared or went: the Round-Up's rival, or a new grid with no villagers)      // the villagers: only the fields that changed, and only when something did
     const trees = r.gates.trees.changed(snap.trees); if (trees) out.trees = trees;
     const forage = r.gates.forage.changed(snap.forage); if (forage) out.forage = forage;
     const drops = r.gates.drops.changed(snap.drops || {}); if (drops) out.drops = drops;                                // items on the ground: only when a pile changes
     for (const k of ['pets', 'book', 'varieties']) { const v = r.gates[k].changed(snap[k]); if (v) out[k] = v; }
-    for (const k of ['inventory', 'built', 'floors', 'farm', 'stockpiles', 'progress', 'treasure', 'trade', 'rings', 'settings', 'admin', 'weather', 'quests', 'questLog', 'coins', 'friends', 'pack']) if (snap[k] !== undefined) out[k] = snap[k];
+    for (const k of ['inventory', 'built', 'floors', 'farm', 'stockpiles', 'progress', 'treasure', 'trade', 'rings', 'settings', 'admin', 'weather', 'quests', 'questLog', 'coins', 'friends', 'pack', 'roundup']) if (snap[k] !== undefined) out[k] = snap[k];
     return out;
   }
 

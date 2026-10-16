@@ -73,7 +73,7 @@ const Interactions = {
     const primary = [];
     for (const id in animals) {                          // tied pets can be untied, small animals picked up
       const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
-      if (!def || !sameGrid(a, p)) continue;                // (only what is on your grid)
+      if (!def || a.game || !sameGrid(a, p)) continue;      // (only what is on your grid; a minigame's sheep are for the lasso only)
       if (mounted) {                                     // (the rest needs two feet on the ground, but from the saddle you can still feed the wild pony on your lasso)
         if (a.captor === selfId && d <= UNTIE_RANGE && ItemDB.isApple(heldItemId)) primary.push({ kind: 'feed', label: 'Feed ' + ItemDefs[heldItemId].name.toLowerCase(), dist: d - 1, animal: a });
         continue;

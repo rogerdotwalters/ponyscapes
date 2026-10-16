@@ -11,10 +11,11 @@
  *               visit    { x, y, radius }  or  { where: 'cave:0', radius }   someone goes to a place (`where`: the mouth of that zone's cave, found in the world)
  *               event    { event: 'tracks' | 'cubs', ring, count? }   the world does something (see questSystem.js _checkEvents): the Cave Bear's paw prints studied, her lost cubs brought home
  *               talk     { npc }                       someone speaks to a villager (an Npcs id) from the dialogue window
+ *               minigame { game, sheep }               a minigame (js/data/minigames/) is played and a side of the players ends it with at least this many sheep (the Round-Up: roundupSystem.js)
  *   reward    { coins, items: [[item, count]], friendship: hearts-points with the giver, xp: [skill, amount] }: each player present gets all of it */
 const QuestDefs = new Registry('quests', { required: ['giver', 'title', 'offer', 'steps', 'reward'], check: d => {
   if (!Array.isArray(d.steps) || !d.steps.length) return 'needs at least one step';
-  const types = { deliver: ['item', 'count'], puzzle: ['node'], visit: [], event: ['event'], talk: ['npc'] };
+  const types = { deliver: ['item', 'count'], puzzle: ['node'], visit: [], event: ['event'], talk: ['npc'], minigame: ['game', 'sheep'] };
   for (const s of d.steps) if (!types[s.type] || types[s.type].some(f => s[f] === undefined) || typeof s.text !== 'string') return `has a bad step (${s.type})`;
   for (const s of d.steps) if (s.type === 'visit' && s.where === undefined && (s.x === undefined || s.y === undefined)) return 'has a visit step with no place';
   return null;

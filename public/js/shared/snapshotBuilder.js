@@ -52,6 +52,7 @@ const SnapshotBuilder = {
     if (grid) snapshot.boats = {};
     snapshot.events = SnapshotBuilder.eventsFor(base.events, id, grid);
     snapshot.pets = server.petsFor(id); snapshot.book = server.bookFor(id); snapshot.varieties = server.varietiesFor(id);   // the Pony Book, every snapshot (it is small)
+    snapshot.roundup = server.roundup.stateFor(id);                                                                   // the Round-Up's scoreboard and clock, while you are in an arena (else null)
     const inventory = server.inventoryUpdateFor(id);   if (inventory) snapshot.inventory = inventory;
     const coins = server.coinsUpdateFor(id);           if (coins !== null) snapshot.coins = coins;           // the coin purse, only when it changed
     const questLog = server.quests.updateFor(id);      if (questLog) snapshot.questLog = questLog;           // the world's quest log, only when it changed

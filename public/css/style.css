@@ -960,3 +960,25 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .gtraits span::before{content:'\2022  ';color:#e3c27a}
 .gradbar{display:inline-block;width:46px;height:10px;border-radius:5px;border:1px solid rgba(0,0,0,.5);vertical-align:-1px}
 .gcolor.trail small{color:#f2b6ff}
+
+/* the Round-Up minigame (js/client/ui/roundupUI.js): scoreboard on top, countdown in the middle, the result at the end; clicks pass through */
+#roundupHud{position:fixed;inset:0;z-index:38;pointer-events:none;display:none;font:600 15px Georgia,serif;color:#f6efe0;text-shadow:0 1px 3px #000}
+#roundupHud.on{display:block}
+#roundupHud .ruBoard{position:absolute;top:66px;left:50%;transform:translateX(-50%);display:flex;align-items:stretch;gap:2px;background:rgba(16,22,16,.72);border:2px solid #f2e6cf;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+#roundupHud .ruTeam{display:flex;align-items:center;gap:7px;padding:5px 11px;border-top:4px solid var(--c,#999);min-width:112px}
+#roundupHud .ruTeam.t1{flex-direction:row-reverse}
+#roundupHud .ruTeam.me{background:rgba(255,255,255,.12)}
+#roundupHud .ruTeam b{font-size:12px;letter-spacing:.03em;color:var(--c,#fff);filter:brightness(1.35);flex:1}
+#roundupHud .ruTeam.t1 b{text-align:right}
+#roundupHud .ruTeam i{font-style:normal;font-size:16px}
+#roundupHud .ruTeam span{font-size:22px;min-width:18px;text-align:center}
+#roundupHud .ruClock{display:flex;align-items:center;padding:0 12px;font-size:20px;background:rgba(0,0,0,.35);font-variant-numeric:tabular-nums}
+#roundupHud .ruBig{position:absolute;top:30%;left:0;right:0;text-align:center;font-size:clamp(46px,11vw,110px);letter-spacing:.04em;color:#fff6d8;opacity:0;transform:scale(.85);transition:opacity .15s,transform .25s}
+#roundupHud .ruBig.on{opacity:1;transform:scale(1)}
+#roundupHud .ruHint{position:absolute;top:118px;left:50%;transform:translateX(-50%);width:min(560px,92vw);text-align:center;font-size:13px;font-weight:500;padding:7px 12px;background:rgba(16,22,16,.7);border-radius:10px;opacity:0;transition:opacity .4s}
+#roundupHud .ruHint.on{opacity:1}
+#roundupHud .ruResult{position:absolute;top:36%;left:50%;transform:translate(-50%,-50%) scale(.9);min-width:min(320px,80vw);text-align:center;padding:16px 26px;background:rgba(16,22,16,.82);border:2px solid #f2e6cf;border-radius:16px;opacity:0;transition:opacity .35s,transform .35s}
+#roundupHud.over .ruResult{opacity:1;transform:translate(-50%,-50%) scale(1)}
+#roundupHud .ruResult h2{margin:0 0 4px;font-size:28px}
+#roundupHud .ruScore{font-size:34px;letter-spacing:.08em}
+#roundupHud .ruPrize{margin-top:6px;font-size:14px;font-weight:500;opacity:.92}

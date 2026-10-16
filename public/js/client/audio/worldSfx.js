@@ -204,6 +204,13 @@
       on('hurt', e => { if (mine(e) || (e.to === undefined)) this._at(e, (v, p) => (e.to === game.myId ? Sfx.hurt(1) : Sfx.hit(v * 0.7, p))); });
       on('lasso', e => this._at({ x: e.x0, y: e.y0 }, (v, p) => setTimeout(() => Sfx.lassoLand(e.hit, v, p), 220)));
       on('caught', e => this._at(e, (v, p) => Sfx.lassoLand(true, v, p)));
+      on('roundup', e => {                                                                                                                                    // the Round-Up (roundupSystem.js)
+        if (e.ev === 'go') Sfx.chime(1, 0);
+        else if (e.ev === 'tied') this._at(e, (v, p) => Sfx.chime(v, p));
+        else if (e.ev === 'calm') this._at(e, (v, p) => Sfx.chime(v * 0.5, p));
+        else if (e.ev === 'cut' || e.ev === 'snap') this._at(e, (v, p) => Sfx.snap(v, p));
+        else if (e.ev === 'stolen' || e.ev === 'untied') this._at(e, (v, p) => Sfx.lassoLand(true, v, p));
+      });
       on('brokeFree', e => this._at(e, (v, p) => Sfx.snap(v, p)));
       on('letGo', e => this._at(e, (v, p) => Sfx.rustle(v * 0.6, p)));
       on('tamed', e => this._at(e, (v, p) => Sfx.chime(v, p)));

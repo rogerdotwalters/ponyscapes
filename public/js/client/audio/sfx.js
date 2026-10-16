@@ -97,7 +97,7 @@ const Sfx = (() => {
       if (this.dist < stride) return;
       this.dist -= stride; this.side = -this.side;
       if (boat || (this.game.localBoat)) return oar();
-      const ground = groundOf(this.game.map, p.x, p.y), inWater = ground === 'water', rain = this.rainOf() || 0, outdoors = this.game.map.kind === 'world';
+      const ground = groundOf(this.game.map, p.x, p.y), inWater = ground === 'water', rain = this.rainOf() || 0, outdoors = this.game.map.kind === 'world' || this.game.map.kind === 'roundup';
       if (riding) { hoof(ground, this.side > 0); setTimeout(() => hoof(ground, this.side < 0), 120); }
       else step(ground, this.side, run);
       if (inWater) Sfx.splash(this.wet ? 0.55 : 1, this.side * 0.15, run);                                                       // wading: a splash on each step (a big one on stepping in)

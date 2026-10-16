@@ -236,7 +236,7 @@ Object.assign(GameServer.prototype, {
     for (const id of this.humanIds()) {
       this._releaseStalledMain(id);
       const p = this.players[id], a = this._mainPonyOf(id);
-      if (!p || !a || a.rider || a.leashed || p.mount === a.id || p.boat) continue;
+      if (!p || !a || a.rider || a.leashed || p.mount === a.id || p.boat || (p.rt === 0 || p.rt === 1)) continue;      // (a round-up is played on foot: the pony waits outside)
       if (sameGrid(a, p) && Math.hypot(a.x - p.x, a.y - p.y) < 12) continue;
       const spot = findLanding(this.mapOf(p), p.x - Math.cos(p.facing) * 1.5, p.y - Math.sin(p.facing) * 1.5, AnimalDefs[a.type].radius);
       a.grid = gridOf(p); a.x = spot.x; a.y = spot.y; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; a.state = 'idle';
