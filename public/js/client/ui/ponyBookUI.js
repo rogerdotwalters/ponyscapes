@@ -107,6 +107,7 @@ class PonyBookUI {
   /** Which lasso holds a kind of pony. */
   static lassoNeed(type) {
     const tier = AnimalDefs[type].lassoTier || 1, lasso = Object.values(ItemDefs).filter(d => d.lasso && d.lasso.tier >= tier).sort((a, b) => a.lasso.tier - b.lasso.tier)[0];
+    if (AnimalDefs[type].lassoNeeds) return `Needs a ${ItemDefs[AnimalDefs[type].lassoNeeds[0]].name} (or the Rainbow Lasso) to catch; base speed ${PonySpeed.base(type).toFixed(1)}`;
     return `Needs a ${lasso ? lasso.name : 'tier ' + tier + ' lasso'} (or better) to catch; base speed ${PonySpeed.base(type).toFixed(1)}`;
   }
 

@@ -29,4 +29,12 @@ test('a bought lasso goes in the bag, takes the lasso slot, and its tier sets wh
 });
 const fs = require('fs'), play = fs.readFileSync(__dirname + '/../public/js/client/render/playerSprite.js', 'utf8');
 test('every lasso has a look drawn in hand, on the icon and in flight', () => { for (const id of IDS) assert(new RegExp('\\b' + id + ':\\s*\\{').test(play), id + ' has no LASSO_LOOKS entry'); });
+const fxSrc = fs.readFileSync(__dirname + '/../public/js/client/render/effects.js', 'utf8');
+test('every lasso has its own sparkle (trail and landing) in LASSO_FX', () => { for (const id of IDS.concat(['leash', 'lasso_silk', 'lasso_gold', 'lasso_star'])) assert(new RegExp('\\b' + id + ':\\s*\\{ colors').test(fxSrc), id + ' has no LASSO_FX entry'); });
+test('late-game ponies demand their own lasso; the Rainbow Lasso opens every one', () => {
+  const r = JSON.parse(run(`JSON.stringify(Object.values(AnimalDefs).filter(d => d.pony && d.lassoNeeds).map(d => ({ id: d.id, need: d.lassoNeeds, ok: ItemDB.lassoHolds(d.lassoNeeds[0], d), rainbow: ItemDB.lassoHolds('lasso_rainbow', d), star: ItemDB.lassoHolds('lasso_star', d), gold: ItemDB.lassoHolds('lasso_gold', d) })))`));
+  assert.deepStrictEqual(r.map(x => x.id).sort(), ['pony_lightning', 'pony_moon', 'pony_star', 'pony_sun', 'pony_water']);
+  for (const x of r) { assert(x.ok && x.rainbow, x.id); assert(!x.star && !x.gold, x.id + ' must not yield to a plain tier lasso'); }
+  assert.strictEqual(JSON.parse(run(`JSON.stringify([ItemDB.lassoHolds('lasso_star', AnimalDefs.pony_alicorn), ItemDB.lassoHolds('lasso_gold', AnimalDefs.pony_alicorn), ItemDB.lassoHolds('leash', AnimalDefs.pony_plain)])`)).join(), 'true,false,true', 'ordinary ponies still go by tier');
+});
 console.log('\n' + passed + ' passed');

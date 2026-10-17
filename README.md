@@ -412,6 +412,10 @@ younger testers out, not real security: the code is in `js/client/ui/settingsUI.
 * **The Lasso Dealer** (a counter in the stable, `lasso_dealer` in `data/furniture/basic.js`; the stable's `shop` list) sells 15 themed lassos for gold, each with its own colours (`LASSO_LOOKS` in `render/playerSprite.js`; the rope, icon and flying loop all use it)
   and its own reach / cast speed / catch bonus. **Tier 2** (pegasi): Red, Blue, Yellow (the primary colours), Flower, Candy. **Tier 3** (unicorns): Water, Jungle, Fire (quick cast), Cloud (long reach),
   Crystal, Ponytail. **Tier 4** (alicorns): Lightning (fastest cast), Sun, Harmony, Rainbow (the best rope in the land). `npm run test:lassos`.
+  Every lasso leaves its own sparkle as it flies and where the loop lands (`LASSO_FX` in `render/effects.js`): Fire embers, Lightning crackling sparks, Water splashes, Cloud puffs, Jungle leaves, Flower petals,
+  Candy sprinkles, Crystal glints, Sun rays, Harmony pastels, and a striped trail from the Rainbow Lasso.
+* **Late-game lassos** (`lassoNeeds` on a pony kind, `ItemDB.lassoHolds`): the sky ponies want their own lasso on top of the tier: **Water Pony** → Water Lasso, **Sun Pony** → Sun, **Lightning Pony** → Lightning,
+  **Moon Pony** → Crystal, **Star Pony** → Harmony. A plain tier-4 lasso slips off them. The **Rainbow Lasso** opens every one. The Pony Book and the Gear panel say which lasso a kind needs.
 * **Your main pony** (★ on its name) follows you everywhere when you are not riding it: around the world, into buildings and caves, and it
   catches up if you gallop off on another pony. Your starter pony begins as your main pony. Riding another of your ponies, open the bag (**I**) and press
   **★ Make main pony** in its section (or press **N**) to make it your main pony instead (the old one stays where it is). It is in the bag, not on the screen,

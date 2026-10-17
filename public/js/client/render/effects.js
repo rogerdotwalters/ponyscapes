@@ -3,6 +3,29 @@
 const SHAKE_MS = 320, SHAKE_PIXELS = 5;
 const CHIP_COLORS = ['#c9a06a', '#8a5a33', '#b58a55'], LEAF_COLORS = ['#468a40', '#5ea24a', '#3f7a3a'], DUST_COLORS = ['#d8cfb8', '#b9ae92', '#e9e2d0'], GOLD_COLORS = ['#ffe08a', '#ffc94a', '#fff2c2'], HEART_COLORS = ['#ff7ab6', '#ffd1e8', '#ff9ec7', '#fff3b0'], FUR_COLORS = ['#e8dcc4', '#b79a72', '#8d6a45'], SPLASH_COLORS = ['#e8f6ff', '#9fd0f2', '#5aa6dc'], WOOL_COLORS = ['#ffffff', '#f2efe6', '#e6e1d3'];
 
+/** What each lasso leaves behind as it flies (`trail`: particles a frame) and where the loop lands (`land`). `g`: gravity on them (negative: they rise), `speed`: how far they scatter,
+ *  `size`, `life`: seconds. Colours cycle in order for the rainbow so its trail reads as stripes. */
+const LASSO_FX = {
+  leash:           { colors: ['#c9a874', '#a8844f'], trail: 0, land: 4, g: 1 },
+  lasso_silk:      { colors: ['#ffffff', '#e8b8d8', '#cfc3e6'], trail: 1, land: 8, g: 0.2 },
+  lasso_gold:      { colors: ['#fff1b8', '#f2c94c', '#ffffff'], trail: 1, land: 10, g: 0.3, speed: 0.7 },
+  lasso_star:      { colors: ['#ffffff', '#36c8ee', '#9a4ae0', '#f2c230'], trail: 2, land: 14, g: -0.2, speed: 0.8 },
+  lasso_red:       { colors: ['#d8382f', '#ff9a8c', '#ffffff'], trail: 1, land: 8, g: 0.5 },
+  lasso_blue:      { colors: ['#2f6fd8', '#8cc4ff', '#ffffff'], trail: 1, land: 8, g: 0.5 },
+  lasso_yellow:    { colors: ['#f2c82c', '#fff3a8', '#ffffff'], trail: 1, land: 8, g: 0.5 },
+  lasso_flower:    { colors: ['#f08cc0', '#fff3a8', '#ffffff', '#a8e08c'], trail: 2, land: 12, g: 0.25, speed: 0.6, size: 3.2, life: 1 },       // petals drifting down
+  lasso_candy:     { colors: ['#e8386a', '#ffffff', '#7ad8f2', '#ffd6e6'], trail: 2, land: 14, g: 0.6, size: 3 },                              // sprinkles
+  lasso_water:     { colors: ['#3aa6e0', '#7ad8f2', '#e8fbff', '#bfe9f7'], trail: 3, land: 18, g: 1.6, speed: 1.1, life: 0.7 },                  // drops and a splash
+  lasso_jungle:    { colors: ['#2f8a3a', '#4aa84a', '#7ad06a', '#c4a04a'], trail: 2, land: 12, g: 0.5, size: 3.4 },                            // leaves
+  lasso_fire:      { colors: ['#ff4a1c', '#ff8a1c', '#ffd23a', '#fff1a0'], trail: 4, land: 22, g: -0.6, speed: 0.9, size: 2.6, life: 0.8 },     // embers rising
+  lasso_cloud:     { colors: ['#ffffff', '#eaf2fb', '#b8d4f0'], trail: 2, land: 12, g: -0.15, speed: 0.4, size: 4.2, life: 1.1 },               // soft puffs
+  lasso_crystal:   { colors: ['#ffffff', '#9ad8f2', '#c8a6f2', '#e8f8ff'], trail: 3, land: 16, g: 0.1, speed: 0.6, size: 2.4, life: 1.1 },      // glints that hang in the air
+  lasso_ponytail:  { colors: ['#e8a0c8', '#ffd6ea', '#b080e0', '#8a4aa8'], trail: 2, land: 12, g: -0.1, speed: 0.5, size: 3, life: 1 },         // wisps of hair
+  lasso_lightning: { colors: ['#ffffff', '#f2e23a', '#7a8aff', '#cfe3ff'], trail: 5, land: 24, g: 0, speed: 2, size: 2, life: 0.3 },            // quick crackling sparks
+  lasso_sun:       { colors: ['#fff8c4', '#ffe23a', '#f2a81c', '#ff8a1c'], trail: 3, land: 20, g: -0.3, speed: 0.9, size: 3, life: 0.9 },       // golden rays
+  lasso_harmony:   { colors: ['#f08cc0', '#d8a8f2', '#7ad8f2', '#fff3a8'], trail: 3, land: 18, g: -0.2, speed: 0.7, size: 3, life: 1 },
+  lasso_rainbow:   { colors: ['#e8384a', '#f28a2a', '#f2e23a', '#4ac84a', '#3a8af2', '#9a4ae0'], trail: 3, land: 28, g: 0, speed: 0.3, size: 3.4, life: 1.2, ordered: true }   // a rainbow trail
+};
 class Effects {
   constructor(bus, game) {
     this.game = game; this.arrows = []; this.rings = []; this.ropes = []; this.particles = []; this.floaters = []; this.shakeStart = {}; this.power = new PowerFx(game);
@@ -58,7 +81,7 @@ class Effects {
     game.events.on('untied', e => this._float(e, 'Untied'));
     game.events.on('carried', e => { this._burst(e.x, e.y, 6, HEART_COLORS, 12); this._float(e, 'Picked up'); });
     game.events.on('released', e => { this._burst(e.x, e.y, 8, HEART_COLORS, 12); this._float(e, 'Released'); });
-    game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, look: lassoLook(e.item), age: 0 }));
+    game.events.on('lasso', e => this.ropes.push({ x0: isoX(e.x0, e.y0), y0: isoY(e.x0, e.y0) - 22, x1: isoX(e.x1, e.y1), y1: isoY(e.x1, e.y1) - 16, hit: e.hit, look: lassoLook(e.item), fx: LASSO_FX[e.item] || null, age: 0 }));
     game.events.on('roundup', e => this._onRoundup(e));
     game.events.on('caught', e => this._burst(e.x, e.y, 12, HEART_COLORS, 24));        // (the server's notice already says what to do next)
     game.events.on('fed', e => { this._burst(e.x, e.y, 10, HEART_COLORS, 26); this._float(e, `Fed ${e.have}/${e.need}`); });
@@ -151,6 +174,18 @@ class Effects {
     this.floaters.push({ x: isoX(me.x, me.y), y: isoY(me.x, me.y) - 62 - stacked * 18, age: 0, text, style });
   }
 
+  /** A lasso's trail and landing sparkle at a screen point (see LASSO_FX). `n` counts up the rainbow's colours. */
+  _lassoSparks(x, y, count, f, n = 0) {
+    const speed = f.speed || 1;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2, s = (0.3 + Math.random()) * 60 * speed;
+      this.particles.push({
+        x: x + (Math.random() - 0.5) * 6, y: y + (Math.random() - 0.5) * 6, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 30 * speed, g: f.g === undefined ? 1 : f.g, age: 0,
+        life: (f.life || 0.6) * (0.7 + Math.random() * 0.6), size: (f.size || 2.5) * (0.7 + Math.random() * 0.6), color: f.ordered ? f.colors[(n + i) % f.colors.length] : f.colors[(Math.random() * f.colors.length) | 0]
+      });
+    }
+  }
+
   _burst(worldX, worldY, count, colors, height) {
     const x = isoX(worldX, worldY), y = isoY(worldX, worldY) - height;
     for (let i = 0; i < count; i++) {
@@ -165,7 +200,7 @@ class Effects {
   advanceParticles(dt) {
     this.particles = this.particles.filter(p => (p.age += dt) < p.life);
     const push = this.weather ? this.weather.windX() * 260 : 0;                                       // the wind carries chips, leaves and splashes sideways
-    for (const p of this.particles) { p.vy += 320 * dt; p.vx += push * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+    for (const p of this.particles) { p.vy += 320 * (p.g === undefined ? 1 : p.g) * dt; p.vx += push * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
   }
 
   draw(g, frameMs) {
@@ -196,6 +231,11 @@ class Effects {
         pts.forEach(([x, y], i) => { if (i % 4 < 2 && !(look.worn && i % 7 === 3)) stamp(x, y, w - 2, look.bands ? look.bands[(i >> 2) % look.bands.length] : look.braid); });
       };
       const dense = (n, f) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
+      if (look && r.fx) {                                                                                    // the lasso's own sparkle: a trail while it flies, a burst where the loop lands
+        const f = r.fx, [hx0, hy0] = at(1);
+        if (flying) this._lassoSparks(hx0, hy0, f.trail, f, (r.n = (r.n || 0) + f.trail));
+        else if (!r.landed) { r.landed = true; this._lassoSparks(hx0, hy0, r.hit ? f.land : Math.ceil(f.land / 3), f); }
+      }
       const [x, y] = at(1), rad = r.hit && !flying ? Math.max(5, 13 - (r.age - 0.28) * 30) : 13, spin = flying ? Math.sin(r.age * 22) * 0.35 : 0;
       const ringAt = -2.2 + spin, hx = x + Math.cos(ringAt) * rad, hy = y + Math.sin(ringAt) * rad * 0.62;
       const tail = (col, side) => dense(10, u => { const w = Math.sin(u * 6 - r.age * 30 + side) * 2.5 * settle; return [hx - u * 13 - side * 2 * u, hy + u * 9 + w]; });

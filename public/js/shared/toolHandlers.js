@@ -253,11 +253,11 @@ class LeashHandler {
     const item = p.held, lasso = ItemDB.getLasso(item) || { tier: 1, chance: 0 }, fromSlot = p.lassoSwing && p.gear.lasso === item;   // thrown from the lasso slot (L), or held from the bar
     if (!fromSlot && !inventory.has(item, 1)) return;
     const mine = a.owner === id, need = def.pony ? (def.lassoTier || 1) : 1;
-    if (!mine && need > lasso.tier) {                                                   // a rarer pony slips out of a plain loop
-      const better = Object.values(ItemDefs).find(d => d.lasso && d.lasso.tier === need);
+    if (!mine && def.pony && !ItemDB.lassoHolds(item, def)) {                           // a rarer pony slips out of a plain loop (or the wrong themed one)
+      const better = def.lassoNeeds ? ItemDefs[def.lassoNeeds[0]] : Object.values(ItemDefs).find(d => d.lasso && d.lasso.tier === need);
       this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id, item });
       this.animals.startle(target.ref, p);
-      this.emit({ type: 'notice', to: id, text: `It slips right out of your ${ItemDefs[item].name}: catching a ${def.name} takes a ${better ? better.name : 'better lasso'} or better` });
+      this.emit({ type: 'notice', to: id, text: `It slips right out of your ${ItemDefs[item].name}: catching a ${def.name} takes ${def.lassoNeeds ? 'a' : 'a'} ${better ? better.name : 'better lasso'}${def.lassoNeeds ? ' (or the Rainbow Lasso)' : ' or better'}` });
       return;
     }
     const wild = !mine && AnimalLevels.tooWild(a, p.lv);
