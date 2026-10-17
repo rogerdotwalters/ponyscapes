@@ -37,7 +37,7 @@ canvas{display:block}
 #inventoryPanel header,#craftPanel header,#settingsPanel header{display:flex;justify-content:space-between;align-items:center;height:calc(34px - 8px);margin-bottom:8px;font:600 15px Georgia,serif}
 #invClose,#posterClose,#craftClose,#settingsClose{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
 #invBody{overflow-y:auto;touch-action:pan-y}
-.invgrid{display:grid;grid-template-columns:repeat(5,var(--slot,46px));gap:var(--gap,5px);justify-content:center;margin-bottom:4px}
+.invgrid{display:grid;grid-template-columns:repeat(9,var(--slot,46px));gap:var(--gap,5px);justify-content:center;margin-bottom:4px}
 .invsec{display:flex;align-items:center;gap:6px;margin:6px 0 4px;font:600 12px Georgia,serif;color:#e9ddb8}
 .invsec small{font:400 11px sans-serif;opacity:.7;margin-left:auto}
 .invbags{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 5px}
@@ -1021,6 +1021,36 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .c4Screen.side .c4Btns{grid-area:btns;flex-direction:column;align-self:end}
 @media (max-width:420px){.c4Screen .c4Card{padding:8px 8px 10px;gap:4px;border-width:2px}.c4Screen .c4Who{padding:2px 6px}.c4Screen .c4Who i{display:none}.c4Screen .c4Btns button{padding:6px 10px;font-size:13px}.c4Screen .c4Status{font-size:13px}}
 /* Connect Four in the game's pixel style: square corners, hard borders, a wooden card with a gold stepped frame, parchment status plate */
+#c4Screen{background:radial-gradient(ellipse at center,rgba(30,18,8,.78),rgba(6,3,0,.94));image-rendering:pixelated}
+#c4Screen .c4Card{border:0;border-radius:0;background:repeating-linear-gradient(90deg,#4a3220 0 9px,#42301c 9px 10px,#4e3622 10px 19px,#3d2a17 19px 20px);box-shadow:0 0 0 3px #1c140e,0 0 0 6px #c9a35a,0 0 0 9px #1c140e,0 14px 34px rgba(0,0,0,.65);margin:9px}
+#c4Screen header{background:#2a1a0c;border:3px solid #1c140e;box-shadow:inset 0 3px 0 rgba(255,255,255,.08),inset 0 -3px 0 rgba(0,0,0,.35);padding:3px 8px;color:#f2cf6a;text-shadow:2px 2px 0 #1c140e;letter-spacing:.06em;font-size:15px;box-sizing:border-box}
+#c4Screen .c4Close{color:#f2e6cf;text-shadow:2px 2px 0 #1c140e;font-size:16px;padding:0 4px}
+#c4Screen .c4Who{border-radius:0;border:3px solid #1c140e;background:#3a2814;box-shadow:inset 0 3px 0 rgba(255,255,255,.1),inset 0 -3px 0 rgba(0,0,0,.35);text-shadow:2px 2px 0 #1c140e}
+#c4Screen .c4Who.turn{border-color:#c9a35a;background:#5a4020}
+#c4Screen .c4Who i{color:#f2cf6a}
+#c4Screen canvas.c4Board{image-rendering:pixelated;border:3px solid #1c140e;box-sizing:content-box}
+#c4Screen .c4Status{background:#e8d9b0;color:#3a2814;text-shadow:none;border:3px solid #1c140e;box-shadow:inset 0 0 0 2px #c9b27a,inset 0 3px 0 rgba(255,255,255,.35);padding:5px 8px;box-sizing:border-box;font-size:13px;line-height:1.25}
+#c4Screen .c4Btns button{border-radius:0;border:3px solid #1c140e;background:#4a7a3a;color:#fff;text-shadow:2px 2px 0 #1c140e;box-shadow:inset 0 3px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.32);letter-spacing:.03em}
+#c4Screen .c4Btns button.c4Leave{background:#8a3a34}
+#c4Screen .c4Btns button:active:not(:disabled){transform:translateY(2px);box-shadow:inset 0 3px 0 rgba(0,0,0,.25)}
+#c4Screen.side .c4Status{font-size:12px}
+
+/* ---------- coin counts as "3 x [coin]" chips with the worth in copper (InventoryUI.coinHtml) ---------- */
+#invCoins,.shopPurse{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:2px 8px}
+.coinChip{display:inline-flex;align-items:center;gap:2px;font-style:normal}
+.coinChip b{font-weight:700}
+.coinChip img{width:18px;height:18px;image-rendering:pixelated}
+.coinWorth{flex-basis:100%;text-align:right;font:400 10px sans-serif;opacity:.75;color:#e9ddb8}
+.invpurse{flex-wrap:wrap}
+.invpurse #invCoins{flex:1 1 auto}
+.shopPurse{margin-left:6px;vertical-align:middle}
+/* portrait phones: bigger tap targets for the action row, the body scrolls with the page-style touch drag */
+@media (orientation:portrait) and (pointer:coarse){
+  #invActions{flex-wrap:wrap;height:auto;row-gap:4px}
+  #invActions button{height:34px}
+  #invBody{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+}
+
 .c4Screen{background:radial-gradient(ellipse at center,rgba(30,18,8,.78),rgba(6,3,0,.94));image-rendering:pixelated}
 .c4Screen .c4Card{border:0;border-radius:0;background:repeating-linear-gradient(90deg,#4a3220 0 9px,#42301c 9px 10px,#4e3622 10px 19px,#3d2a17 19px 20px);box-shadow:0 0 0 3px #1c140e,0 0 0 6px #c9a35a,0 0 0 9px #1c140e,0 14px 34px rgba(0,0,0,.65);margin:9px}
 .c4Screen header{background:#2a1a0c;border:3px solid #1c140e;box-shadow:inset 0 3px 0 rgba(255,255,255,.08),inset 0 -3px 0 rgba(0,0,0,.35);padding:3px 8px;color:#f2cf6a;text-shadow:2px 2px 0 #1c140e;letter-spacing:.06em;font-size:15px;box-sizing:border-box}

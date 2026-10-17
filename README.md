@@ -414,7 +414,7 @@ younger testers out, not real security: the code is in `js/client/ui/settingsUI.
   **★ Make main pony** in its section (or press **N**) to make it your main pony instead (the old one stays where it is). It is in the bag, not on the screen,
   so it is never hit by accident. It is saved with your character and the world.
 * **Tool belt and bags** (`js/data/items/bags.js`, `js/shared/packSystem.js`): you carry a **5-slot tool belt** (the hotbar, keys **1-5**) plus the
-  **bag** you wear (the Bag slot in Gear). Everybody starts with the **Starter Backpack** (5 slots); buy a **Leather Satchel** (8) or an **Explorer's Pack** (12)
+  **bag** you wear (the Bag slot in Gear). Everybody starts with the **Starter Backpack** (40 slots); buy a **Leather Satchel** (50) or an **Explorer's Pack** (63)
   at the General Store, or craft one at a crafting table, then **Wear bag** (in the bag, **I**) or **Swap bag** (Gear). You always wear exactly one bag;
   a swap is refused if the new bag is too small for what you carry, and the old bag goes into the new one.
 * **Pony packs**: every pony you own has at least **2 bag slots** (3 for rare and epic ponies, 4 for legendary), and pony bags are bigger. The starter pony
