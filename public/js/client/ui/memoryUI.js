@@ -1,9 +1,9 @@
 'use strict';
-/* CLIENT - the Memory screen at the Pony Inn (shared/memoryGame.js holds the game; this draws it). Twenty cards lie on a green cloth inside an oak frame with iron corners, in the same
+/* CLIENT - the Memory screen at the Pony Inn (shared/memoryGame.js holds the game; this draws it). Twenty-four cards lie on a green cloth inside an oak frame with iron corners, in the same
  * hard-edged pixel style (and pixel size) as the Connect Four screen. Every card's BACK is a pixel artwork of the word PONYSCAPES in a medieval hand on a burgundy field with a gold border; its FRONT
- * is only a pony of the game (PixelPony, the variety's own colours: shared/memoryGame.js FACES). Press a card (or move with the arrow keys and press Enter / Space) to turn it over; cards flip
+ * is only a pony (PixelPony, in the variety's own colours) or an animal of the game (PixelCreatures): six of each, picked at random every game (shared/memoryGame.js POOL). Press a card (or move with the arrow keys and press Enter / Space) to turn it over; cards flip
  * with a squash; a matched pair bursts into pixel particles in the colours of the pony's artwork. Play alone or head to head with the person across the table; there is no computer player.
- * Registered with the PanelGroup as 'memory'; closing stands you up. Portrait lays the cards out 4 across, a short wide screen 5 across with the names, status and buttons beside them. */
+ * Registered with the PanelGroup as 'memory'; closing stands you up. Portrait lays the cards out 4 across, a short wide screen 6 across with the names, status and buttons beside them. */
 class MemoryUI {
   constructor({ game }) {
     this.game = game; this.cards = []; this.parts = []; this.pending = []; this.seq = -1; this.key = ''; this.raf = 0; this.last = 0; this.openedAt = 0; this.hover = -1; this.cursor = 0;
@@ -41,7 +41,7 @@ class MemoryUI {
   /* ---------------------------------------- geometry ---------------------------------------- */
   static get CW() { return 72; } static get CH() { return 92; }                                          // a card's size in art pixels
   _layout() {
-    const vw = window.innerWidth, vh = window.innerHeight, N = MemoryGame.N, side = vw > vh && vh < 520, cols = side ? 5 : 4, rows = N / cols, R = MemoryUI.CH / MemoryUI.CW, gapK = 0.12, padK = 0.2;
+    const vw = window.innerWidth, vh = window.innerHeight, N = MemoryGame.N, side = vw > vh && vh < 520, cols = side ? 6 : 4, rows = N / cols, R = MemoryUI.CH / MemoryUI.CW, gapK = 0.12, padK = 0.2;
     this.root.classList.toggle('side', side); this.cols = cols; this.rows = rows;
     const fitW = side ? vw - 320 : vw - 52, fitH = side ? vh - 64 : vh - 262;
     const cw = Math.min((fitW / (cols + (cols + 1) * gapK + 2 * padK)), (fitH / (rows * R + (rows + 1) * gapK + 2 * padK)));
@@ -93,7 +93,7 @@ class MemoryUI {
     if (this.key !== m.key || this.cards.length !== n) { this.cards = Array.from({ length: n }, () => ({ f: 0, state: '.', face: -1, owner: -1, target: 0, matchedAt: 0 })); this.key = m.key; this.prevSt = ''; this.parts = []; this.pending = []; }
     const fresh = [];
     for (let i = 0; i < n; i++) {
-      const k = this.cards[i], st = m.st[i], face = m.fc[i] === '-' ? -1 : +m.fc[i], own = m.own[i] === '-' ? -1 : +m.own[i];
+      const k = this.cards[i], st = m.st[i], face = m.fc[i] === '-' ? -1 : parseInt(m.fc[i], 36), own = m.own[i] === '-' ? -1 : +m.own[i];
       if (st === 'm' && k.state !== 'm') fresh.push(i);
       k.state = st; k.owner = own; if (face >= 0) k.face = face;
       k.target = st === '.' ? 0 : 1;
@@ -170,12 +170,19 @@ class MemoryUI {
   /** The front of a card: the pony of face `f` (its variety's colours) standing on a meadow in a cream frame. { canvas, colors: the pony's own colours, for the particles }. */
   _face(f) {
     let a = this.faces.get(f); if (a) return a;
-    const [id, type] = MemoryGame.FACES[f], N = ConnectFourUI.noise, W = MemoryUI.CW, H = MemoryUI.CH, INK = '#1c140e';
-    const vi = Math.max(0, PonyVariantTable.all().findIndex(v => v.id === id)), look = PonyLook.describe(PonyLook.fromGene(7000 + f * 131, vi)), def = AnimalDefs[type] || {};
-    const pony = document.createElement('canvas'); pony.width = 90; pony.height = 90;                                                  // the pony alone first (its colours feed the particles)
+    const [kind, id, type] = MemoryGame.POOL[f], N = ConnectFourUI.noise, W = MemoryUI.CW, H = MemoryUI.CH, INK = '#1c140e', def = AnimalDefs[type] || {};
+    const pony = document.createElement('canvas'); pony.width = 90; pony.height = 90;                                                  // the picture alone first (its colours feed the particles)
     const pg = pony.getContext('2d'); pg.imageSmoothingEnabled = false;
-    if (typeof PixelPony.setBudget === 'function') PixelPony.setBudget(Infinity);
-    try { PixelPony.draw(pg, look, 'right', 45, 70, { moving: false, phase: 0, now: 0, seed: 0, lift: true, flying: false, kind: { wings: !!def.wings, horn: !!def.horn, mystical: !!def.mystical } }); } finally { if (typeof PixelPony.setBudget === 'function') PixelPony.setBudget(3); }
+    let look = { mane: [['#d9a05b', '#7fb4ff', '#c58bd6', '#e0c25a', '#6fcf97', '#f08a80'][f % 6]] };                                   // (an animal's sky: a colour of its own)
+    if (kind === 'pony') {
+      const vi = Math.max(0, PonyVariantTable.all().findIndex(v => v.id === id)); look = PonyLook.describe(PonyLook.fromGene(7000 + f * 131, vi));
+      if (typeof PixelPony.setBudget === 'function') PixelPony.setBudget(Infinity);
+      try { PixelPony.draw(pg, look, 'right', 45, 70, { moving: false, phase: 0, now: 0, seed: 0, lift: true, flying: false, kind: { wings: !!def.wings, horn: !!def.horn, mystical: !!def.mystical } }); } finally { if (typeof PixelPony.setBudget === 'function') PixelPony.setBudget(3); }
+    } else {
+      const tmp = document.createElement('canvas'); tmp.width = 90; tmp.height = 90; const tg = tmp.getContext('2d'); tg.imageSmoothingEnabled = false;
+      PixelCreatures.draw(tg, Object.assign({ kind: 'sheep' }, def.sprite || {}), 45, 70, 1, { moving: false, phase: 0, now: 0, seed: 0, hunting: false, extra: '' });
+      const k = (def.sprite && def.sprite.kind === 'deer') ? 1.3 : 1.8; pg.drawImage(tmp, 0, 0, 90, 90, Math.round(45 - 45 * k), Math.round(70 - 70 * k), Math.round(90 * k), Math.round(90 * k));      // (animals are small: drawn bigger, standing on the same ground line)
+    }
     const data = pg.getImageData(0, 0, 90, 90).data, count = new Map();
     for (let i = 0; i < data.length; i += 4 * 2) { if (data[i + 3] < 220) continue; const r = data[i] >> 4, g2 = data[i + 1] >> 4, b = data[i + 2] >> 4; if (r + g2 + b < 8) continue; const key = r << 8 | g2 << 4 | b; count.set(key, (count.get(key) || 0) + 1); }
     const colors = [...count.entries()].sort((x, y) => y[1] - x[1]).slice(0, 10).map(([key]) => `rgb(${(key >> 8 & 15) * 17},${(key >> 4 & 15) * 17},${(key & 15) * 17})`);
@@ -270,7 +277,7 @@ class MemoryUI {
     this._icon(top, m.names[opp] ? m.tokens[opp] : ''); this._icon(bottom, m.tokens[me]);
     top.classList.toggle('turn', !solo && m.status === 'playing' && m.turn === opp); bottom.classList.toggle('turn', !solo && m.status === 'playing' && m.turn === me);
     const pairs = n => (m.status === 'waiting' ? '' : `${n} pair${n === 1 ? '' : 's'}`);
-    top.querySelector('i').textContent = pairs(m.score[opp]); bottom.querySelector('i').textContent = solo ? `${m.moves} move${m.moves === 1 ? '' : 's'} · ${m.score[me]} pair${m.score[me] === 1 ? '' : 's'}` : pairs(m.score[me]);
+    top.querySelector('i').textContent = pairs(m.score[opp]); bottom.querySelector('i').textContent = solo ? `${m.moves} move${m.moves === 1 ? '' : 's'}` : pairs(m.score[me]);
     let text = '';
     if (hint) text = hint;
     else if (m.status === 'waiting') text = 'Wait for another player to sit across the table, or play alone.';
