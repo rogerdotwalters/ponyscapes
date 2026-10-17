@@ -248,6 +248,18 @@ const PixelDecor = (() => {
       s.box(0.1, 0.1, w - 0.1, h - 0.1, z - 4, z - 3, M.solid(shade(top, 0.7)));
       if (c.pad) s.box(0.14, 0.16, w - 0.14, h - 0.16, z, z + 1, M.cloth(c.pad));
     },
+    /** A table with a cloth laid on it and rows of cards, some face up (the Memory table). */
+    card_table(s, def, w, h, rot) {
+      BUILD.table(s, def, w, h, rot);
+      const z = A(def.height || 26), c = def.colors;
+      s.box(0.12, 0.12, w - 0.12, h - 0.12, z, z + 1, M.solid(c.cloth));
+      s.decal((g, P, px, rect) => {
+        for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) {
+          const [x, y] = P(0.3 + i * (w - 0.6) / 3.2, 0.3 + j * (h - 0.6) / 2.4, z + 1.5);
+          rect(x - 2, y - 2, 4, 5, (i + j) % 3 === 0 ? c.card : c.back); rect(x - 2, y + 2, 4, 1, '#1c140e');
+        }
+      });
+    },
     /** A table with a Connect Four board standing across its middle (the players sit at its two ends, facing each other). */
     game_table(s, def, w, h, rot) {
       BUILD.table(s, def, w, h, rot);
