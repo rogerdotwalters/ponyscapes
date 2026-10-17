@@ -1,6 +1,6 @@
 'use strict';
 /* CLIENT - the bag panel. Two sections (three beside an open chest: the worn chest in your home, homeCrafts.js), rows of five:
- *   Inventory   ONE grid: your tool belt (slots 1-5, the hotbar: keys 1-5) followed by the slots of the bag you wear (the Starter Backpack: 5).
+ *   Inventory   ONE grid: your tool belt (slots 1-5, the hotbar: keys 1-5) followed by the slots of the bag you wear (the Starter Backpack: 40).
  *               It grows or shrinks by itself when you wear another bag (buy a bigger one at the General Store or craft one; "Wear" swaps it)
  *   Pony pack   the bags strapped onto the pony you ride or stand next to (the Starter Side Pack: 10), and its bag slots
  * Tap a stack, then tap a destination slot (in any section) to move / merge / swap it. With a mouse you can also DRAG a stack onto a slot (or onto
