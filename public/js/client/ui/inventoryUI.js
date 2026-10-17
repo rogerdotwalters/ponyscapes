@@ -10,6 +10,12 @@
  * Riding one of your ponies, its section has the button that makes it your MAIN pony (the one that follows you everywhere). It lives here
  * rather than on the screen so it is never hit by accident. */
 class InventoryUI {
+  /** The purse as "3 x [gold coin]  2 x [silver coin]" (biggest first), then its worth in copper: icons instead of letters, so no one has to decode "1 T, 1 P". */
+  static coinHtml(coins) {
+    const arr = coins || Coins.empty(), chips = [];
+    for (let t = Coins.N - 1; t >= 0; t--) if (arr[t]) chips.push(`<i class="coinChip" title="${Coins.TIERS[t].name}: ${Coins.TIERS[t].value.toLocaleString()} copper each"><b>${arr[t].toLocaleString()}</b>&times;<img alt="${Coins.TIERS[t].name}" src="${ItemIcons.url(Coins.TIERS[t].id)}"></i>`);
+    return (chips.length ? chips.join('') : '<i class="coinChip none">0</i>') + `<small class="coinWorth">Worth ${Coins.total(arr).toLocaleString()} copper</small>`;
+  }
   constructor({ panel, body, closeButton, game, actions }) {
     this.panel = panel; this.body = body; this.game = game; this.picked = null; this.actions = actions || null; this.destroyArmed = false;
     this.shape = ''; this.slotEls = { me: [], pack: [], chest: [] };
@@ -183,7 +189,7 @@ class InventoryUI {
     if (this.picked && !this._picked()) this.picked = null;
     this._build();
     const P = this.picked, coinEl = this.body.querySelector('#invCoins'), dropCoins = this.body.querySelector('#invDropCoins');
-    if (coinEl) coinEl.textContent = Coins.format(this.game.inventory.coins || Coins.empty(), true);
+    if (coinEl) { const html = InventoryUI.coinHtml(this.game.inventory.coins); if (coinEl.dataset.h !== html) { coinEl.dataset.h = html; coinEl.innerHTML = html; } }
     if (dropCoins) dropCoins.disabled = !(this.game.inventory.purse > 0);
     this.slotEls.me.forEach((el, i) => {
       SlotView.fill(el, this.game.inventory.getSlot(i));

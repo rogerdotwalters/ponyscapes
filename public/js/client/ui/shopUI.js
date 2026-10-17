@@ -97,7 +97,7 @@ class ShopUI {
   }
 
   refresh() {
-    const g = this.game, site = BuildingSites.list[this.site], purse = Coins.format(g.inventory.coins || Coins.empty(), true);
+    const g = this.game, site = BuildingSites.list[this.site], purse = InventoryUI.coinHtml(g.inventory.coins);
     if (this.paying) {                                                                  // the counter: what the shop asks for, and where the coins go
       const id = this.paying.item, def = ItemDefs[id];
       this.body.innerHTML = `<div class="payTitle"><img alt="" src="${ItemIcons.url(id)}"><span>${def.name}</span><small>${site ? site.def.name : 'Shop'}</small></div>` +
@@ -114,7 +114,7 @@ class ShopUI {
       const cost = (copper ? ShopUI.askChips(copper) : '') + others.map(([item, n]) => `<span class="need${this._have(item) < n ? ' missing' : ''}">x${n}<img alt="" src="${ItemIcons.url(item)}"></span>`).join(' ');
       return `<div class="recipe"><div class="out"><img alt="" src="${ItemIcons.url(id)}"></div><div class="info"><div class="name">${def.name}</div><small class="gwho">${ShopUI.what(id, g.gear)}</small><div class="needs">${cost}</div></div><button class="shopbuy" data-buy="${id}"${afford ? '' : ' disabled'}>Buy</button></div>`;
     });
-    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <b>${purse}</b></div>` + tabs + (rows.join('') || '<div class="gnone">Nothing for sale.</div>');
+    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <span class="shopPurse">${purse}</span></div>` + tabs + (rows.join('') || '<div class="gnone">Nothing for sale.</div>');
   }
 
   /** The Sell tab: everything in your bag the shop will buy (all but coins), with what one is worth and buttons to sell one or the whole stack. */
@@ -126,6 +126,6 @@ class ShopUI {
       return `<div class="recipe"><div class="out"><img alt="" src="${ItemIcons.url(id)}"><span class="qty">${n}</span></div><div class="info"><div class="name">${ItemDefs[id].name}</div><div class="needs">${ShopUI.askChips(each)} each</div></div>` +
         `<button class="shopbuy" data-sell="${id}" data-count="1">Sell 1</button>${n > 1 ? `<button class="shopbuy" data-sell="${id}" data-count="all">All ${n}</button>` : ''}</div>`;
     });
-    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <b>${purse}</b></div>` + tabs + (rows.join('') || '<div class="gnone">Your bag has nothing to sell.</div>');
+    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <span class="shopPurse">${purse}</span></div>` + tabs + (rows.join('') || '<div class="gnone">Your bag has nothing to sell.</div>');
   }
 }

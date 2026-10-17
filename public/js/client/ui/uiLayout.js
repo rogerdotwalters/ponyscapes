@@ -167,9 +167,11 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const needH = header + 4 * MIN_PANEL_SLOT + 3 * pg + 2 * pp, regionBottomY = region.y + region.h;
   const coversHud = region.h < needH;
   if (coversHud) region = makeRect(region.x, top, region.w, regionBottomY - top);
-  const invSlot = Math.max(MIN_PANEL_SLOT, invSlotFor(region)), sectionH = Math.round(20 * k);
-  const invW = Math.min(region.w, Math.max(INV_COLS * invSlot + (INV_COLS - 1) * ig + 2 * pp, Math.round(300 * k)));
-  const invH = Math.min(region.h, header + 2 * pp + INV_ACTIONS_H + INV_ROWS * (invSlot + ig) + 3 * sectionH);         // (the sections scroll inside when there is more)
+  /* portrait phones: the bag gets its own tall layout - the full screen width and all the height under the HUD (modal, so it may cover the thumb controls), and the body scrolls */
+  const portraitBag = touch && h > w, invRegion = portraitBag ? makeRect(left, topUsed, right - left, bottom - topUsed) : region;
+  const invSlot = Math.max(MIN_PANEL_SLOT, invSlotFor(invRegion)), sectionH = Math.round(20 * k);
+  const invW = Math.min(invRegion.w, Math.max(INV_COLS * invSlot + (INV_COLS - 1) * ig + 2 * pp, Math.round(300 * k)));
+  const invH = portraitBag ? invRegion.h : Math.min(invRegion.h, header + 2 * pp + INV_ACTIONS_H + INV_ROWS * (invSlot + ig) + 3 * sectionH);         // (the sections scroll inside when there is more)
   const craftW = Math.min(Math.round(350 * k), region.w);
   const sidePanel = makeRect(region.x + (region.w - craftW) / 2, region.y, craftW, region.h);   // crafting, gear, trade and host settings share one rect
   const mapW = Math.min(right - left, 720), mapH = Math.min(bottom - top, 470);                 // the map is view-only, so it may cover the thumb controls: a big window in the middle
@@ -178,7 +180,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const confirmRect = makeRect(Math.round((w - confW) / 2), Math.round((h - confH) / 2), confW, confH);
   const panels = {
     region, slot: invSlot, gap: pg, invGap: ig, pad: pp, header, coversHud,
-    inventory: makeRect(region.x + (region.w - invW) / 2, region.y + Math.max(0, (region.h - invH) / 2), invW, invH),
+    inventory: makeRect(invRegion.x + (invRegion.w - invW) / 2, invRegion.y + Math.max(0, (invRegion.h - invH) / 2), invW, invH),
     crafting: sidePanel, settings: sidePanel, gear: sidePanel, trade: sidePanel, map: mapRect, confirm: confirmRect,
     craftListMaxHeight: Math.max(60, region.h - header - 2 * pp),
     invBodyMaxHeight: Math.max(invSlot + 10, invH - header - 2 * pp - INV_ACTIONS_H)
