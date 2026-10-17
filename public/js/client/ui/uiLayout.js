@@ -13,6 +13,7 @@ const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnCoins', w: 62 }, { i
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
 const INV_ACTIONS_H = 22 + 36;                      // what you picked, and the Wear / To pony / Drop / Destroy row
+const INV_CHROME = 6 + 16, MIN_INV_SLOT = 26;       // the panel's two 3px borders + the bag's scroll handle (16px) eat into the width the nine columns get
 const INV_COLS = 9, INV_ROWS = 6;                    // the bag panel: rows of nine like Minecraft (belt + 40-slot bag = five rows; the pony's pack follows), scrolling past that
 const makeRect = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
 const rectsOverlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
@@ -152,7 +153,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
 
   /* ---- overlay panels: they are modal (a click-off backdrop sits over the thumb controls), so they may cover those, but never the HUD that stays usable above the backdrop ---- */
   const pp = Math.round(12 * k), pg = Math.round(5 * k), ig = Math.round(3 * k), header = Math.round(34 * k);
-  const invSlotFor = r => Math.min(maxSlot, Math.floor((r.w - 2 * pp - (INV_COLS - 1) * ig) / INV_COLS), Math.floor((r.h - header - 2 * pp - 3 * pg) / 4));
+  const invSlotFor = r => Math.min(maxSlot, Math.floor((r.w - 2 * pp - INV_CHROME - (INV_COLS - 1) * ig) / INV_COLS), Math.floor((r.h - header - 2 * pp - 3 * pg) / 4));
   let region;
   if (touch) {
     const regionBottom = utilityAtBottom ? emote.y - m : bottom;
@@ -169,8 +170,8 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   if (coversHud) region = makeRect(region.x, top, region.w, regionBottomY - top);
   /* portrait phones: the bag gets its own tall layout - the full screen width and all the height under the HUD (modal, so it may cover the thumb controls), and the body scrolls */
   const portraitBag = touch && h > w, invRegion = portraitBag ? makeRect(left, topUsed, right - left, bottom - topUsed) : region;
-  const invSlot = Math.max(MIN_PANEL_SLOT, invSlotFor(invRegion)), sectionH = Math.round(20 * k);
-  const invW = Math.min(invRegion.w, Math.max(INV_COLS * invSlot + (INV_COLS - 1) * ig + 2 * pp, Math.round(300 * k)));
+  const invSlot = Math.max(MIN_INV_SLOT, invSlotFor(invRegion)), sectionH = Math.round(20 * k);
+  const invW = Math.min(invRegion.w, Math.max(INV_COLS * invSlot + (INV_COLS - 1) * ig + 2 * pp + INV_CHROME, Math.round(300 * k)));
   const invH = portraitBag ? invRegion.h : Math.min(invRegion.h, header + 2 * pp + INV_ACTIONS_H + INV_ROWS * (invSlot + ig) + 3 * sectionH);         // (the sections scroll inside when there is more)
   const craftW = Math.min(Math.round(350 * k), region.w);
   const sidePanel = makeRect(region.x + (region.w - craftW) / 2, region.y, craftW, region.h);   // crafting, gear, trade and host settings share one rect
@@ -183,7 +184,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
     inventory: makeRect(invRegion.x + (invRegion.w - invW) / 2, invRegion.y + Math.max(0, (invRegion.h - invH) / 2), invW, invH),
     crafting: sidePanel, settings: sidePanel, gear: sidePanel, trade: sidePanel, map: mapRect, confirm: confirmRect,
     craftListMaxHeight: Math.max(60, region.h - header - 2 * pp),
-    invBodyMaxHeight: Math.max(invSlot + 10, invH - header - 2 * pp - INV_ACTIONS_H)
+    invBodyMaxHeight: Math.max(invSlot + 10, invH - header - 2 * pp - INV_ACTIONS_H - INV_CHROME)         // (less the borders and gaps the panel adds around the body)
   };
 
   /* ---- text overlays ---- */
