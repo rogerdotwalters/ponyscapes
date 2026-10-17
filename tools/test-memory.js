@@ -10,7 +10,7 @@ const test = (name, fn) => { try { fn(); passed++; console.log('  ok   ' + name)
 const inn = (n = 2, seed = 4242) => {
   run(`globalThis.S = new GameServer(${seed}); globalThis.ids = []; for (let i = 0; i < ${n}; i++) ids.push(S.addPlayer());
     globalThis.site = BuildingSites.list.find(b => b.id === 'pony_inn'); globalThis.grid = Grids.room(site.index);
-    ids.forEach((id, i) => { const p = S.players[id]; p.name = 'P' + (i + 1); S._moveToGrid(id, p, grid, 4.5 + i * 0.4, 6.2); });
+    ids.forEach((id, i) => { const p = S.players[id]; p.name = 'P' + (i + 1); S._moveToGrid(id, p, grid, 6.6 + i * 0.4, 8.3); });
     globalThis.table = () => S.memory.tables.values().next().value;`);
 };
 const sit = k => run(`S._interact(ids[${k}], S.players[ids[${k}]])`);

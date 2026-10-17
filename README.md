@@ -359,6 +359,8 @@ scoreboard, `client/render/roundupSprites.js` the fence, poles and ropes; `node 
 
 ## The Pony Inn and Connect Four
 
+**The inn itself** is a big building (10 x 6 tiles outside, a 24 x 16 room inside: `pony_inn` in `js/content/interiors.js`) of five rooms with plaster partition walls and open doorways: the **reception** just inside the door (a red runner, a waiting table and benches, and the front desk Hattie stands behind), the main **lobby** north of it where the games are (two Connect Four tables, the Memory table, a fireplace, bookshelves and benches), a **kitchen** (a great hearth, prep table, counter, pantry shelf and cask) and two **guest rooms** with bunks, a wardrobe and a dresser each. Every bit of floor can be walked to.
+
 **The Pony Inn** (`data/buildings/pony_inn.js`, room `pony_inn` in `js/content/interiors.js`, south of the plaza) has **Hattie the innkeeper** (`data/npcs/innkeeper.js`) behind her bar from 8:00 to 23:00 and two
 **Connect Four tables** (`data/furniture/inn.js` `connect4_table`, drawn by the `game_table` style in `pixelDecor.js`). Stand at a table and press **Use** (*Play Connect Four*) to sit. The first to sit takes seat 0, the next seat 1
 and the game starts; alone you can press **Play the computer** (`ConnectFour.bestMove`: it takes and blocks wins, otherwise looks 5 moves ahead and slips 10% of the time, so a person can win).

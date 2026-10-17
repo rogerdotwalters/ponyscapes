@@ -191,26 +191,42 @@ window.PONYSCAPES_INTERIORS = {
   "pony_inn": {
     "name": "The Pony Inn",
     "tiles": [
-      "WVWWWVWWWVWWW",
-      "WwwwwwwwwwwwW",
-      "WwwwwwwwwwwwW",
-      "WwwwwwwwwwwwW",
-      "WwwwwwwwwwwwW",
-      "WwwwwwwwwwwwW",
-      "WwwwwwwwwwwwW",
-      "WwwwwwwwwwwwW",
-      "WwwwwwwwwwwwW",
-      "WWWWWWmWWWWWW"
+      "WWWVWWWVWWWWVWWWWWWVWWWW",
+      "WwwwwwwwwwwwwwwwPttttttW",
+      "WwwwwwwwwwwwwwwwsttttttW",
+      "WwwwwwwwwwwwwwwwPttttttV",
+      "WwwwwwwwwwwwwwwwPttttttW",
+      "WwwwwwwwwwwwwwwwPPPPPPPW",
+      "WwwwwwwwwwwwwwwwPddddddW",
+      "WwwwwwwwwwwwwwwwsddddddW",
+      "WwwwwwwwwwwwwwwwPddddddV",
+      "WPPPPPPsssPPPPPPPddddddW",
+      "WwwwwwwrrrwwwwwwPPPPPPPW",
+      "WwwwwwwrrrwwwwwwPddddddW",
+      "WwwwwwwrrrwwwwwwsddddddW",
+      "WwwwwwwrrrwwwwwwPddddddV",
+      "WwwwwwwrrrwwwwwwPddddddW",
+      "WWWWWWWWmWWWWWWWWWWWWWWW"
     ],
     "furniture": [
-      { "id": "bar_counter", "x": 1, "y": 2, "rot": 0 }, { "id": "goods_shelf", "x": 5, "y": 1, "rot": 0 }, { "id": "lamp", "x": 7, "y": 1, "rot": 0 }, { "id": "fireplace", "x": 9, "y": 1, "rot": 0 },
-      { "id": "potted_plant", "x": 11, "y": 1, "rot": 0 }, { "id": "potted_plant", "x": 1, "y": 8, "rot": 0 }, { "id": "potted_plant", "x": 11, "y": 8, "rot": 0 },
-      { "id": "rug", "x": 5, "y": 4, "rot": 0 },
-      { "id": "connect4_table", "x": 2, "y": 5, "rot": 0 }, { "id": "chair", "x": 1, "y": 5, "rot": 0 }, { "id": "chair", "x": 4, "y": 5, "rot": 0 },
-      { "id": "connect4_table", "x": 8, "y": 5, "rot": 0 }, { "id": "chair", "x": 7, "y": 5, "rot": 0 }, { "id": "chair", "x": 10, "y": 5, "rot": 0 },
-      { "id": "memory_table", "x": 4, "y": 7, "rot": 0 }, { "id": "chair", "x": 3, "y": 7, "rot": 0 }, { "id": "chair", "x": 6, "y": 7, "rot": 0 }
+      { "id": "fireplace", "x": 7, "y": 1, "rot": 0 }, { "id": "lamp", "x": 6, "y": 1, "rot": 0 }, { "id": "lamp", "x": 9, "y": 1, "rot": 0 },
+      { "id": "bookshelf", "x": 1, "y": 1, "rot": 0 }, { "id": "bookshelf", "x": 2, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 12, "y": 1, "rot": 0 },
+      { "id": "potted_plant", "x": 15, "y": 1, "rot": 0 }, { "id": "potted_plant", "x": 1, "y": 8, "rot": 0 }, { "id": "potted_plant", "x": 15, "y": 8, "rot": 0 },
+      { "id": "rug", "x": 6, "y": 3, "rot": 0 }, { "id": "connect4_table", "x": 3, "y": 4, "rot": 0 }, { "id": "chair", "x": 2, "y": 4, "rot": 0 },
+      { "id": "chair", "x": 5, "y": 4, "rot": 0 }, { "id": "connect4_table", "x": 10, "y": 4, "rot": 0 }, { "id": "chair", "x": 9, "y": 4, "rot": 0 },
+      { "id": "chair", "x": 12, "y": 4, "rot": 0 }, { "id": "memory_table", "x": 6, "y": 6, "rot": 0 }, { "id": "chair", "x": 5, "y": 6, "rot": 0 },
+      { "id": "chair", "x": 8, "y": 6, "rot": 0 }, { "id": "bench", "x": 12, "y": 8, "rot": 0 }, { "id": "lamp", "x": 3, "y": 8, "rot": 0 },
+      { "id": "goods_shelf", "x": 10, "y": 10, "rot": 0 }, { "id": "bar_counter", "x": 10, "y": 12, "rot": 0 }, { "id": "lamp", "x": 14, "y": 10, "rot": 0 },
+      { "id": "potted_plant", "x": 15, "y": 14, "rot": 0 }, { "id": "potted_plant", "x": 1, "y": 14, "rot": 0 }, { "id": "table", "x": 2, "y": 11, "rot": 0 },
+      { "id": "chair", "x": 2, "y": 12, "rot": 0 }, { "id": "chair", "x": 3, "y": 12, "rot": 0 }, { "id": "bench", "x": 4, "y": 14, "rot": 0 },
+      { "id": "great_hearth", "x": 18, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 21, "y": 1, "rot": 0 }, { "id": "crate", "x": 22, "y": 2, "rot": 0 },
+      { "id": "table", "x": 18, "y": 3, "rot": 0 }, { "id": "counter", "x": 20, "y": 3, "rot": 0 }, { "id": "cask", "x": 22, "y": 4, "rot": 0 },
+      { "id": "bunk", "x": 22, "y": 6, "rot": 0 }, { "id": "dresser", "x": 21, "y": 6, "rot": 0 }, { "id": "wardrobe", "x": 18, "y": 6, "rot": 0 },
+      { "id": "lamp", "x": 17, "y": 6, "rot": 0 }, { "id": "rug", "x": 19, "y": 7, "rot": 0 }, { "id": "potted_plant", "x": 22, "y": 9, "rot": 0 },
+      { "id": "bunk", "x": 22, "y": 11, "rot": 0 }, { "id": "dresser", "x": 21, "y": 11, "rot": 0 }, { "id": "wardrobe", "x": 18, "y": 11, "rot": 0 },
+      { "id": "lamp", "x": 17, "y": 11, "rot": 0 }, { "id": "rug", "x": 19, "y": 12, "rot": 0 }, { "id": "bookshelf", "x": 22, "y": 14, "rot": 0 }
     ],
-    "exit": [6, 9]
+    "exit": [8, 15]
   }
 
 };
