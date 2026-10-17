@@ -11,7 +11,7 @@ class ConnectFourUI {
     this.game = game; this.coins = new Map(); this.seq = -1; this.key = ''; this.raf = 0; this.hover = -1; this.last = 0; this.openedAt = 0;
     this.drag = null; this.sent = null; this.oppPull = 0; this.shake = 0; this.pointer = null; this.touch = false; this.msg = '';
     const el = this.root = document.createElement('div');
-    el.id = 'c4Screen'; el.hidden = true;
+    el.id = 'c4Screen'; el.className = 'c4Screen'; el.hidden = true;
     el.innerHTML = '<div class="c4Card"><header><span>Connect Four &middot; The Pony Inn</span><button class="c4Close" tabindex="-1" aria-label="Stand up">&#x2715;</button></header>'
       + '<div class="c4Whos"><div class="c4Who opp"><canvas width="32" height="32"></canvas><b></b><i></i></div><div class="c4Who me"><canvas width="32" height="32"></canvas><b></b><i></i></div></div>'
       + '<canvas class="c4Board"></canvas><div class="c4Status"></div><div class="c4Btns"><button class="c4Ai" hidden>Play the computer</button><button class="c4Again" hidden>Play again</button><button class="c4Leave">Stand up</button></div></div>';
