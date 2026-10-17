@@ -95,6 +95,8 @@ const ItemDB = {
   getPlaceable: id => (ItemDefs[id] && ItemDefs[id].placeable) || null,
   /** A lasso's { tier, chance }, or null. */
   getLasso: id => (ItemDefs[id] && ItemDefs[id].lasso) || null,
+  /** Can this lasso hold a pony of this kind (an AnimalDefs entry)? Its tier must be enough, and a kind with `lassoNeeds` wants one of those lassos (the Rainbow Lasso counts for all). */
+  lassoHolds: (id, def) => { const l = ItemDefs[id] && ItemDefs[id].lasso; return !!l && l.tier >= ((def && def.lassoTier) || 1) && (!(def && def.lassoNeeds) || id === 'lasso_rainbow' || def.lassoNeeds.includes(id)); },
   /** A bag's { slots, for: 'player' | 'pony' }, or null (data/items/bags.js). */
   getBag: id => (ItemDefs[id] && ItemDefs[id].bag) || null
 };

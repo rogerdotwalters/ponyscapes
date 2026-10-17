@@ -18,7 +18,7 @@ const ItemIcons = (() => {
     for (let i = 1; i < pts.length - 1; i += 2) {
       const [x0, y0] = pts[i - 1], [x1, y1] = pts[i + 1], [x, y] = pts[i], len = Math.hypot(x1 - x0, y1 - y0) || 1, tx = (x1 - x0) / len, ty = (y1 - y0) / len, h = width / 2 - 0.4;
       if (worn && (i % 7 === 3 || i % 11 === 5)) continue;                                                // a twist worn away
-      ctx.strokeStyle = worn && i % 5 === 1 ? '#4a3a26' : look.braid; ctx.lineWidth = 1.5;               // ...or gone dark with age
+      ctx.strokeStyle = worn && i % 5 === 1 ? '#4a3a26' : look.bands ? look.bands[(i >> 1) % look.bands.length] : look.braid; ctx.lineWidth = 1.5;               // ...or gone dark with age
       ctx.beginPath(); ctx.moveTo(x - ty * h - tx * 1.4, y + tx * h - ty * 1.4); ctx.lineTo(x + ty * h + tx * 1.4, y - tx * h + ty * 1.4); ctx.stroke();
     }
   };
@@ -596,7 +596,7 @@ const ItemIcons = (() => {
     const key = '\u0000' + itemId;
     if (cache[key]) return cache[key];
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = SIZE;
-    const def = ItemDB.get(itemId), paint = painters[itemId] || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.blade ? (c => swordIcon(c, def.blade, def.edge || '#f4f8ff')) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def && def.hedge ? hedgePainter(def) : def && def.sapling ? saplingPainter(def) : def ? badgePainter(def) : fallback);
+    const def = ItemDB.get(itemId), paint = painters[itemId] || (ItemDB.getLasso(itemId) ? lassoPainter(itemId) : null) || (def && def.seed ? (c => PixelCraftIcons.seeds(c, def.color)) : typeof Crops !== 'undefined' && Crops.has(itemId) ? (c => PixelCraftIcons.produce(c, Crops.get(itemId))) : def && def.dye ? (c => PixelCraftIcons.dye(c, def.color)) : def && def.lasso ? lassoPainter(itemId) : def && def.blade ? (c => swordIcon(c, def.blade, def.edge || '#f4f8ff')) : def && def.bag ? bagPainter(def) : def && def.kind === 'wardrobe' ? wardrobePainter(def) : def && def.kind === 'berry' ? berryPainter(def.color) : def && def.hedge ? hedgePainter(def) : def && def.sapling ? saplingPainter(def) : def ? badgePainter(def) : fallback);
     paint(canvas.getContext('2d', { willReadFrequently: true }));          // (read back once by toDataURL: a CPU canvas avoids a slow GPU readback)
     return (cache[key] = canvas.toDataURL());
   }

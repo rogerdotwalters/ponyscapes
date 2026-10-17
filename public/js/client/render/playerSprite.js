@@ -13,6 +13,21 @@ const LASSO_LOOKS = {
   leash:      { rope: '#7a5a32', braid: '#a8844f', dark: '#3e2c16', honda: '#6e665a', tails: null, tip: '#c9a874', worn: true },
   lasso_silk: { rope: '#cfc3e6', braid: '#ffffff', dark: '#5c4f7a', honda: '#c4ccd6', tails: ['#e8b8d8', '#ffffff'], tip: '#c4ccd6' },
   lasso_gold: { rope: '#c9962a', braid: '#ffe9a0', dark: '#5e3f0a', honda: '#f2c94c', tails: ['#d8433a', '#f2c94c'], tip: '#fff1b8' },
+  lasso_red:       { rope: '#d8382f', braid: '#ff9a8c', dark: '#5a0f0c', honda: '#c4ccd6', tails: null, tip: '#ff9a8c' },
+  lasso_blue:      { rope: '#2f6fd8', braid: '#8cc4ff', dark: '#0c2a5a', honda: '#c4ccd6', tails: null, tip: '#8cc4ff' },
+  lasso_yellow:    { rope: '#f2c82c', braid: '#fff3a8', dark: '#6a5008', honda: '#c4ccd6', tails: null, tip: '#fff3a8' },
+  lasso_flower:    { rope: '#5fae4a', braid: '#a8e08c', dark: '#1f4a16', honda: '#f2e6a0', tails: ['#f08cc0', '#fff3a8'], tip: '#f08cc0' },
+  lasso_candy:     { rope: '#f4f0f0', braid: '#e8386a', dark: '#6a1a34', honda: '#ffd6e6', tails: ['#e8386a', '#7ad8f2'], tip: '#ffd6e6', bands: ['#f4f0f0', '#e8386a'] },
+  lasso_water:     { rope: '#3aa6e0', braid: '#c4efff', dark: '#0e3a5a', honda: '#bfe9f7', tails: ['#7ad8f2', '#e8fbff'], tip: '#e8fbff' },
+  lasso_jungle:    { rope: '#2f8a3a', braid: '#7ad06a', dark: '#103a14', honda: '#a8793a', tails: ['#4aa84a', '#c4a04a'], tip: '#7ad06a' },
+  lasso_fire:      { rope: '#e8601c', braid: '#ffd23a', dark: '#4a1204', honda: '#ffb02a', tails: ['#ff4a1c', '#ffd23a'], tip: '#fff1a0' },
+  lasso_cloud:     { rope: '#eaf2fb', braid: '#ffffff', dark: '#5a7a9a', honda: '#d8e8f8', tails: ['#ffffff', '#b8d4f0'], tip: '#ffffff' },
+  lasso_crystal:   { rope: '#9ad8f2', braid: '#ffffff', dark: '#2a5a7a', honda: '#c8a6f2', tails: ['#c8a6f2', '#7ad8f2'], tip: '#e8f8ff' },
+  lasso_ponytail:  { rope: '#e8a0c8', braid: '#ffd6ea', dark: '#6a2a52', honda: '#8a4aa8', tails: ['#e8a0c8', '#b080e0'], tip: '#ffd6ea' },
+  lasso_lightning: { rope: '#f2e23a', braid: '#ffffff', dark: '#2a2a5a', honda: '#7a8aff', tails: ['#f2e23a', '#7a8aff'], tip: '#ffffff' },
+  lasso_sun:       { rope: '#f2a81c', braid: '#fff1a0', dark: '#6a3a04', honda: '#ffe23a', tails: ['#ff8a1c', '#ffe23a'], tip: '#fff8c4' },
+  lasso_harmony:   { rope: '#d8a8f2', braid: '#ffffff', dark: '#4a2a6a', honda: '#f2c230', tails: ['#f08cc0', '#7ad8f2'], tip: '#fff3a8', bands: ['#f08cc0', '#d8a8f2', '#7ad8f2'] },
+  lasso_rainbow:   { rope: '#ffffff', braid: '#ffffff', dark: '#3a2a5a', honda: '#f2c230', tails: ['#e8384a', '#3a8af2'], tip: '#ffffff', bands: ['#e8384a', '#f28a2a', '#f2e23a', '#4ac84a', '#3a8af2', '#9a4ae0'] },
   lasso_star: { rope: '#8a3fd0', braid: '#3fd8f2', dark: '#2a0f4a', honda: '#f2c230', tails: ['#9a4ae0', '#36c8ee'], tip: '#f2c230' },
 };
 const lassoLook = id => LASSO_LOOKS[id] || { rope: (ItemDefs[id] && ItemDefs[id].color) || '#8a6a3c', braid: '#f0e0b0', dark: '#3a2a18', honda: '#b0b6bf', tails: null, tip: '#f0e0b0' };
@@ -413,7 +428,7 @@ class PlayerSprite {
     ctx.strokeStyle = look.dark; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(cx, cy, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();      // outline, then the coil
     ctx.strokeStyle = look.rope; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.ellipse(cx, cy, 6.5, 5.2, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.strokeStyle = look.braid; ctx.lineWidth = 1.2; ctx.beginPath();                                                                      // the braid: little twists round the coil
-    for (let k = 0; k < 8; k++) { if (look.worn && k % 3 === 2) continue; const a = k / 8 * Math.PI * 2, ex = cx + Math.cos(a) * 6.5, ey = cy + Math.sin(a) * 5.2; ctx.moveTo(ex - 1, ey - 1); ctx.lineTo(ex + 1, ey + 1); }
+    for (let k = 0; k < 8; k++) { if (look.worn && k % 3 === 2) continue; if (look.bands) { ctx.stroke(); ctx.strokeStyle = look.bands[k % look.bands.length]; ctx.beginPath(); } const a = k / 8 * Math.PI * 2, ex = cx + Math.cos(a) * 6.5, ey = cy + Math.sin(a) * 5.2; ctx.moveTo(ex - 1, ey - 1); ctx.lineTo(ex + 1, ey + 1); }
     ctx.stroke();
     ctx.fillStyle = look.honda; ctx.beginPath(); ctx.arc(cx - 5, cy - 4, 1.8, 0, Math.PI * 2); ctx.fill();                                // the ring
     const ex = x - px * 3, ey = y + 15;
