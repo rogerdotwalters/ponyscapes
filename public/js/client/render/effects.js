@@ -193,7 +193,7 @@ class Effects {
       const stamp = (x, y, size, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x / P) * P - size / 2, Math.round(y / P) * P - size / 2, size, size); };
       const strand = (pts, w) => {                                                                       // a braided rope: dark outline, body, light twists
         for (const [size, col] of [[w + 2, look.dark], [w, look.rope]]) for (const [x, y] of pts) stamp(x, y, size, col);
-        pts.forEach(([x, y], i) => { if (i % 4 < 2 && !(look.worn && i % 7 === 3)) stamp(x, y, w - 2, look.braid); });
+        pts.forEach(([x, y], i) => { if (i % 4 < 2 && !(look.worn && i % 7 === 3)) stamp(x, y, w - 2, look.bands ? look.bands[(i >> 2) % look.bands.length] : look.braid); });
       };
       const dense = (n, f) => Array.from({ length: n + 1 }, (_, i) => f(i / n));
       const [x, y] = at(1), rad = r.hit && !flying ? Math.max(5, 13 - (r.age - 0.28) * 30) : 13, spin = flying ? Math.sin(r.age * 22) * 0.35 : 0;

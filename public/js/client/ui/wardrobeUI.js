@@ -66,7 +66,7 @@ class WardrobeUI {
   }
   static lassoLine(item) {
     const lasso = item && ItemDB.getLasso(item);
-    return lasso ? `L throws your ${ItemDefs[item].name}: it ${WardrobeUI.catches(lasso.tier)}. Craft a better one at a crafting table to catch rarer ponies.` : 'No lasso in the lasso slot: Equip one from your pack (L throws it).';
+    return lasso ? `L throws your ${ItemDefs[item].name}: it ${WardrobeUI.catches(lasso.tier)}. Craft a better one at a crafting table, or buy one from the lasso dealer in the stable, to catch rarer ponies.` : 'No lasso in the lasso slot: Equip one from your pack (L throws it).';
   }
   /** A cape's two stats, in words: Power (multiplies a pony's ability) and Def (soaks damage). */
   static stats(id) { const e = ItemDefs[id].equip; return e.slot === 'cape' ? ` &middot; Power +${Math.round(e.power * 100)}% &middot; Def ${e.def}` : ''; }

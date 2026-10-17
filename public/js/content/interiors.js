@@ -145,7 +145,7 @@ window.PONYSCAPES_INTERIORS = {
       { "id": "stall_gate", "x": 2, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 7, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 23, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 28, "y": 5, "rot": 0 },
       { "id": "stall_gate", "x": 2, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 7, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 23, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 28, "y": 13, "rot": 0 },
       { "id": "stall_gate", "x": 2, "y": 21, "rot": 0 }, { "id": "stall_gate", "x": 7, "y": 21, "rot": 0 }, { "id": "stall_gate", "x": 23, "y": 21, "rot": 0 }, { "id": "stall_gate", "x": 28, "y": 21, "rot": 0 },
-      { "id": "coin_poster", "x": 15, "y": 1, "rot": 0 }, { "id": "stable_desk", "x": 15, "y": 4, "rot": 0 }, { "id": "pony_vendor", "x": 15, "y": 17, "rot": 0 }, { "id": "lamp", "x": 12, "y": 1, "rot": 0 }, { "id": "lamp", "x": 19, "y": 1, "rot": 0 }, { "id": "lamp", "x": 11, "y": 12, "rot": 0 },
+      { "id": "coin_poster", "x": 15, "y": 1, "rot": 0 }, { "id": "stable_desk", "x": 15, "y": 4, "rot": 0 }, { "id": "pony_vendor", "x": 15, "y": 17, "rot": 0 }, { "id": "lasso_dealer", "x": 15, "y": 20, "rot": 0 }, { "id": "lamp", "x": 12, "y": 1, "rot": 0 }, { "id": "lamp", "x": 19, "y": 1, "rot": 0 }, { "id": "lamp", "x": 11, "y": 12, "rot": 0 },
       { "id": "lamp", "x": 20, "y": 12, "rot": 0 }, { "id": "hay_bale", "x": 12, "y": 22, "rot": 0 }, { "id": "hay_bale", "x": 13, "y": 22, "rot": 0 }, { "id": "hay_bale", "x": 18, "y": 22, "rot": 0 },
       { "id": "hay_bale", "x": 19, "y": 22, "rot": 0 }, { "id": "rug", "x": 14, "y": 10, "rot": 0 }, { "id": "potted_plant", "x": 12, "y": 6, "rot": 0 }, { "id": "potted_plant", "x": 19, "y": 6, "rot": 0 }
     ],
