@@ -14,7 +14,7 @@ class InventoryUI {
   static coinHtml(coins) {
     const arr = coins || Coins.empty(), chips = [];
     for (let t = Coins.N - 1; t >= 0; t--) if (arr[t]) chips.push(`<i class="coinChip" title="${Coins.TIERS[t].name}: ${Coins.TIERS[t].value.toLocaleString()} copper each"><b>${arr[t].toLocaleString()}</b>&times;<img alt="${Coins.TIERS[t].name}" src="${ItemIcons.url(Coins.TIERS[t].id)}"></i>`);
-    return (chips.length ? chips.join('') : '<i class="coinChip none">0</i>') + `<small class="coinWorth">Worth ${Coins.total(arr).toLocaleString()} copper</small>`;
+    return (chips.length ? chips.join('') : '<i class="coinChip none">0</i>') + `<small class="coinWorth">Total ${Coins.total(arr).toLocaleString()}c</small>`;
   }
   constructor({ panel, body, closeButton, game, actions }) {
     this.panel = panel; this.body = body; this.game = game; this.picked = null; this.actions = actions || null; this.destroyArmed = false;
