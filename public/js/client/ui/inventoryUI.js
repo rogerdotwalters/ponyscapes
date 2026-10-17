@@ -34,12 +34,43 @@ class InventoryUI {
       if (b.id === 'invMainPony') game.makeMainPony(); else this._onBagSlot(Number(b.dataset.bag));
     });
     for (const ev of ['inventoryChanged', 'selectedSlotChanged', 'packChanged', 'chestChanged', 'gearChanged']) game.events.on(ev, () => this.refresh());
+    this._initScrollHandle();
     this.refresh();
+  }
+
+  /** A scroll handle drawn by the game: phones (Android Chrome especially) fade or hide the native scrollbar and ignore its styling, so this stays
+   *  on screen while the bag is open, shows where you are, and can be dragged (or the track tapped) to move. The native bar is hidden in the CSS. */
+  _initScrollHandle() {
+    const body = this.body, track = document.createElement('div'), thumb = document.createElement('div');
+    track.id = 'invScroll'; thumb.id = 'invScrollThumb'; track.appendChild(thumb); this.panel.appendChild(track);
+    this.scrollTrack = track; this.scrollThumb = thumb;
+    const range = () => { const th = thumb.offsetHeight, room = Math.max(1, track.clientHeight - th), max = Math.max(1, body.scrollHeight - body.clientHeight); return { room, max }; };
+    let grab = null;
+    thumb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); thumb.setPointerCapture(e.pointerId); grab = { y: e.clientY, top: body.scrollTop }; thumb.classList.add('drag'); });
+    thumb.addEventListener('pointermove', e => { if (!grab) return; const r = range(); body.scrollTop = grab.top + (e.clientY - grab.y) * r.max / r.room; });
+    const end = () => { grab = null; thumb.classList.remove('drag'); };
+    thumb.addEventListener('pointerup', end); thumb.addEventListener('pointercancel', end);
+    track.addEventListener('pointerdown', e => { if (e.target !== track) return; e.preventDefault(); const r = range(), box = track.getBoundingClientRect(); body.scrollTop = (e.clientY - box.top - thumb.offsetHeight / 2) * r.max / r.room; });
+    body.addEventListener('scroll', () => this._syncScrollHandle(), { passive: true });
+    window.addEventListener('resize', () => this._syncScrollHandle());
+    if (window.ResizeObserver) new ResizeObserver(() => this._syncScrollHandle()).observe(body);
+  }
+  /** Place the handle beside the body and size / position its thumb for how much there is to scroll. */
+  _syncScrollHandle() {
+    const body = this.body, track = this.scrollTrack, thumb = this.scrollThumb;
+    if (!track || this.panel.hidden) return;
+    const over = body.scrollHeight - body.clientHeight;
+    track.style.display = over > 1 ? '' : 'none';
+    if (over <= 1) return;
+    track.style.top = body.offsetTop + 'px'; track.style.height = body.clientHeight + 'px';
+    const th = Math.max(56, Math.round(body.clientHeight * body.clientHeight / body.scrollHeight));
+    thumb.style.height = th + 'px';
+    thumb.style.transform = `translateY(${Math.round(body.scrollTop / over * (body.clientHeight - th))}px)`;
   }
 
   get isOpen() { return !this.panel.hidden; }
   toggle() { this.isOpen ? this.close() : this.open(); }
-  open() { const was = this.isOpen; this.panel.hidden = false; this.refresh(); if (!was) Sfx.bag(true); }                       // (the bag rustles open and shut; panels.closeAll() also calls close() on a closed bag: silent)
+  open() { const was = this.isOpen; this.panel.hidden = false; this.refresh(); this._syncScrollHandle(); if (!was) Sfx.bag(true); }                       // (the bag rustles open and shut; panels.closeAll() also calls close() on a closed bag: silent)
   close() { const was = this.isOpen; this.panel.hidden = true; this.picked = null; this.refresh(); if (was) Sfx.bag(false); }
 
   _inv(sec) { return sec === 'chest' ? (this.game.chest ? this.game.chest.inventory : null) : sec === 'pack' ? (this.game.pack ? this.game.pack.inventory : null) : this.game.inventory; }
@@ -200,6 +231,7 @@ class InventoryUI {
     this.slotEls.chest.forEach((el, i) => { SlotView.fill(el, this.game.chest.inventory.getSlot(i)); el.classList.toggle('picked', !!P && P.sec === 'chest' && P.i === i); });
     const s = this._picked(), ponyBag = s && P.sec === 'me' && Bags.isPonyBag(s.id);
     for (const b of this.body.querySelectorAll('.invbag')) b.classList.toggle('target', !!ponyBag && !b.classList.contains('filled'));
+    this._syncScrollHandle();
     if (!this.actions) return;
     const A = this.actions, def = s && ItemDefs[s.id], use = this._useAction();
     A.label.textContent = s ? `${def ? def.name : s.id}${s.count > 1 ? ' x' + s.count : ''}${P.sec === 'pack' ? ' (pony pack)' : P.sec === 'chest' ? ' (chest)' : ''}` : 'Tap an item to move, drop or destroy it';
