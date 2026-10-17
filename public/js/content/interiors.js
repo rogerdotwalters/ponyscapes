@@ -208,7 +208,7 @@ window.PONYSCAPES_INTERIORS = {
       { "id": "rug", "x": 5, "y": 4, "rot": 0 },
       { "id": "connect4_table", "x": 2, "y": 5, "rot": 0 }, { "id": "chair", "x": 1, "y": 5, "rot": 0 }, { "id": "chair", "x": 4, "y": 5, "rot": 0 },
       { "id": "connect4_table", "x": 8, "y": 5, "rot": 0 }, { "id": "chair", "x": 7, "y": 5, "rot": 0 }, { "id": "chair", "x": 10, "y": 5, "rot": 0 },
-      { "id": "table", "x": 4, "y": 7, "rot": 0 }, { "id": "chair", "x": 4, "y": 8, "rot": 0 }, { "id": "chair", "x": 5, "y": 8, "rot": 0 }
+      { "id": "memory_table", "x": 4, "y": 7, "rot": 0 }, { "id": "chair", "x": 3, "y": 7, "rot": 0 }, { "id": "chair", "x": 6, "y": 7, "rot": 0 }
     ],
     "exit": [6, 9]
   }
