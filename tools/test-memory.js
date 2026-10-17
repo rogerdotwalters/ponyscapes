@@ -19,16 +19,18 @@ const flip = (k, i) => run(`S.memory.flip(ids[${k}], ${i})`);
 /** Indices of a matching pair, and of two cards that do not match, read from the server's own deck. */
 const pair = () => run(`(() => { const f = table().faces; const a = f.findIndex((v, i) => table().owner[i] < 0); const b = f.findIndex((v, i) => i !== a && v === f[a]); return [a, b]; })()`);
 const miss = () => run(`(() => { const t = table(), f = t.faces; const a = f.findIndex((v, i) => t.owner[i] < 0); const b = f.findIndex((v, i) => i !== a && t.owner[i] < 0 && v !== f[a]); return [a, b]; })()`);
-const solveAll = k => { for (let g = 0; g < 16 && st(k).status === 'playing'; g++) { const [a, b] = pair(); flip(k, a); flip(k, b); } };
+const solveAll = k => { for (let g = 0; g < 20 && st(k).status === 'playing'; g++) { const [a, b] = pair(); flip(k, a); flip(k, b); } };
 
-test('the deck: six ponies and six animals, two cards of each, shuffled; every face is a real pony variety', () => {
-  const d = run(`MemoryGame.deck()`); assert.strictEqual(d.length, 24);
-  const faces = [...new Set(d)]; assert.strictEqual(faces.length, 12, 'twelve pictures');
+test('the deck: fourteen pictures, two cards of each, shuffled, in the right mix; every picture is real', () => {
+  const d = run(`MemoryGame.deck()`); assert.strictEqual(d.length, 28);
+  const faces = [...new Set(d)]; assert.strictEqual(faces.length, 14, 'fourteen pictures');
   for (const f of faces) assert.strictEqual(d.filter(v => v === f).length, 2);
-  assert.strictEqual(faces.filter(f => run(`MemoryGame.POOL[${f}][0]`) === 'pony').length, 6, 'six ponies'); assert.strictEqual(faces.filter(f => run(`MemoryGame.POOL[${f}][0]`) === 'animal').length, 6, 'six animals');
+  const count = kind => faces.filter(f => run(`MemoryGame.POOL[${f}][0]`) === kind).length;
+  assert.deepStrictEqual(['pony', 'animal', 'coin', 'item'].map(count), [5, 4, 3, 2], 'five ponies, four animals, three coins, two lassos');
   assert.notDeepStrictEqual(d, run(`MemoryGame.deck(() => 0.999)`), 'the rng shuffles');
   assert.notDeepStrictEqual([...new Set(d)].sort(), [...new Set(run(`MemoryGame.deck(() => 0.01)`))].sort(), 'a different mix of pictures each game');
-  assert.strictEqual(run(`MemoryGame.POOL.every(([k, id, type]) => !!AnimalDefs[type] && (k === 'animal' || PonyCoins.ids.includes(id)))`), true, 'every picture is a real pony or animal');
+  assert.strictEqual(run(`MemoryGame.POOL.every(([k, id, type]) => k === 'pony' ? PonyCoins.ids.includes(id) && !!AnimalDefs[type] : k === 'animal' ? !!AnimalDefs[type] : k === 'coin' ? Coins.TIERS.some(t => t.id === id) : !!ItemDefs[id] && !!ItemDB.getLasso(id))`), true, 'every picture is a real pony, animal, coin or lasso');
+  assert(run(`MemoryGame.POOL.length`) <= 36, 'a card picture fits one base-36 character');
 });
 
 test('the Pony Inn has a Memory table that offers Play Memory; sitting waits for an opponent', () => {
@@ -36,19 +38,19 @@ test('the Pony Inn has a Memory table that offers Play Memory; sitting waits for
   const a = run(`Interactions.find(S.grids.get(grid), {}, S.players[ids[0]], '', {}, ids[0], {}, {})`);
   assert.strictEqual(a.kind, 'memory');
   sit(0);
-  assert.strictEqual(st(0).status, 'waiting'); assert.strictEqual(st(0).seat, 0); assert.strictEqual(st(0).st, '.'.repeat(24));
+  assert.strictEqual(st(0).status, 'waiting'); assert.strictEqual(st(0).seat, 0); assert.strictEqual(st(0).st, '.'.repeat(28));
   assert.strictEqual(run(`S.pendingEvents.some(e => e.type === 'openMemory' && e.to === ids[0])`), true);
   assert.strictEqual(st(1), null);
 });
 
-test('alone: play alone counts your moves; a pair stays, a miss turns back down; all twelve pairs end it', () => {
+test('alone: play alone counts your moves; a pair stays, a miss turns back down; all fourteen pairs end it', () => {
   inn(1); sit(0); run(`S.memory.playAlone(ids[0])`);
   let s = st(0); assert.strictEqual(s.status, 'playing'); assert.strictEqual(s.solo, true);
   const [m1, m2] = miss(); flip(0, m1); assert.strictEqual(st(0).st[m1], 'u'); flip(0, m2);
   s = st(0); assert.strictEqual(s.moves, 1); assert.strictEqual(s.st[m1], 'u', 'still showing'); flip(0, pair()[0]); assert.strictEqual(st(0).st.split('u').length - 1, 2, 'no third card while two are up');
   secs(2); s = st(0); assert.strictEqual(s.st.replace(/\./g, ''), '', 'both turned back down');
   const [a, b] = pair(); flip(0, a); flip(0, b); s = st(0); assert.strictEqual(s.st[a], 'm'); assert.strictEqual(s.st[b], 'm'); assert.strictEqual(s.score[0], 1); assert.strictEqual(s.turn, 0);
-  solveAll(0); s = st(0); assert.strictEqual(s.status, 'done'); assert.strictEqual(s.score[0], 12); assert.strictEqual(s.moves, 13, 'one miss, twelve pairs');
+  solveAll(0); s = st(0); assert.strictEqual(s.status, 'done'); assert.strictEqual(s.score[0], 14); assert.strictEqual(s.moves, 15, 'one miss, fourteen pairs');
   run(`S.memory.again(ids[0])`); s = st(0); assert.strictEqual(s.status, 'playing'); assert.strictEqual(s.moves, 0); assert.strictEqual(s.st.replace(/\./g, ''), '');
   run(`S.memory.leave(ids[0])`); assert.strictEqual(run(`S.memory.tables.size`), 0);
 });
@@ -69,7 +71,7 @@ test('two players take turns; a pair lets you go again; a miss passes the turn a
 test('the winner is whoever has more pairs; a rematch needs both and the other side starts', () => {
   inn(2); sit(0); sit(1);
   const first = st(0).turn; solveAll(first);
-  const s = st(0); assert.strictEqual(s.status, 'done'); assert.strictEqual(s.winner, first); assert.strictEqual(s.score[first], 12);
+  const s = st(0); assert.strictEqual(s.status, 'done'); assert.strictEqual(s.winner, first); assert.strictEqual(s.score[first], 14);
   run(`S.memory.again(ids[0])`); assert.strictEqual(st(0).status, 'done');
   run(`S.memory.again(ids[1])`); assert.strictEqual(st(0).status, 'playing'); assert.strictEqual(st(0).turn, 1 - first); assert.strictEqual(st(0).score.join(), '0,0');
 });
