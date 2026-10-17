@@ -1,26 +1,34 @@
 'use strict';
 /* SHARED - the MEMORY GAME at the Pony Inn (data/buildings/pony_inn.js, furniture `memory_table` in data/furniture/inn.js).
  *
- * Walk up to a Memory table and press Use to SIT. Twenty cards lie face down in a grid: ten ponies, two cards of each. On your turn flip two cards; a pair that matches is yours
+ * Walk up to a Memory table and press Use to SIT. Twenty-eight cards lie face down in a grid: fourteen pictures, two cards of each, picked at random for each game: five ponies, four animals, three of the game's coins and two lassos. On your turn flip two cards; a pair that matches is yours
  * (and you go again), a pair that does not is turned back down after a moment and the turn passes. Play ALONE (press "Play alone": it counts your moves) or head to head
  * with the person who sits across the table: whoever finds the most pairs wins. There is no computer player. Walking away from the table (or leaving the building) stands you up;
  * your opponent wins a game in progress.
  * The server holds the game and the shuffle; a player is only ever told the faces of cards that are face up or matched (client/ui/memoryUI.js draws it).
  *
- * Cards are indices 0..19, row-major (the screen lays them out in 4 or 5 columns). Sent to the screens as three 20-character strings: `st` ('.' face down, 'u' face up, 'm' matched),
- * `fc` (the face of an up / matched card, '0'..'9', else '-') and `own` (who matched it, '0' / '1', else '-'). */
+ * Cards are indices 0..27, row-major (the screen lays them out in 4 or 7 columns). Sent to the screens as three 28-character strings: `st` ('.' face down, 'u' face up, 'm' matched),
+ * `fc` (the picture of an up / matched card: an index into MemoryGame.POOL in base 36, else '-') and `own` (who matched it, '0' / '1', else '-'). */
 const MemoryGame = (() => {
-  const PAIRS = 10, N = PAIRS * 2;
-  /** The ten ponies on the cards: [coin variety, pony kind]. Each face is that variety's pony drawn by the client (memoryUI.js), so the faces are the ponies of the game. */
-  const FACES = [['meadow', 'pony_plain'], ['moss', 'pony_earth'], ['frost', 'pony_unicorn'], ['jungle', 'pony_pegasus'], ['orchard', 'pony_earth'],
-    ['candy', 'pony_unicorn'], ['crystal', 'pony_pegasus'], ['starlit', 'pony_alicorn'], ['ember', 'pony_pegasus'], ['rainbow', 'pony_alicorn']];
-  /** A shuffled deck: two of each face (`rnd`: () => 0..1). */
+  /** How many pairs of each kind of picture a game has (picked at random from POOL): five ponies, four animals, three of the game's coins and two lassos. */
+  const MIX = { pony: 5, animal: 4, coin: 3, item: 2 }, PAIRS = Object.values(MIX).reduce((a, b) => a + b, 0), N = PAIRS * 2;
+  /** Every picture a card can show: [kind, id, animal type]. 'pony': that coin variety's pony (client/ui/memoryUI.js draws it from the pony kind); 'animal': the animal of the game; 'coin': one of
+   *  the money coins (an id of Coins.TIERS); 'item': an item's icon (the lassos). */
+  const POOL = [['pony', 'meadow', 'pony_plain'], ['pony', 'moss', 'pony_earth'], ['pony', 'frost', 'pony_unicorn'], ['pony', 'jungle', 'pony_pegasus'], ['pony', 'orchard', 'pony_earth'],
+    ['pony', 'candy', 'pony_unicorn'], ['pony', 'crystal', 'pony_pegasus'], ['pony', 'starlit', 'pony_alicorn'], ['pony', 'ember', 'pony_pegasus'], ['pony', 'rainbow', 'pony_alicorn'],
+    ['animal', 'sheep', 'sheep'], ['animal', 'goat', 'goat'], ['animal', 'rabbit', 'rabbit'], ['animal', 'chicken', 'chicken'], ['animal', 'duck', 'duck'],
+    ['animal', 'deer', 'deer'], ['animal', 'dog', 'dog'], ['animal', 'cat', 'cat'], ['animal', 'fox', 'fox'], ['animal', 'owl', 'owl'],
+    ['coin', 'copper_coin'], ['coin', 'silver_coin'], ['coin', 'gold_coin'], ['coin', 'ruby_coin'], ['coin', 'sapphire_coin'], ['coin', 'emerald_coin'], ['coin', 'diamond_coin'],
+    ['item', 'leash'], ['item', 'lasso_silk'], ['item', 'lasso_gold'], ['item', 'lasso_star']];
+  const pick = (from, n, rnd) => { const a = from.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); };
+  /** A shuffled deck for one game: the MIX of pictures picked at random from the pool, two cards of each (a card is an index into POOL; `rnd`: () => 0..1). */
   function deck(rnd = Math.random) {
-    const d = []; for (let i = 0; i < PAIRS; i++) d.push(i, i);
+    const d = [];
+    for (const kind of Object.keys(MIX)) for (const f of pick(POOL.map((p, i) => i).filter(i => POOL[i][0] === kind), MIX[kind], rnd)) d.push(f, f);
     for (let i = d.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; }
     return d;
   }
-  return { PAIRS, N, FACES, deck };
+  return { PAIRS, N, MIX, POOL, deck };
 })();
 
 const MEMORY_REACH = 2.6, MEMORY_PEEK_SECONDS = 1.3;
@@ -135,7 +143,7 @@ class MemorySystem {
     const n = MemoryGame.N, st = [], fc = [], own = [];
     for (let i = 0; i < n; i++) {
       const m = t.owner[i] >= 0, u = t.up.includes(i), show = m || u;
-      st.push(m ? 'm' : u ? 'u' : '.'); fc.push(show ? t.faces[i] : '-'); own.push(m ? t.owner[i] : '-');
+      st.push(m ? 'm' : u ? 'u' : '.'); fc.push(show ? t.faces[i].toString(36) : '-'); own.push(m ? t.owner[i] : '-');
     }
     return { seat: t.seats.indexOf(id), status: t.status, solo: t.solo, turn: t.turn, st: t.status === 'waiting' ? '.'.repeat(n) : st.join(''), fc: fc.join(''), own: own.join(''), score: t.score, moves: t.moves, tokens: t.tokens || this.s.connect4._tokens(t.seats),
       names: t.seats.map(x => (x ? this._name(x) : '')), winner: t.winner === undefined ? -1 : t.winner, last: t.last, match: t.match, seq: t.seq, again: t.again, key: t.key };
