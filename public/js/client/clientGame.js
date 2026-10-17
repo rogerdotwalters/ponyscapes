@@ -269,6 +269,7 @@ class ClientGame {
   debugGate(zone, open) { this.net.sendCommand({ type: 'debugGate', zone, open }); }
   /** Host only: spawn `count` ponies of a kind (a pony kind id, or 'random') and, optionally, a variety id, round you, each with a random look. */
   clearPonies() { this.net.sendCommand({ type: 'clearPonies' }); }                                      // dev: remove every pony in the game
+  devLasso(item) { this.net.sendCommand({ type: 'devLasso', item }); }                                  // dev: put any lasso in the lasso slot
   spawnPonies(kind, count, variety = '') { this.net.sendCommand({ type: 'spawnPony', kind, count, variety }); }
   setWeather(id) { this.net.sendCommand({ type: 'weather', id }); }
   setTimeOfDay(hour) { this.net.sendCommand({ type: 'admin', values: {}, hour }); }
