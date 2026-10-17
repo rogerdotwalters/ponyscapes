@@ -181,7 +181,7 @@ class MemoryUI {
       try { PixelPony.draw(pg, look, 'right', 45, 70, { moving: false, phase: 0, now: 0, seed: 0, lift: true, flying: false, kind: { wings: !!def.wings, horn: !!def.horn, mystical: !!def.mystical } }); } finally { if (typeof PixelPony.setBudget === 'function') PixelPony.setBudget(3); }
     } else if (kind === 'coin') {                                                                                                 // a money coin, face on, big
       const ti = Math.max(0, Coins.TIERS.findIndex(t => t.id === id)); look = { mane: [Coins.TIERS[ti].face[1]] };
-      CoinArt.draw(pg, 45, 52, 26, 1, ti);
+      CoinArt.draw(pg, 45, 52, 20, 1, ti);
     } else if (kind === 'item') {                                                                                                  // an item's icon (a lasso), enlarged
       const img = ItemIcons.image(id); look = { mane: ['#c9a35a'] };
       if (img && img.complete && img.naturalWidth) pg.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 8, 4, 74, 74); else waiting = true;     // (not loaded yet: drawn blank, and built again next time)
