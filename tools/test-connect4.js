@@ -10,7 +10,7 @@ const test = (name, fn) => { try { fn(); passed++; console.log('  ok   ' + name)
 const inn = (n = 2, seed = 4242) => {
   run(`globalThis.S = new GameServer(${seed}); globalThis.ids = []; for (let i = 0; i < ${n}; i++) ids.push(S.addPlayer());
     globalThis.site = BuildingSites.list.find(b => b.id === 'pony_inn'); globalThis.grid = Grids.room(site.index);
-    ids.forEach((id, i) => { const p = S.players[id]; p.name = 'P' + (i + 1); const f = S.grids.get(grid).entryPoint(); S._moveToGrid(id, p, grid, 3 + i * 0.4, 4.6); });
+    ids.forEach((id, i) => { const p = S.players[id]; p.name = 'P' + (i + 1); const f = S.grids.get(grid).entryPoint(); S._moveToGrid(id, p, grid, 3.5 + i * 0.4, 6.5); });
     globalThis.table = () => S.connect4.tables.values().next().value;`);
 };
 const sit = k => run(`S._interact(ids[${k}], S.players[ids[${k}]])`);
@@ -46,6 +46,20 @@ test('the Pony Inn stands in the village, with Hattie behind the bar by day', ()
   const hattie = run(`(() => { const n = S.npcs.npcs.n_innkeeper; return n && { grid: n.grid, x: n.x, y: n.y }; })()`);
   assert(hattie && hattie.grid === run('grid'), 'Hattie works inside the inn: ' + JSON.stringify(hattie));
   run(`S._moveToGrid(ids[0], S.players[ids[0]], '', 0, 0)`);
+});
+
+test('the inn is a big building of five rooms, every bit of floor can be walked to from the door, and Hattie stands behind the reception desk', () => {
+  inn(1);
+  assert.strictEqual(run(`site.w + 'x' + site.h`), '10x6', 'a big building outside');
+  const unreachable = run(`(() => { const plan = S.grids.get(grid).plan, L = plan.layout, seen = new Set(['8,14']), q = [[8, 14]], free = (x, y) => plan.isFloor(x, y) && !plan.solidAt(x, y);
+    while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, k = nx + ',' + ny; if (!seen.has(k) && free(nx, ny)) { seen.add(k); q.push([nx, ny]); } } }
+    let bad = 0; for (let y = 0; y < L.h; y++) for (let x = 0; x < L.w; x++) if (free(x, y) && !seen.has(x + ',' + y)) bad++; return bad; })()`);
+  assert.strictEqual(unreachable, 0, 'no room is walled off by furniture');
+  const have = run(`(() => { const ids = S.grids.get(grid).plan.layout.furniture.map(f => f.id); return { c4: ids.filter(i => i === 'connect4_table').length, mem: ids.filter(i => i === 'memory_table').length, desk: ids.includes('bar_counter'), bunks: ids.filter(i => i === 'bunk').length, hearth: ids.includes('great_hearth') }; })()`);
+  assert.strictEqual(JSON.stringify(have), JSON.stringify({ c4: 2, mem: 1, desk: true, bunks: 2, hearth: true }));
+  run(`GameSettings.setClock(S.tick, 12)`); run(`S.npcs.update(S.tick, S._humans())`); secs(2);
+  const h = run(`(() => { const n = S.npcs.npcs.n_innkeeper, d = S.grids.get(grid).plan.layout.furniture.find(f => f.id === 'bar_counter'); return n && { grid: n.grid, dx: n.x - (d.x + d.w / 2), dy: n.y - d.y }; })()`);
+  assert(h && h.grid === run('grid') && Math.abs(h.dx) < 1.5 && h.dy < 0.5 && h.dy > -1.5, 'Hattie by the desk: ' + JSON.stringify(h));
 });
 
 test('the table offers Play Connect Four; sitting down waits for an opponent', () => {
