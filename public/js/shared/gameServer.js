@@ -279,6 +279,7 @@ class GameServer {
       case 'debugGate': if (id === this.hostId && Number.isInteger(cmd.zone)) { this.worldProgress.setGate(cmd.zone, !!cmd.open); this._notice(id, `${(this.map.layers.zones.def(cmd.zone) || {}).name || 'Zone'}: gateway ${cmd.open ? 'open' : 'shut'}`); } break;       // the host's gateway switch (Dev settings)
       case 'clearPonies': if (id === this.hostId) this._devClearPonies(); break;                                                              // the host's "clear all ponies" button (Dev settings)
       case 'spawnPony': if (id === this.hostId) this._devSpawnPonies(cmd.kind, cmd.count, cmd.variety); break;                                // the host's pony spawner (Dev settings)
+      case 'devLasso': if (id === this.hostId) this._devLasso(id, cmd.item); break;                                                           // the host's lasso picker (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
@@ -939,6 +940,18 @@ class GameServer {
       this._remember(this.hostId, pet); names.push(PonyLook.describe(pet.look).name);
     }
     this._notice(this.hostId, `Spawned ${n} pon${n === 1 ? 'y' : 'ies'}: ${names.join(', ')}`);
+  }
+
+  /** Dev: put any lasso in the host's lasso slot (the one that was there goes to the bag, if it fits). */
+  _devLasso(id, item) {
+    const p = this.players[id], inventory = this.inventories[id];
+    if (!p || !ItemDB.getLasso(item)) return;
+    const old = p.gear.lasso;
+    if (old === item) return;
+    if (old) inventory.add(old, 1);
+    p.gear.lasso = item; this.inventoryRev[id]++;
+    this.pendingEvents.push({ type: 'equip', to: id, item });
+    this._notice(id, `Dev: the ${ItemDefs[item].name} is in your lasso slot`);
   }
 
   /** Dev: every pony in the game goes away, wild ones and everyone's own (stalled, leashed, ridden, foals), and any breeding in a stall stops. Riders are set down first. The wild herds come back with the mornings. */

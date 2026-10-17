@@ -23,6 +23,7 @@ class SettingsUI {
     this._createFarming();
     this._createWeather();
     this._createPonySpawner();
+    this._createLassos();
     this._createTeleport();
     this._createAnimals();
     this._createBiomes();
@@ -253,6 +254,16 @@ class SettingsUI {
         c.dataset.sure = ''; c.textContent = '\u{1F5D1} Clear all ponies'; this.game.clearPonies();
       }
     });
+    this.body.appendChild(el);
+  }
+
+  /* ---- lassos: put any lasso in your lasso slot (testing; the one that was there goes to your bag) ---- */
+  _createLassos() {
+    const el = document.createElement('div'); el.className = 'admBox';
+    const lassos = Object.values(ItemDefs).filter(d => d.lasso).sort((a, b) => a.lasso.tier - b.lasso.tier || (ItemDefs[a.id].price ? 1 : 0) - (ItemDefs[b.id].price ? 1 : 0));
+    el.innerHTML = '<div class="gtitle">Lassos <small>(testing: puts the lasso in your lasso slot, for free; the one in it goes to your bag)</small></div><div class="admRow" style="flex-wrap:wrap;gap:6px">' +
+      lassos.map(d => `<button data-lasso="${d.id}" tabindex="-1" title="tier ${d.lasso.tier}, +${Math.round(d.lasso.chance * 100)}% catch">${d.name}</button>`).join('') + '</div>';
+    el.addEventListener('click', e => { const b = e.target.closest('button[data-lasso]'); if (b) this.game.devLasso(b.dataset.lasso); });
     this.body.appendChild(el);
   }
 

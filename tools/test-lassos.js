@@ -27,6 +27,12 @@ test('a bought lasso goes in the bag, takes the lasso slot, and its tier sets wh
     S._buy(A, 'lasso_rainbow', inv.coins.slice()); const n = S.pendingEvents.filter(e => e.type === 'notice').map(e => e.text); return JSON.stringify({ has: inv.count('lasso_rainbow'), left: inv.purse / gold, n }); })()`));
   assert.strictEqual(r.has, 1); assert.strictEqual(r.left, 400, 'the Rainbow Lasso costs 100 gold');
 });
+test('dev: any lasso can be dropped into the lasso slot; the old one goes to the bag', () => {
+  const r = JSON.parse(run(`(() => { const S = new GameServer(7), A = S.addPlayer(), B = S.addPlayer(); S.hostId = A; const P = S.players[A];
+    S._devLasso(A, 'lasso_rainbow'); const first = P.gear.lasso, bag = S.inventories[A].count('leash'); S._devLasso(A, 'not_a_lasso');
+    return JSON.stringify({ first, bag, still: P.gear.lasso }); })()`));
+  assert.strictEqual(r.first, 'lasso_rainbow'); assert.strictEqual(r.bag, 1); assert.strictEqual(r.still, 'lasso_rainbow');
+});
 const fs = require('fs'), play = fs.readFileSync(__dirname + '/../public/js/client/render/playerSprite.js', 'utf8');
 test('every lasso has a look drawn in hand, on the icon and in flight', () => { for (const id of IDS) assert(new RegExp('\\b' + id + ':\\s*\\{').test(play), id + ' has no LASSO_LOOKS entry'); });
 const fxSrc = fs.readFileSync(__dirname + '/../public/js/client/render/effects.js', 'utf8');
