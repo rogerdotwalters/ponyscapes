@@ -168,4 +168,22 @@ test('dev: clear all ponies removes every pony (wild, owned, stalled, ridden) an
   assert(r.before.ponies >= 2, 'there were ponies'); assert.strictEqual(r.after.ponies, 0); assert.strictEqual(r.after.others, r.before.others, 'other animals stay'); assert.strictEqual(r.breeding, 0);
   assert(r.guestBlocked, 'a guest cannot clear them'); assert(r.host, 'the first player is the host');
 });
+test('multiplayer: everyone shares the host\'s stable, and the host sets what each guest may do', () => {
+  const r = JSON.parse(run(`(() => {
+    const S = new GameServer(7), H = S.addPlayer(), G = S.addPlayer(), site = BuildingSites.list.find(x => x.def.id === 'pony_stable').index, out = {};
+    out.same = S.interiors.gridFor(H, BuildingSites.list[site]) === S.interiors.gridFor(G, BuildingSites.list[site]);
+    out.levels = [S._stableAccess(H), S._stableAccess(G)];
+    S._setStableAccess(G, { target: H, level: 'none' }); out.guestCannotSet = S._stableAccess(H) === 'full';
+    const gp = S.players[G], hp = S.players[H];
+    S._setStableAccess(H, { target: G, level: 'none' }); S.interiors.enter(G, gp, site); out.shutOut = !gridOf(gp);
+    S._setStableAccess(H, { target: G, level: 'default' }); S.interiors.enter(G, gp, site); out.in = !!gridOf(gp);
+    const a = { owner: H }, b = { owner: G };
+    out.def = [S._canManage(G, a), S._canManage(G, b)];
+    S._setStableAccess(H, { target: G, level: 'full' }); out.full = [S._canManage(G, a), S._canManage(G, b), S._isMyStable(G, gridOf(gp))];
+    S._setStableAccess(H, { target: G, level: 'none' }); out.kicked = !gridOf(gp);
+    return JSON.stringify(out); })()`));
+  assert(r.same, 'one stable'); assert.deepStrictEqual(r.levels, ['full', 'default']); assert(r.guestCannotSet);
+  assert(r.shutOut, 'no access: cannot enter'); assert(r.in, 'default: can enter');
+  assert.deepStrictEqual(r.def, [false, true], 'default: only their own ponies'); assert.deepStrictEqual(r.full, [true, true, true]); assert(r.kicked, 'closing the stable walks a guest out');
+});
 console.log(passed + ' passed');

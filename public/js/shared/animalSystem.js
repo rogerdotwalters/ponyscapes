@@ -441,7 +441,7 @@ class AnimalSystem {
       if (a.owner && tick - a.penTick > 30 && checked < PEN_BUDGET) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; checked++; }
       const fruit = a.captor ? AnimalLevels.tameFruit(AnimalDefs[a.type], a.level) : null;
       const gentling = a.captor ? { have: a.trust, need: a.applesNeed || fruit.count, item: fruit.item, progress: this.tameProgress(a) } : null;
-      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, foalMin: a.foal > 0 ? Math.ceil(a.foal / 60) : 0, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null, gen: a.owner && a.look && AnimalDefs[a.type].pony ? PonyQuality.summaryOf(a) : undefined });
+      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, foalMin: a.foal > 0 ? Math.ceil(a.foal / 60) : 0, ageMin: a.foal > 0 ? Stable.ageMin(a) : undefined, rest: a.breedRest > 0 ? Math.ceil(a.breedRest) : undefined, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null, gen: a.owner && a.look && AnimalDefs[a.type].pony ? PonyQuality.summaryOf(a) : undefined });
     }
     this._petsMemo = { tick, owner: ownerId, out };
     return out;

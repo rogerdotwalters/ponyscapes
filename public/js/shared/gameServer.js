@@ -286,6 +286,7 @@ class GameServer {
       case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
       case 'vendorPick': this._vendorPick(id, cmd); break;                                                    // the pony vendor's menu (ponyTrade.js)
       case 'openStall': this._openStall(id, cmd); break;                                                      // the stall button: open that stall's menu (stableSystem.js)
+      case 'stableAccess': this._setStableAccess(id, cmd); if (this.players[id]) { const p = this.players[id], hit = this._deskNear(p, cmd.fx, cmd.fy); if (hit) this._useDesk(id, p, { fx: cmd.fx, fy: cmd.fy }); } break;      // the host's stable access list (stableSystem.js)
       case 'deskPick': this._deskPick(id, cmd); break;                                                        // a button in the stable desk's menu (ponyCare.js)
       case 'lineage': if (typeof cmd.animal === 'string') this._lineage(id, cmd.animal); break;                  // a pony's family tree and genes (stableSystem.js)
       case 'herdGenetics': this._herdGenetics(id); break;                                                      // the herd's diversity (stableSystem.js)
@@ -659,7 +660,7 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
-    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this.skyEvents.update(this.tick); this._breedTick(TICK_DT); this._careTick(TICK_DT);
+    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this.skyEvents.update(this.tick); this._breedTick(TICK_DT); this._gateTick(); this._careTick(TICK_DT);
     this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick); this.quests.update(this.tick);
     if (this.tick % 4 === 0) this._gatherCoins();                                     // coins on the ground jump into purses nearby
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)

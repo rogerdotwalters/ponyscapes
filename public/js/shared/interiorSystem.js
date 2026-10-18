@@ -85,8 +85,9 @@ class InteriorSystem {
 
   /** The grid of the room this player goes into at a site: the shared one, or (a player building) their own copy. */
   gridFor(id, site) {
-    if (!site.def.home && !site.def.stable) return Grids.room(site.index);                   // (a home or a stable: every player has a room of their own)
-    const key = this.server.playerKeys[id] || 'seat:' + id;                     // (a keyless test player: by seat)
+    if (!site.def.home && !site.def.stable) return Grids.room(site.index);                   // (a home: every player has a room of their own)
+    const s = this.server, owner = site.def.stable && s.hostId ? s.hostId : id;              // (the stable: one for the whole party, the host's; the host decides who may do what in it)
+    const key = s.playerKeys[owner] || 'seat:' + owner;                     // (a keyless test player: by seat)
     if (this.homes[key] === undefined) this.homes[key] = this.nextHome++;
     return Grids.room(site.index, this.homes[key]);
   }
@@ -96,6 +97,7 @@ class InteriorSystem {
     if (!site || s.dungeons._cooling(id)) return;
     if (site.def.home) { const o = this.owners[site.index], mine = o && o.key === (s.playerKeys[id] || 'seat:' + id); if (!mine) { s._notice(id, o ? `This is ${o.name || 'somebody'}'s home` : 'This home is empty: it is kept for a new neighbour'); return; } }
     else if (site.def.locked) return;
+    if (site.def.stable && s._stableAccess(id) === 'none') { s._notice(id, 'The host has closed the stable to you'); return; }
     const grid = this.gridFor(id, site), room = s.grids.get(grid);
     if (room.grid !== grid) { s._notice(id, `The ${site.def.name} has nothing inside yet (make its room in level-editor.html)`); return; }
     const entry = room.entryPoint();
@@ -162,7 +164,7 @@ class InteriorSystem {
   }
 
   /** For the world save: whose home is which room. */
-  exportState() { const chests = {}; for (const [k, inv] of Object.entries(this.chests)) if (inv.used) chests[k] = inv.toJSON(); return { homes: Object.assign({}, this.homes), nextHome: this.nextHome, chests, owners: JSON.parse(JSON.stringify(this.owners)), restored: BuildingVersions.wire(), care: JSON.parse(JSON.stringify(this.server.care || {})), stallNames: JSON.parse(JSON.stringify(this.server.stallNames || {})) }; }
+  exportState() { const chests = {}; for (const [k, inv] of Object.entries(this.chests)) if (inv.used) chests[k] = inv.toJSON(); return { homes: Object.assign({}, this.homes), nextHome: this.nextHome, chests, owners: JSON.parse(JSON.stringify(this.owners)), stableAcl: Object.assign({}, this.stableAcl), restored: BuildingVersions.wire(), care: JSON.parse(JSON.stringify(this.server.care || {})), stallNames: JSON.parse(JSON.stringify(this.server.stallNames || {})) }; }
   restore(state) {
     if (!state || typeof state !== 'object') return;
     BuildingVersions.apply(state.restored); this.versionsRev++; this._syncSettings();
@@ -177,6 +179,7 @@ class InteriorSystem {
     }
     const sites = new Set(this.homeSites().map(h => h.index));
     for (const [site, o] of Object.entries(state.owners || {})) if (sites.has(Number(site)) && o && typeof o.key === 'string' && /^(seat:)?[A-Za-z0-9_-]{1,64}$/.test(o.key) && this.homes[o.key] !== undefined) this.owners[site] = { key: o.key, name: String(o.name || '').slice(0, 24), seen: Number.isFinite(o.seen) ? o.seen : 0 };
+    for (const [k, v] of Object.entries(state.stableAcl || {})) if (/^(seat:)?[A-Za-z0-9_-]{1,64}$/.test(k) && (v === 'none' || v === 'full')) (this.stableAcl = this.stableAcl || {})[k] = v;
     if (!state.owners) this._adoptOldHomes();                                    // a world saved before homes had owners
     this.nextHome = Math.max(Number.isInteger(state.nextHome) ? state.nextHome : 0, ...Object.values(this.homes).map(n => n + 1), 0);
   }
