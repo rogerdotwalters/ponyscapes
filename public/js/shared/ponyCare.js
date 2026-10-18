@@ -53,7 +53,7 @@ Object.assign(GameServer.prototype, {
   /** Is this room the stable of this player (the one whose coins and tanks you may spend)? Keyless test seats may use any. */
   _isMyStable(id, grid) {
     const key = this.playerKeys && this.playerKeys[id], n = key !== undefined ? this.interiors.homes[key] : undefined;
-    return n === undefined || String(grid).endsWith(':' + n);
+    return n === undefined || String(grid).endsWith(':' + n) || this._stableAccess(id) === 'full';
   },
   /** The stable desk piece within reach of p: { f, def } or null. */
   _deskNear(p, fx, fy) {
@@ -151,7 +151,8 @@ Object.assign(GameServer.prototype, {
         buyCost: none ? C.tank.buy[1] : t.count < C.tank.maxCount ? C.tank.buy[t.size] : null, upCost: !none && t.size + 1 < C.tank.supply.length ? C.tank.upsize[t.size] : null, perTank: C.tank.supply[none ? 1 : t.size] };
     };
     const cap = this._ponyCapOf(id), K = CONFIG.sim.ponyCap, mine = Object.values(this.animals.animals).filter(a => a.owner === id && AnimalDefs[a.type].pony);
-    return { fx: f.x, fy: f.y, bank: PonyCare.coins(bank), food: tank('food'), water: tank('water'), mine: this._isMyStable(id, grid), care: PonyCare.isOn(this),
+    const access = id === this.hostId ? this._humans().filter(q => q && q.id !== id).map(q => ({ id: q.id, name: q.name || 'Player', level: this._stableAccess(q.id) })) : undefined;       // (the host's list of who may do what)
+    return { access, fx: f.x, fy: f.y, bank: PonyCare.coins(bank), food: tank('food'), water: tank('water'), mine: this._isMyStable(id, grid), care: PonyCare.isOn(this),
       cap: { have: mine.length, max: cap, level: room.cap | 0, maxLevel: K.cost.length - 1, perLevel: K.perLevel, upCost: (room.cap | 0) + 1 < K.cost.length ? K.cost[(room.cap | 0) + 1] : null },
       ponies: mine.map(a => ({ id: a.id, name: Stable.nameOf(a), level: a.level || 1, sex: a.look ? PonyLook.sexOf(a.look) : '', type: a.type, main: !!a.main, locked: Stable.locked(a), ridden: !!a.rider, stalled: !!a.stall })) };
   },

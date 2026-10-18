@@ -291,6 +291,7 @@ class ClientGame {
   herdGenetics() { this.net.sendCommand({ type: 'herdGenetics' }); }                                    // the herd's diversity
   stallPick(cmd) { this.net.sendCommand(Object.assign({ type: 'stallPick' }, cmd)); }
   vendorPick(cmd) { this.net.sendCommand(Object.assign({ type: 'vendorPick' }, cmd)); }                  // the pony vendor's menu (ponyTrade.js)
+  stableAccess(cmd) { this.net.sendCommand(Object.assign({ type: 'stableAccess' }, cmd)); }                // the host sets who may do what in the stable (stableSystem.js)
   deskPick(cmd) { this.net.sendCommand(Object.assign({ type: 'deskPick' }, cmd)); }                    // the stable desk's menu (ponyCare.js)
   _animalName(animal) { return animal.look ? PonyLook.describe(animal.look).name : AnimalDefs[animal.type].name; }
   /** Pressed the Let go button / U. Untying an animal you already own is safe; letting go of a catch opens the confirmation. */

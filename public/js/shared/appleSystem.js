@@ -41,7 +41,7 @@ Object.assign(GameServer.prototype, {
     const pony = given || AppleRules.target(this.animals.animals, p, id);
     if (!pony) { this._notice(id, 'Ride your pony, or stand next to it, to give it an apple'); return; }
     if (Stable.locked(pony)) { this._notice(id, `${Stable.nameOf(pony)} is busy breeding`); return; }
-    const rule = AppleRules.of(item), hurt = pony.hp < pony.maxHp, care = PonyCare.isOn(this) && pony.owner === id, peckish = care && PonyCare.ensure(pony).hunger < PonyCare.cfg().hunger.max - 10;
+    const rule = AppleRules.of(item), hurt = pony.hp < pony.maxHp, care = PonyCare.isOn(this) && (pony.owner === id || pony.stall), peckish = care && PonyCare.ensure(pony).hunger < PonyCare.cfg().hunger.max - 10;
     if (peckish) pony.hunger = Math.min(PonyCare.cfg().hunger.max, pony.hunger + PonyCare.cfg().appleFood);
     if (!hurt && !peckish && !AppleRules.special(item)) { this._notice(id, 'Your pony is already at full health'); return; }
     inventory.remove(item, 1); this.inventoryRev[id]++;

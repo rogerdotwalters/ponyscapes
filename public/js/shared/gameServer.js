@@ -286,6 +286,7 @@ class GameServer {
       case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
       case 'vendorPick': this._vendorPick(id, cmd); break;                                                    // the pony vendor's menu (ponyTrade.js)
       case 'openStall': this._openStall(id, cmd); break;                                                      // the stall button: open that stall's menu (stableSystem.js)
+      case 'stableAccess': this._setStableAccess(id, cmd); if (this.players[id]) { const p = this.players[id], hit = this._deskNear(p, cmd.fx, cmd.fy); if (hit) this._useDesk(id, p, { fx: cmd.fx, fy: cmd.fy }); } break;      // the host's stable access list (stableSystem.js)
       case 'deskPick': this._deskPick(id, cmd); break;                                                        // a button in the stable desk's menu (ponyCare.js)
       case 'lineage': if (typeof cmd.animal === 'string') this._lineage(id, cmd.animal); break;                  // a pony's family tree and genes (stableSystem.js)
       case 'herdGenetics': this._herdGenetics(id); break;                                                      // the herd's diversity (stableSystem.js)

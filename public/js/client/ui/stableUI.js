@@ -27,7 +27,7 @@ class StableUI {
     const stats = o => (o.care ? `<div class="stStats">${bar('hun', '\uD83C\uDF4E', o.care[0])}${bar('thi', '\uD83D\uDCA7', o.care[1])}${bar('hap', o.care[2] < 30 ? '\u2639' : '\u263A', o.care[2])}<span class="stHearts" title="Friendship">\u2665 ${o.care[3]}</span></div>` : '');
     const row = (o, act) => `<div class="stCard ${o.sex === 'f' ? 'f' : o.sex ? 'm' : ''}">` +
       `<div class="stInfo">${sexTag(o)}<div class="stName">${esc(o.name)}<small>${esc(kind(o.type))} &middot; Lv ${o.level}${o.age !== undefined ? ` &middot; foal, about ${o.age ? o.age + ' min' : 'newborn'}` : ''}${o.rest ? ` &middot; rests ${Stable.clock(o.rest)}` : ''}</small></div></div>${stats(o)}` +
-      (o.locked ? '<div class="stLock">\u2764 Breeding: they cannot be touched until the foal is born</div>' : '<div class="stActs">' +
+      (o.locked ? '<div class="stLock">\u2764 Breeding: they cannot be touched until the foal is born</div>' : o.manage === false ? '' : '<div class="stActs">' +
         (act === 'out' ? `<button class="stTake" data-act="out" data-id="${esc(o.id)}">Take out</button><button class="stRoam" data-act="roam" data-id="${esc(o.id)}" title="Let it out to roam the village">Let out</button>`
           : `<button class="stAdd" data-act="in" data-id="${esc(o.id)}">Add to stall</button>`) + '</div>') + '</div>';
     const section = t => `<h4 class="stHead">${t}</h4>`;
@@ -81,7 +81,9 @@ class StableUI {
       `<h4 class="stHead">Stable size</h4><div class="stBowl"><div class="stBowlHead"><b>\uD83D\uDC0E Ponies kept</b><span>${c.have} / ${c.max}</span></div>${full ? '<p class="stHint">Your stable is full: upgrade it, or send a pony away.</p>' : ''}` +
       `<div class="stActs">${c.upCost === null ? '<button disabled>Biggest stable</button>' : `<button class="stUp" data-desk="upCap"${d.mine ? '' : ' disabled'}>Bigger stable (+${c.perLevel}) &middot; ${coins(c.upCost)}</button>`}</div></div>` +
       (d.care ? '<h4 class="stHead">Tanks</h4>' + tank('water', 'Water', '\uD83D\uDCA7', d.water) + tank('food', 'Food', '\uD83C\uDF4E', d.food) : '<p class="stHint">Switch on Pony care in the Menu to use food and water tanks.</p>') +
-      `<h4 class="stHead">Your ponies</h4><p class="stHint">Remove sends a pony away and it goes wild. Your main pony can't be removed.</p>${herd || '<p class="stHint">You have no ponies.</p>'}` + (d.mine ? '' : '<p class="stHint">This is not your stable.</p>');
+      `<h4 class="stHead">Your ponies</h4><p class="stHint">Remove sends a pony away and it goes wild. Your main pony can't be removed.</p>${herd || '<p class="stHint">You have no ponies.</p>'}` + (d.mine ? '' : '<p class="stHint">This is not your stable.</p>') +
+      (d.access ? '<h4 class="stHead">Who may use this stable</h4><p class="stHint">Everyone shares your stable. Default: feed, water and breed, and stable their own ponies.</p>' + (d.access.length ? d.access.map(q => `<div class="stBowl"><div class="stBowlHead"><b>${esc(q.name)}</b><select data-access="${esc(q.id)}"><option value="none"${q.level === 'none' ? ' selected' : ''}>No access</option><option value="default"${q.level === 'default' ? ' selected' : ''}>Default</option><option value="full"${q.level === 'full' ? ' selected' : ''}>Full access</option></select></div></div>`).join('') : '<p class="stHint">Nobody else is here.</p>') : '');
+    this.body.querySelectorAll('select[data-access]').forEach(sel => sel.addEventListener('change', () => this.game.stableAccess({ target: sel.dataset.access, level: sel.value, fx: d.fx, fy: d.fy })));
     this.body.querySelectorAll('button[data-desk]').forEach(b => b.addEventListener('click', () => {
       this.game.deskPick({ act: b.dataset.desk, kind: b.dataset.kind || '', fx: d.fx, fy: d.fy });
       if (b.dataset.desk === 'storage') this.close();
