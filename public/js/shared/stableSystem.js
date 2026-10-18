@@ -1,6 +1,6 @@
 'use strict';
 /* SHARED - the STABLE (data/buildings/pony_stable.js): a big building you walk into, with a room of your own (like a home, but open to all). Inside are walled STALLS
- * (furniture with `stall: true`, data/furniture/basic.js: a 4 x 4 pen), each with a GATE (furniture `gate: true`) in its front wall that you open and close.
+ * (furniture with `stall: true`, data/furniture/basic.js: a 4 x 4 pen), each with a GATE (furniture `gate: true`) in its front wall that opens by itself when anyone comes near and shuts again once they leave (never on someone standing in the pen or the gateway).
  *
  *   - Put a pony on a LEASH (the Leash button, like the lasso but for a pony that is already yours). Only a leashed pony can be stabled.
  *   - Stand beside an empty stall and press the interact key: a menu lists the ponies you have on a leash (and the gate); pick one and it goes in.
@@ -13,7 +13,8 @@ const Stable = {
   REACH: 2.6,                                               // how close to a stall (tiles, from its edge) the key reaches it
   GATE_REACH: 1.25,                                         // ... and to a gate
   BREED_SECONDS: 90,                                        // how long the rainbow bar takes to fill when two ponies breed
-  BREED_REST: 240,                                          // seconds a pony needs to rest after a foal
+  BREED_REST: 240,                                          // seconds a pony needs to rest after a foal (the cooldown shown beside the pony and on the Breed button)
+  GATE_NEAR: 1.7,                                           // a gate swings open when anyone is this close (tiles from its middle)
   FOAL_SECONDS: 300,                                        // how long a foal takes to grow up (it is smaller, and cannot be ridden, until then)
   CAPACITY: 4,                                              // ponies that can share one stall
   /** Where the ponies in a pen stand (the four corners of the middle of a 4 x 4 pen), as offsets from the stall's top-left corner. */
@@ -102,7 +103,11 @@ const Stable = {
   /** What a menu shows for a pony. */
   /** A pony that is breeding right now cannot be taken out, moved, fed or petted until the foal is born (or the breeding is stopped). */
   locked: a => !!a && a.breedP !== undefined,
-  describe: (a, pid) => ({ id: a.id, name: Stable.nameOf(a), level: a.level || 1, type: a.type, sex: a.look ? PonyLook.sexOf(a.look) : '', care: typeof PonyCare !== 'undefined' ? PonyCare.statsOf(a, pid) || undefined : undefined, locked: Stable.locked(a) || undefined })
+  /** Seconds as "3:05" (a cooldown clock). */
+  clock: t => { const s = Math.max(0, Math.ceil(t)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); },
+  /** A foal's approximate age in whole minutes (it is born when `foal` is FOAL_SECONDS and grown up at 0); 0 for a newborn. */
+  ageMin: a => (a && a.foal > 0 ? Math.max(0, Math.floor((Stable.FOAL_SECONDS - a.foal) / 60)) : 0),
+  describe: (a, pid) => ({ id: a.id, age: a.foal > 0 ? Stable.ageMin(a) : undefined, rest: a.breedRest > 0 ? Math.ceil(a.breedRest) : undefined, name: Stable.nameOf(a), level: a.level || 1, type: a.type, sex: a.look ? PonyLook.sexOf(a.look) : '', care: typeof PonyCare !== 'undefined' ? PonyCare.statsOf(a, pid) || undefined : undefined, locked: Stable.locked(a) || undefined })
 };
 
 /** What the interact key does in a stable (client + server): feed a stabled pony you hold an apple for, else a stall's menu. */
@@ -199,7 +204,6 @@ Object.assign(GameServer.prototype, {
     const p = this.players[id], map = p && this.mapOf(p), animals = this.animals.animals, a = animals[cmd.animal];
     if (!p || !Stable.layoutOf(map) || p.asleep) return;
     const grid = gridOf(p);
-    if (cmd.act === 'gate') { this._useGate(id, p, map, cmd); return; }
     if (cmd.act === 'breed' || cmd.act === 'breedStop') { this._breedPick(id, p, map, cmd); return; }
     if (cmd.act === 'care') { this._carePick(id, p, map, cmd); return; }
     if (cmd.act === 'rename') { this._renameStall(id, p, map, cmd); return; }
@@ -248,8 +252,8 @@ Object.assign(GameServer.prototype, {
     if (sexes !== 'fm') return { can: false, reason: 'It takes a stallion and a mare' };
     const pair = this._pairView(a, b);
     pair.cross = this._crossView(a, b);
-    const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal`, pair };
-    const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first`, pair };
+    const young = inside.find(x => x.foal > 0); if (young) return { can: false, reason: `${Stable.nameOf(young)} is still a foal (about ${Stable.ageMin(young)} min old)`, pair };
+    const tired = inside.find(x => x.breedRest > 0); if (tired) return { can: false, reason: `${Stable.nameOf(tired)} needs a rest first (${Stable.clock(tired.breedRest)} left)`, pair, rest: Math.ceil(Math.max(...inside.map(x => x.breedRest || 0))) };
     const mine = Object.values(this.animals.animals).filter(x => x.owner === id && AnimalDefs[x.type].pony).length;
     const cap = this._ponyCapOf(id);
     if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: upgrade your stable at the desk`, pair };
@@ -363,13 +367,23 @@ Object.assign(GameServer.prototype, {
       he: P(r.he, 0), ho: P(r.ho, 0), fis: P(r.fis, 0), meanF: P(r.meanF), score: r.score, grade: r.grade, word: r.word, color: r.color } : null });
   },
 
-  /** Open or shut the gate of the stall at (fx, fy) (from its menu). */
-  _useGate(id, p, map, cmd) {
-    const f = map.plan.layout.furniture.find(g => g.x === (cmd.fx | 0) && g.y === (cmd.fy | 0) && (FurnitureDefs.get(g.id) || {}).stall);
-    if (!f || Stable.rectDist(f, p) > Stable.REACH + 0.8 || !map.setGate) { this._notice(id, 'Stand beside the stall'); return; }
-    const gate = Stable.gateOf(map, f); if (!gate) return;
-    map.setGate(gate.f.x, gate.f.y, !gate.open);
-    this.pendingEvents.push({ type: 'door', tx: gate.f.x, ty: gate.f.y, open: !gate.open, grid: gridOf(p) });
+  /** Every tick the gates of every stable with someone in it swing by themselves: open while a player is near, shut again when they have gone. A gate never shuts on a player in the gateway or in the pen. */
+  _gateTick() {
+    const seen = {};
+    for (const p of Object.values(this.players)) {
+      const grid = gridOf(p); if (!grid || seen[grid]) continue;
+      seen[grid] = 1;
+      const map = this.mapOf(p), L = map && map.setGate ? Stable.layoutOf(map) : null; if (!L) continue;
+      const here = Object.values(this.players).filter(q => gridOf(q) === grid && q.hp > 0);
+      for (const f of L.furniture) {
+        if (!(FurnitureDefs.get(f.id) || {}).stall) continue;
+        const gate = Stable.gateOf(map, f); if (!gate) continue;
+        const gx = gate.f.x + 0.5, gy = gate.f.y + 0.5;
+        const stuck = here.some(q => (q.x >= f.x - 0.4 && q.x <= f.x + f.w + 0.4 && q.y >= f.y - 0.4 && q.y <= f.y + f.h + 0.4) || (Math.abs(q.x - gx) < 0.9 && Math.abs(q.y - gy) < 0.9));
+        const want = stuck || here.some(q => Math.hypot(q.x - gx, q.y - gy) <= Stable.GATE_NEAR);
+        if (want !== gate.open) { map.setGate(gate.f.x, gate.f.y, want); this.pendingEvents.push({ type: 'door', tx: gate.f.x, ty: gate.f.y, open: want, grid }); }
+      }
+    }
   },
 
   /** For the snapshot: the open gates of the room this player is in (only when they changed, or the player came into a room). */

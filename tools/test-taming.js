@@ -147,17 +147,15 @@ test('a stabled pony can be let out to roam the village area only', () => {
   const v = run('Village.area'); assert(run('P1.x') >= v.x0 && run('P1.x') <= v.x1 && run('P1.y') >= v.y0 && run('P1.y') <= v.y1);
 });
 
-test('gates: shut they block, open they let you through; the stall menu toggles them', () => {
+test('gates open by themselves when someone is near, shut when they leave, and never shut on a player inside', () => {
   inStable();
   const f = run(`S.mapOf(PA).plan.layout.furniture.find(f => f.id === 'stall')`), g = run(`S.mapOf(PA).plan.layout.furniture.find(f => f.id === 'stall_gate')`);
   const solid = () => !!run(`S.mapOf(PA).isSolid(${g.x}, ${g.y})`);
-  assert.strictEqual(solid(), true, 'shut');
-  stand(f.x + 1.5, f.y + f.h + 1.2); run('S.pendingEvents.length = 0; S._interact(A, PA)');
-  assert.strictEqual(menu().gate.open, false);
-  run(`S._stallPick(A, { act: 'gate', fx: ${f.x}, fy: ${f.y} })`); assert.strictEqual(solid(), false, 'open');
+  stand(40, 1); run('S._gateTick()'); assert.strictEqual(solid(), true, 'shut while nobody is near');
+  stand(g.x + 0.5, g.y + 1.2); run('S._gateTick()'); assert.strictEqual(solid(), false, 'open when near');
   assert.strictEqual(JSON.stringify(run('S.gatesUpdateFor(A)')), JSON.stringify([g.x + ',' + g.y])); assert.strictEqual(run('S.gatesUpdateFor(A)'), null, 'sent once');
-  run(`S._stallPick(A, { act: 'gate', fx: ${f.x}, fy: ${f.y} })`); assert.strictEqual(solid(), true, 'shut again');
-  stand(40, 1); run(`S._stallPick(A, { act: 'gate', fx: ${f.x}, fy: ${f.y} })`); assert.strictEqual(solid(), true, 'out of reach: nothing happens');
+  stand(f.x + 1.5, f.y + 1.5); run('S._gateTick()'); assert.strictEqual(solid(), false, 'a player inside the pen keeps it open');
+  stand(40, 1); run('S._gateTick()'); assert.strictEqual(solid(), true, 'shut again once everyone has gone');
 });
 
 test('a stabled pony saves and loads back into its stall and a roaming one stays roaming', () => {

@@ -28,7 +28,7 @@ class PonyBookUI {
   /** What the panel actually shows: positions are NOT part of it, so ponies wandering about never rebuild the buttons under a finger. */
   _signature() {
     const g = this.game;
-    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.foalMin, p.xp && p.xp.into, p.main, p.stalled, p.roam, p.gen]), g.book, g.varieties, GeneticsView.on, g.pets.length]);
+    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.foalMin, p.rest, p.xp && p.xp.into, p.main, p.stalled, p.roam, p.gen]), g.book, g.varieties, GeneticsView.on, g.pets.length]);
   }
   _refreshSoon() {                                      // pets arrive every snapshot: redraw only when what is shown changed (a rebuild in the middle of a tap loses the tap)
     const sig = this._signature();
@@ -74,7 +74,7 @@ class PonyBookUI {
       const flies = PonyAbilityRules.has(pet.type, 'fly') ? '<em class="pfly">can fly (' + PonyAbilities.get('fly').key + ')</em>' : '';
       const traits = pet.look ? PonyBookUI.traits(pet.look, pet.type, pet.level) : '';
       return `<div class="pcard"><canvas class="portrait" width="92" height="80" data-i="${i}"></canvas>` +
-        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}${pet.foalMin ? ' (foal: grown in ' + pet.foalMin + ' min)' : ''}${pet.look ? ' &middot; ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).symbol + ' ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).name : ''}</div>${traits}${PonyBookUI.genes(pet)}${GeneticsView.cardHtml(pet)}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
+        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}${pet.foalMin ? ' (foal, about ' + (pet.ageMin ? pet.ageMin + ' min' : 'newborn') + ' old: grown in ' + pet.foalMin + ' min)' : ''}${pet.look ? ' &middot; ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).symbol + ' ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).name : ''}</div>${traits}${PonyBookUI.genes(pet)}${GeneticsView.cardHtml(pet)}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
     }).join('');
     const summary = `<div class="gsum">Collected ${g.book.filter(k => k.seen).length} of ${g.book.length} pony kinds &middot; ${owned} animal${owned === 1 ? '' : 's'} kept</div>`;
     const varieties = (g.varieties || []).map(v => {

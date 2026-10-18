@@ -26,7 +26,7 @@ class StableUI {
     const bar = (cls, icon, v) => `<div class="stBar ${cls}" title="${v}%"><b>${icon}</b><i><u style="width:${Math.max(0, Math.min(100, v))}%"></u></i></div>`;
     const stats = o => (o.care ? `<div class="stStats">${bar('hun', '\uD83C\uDF4E', o.care[0])}${bar('thi', '\uD83D\uDCA7', o.care[1])}${bar('hap', o.care[2] < 30 ? '\u2639' : '\u263A', o.care[2])}<span class="stHearts" title="Friendship">\u2665 ${o.care[3]}</span></div>` : '');
     const row = (o, act) => `<div class="stCard ${o.sex === 'f' ? 'f' : o.sex ? 'm' : ''}">` +
-      `<div class="stInfo">${sexTag(o)}<div class="stName">${esc(o.name)}<small>${esc(kind(o.type))} &middot; Lv ${o.level}</small></div></div>${stats(o)}` +
+      `<div class="stInfo">${sexTag(o)}<div class="stName">${esc(o.name)}<small>${esc(kind(o.type))} &middot; Lv ${o.level}${o.age !== undefined ? ` &middot; foal, about ${o.age ? o.age + ' min' : 'newborn'}` : ''}${o.rest ? ` &middot; rests ${Stable.clock(o.rest)}` : ''}</small></div></div>${stats(o)}` +
       (o.locked ? '<div class="stLock">\u2764 Breeding: they cannot be touched until the foal is born</div>' : '<div class="stActs">' +
         (act === 'out' ? `<button class="stTake" data-act="out" data-id="${esc(o.id)}">Take out</button><button class="stRoam" data-act="roam" data-id="${esc(o.id)}" title="Let it out to roam the village">Let out</button>`
           : `<button class="stAdd" data-act="in" data-id="${esc(o.id)}">Add to stall</button>`) + '</div>') + '</div>';
@@ -40,13 +40,12 @@ class StableUI {
         `<div class="stActs"><button class="stFill" data-act="care" data-what="fill${what}">${what === 'Food' ? 'Fill with apples' : 'Fill with water'}</button>${up}${auto}</div></div>`;
     };
     let html = `<div class="stRename"><input id="stName" maxlength="16" value="${esc(menu.name || '')}" aria-label="Stable name" autocomplete="off"><button data-act="rename">Rename</button></div>`;
-    if (menu.gate) html += `<button class="stGate${menu.gate.open ? ' open' : ''}" data-act="gate">${menu.gate.open ? '\uD83D\uDEAA Close the gate' : '\uD83D\uDEAA Open the gate'}</button>`;
     const br = menu.breed;
     if (br && (inside.length || br.busy)) {                       // breeding: exactly two of your ponies, a stallion and a mare, alone in the stall
       const pair = inside.length === 2 ? `<div class="stPair">${sexTag(inside[0])}<b>${esc(inside[0].name)}</b><i>\u2764</i><b>${esc(inside[1].name)}</b>${sexTag(inside[1])}</div>` : '';
       html += section('Breeding') + '<div class="stBreedBox">' + pair + GeneticsView.crossHtml(br.pair && br.pair.cross) + GeneticsView.pairHtml(br.pair);
       if (br.busy) html += `<p class="stHint">Breeding... ${br.pct}%</p><div class="stProg"><i style="width:${Math.max(0, Math.min(100, br.pct | 0))}%"></i></div><button class="stStop" data-act="breedStop">Stop breeding</button>`;
-      else html += `<button class="stBreed${br.can ? '' : ' off'}" data-act="breed"${br.can ? '' : ' disabled'}>\u2764 Breed these two</button>` + (br.can ? '' : `<p class="stHint">${esc(br.reason)}</p>`);
+      else html += `<button class="stBreed${br.can ? '' : ' off'}" data-act="breed"${br.can ? '' : ' disabled'}>\u2764 Breed these two</button>` + (br.can ? '' : `<p class="stHint">${esc(br.reason)}</p>`) + (br.rest ? `<p class="stHint">\u23F3 Cooldown: ${Stable.clock(br.rest)}</p>` : '');
       html += GeneticsView.toggleHtml() + '</div>';
     }
     if (inside.length) html += section('In this stall') + inside.map(o => row(o, 'out')).join('');

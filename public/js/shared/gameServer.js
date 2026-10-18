@@ -659,7 +659,7 @@ class GameServer {
     this.trees.update(this.tick);
     this.forage.update(this.tick);
     this.sleep.update(this.tick);
-    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this.skyEvents.update(this.tick); this._breedTick(TICK_DT); this._careTick(TICK_DT);
+    this.animals.update(this.tick, this._humans()); this.wildPonies.update(this.tick); this.nightEvents.update(this.tick); this.skyEvents.update(this.tick); this._breedTick(TICK_DT); this._gateTick(); this._careTick(TICK_DT);
     this.npcs.update(this.tick, this._humans()); this.friendship.update(this.tick); this.wants.update(this.tick); this.quests.update(this.tick);
     if (this.tick % 4 === 0) this._gatherCoins();                                     // coins on the ground jump into purses nearby
     if (this.tick % 15 === 0) this._keepMainPoniesClose();      // (the villagers live in the overworld)
