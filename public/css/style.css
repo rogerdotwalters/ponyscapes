@@ -1095,3 +1095,25 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .cartTotal{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:6px 0 4px;font-weight:700}
 .cartBtns{display:flex;gap:6px}.cartBtns .shopbuy{flex:1}.shopbuy.alt{background:#8a5f32;color:var(--parch)}
 .cartWarn{display:block;margin-top:4px;color:#ffb0a0}
+
+/* the tool drawer under the bed (drag a tool onto a plot), red warnings, and the seed list kept visible on phones */
+#gardenDrawer{width:100%;background:rgba(20,10,4,.5);border:2px solid var(--deep);box-shadow:inset 0 0 0 1px rgba(217,164,65,.35);padding:6px 6px 7px}
+#gardenTools button{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab}
+#gardenTools button img{pointer-events:none;-webkit-user-drag:none}
+#gardenTools button.lifted{opacity:.45}
+#gardenTools button.missing{opacity:.5;filter:grayscale(.7)}
+#gardenHint.warn{color:#ffb0a0;border-top-color:#c0504a}
+#gardenSeedList{flex:0 1 auto}
+@media (max-width:640px){#gardenSeedList{flex:none;flex-direction:row;min-height:66px;max-height:none;overflow-x:auto;overflow-y:hidden}.seedPack{flex:none;min-width:124px}#gardenSeeds{display:flex;width:100%}}
+
+/* phones: the thumb controls step aside while the garden is open, and an open seed pouch is pinned to the bottom of the screen (small) where a seed can be dragged from it up to a hole */
+body.gardenOpen .tbtn,body.gardenOpen #touchUI,body.gardenOpen #toolbar,body.gardenOpen #healthBar,body.gardenOpen #hungerBar,body.gardenOpen #thirstBar,body.gardenOpen #energyBar,body.gardenOpen #btnEmote,body.gardenOpen #hint{visibility:hidden}
+@media (max-width:900px){
+  #gardenPanel{padding-bottom:24px !important}#gardenPanel.hasPouch{padding-bottom:190px !important}
+  #gardenPouches{position:fixed;left:0;right:0;bottom:2px;top:auto;flex-flow:row nowrap;justify-content:center;gap:10px;z-index:7;overflow:visible}
+  .pouch canvas{width:100px;height:auto}.pouch header{font-size:12px}.pouch .pouchCount{font-size:12px}
+}
+/* a fixed-size window: the hint text changing must never resize or move the bed under a finger that is dragging */
+#gardenWin{width:min(580px,calc(100vw - 16px))}
+#gardenMain{justify-content:center}
+#gardenHint{height:46px;min-height:46px;overflow:hidden;width:100%}

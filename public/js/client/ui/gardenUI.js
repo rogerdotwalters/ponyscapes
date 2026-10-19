@@ -1,13 +1,13 @@
 'use strict';
 /* CLIENT - the garden window. Tap a tilled tile with a hoe, trowel, shovel, watering can or seeds in hand and a window shows its nine plots (farming.js), with your
- * SEED PACKS in a scrolling list on the side and your gardening tools along the bottom.
- *   - pick a tool and tap a plot: hoe loosens packed soil, trowel (or shovel) digs a hole, can waters, hand covers a seed / fills a hole / clears a withered crop / picks
- *     what is ripe. The server checks each job (reach, the tool you carry) and answers with the new state of the field.
+ * SEED PACKS in a scrolling list on the side and a TOOL DRAWER under the bed.
+ *   - DRAG a tool out of the drawer onto a plot: the hoe loosens packed soil, the hand trowel (or shovel) digs a hole, the watering can waters. There is no
+ *     "selected tool": a tool does its job where you drop it. Your bare hand is implied: TAP a plot to cover a seed, clear a withered crop or pick what is ripe.
  *   - tap a seed pack to open its POUCH (seedPouchUI.js, like the coin bag) beside the window; several can be open at once. Drag a seed out of a pouch onto
  *     a dug, empty hole to plant it: the pouch's count follows what your bag really holds.
+ *   - whenever something stops a job (no tool, wrong season, soil packed, too far away) the line under the bed says so, in red.
  * Dig a hole, drop a seed in, cover it, water it; it grows a day for each day it was watered. */
 const GARDEN_TOOLS = [
-  { id: 'hand', kind: '', name: 'Hand', hint: 'Cover seeds, fill holes, clear withered crops and pick what is ripe' },
   { id: 'hoe', kind: 'hoe', name: 'Hoe', hint: 'Loosen soil that has packed down' },
   { id: 'hand_trowel', kind: 'trowel', name: 'Hand trowel', hint: 'Dig a hole to plant in' },
   { id: 'shovel', kind: 'shovel', name: 'Shovel', hint: 'Dig a hole to plant in' },
@@ -18,17 +18,21 @@ const GARDEN_CELL = 34, GARDEN_PAD = 7, GARDEN_ART = GARDEN_CELL * 3 + GARDEN_PA
 class GardenUI {
   constructor({ panel, canvas, seedList, toolBar, pouchHost, title, hint, closeButton, game, requestOpen }) {
     Object.assign(this, { panel, canvas, seedList, toolBar, pouchHost, titleEl: title, hintEl: hint, game, requestOpen });
-    this.tile = null; this.tool = 'hand'; this.pouches = new Map(); this.hover = -1; this.dragSeed = null; this.particles = []; this.shake = {}; this.raf = 0;
+    this.tile = null; this.dragTool = null; this.toolGhost = null; this.warnUntil = 0; this.pouches = new Map(); this.hover = -1; this.dragSeed = null; this.particles = []; this.shake = {}; this.raf = 0;
     this.ctx = canvas.getContext('2d'); this._fit();
     window.addEventListener('resize', () => this.isOpen && this._fit());
     closeButton.addEventListener('click', () => this.close());
     panel.addEventListener('pointerdown', e => { if (e.target === panel) this.close(); });                 // (a tap outside the windows closes it)
     canvas.addEventListener('pointermove', e => { this.hover = this._cellAt(e.clientX, e.clientY); });
     canvas.addEventListener('pointerleave', () => { this.hover = -1; });
-    canvas.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); this.hover = this._cellAt(e.clientX, e.clientY); this._use(this.hover); });
-    toolBar.addEventListener('click', e => { const b = e.target.closest('button[data-tool]'); if (b && !b.disabled) this._pickTool(b.dataset.tool); });
+    canvas.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); this.hover = this._cellAt(e.clientX, e.clientY); this._use(this.hover, null); });
+    toolBar.addEventListener('pointerdown', e => this._toolDown(e));                                         // (drag a tool out of the drawer onto a plot)
+    toolBar.addEventListener('pointermove', e => this._toolMove(e));
+    toolBar.addEventListener('pointerup', e => this._toolUp(e, false));
+    toolBar.addEventListener('pointercancel', e => this._toolUp(e, true));
+    game.events.on('notice', e => { if (this.isOpen && e && e.to === this.game.myId && e.text) this._say(e.text, true); });   // (the server's reasons show in the window too)
     seedList.addEventListener('click', e => { const b = e.target.closest('button[data-seed]'); if (b) this._togglePouch(b.dataset.seed); });
-    game.events.on('inventoryChanged', () => { if (this.isOpen) { this._renderSeeds(); this._renderTools(); } });
+    game.events.on('inventoryChanged', () => { if (this.isOpen) { this._renderSeeds(); if (!this.dragTool) this._renderTools(); } });
     game.events.on('openGarden', e => { if (e && Number.isInteger(e.tx)) this.show(e.tx, e.ty); });
   }
 
@@ -46,27 +50,14 @@ class GardenUI {
   }
   open() {
     if (!this.tile) return;
-    const held = ItemDB.getTool(this.game.heldItemId());
-    this.tool = held && GARDEN_TOOLS.some(t => t.kind && t.kind === held.kind) ? GARDEN_TOOLS.find(t => t.kind === held.kind).id : 'hand';
-    this.panel.hidden = false; this.hover = -1; this.particles = []; this._fit();
+    document.body.classList.add('gardenOpen'); this.panel.hidden = false; this.hover = -1; this.particles = []; this.warnUntil = 0; this._fit();
     this.titleEl.textContent = 'Garden plot'; this._renderTools(); this._renderSeeds(); this._say('');
     if (!this.raf) this.raf = requestAnimationFrame(t => this._frame(t));
   }
   close() {
-    this.panel.hidden = true; cancelAnimationFrame(this.raf); this.raf = 0;
+    document.body.classList.remove('gardenOpen'); this.panel.classList.remove('hasPouch'); this.panel.hidden = true; cancelAnimationFrame(this.raf); this.raf = 0; this._toolUp(null, true);
     for (const p of this.pouches.values()) p.dispose();
     this.pouches.clear(); this.pouchHost.textContent = '';
-  }
-
-  /** The hand tool's picture: a pixel-art open hand (drawn once). */
-  static handIcon() {
-    if (GardenUI._hand) return GardenUI._hand;
-    const rows = ['......KK........', '.....KSSK.KK....', '.....KSSKKSSK...', '.KK..KSSKSSSK...', 'KSSK.KSSKSSSK.KK', 'KSSKKKSSSSSSKKSK', 'KSSSKSSSSSSSKSSK', '.KSSSSSSSSSSSSSK',
-      '..KSSSSSSSSSSSK.', '..KSSSSSSSSSSDK.', '...KSSSSSSSSDK..', '...KSSSSSSSDDK..', '....KSSSSSDDK...', '....KKSSSDDKK...', '.....KKDDDKK....', '.......KKKK.....'];
-    const c = document.createElement('canvas'); c.width = c.height = 48; const g = c.getContext('2d'), col = { K: '#1d120a', S: '#e8b890', D: '#b98258' };
-    rows.forEach((row, y) => [...row].forEach((ch, x) => { if (col[ch]) { g.fillStyle = col[ch]; g.fillRect(x * 3, y * 3, 3, 3); } }));
-    g.fillStyle = '#f8dcc0'; for (const [x, y] of [[7, 2], [7, 3], [10, 4], [6, 6], [4, 6]]) g.fillRect(x * 3, y * 3, 3, 3);
-    return (GardenUI._hand = c.toDataURL());
   }
 
   /* ---- the side list and the tools ---- */
@@ -77,7 +68,7 @@ class GardenUI {
     return [...seen].map(([item, count]) => ({ item, count }));
   }
   _renderSeeds() {
-    const packs = this._packs();
+    const packs = this._packs(); this.panel.classList.toggle('hasPouch', this.pouches.size > 0);
     for (const [item, pouch] of [...this.pouches]) if (!pouch.count() && !pouch.pendingOut) this._closePouch(item);
     if (!packs.length && !this.pouches.size) { this.seedList.innerHTML = '<p class="gardenNone">No seed packs yet. The General Store sells them, and harvests sometimes give a few back.</p>'; return; }
     this.seedList.innerHTML = packs.map(({ item, count }) => {
@@ -91,13 +82,54 @@ class GardenUI {
   _renderTools() {
     const inv = this.game.inventory;
     this.toolBar.innerHTML = GARDEN_TOOLS.map(t => {
-      const have = !t.kind || Farming.hasTool(inv, t.kind);
-      return `<button data-tool="${t.id}" class="${this.tool === t.id ? 'on' : ''}" ${have ? '' : 'disabled'} tabindex="-1" title="${have ? t.hint : 'You need a ' + t.name.toLowerCase()}">` +
-        `<img alt="" src="${t.kind ? ItemIcons.url(t.id) : GardenUI.handIcon()}"><span>${t.name}</span></button>`;
+      const have = Farming.hasTool(inv, t.kind);
+      return `<button data-tool="${t.id}" class="${have ? '' : 'missing'}" tabindex="-1" title="${have ? 'Drag onto a plot: ' + t.hint : 'You need a ' + t.name.toLowerCase()}">` +
+        `<img alt="" draggable="false" src="${ItemIcons.url(t.id)}"><span>${t.name}</span></button>`;
     }).join('');
   }
-  _pickTool(id) { this.tool = id; this._renderTools(); const t = GARDEN_TOOLS.find(x => x.id === id); this._say(t ? t.hint : ''); }
-  _say(text) { this.hintEl.textContent = text || 'Pick a tool and tap a plot. Open a seed pack to drag its seeds into the holes you dig.'; }
+  /** Say something under the bed; `warn` (a reason a job did not work) shows in red and is kept for a few seconds before the pointer's own hints take over again. */
+  _say(text, warn = false) {
+    this.hintEl.classList.toggle('warn', !!warn); this.warnUntil = warn ? performance.now() + 3500 : 0;
+    this.hintEl.textContent = text || 'Drag a tool from the drawer onto a plot. Tap a plot to pick, cover or clear. Open a seed pack and drag its seeds into the holes you dig.';
+  }
+
+  /* ---- the tool drawer: drag a tool onto a plot ---- */
+  _toolDown(e) {
+    const b = e.target.closest('button[data-tool]'); if (!b || this.dragTool || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const t = GARDEN_TOOLS.find(x => x.id === b.dataset.tool); if (!t) return;
+    if (!Farming.hasTool(this.game.inventory, t.kind)) { this._say(`You need a ${t.name.toLowerCase()} for that. The General Store sells them.`, true); return; }
+    e.preventDefault();
+    try { b.setPointerCapture(e.pointerId); } catch (err) { /* (the pointer is already gone) */ }
+    this.dragTool = { id: t.id, pid: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false, cell: -2 };
+    b.classList.add('lifted');
+  }
+  _toolMove(e) {
+    const d = this.dragTool; if (!d || e.pointerId !== d.pid) return;
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 5) d.moved = true;
+    if (!d.moved) return;
+    if (!this.toolGhost) {
+      const img = document.createElement('img'); img.className = 'coinGhost'; img.alt = ''; img.src = ItemIcons.url(d.id); img.style.cssText = 'width:56px;height:56px;image-rendering:pixelated';
+      document.body.appendChild(img); this.toolGhost = img;
+    }
+    this.toolGhost.style.left = e.clientX - 28 + 'px'; this.toolGhost.style.top = e.clientY - 28 + 'px';
+    this.hover = this._cellAt(e.clientX, e.clientY);
+    if (this.hover !== d.cell) {                                                                       // (say why it would not work, or what it will do, as it crosses each plot)
+      d.cell = this.hover; const field = this._field();
+      if (this.hover >= 0 && field) { const act = this._opFor(field.cells[this.hover], d.id); this._say(act.op ? GARDEN_TOOLS.find(x => x.id === d.id).hint : act.why, !act.op); }
+    }
+  }
+  _toolUp(e, cancelled) {
+    const d = this.dragTool; if (!d || (e && e.pointerId !== d.pid)) return;
+    this.dragTool = null; this.hover = -1;
+    if (this.toolGhost) { this.toolGhost.remove(); this.toolGhost = null; }
+    const b = this.toolBar.querySelector(`button[data-tool="${d.id}"]`); if (b) b.classList.remove('lifted');
+    const t = GARDEN_TOOLS.find(x => x.id === d.id);
+    if (cancelled || !e) return;
+    if (!d.moved) { this._say(`Drag the ${t.name.toLowerCase()} onto a plot. ${t.hint}.`); return; }          // (a plain tap: tell them how it works)
+    const cell = this._cellAt(e.clientX, e.clientY);
+    if (cell < 0) { this._say(`Drop the ${t.name.toLowerCase()} onto one of the nine plots.`, true); return; }
+    this._use(cell, d.id);
+  }
 
   /* ---- pouches ---- */
   _togglePouch(item) { if (this.pouches.has(item)) this._closePouch(item); else this._openPouch(item); }
@@ -113,12 +145,12 @@ class GardenUI {
   /** A seed was let go at (cx, cy): true if it was planted (the pouch then lets it go). */
   dropSeed(item, cx, cy) {
     const i = this._cellAt(cx, cy), field = this._field(); this.dragSeed = null; this.hover = -1;
-    if (i < 0 || !field) return false;
-    const plot = field.cells[i], note = text => { this.game.events.emit('notice', { to: this.game.myId, text }); return false; };
+    if (i < 0 || !field) { this._say('Drop the seed into a hole in the bed.', true); return false; }
+    const plot = field.cells[i], note = text => { this._say(text, true); return false; };
     if (plot.c) return note('Something is already planted there');
-    if (!plot.h) return note(plot.u ? 'The soil is packed hard: loosen it with the hoe, then dig a hole' : 'Dig a hole with the hand trowel first');
+    if (!plot.h) return note(plot.u ? 'The soil is packed hard: drag the hoe onto it, then dig a hole' : 'Dig a hole first: drag the hand trowel from the drawer onto this plot');
     if (!this._inSeason(item)) return note(`${ItemDefs[item].name.replace(/ Seeds$/, '')} only grows in ${Farming.seasonNames(ItemDefs[item].seed)}`);
-    this.game.fieldOp('plant', this.tile.tx, this.tile.ty, i, item); this._burst(i, 'plant'); this._say('Now cover it with your hand, and water it.');
+    this.game.fieldOp('plant', this.tile.tx, this.tile.ty, i, item); this._burst(i, 'plant'); this._say('Now tap the seed to cover it with soil, then drag the watering can onto it.');
     return true;
   }
 
@@ -132,39 +164,41 @@ class GardenUI {
     if (x < 0 || y < 0 || x >= GARDEN_CELL * 3 || y >= GARDEN_CELL * 3) return -1;
     return Math.floor(y / GARDEN_CELL) * 3 + Math.floor(x / GARDEN_CELL);
   }
-  /** What the chosen tool does to a plot: an op, or why not. */
-  _opFor(plot) {
+  /** What a tool (or, with none, your bare hand) does to a plot: an op, or why not. */
+  _opFor(plot, tool = null) {
     const today = Seasons.at(this.game.clockTick).day;
-    if (this.tool === 'hoe') return plot.u ? { op: 'till' } : { why: plot.c ? 'Something is growing there' : 'The soil is loose already' };
-    if (this.tool === 'shovel' || this.tool === 'hand_trowel') return plot.c ? { why: 'Something is planted there' } : plot.h ? { why: 'There is a hole there already: drag a seed into it' } : plot.u ? { why: 'Packed hard: loosen it with the hoe first' } : { op: 'dig' };
-    if (this.tool === 'watering_can') return plot.w === today ? { why: 'Already watered today' } : { op: 'water' };
+    if (tool === 'hoe') return plot.u ? { op: 'till' } : { why: plot.c ? 'Something is growing there' : 'The soil is loose already' };
+    if (tool === 'shovel' || tool === 'hand_trowel') return plot.c ? { why: 'Something is planted there' } : plot.h ? { why: 'There is a hole there already: drag a seed into it' } : plot.u ? { why: 'The soil is packed hard: drag the hoe onto it first' } : { op: 'dig' };
+    if (tool === 'watering_can') return plot.w === today ? { why: 'Already watered today' } : { op: 'water' };
     if (Farming.ripe(plot)) return { op: 'harvest' };
     if (plot.c && plot.dead) return { op: 'clear' };
     if (plot.c && !plot.v) return { op: 'cover' };
-    if (!plot.c && plot.h) return { op: 'cover' };
-    return { why: plot.c ? 'It is still growing: water it each day' : 'Nothing to do here with your hand: dig a hole with the trowel' };
+    if (plot.c) return { why: 'It is still growing: water it each day with the watering can' };
+    if (plot.h) return { why: 'Drag a seed from a pouch into the hole' };
+    return { why: plot.u ? 'Packed hard: drag the hoe onto it to loosen it' : 'Drag the hand trowel onto it to dig a hole' };
   }
   /** A line about a plot, for the hint under the bed while the pointer is over it. */
   _describe(plot) {
     const state = Farming.stateOf(plot), crop = plot.c && Crops.get(plot.c), name = crop ? crop.name : '', today = Seasons.at(this.game.clockTick).day, wet = plot.w === today ? ' Watered today.' : '';
     switch (state) {
-      case 'packed': return 'Packed soil: loosen it with the hoe.';
-      case 'loose': return 'Loose soil: dig a hole with the trowel.' + wet;
+      case 'packed': return 'Packed soil: loosen it: drag the hoe onto it.';
+      case 'loose': return 'Loose soil: dig a hole: drag the trowel onto it.' + wet;
       case 'hole': return 'A hole, ready for a seed: drag one in from a pouch.' + wet;
-      case 'seed': return `${name} seed in the hole: cover it with your hand.` + wet;
+      case 'seed': return `${name} seed in the hole: tap it to cover it with soil.` + wet;
       case 'growing': return `${name}: day ${plot.d} of ${Farming.growDays(plot.c)}. It grows a day for each day it is watered.` + wet;
-      case 'ripe': return `${name} is ripe: pick it with your hand.`;
-      default: return `The ${name.toLowerCase()} has withered: clear it with your hand.`;
+      case 'ripe': return `${name} is ripe: tap it to pick it.`;
+      default: return `The ${name.toLowerCase()} has withered: tap it to clear it.`;
     }
   }
-  _use(i) {
+  /** A tool dropped on plot i, or (tool null) a tap with your bare hand. */
+  _use(i, tool = null) {
     const field = this._field(); if (i < 0 || !field) return;
-    const act = this._opFor(field.cells[i]);
-    if (!act.op) { this._say(act.why); this.shake[i] = performance.now(); return; }
-    const t = GARDEN_TOOLS.find(x => x.id === this.tool);
-    if (t && t.kind && !Farming.hasTool(this.game.inventory, t.kind)) { this._say(`You need a ${t.name.toLowerCase()}.`); return; }
+    const act = this._opFor(field.cells[i], tool);
+    if (!act.op) { this._say(act.why, true); this.shake[i] = performance.now(); return; }
+    const t = tool && GARDEN_TOOLS.find(x => x.id === tool);
+    if (t && !Farming.hasTool(this.game.inventory, t.kind)) { this._say(`You need a ${t.name.toLowerCase()}.`, true); return; }
     this.game.fieldOp(act.op, this.tile.tx, this.tile.ty, i); this._burst(i, act.op);
-    this._say(act.op === 'dig' ? 'Drag a seed from a pouch into the hole.' : act.op === 'cover' ? 'Water it so it can grow.' : act.op === 'harvest' ? 'A fine harvest!' : '');
+    this._say(act.op === 'dig' ? 'Now drag a seed from a pouch into the hole.' : act.op === 'cover' ? 'Water it so it can grow: drag the watering can onto it.' : act.op === 'harvest' ? 'A fine harvest!' : '');
   }
   /** A burst of art-pixel specks: earth for digging and covering, drops for water, gold for a harvest. */
   _burst(i, op) {
@@ -180,7 +214,7 @@ class GardenUI {
     if (!this.isOpen) return;
     const me = this.game.local, field = this._field();
     if (!field || !me || Math.hypot(this.tile.tx + 0.5 - me.x, this.tile.ty + 0.5 - me.y) > Farming.REACH + 2) { this.close(); return; }       // (the field is gone, or you walked away from it)
-    if (this.hover !== this.lastHover) { this.lastHover = this.hover; if (this.hover >= 0 && !this.dragSeed) this._say(this._describe(field.cells[this.hover])); }
+    if (this.hover !== this.lastHover) { this.lastHover = this.hover; if (this.hover >= 0 && !this.dragSeed && !this.dragTool && performance.now() > this.warnUntil) this._say(this._describe(field.cells[this.hover])); }
     this._draw(field, now);
     this.raf = requestAnimationFrame(t => this._frame(t));
   }
@@ -228,7 +262,7 @@ class GardenUI {
     if (state === 'ripe' && Math.sin(now / 260 + i) > -0.2) { g.fillStyle = '#ffe27a'; for (const [dx, dy] of [[2, 2], [C - 5, 2], [2, C - 5], [C - 5, C - 5]]) { g.fillRect(ox + dx, y + dy, 3, 1); g.fillRect(ox + dx, y + dy, 1, 3); } }   // gold corners: ready to pick
     if (wet) { g.fillStyle = '#1d120a'; g.fillRect(ox + C - 8, y + 3, 5, 6); g.fillStyle = '#6cc3f0'; g.fillRect(ox + C - 7, y + 5, 3, 3); g.fillRect(ox + C - 6, y + 4, 1, 1); g.fillStyle = '#bfe8ff'; g.fillRect(ox + C - 7, y + 5, 1, 1); }   // a drop: watered today
     if (this.hover === i) {                                                                                              // what the pointer is over
-      const ok = this.dragSeed ? plot.h && !plot.c : !!this._opFor(plot).op;
+      const ok = this.dragSeed ? plot.h && !plot.c : !!this._opFor(plot, this.dragTool ? this.dragTool.id : null).op;
       g.fillStyle = ok ? '#ffe08a' : 'rgba(241,224,180,.4)';
       g.fillRect(ox, y, C, 1); g.fillRect(ox, y + C - 1, C, 1); g.fillRect(ox, y, 1, C); g.fillRect(ox + C - 1, y, 1, C);
       if (ok) { g.fillStyle = '#1d120a'; g.fillRect(ox + 1, y + 1, C - 2, 1); g.fillRect(ox + 1, y + C - 2, C - 2, 1); g.fillRect(ox + 1, y + 1, 1, C - 2); g.fillRect(ox + C - 2, y + 1, 1, C - 2); }
