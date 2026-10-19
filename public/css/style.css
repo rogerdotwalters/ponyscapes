@@ -1071,3 +1071,27 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 #invScroll{position:absolute;right:4px;width:14px;z-index:2;background:rgba(0,0,0,.45);border:2px solid #1d120a;border-radius:2px;box-sizing:border-box;touch-action:none}
 #invScrollThumb{position:absolute;left:0;right:0;top:0;min-height:56px;background:#d9a441;border:2px solid #1d120a;border-radius:2px;box-sizing:border-box;box-shadow:inset 0 2px 0 #f6d98c,inset 0 -3px 0 #98691f;touch-action:none;cursor:grab}
 #invScrollThumb.drag{background:#f2cf7a;cursor:grabbing}
+
+/* keep the whole garden window on the screen: sized to the viewport, wrapping tool buttons, a bed that shrinks, and a panel that scrolls instead of spilling */
+#gardenPanel,#gardenPanel *{box-sizing:border-box}
+#gardenPanel{overflow-x:hidden;overflow-y:auto;max-width:100vw;max-height:100vh}
+#gardenWin{max-width:calc(100vw - 16px);min-width:0}
+#gardenMain,#gardenBed{min-width:0;max-width:100%}
+#gardenCanvas{max-width:100%;height:auto !important}
+#gardenTools{width:100%;max-width:100%}
+#gardenTools button{flex:1 1 58px;min-width:56px;max-width:84px}
+#gardenTools button span{font-size:11px;text-align:center;line-height:1.1}
+#gardenHint{max-width:100%;overflow-wrap:anywhere}
+@media (max-width:640px){#gardenPanel{padding:48px 6px 96px !important}#gardenWin{padding:10px 8px 8px}#gardenSeeds{width:100%}}
+
+/* the shop cart: nothing is paid until Checkout */
+.shopCart{margin:0 0 10px;padding:7px 8px;background:rgba(20,10,4,.5);border:2px solid var(--deep);box-shadow:inset 0 0 0 1px rgba(217,164,65,.35)}
+.shopCart.empty{font:italic 12px Georgia,serif;color:#e8d9b0}
+.cartHead{font:700 12px var(--font-title);color:var(--brass);text-transform:uppercase;letter-spacing:2px;margin-bottom:5px;padding-bottom:3px;border-bottom:2px solid var(--gold)}
+.cartLine{display:flex;align-items:center;gap:6px;margin:3px 0}.cartLine img{width:24px;height:24px;image-rendering:pixelated}
+.cartName{flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cartBtn{width:24px;height:24px;padding:0;border:2px solid var(--deep);border-radius:2px;background:var(--gold);color:var(--ink);font:700 14px var(--font-title);cursor:pointer}
+.cartQty{min-width:22px;text-align:center}
+.cartTotal{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:6px 0 4px;font-weight:700}
+.cartBtns{display:flex;gap:6px}.cartBtns .shopbuy{flex:1}.shopbuy.alt{background:#8a5f32;color:var(--parch)}
+.cartWarn{display:block;margin-top:4px;color:#ffb0a0}

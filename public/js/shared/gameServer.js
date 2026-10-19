@@ -314,7 +314,7 @@ class GameServer {
       case 'packMove': this._packMove(id, inventory, cmd); break;                                           // between your bag and your pony's pack (packSystem.js)
       case 'ponyBagOn': this._ponyBagOn(id, inventory, cmd.from); break;
       case 'ponyBagOff': this._ponyBagOff(id, inventory, cmd.index); break;
-      case 'buy': if (typeof cmd.item === 'string') this._buy(id, cmd.item, cmd.pay); break;
+      case 'buy': if (Array.isArray(cmd.cart)) this._buy(id, cmd.cart, cmd.pay); else if (typeof cmd.item === 'string') this._buy(id, [[cmd.item, 1]], cmd.pay); break;
       case 'apple': if (typeof cmd.item === 'string') this._giveApple(id, cmd.item); break;                           // the Apple button (appleSystem.js)
       case 'sell': if (typeof cmd.item === 'string') this._sell(id, cmd.item, cmd.count); break;                        // at a shop counter (shopSystem.js)                          // at a shop counter (shopSystem.js)
       case 'unequip': this._handleUnequip(id, inventory, cmd.slot); break;

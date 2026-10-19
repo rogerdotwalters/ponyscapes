@@ -1,7 +1,7 @@
 'use strict';
-/* CLIENT - the garden window. Tap a tilled tile with a hoe, shovel, watering can or seeds in hand and a window shows its nine plots (farming.js), with your
+/* CLIENT - the garden window. Tap a tilled tile with a hoe, trowel, shovel, watering can or seeds in hand and a window shows its nine plots (farming.js), with your
  * SEED PACKS in a scrolling list on the side and your gardening tools along the bottom.
- *   - pick a tool and tap a plot: hoe loosens packed soil, shovel digs a hole, can waters, hand covers a seed / fills a hole / clears a withered crop / picks
+ *   - pick a tool and tap a plot: hoe loosens packed soil, trowel (or shovel) digs a hole, can waters, hand covers a seed / fills a hole / clears a withered crop / picks
  *     what is ripe. The server checks each job (reach, the tool you carry) and answers with the new state of the field.
  *   - tap a seed pack to open its POUCH (seedPouchUI.js, like the coin bag) beside the window; several can be open at once. Drag a seed out of a pouch onto
  *     a dug, empty hole to plant it: the pouch's count follows what your bag really holds.
@@ -9,6 +9,7 @@
 const GARDEN_TOOLS = [
   { id: 'hand', kind: '', name: 'Hand', hint: 'Cover seeds, fill holes, clear withered crops and pick what is ripe' },
   { id: 'hoe', kind: 'hoe', name: 'Hoe', hint: 'Loosen soil that has packed down' },
+  { id: 'hand_trowel', kind: 'trowel', name: 'Hand trowel', hint: 'Dig a hole to plant in' },
   { id: 'shovel', kind: 'shovel', name: 'Shovel', hint: 'Dig a hole to plant in' },
   { id: 'watering_can', kind: 'water', name: 'Watering can', hint: 'Water a plot for today' }
 ];
@@ -33,7 +34,8 @@ class GardenUI {
 
   /** The bed is drawn at 3 screen pixels to the art pixel (2 on a small screen) so the pixels stay crisp. */
   _fit() {
-    this.S = Math.min(window.innerWidth - 60, (window.innerHeight - 250) * 1.15) < GARDEN_ART * 3 ? 2 : 3;
+    const room = Math.min(window.innerWidth - 56, (window.innerHeight - 250) * 1.15);                  // (what the screen can hold, less the window's frame and margins)
+    this.S = Math.max(1, Math.min(3, Math.floor(room / GARDEN_ART)));
     this.canvas.width = this.canvas.height = GARDEN_ART * this.S; this.canvas.style.width = this.canvas.style.height = GARDEN_ART * this.S + 'px';
   }
   get isOpen() { return !this.panel.hidden; }
@@ -114,7 +116,7 @@ class GardenUI {
     if (i < 0 || !field) return false;
     const plot = field.cells[i], note = text => { this.game.events.emit('notice', { to: this.game.myId, text }); return false; };
     if (plot.c) return note('Something is already planted there');
-    if (!plot.h) return note(plot.u ? 'The soil is packed hard: loosen it with the hoe, then dig a hole' : 'Dig a hole with the shovel first');
+    if (!plot.h) return note(plot.u ? 'The soil is packed hard: loosen it with the hoe, then dig a hole' : 'Dig a hole with the hand trowel first');
     if (!this._inSeason(item)) return note(`${ItemDefs[item].name.replace(/ Seeds$/, '')} only grows in ${Farming.seasonNames(ItemDefs[item].seed)}`);
     this.game.fieldOp('plant', this.tile.tx, this.tile.ty, i, item); this._burst(i, 'plant'); this._say('Now cover it with your hand, and water it.');
     return true;
@@ -134,20 +136,20 @@ class GardenUI {
   _opFor(plot) {
     const today = Seasons.at(this.game.clockTick).day;
     if (this.tool === 'hoe') return plot.u ? { op: 'till' } : { why: plot.c ? 'Something is growing there' : 'The soil is loose already' };
-    if (this.tool === 'shovel') return plot.c ? { why: 'Something is planted there' } : plot.h ? { why: 'There is a hole there already: drag a seed into it' } : plot.u ? { why: 'Packed hard: loosen it with the hoe first' } : { op: 'dig' };
+    if (this.tool === 'shovel' || this.tool === 'hand_trowel') return plot.c ? { why: 'Something is planted there' } : plot.h ? { why: 'There is a hole there already: drag a seed into it' } : plot.u ? { why: 'Packed hard: loosen it with the hoe first' } : { op: 'dig' };
     if (this.tool === 'watering_can') return plot.w === today ? { why: 'Already watered today' } : { op: 'water' };
     if (Farming.ripe(plot)) return { op: 'harvest' };
     if (plot.c && plot.dead) return { op: 'clear' };
     if (plot.c && !plot.v) return { op: 'cover' };
     if (!plot.c && plot.h) return { op: 'cover' };
-    return { why: plot.c ? 'It is still growing: water it each day' : 'Nothing to do here with your hand: dig a hole with the shovel' };
+    return { why: plot.c ? 'It is still growing: water it each day' : 'Nothing to do here with your hand: dig a hole with the trowel' };
   }
   /** A line about a plot, for the hint under the bed while the pointer is over it. */
   _describe(plot) {
     const state = Farming.stateOf(plot), crop = plot.c && Crops.get(plot.c), name = crop ? crop.name : '', today = Seasons.at(this.game.clockTick).day, wet = plot.w === today ? ' Watered today.' : '';
     switch (state) {
       case 'packed': return 'Packed soil: loosen it with the hoe.';
-      case 'loose': return 'Loose soil: dig a hole with the shovel.' + wet;
+      case 'loose': return 'Loose soil: dig a hole with the trowel.' + wet;
       case 'hole': return 'A hole, ready for a seed: drag one in from a pouch.' + wet;
       case 'seed': return `${name} seed in the hole: cover it with your hand.` + wet;
       case 'growing': return `${name}: day ${plot.d} of ${Farming.growDays(plot.c)}. It grows a day for each day it is watered.` + wet;

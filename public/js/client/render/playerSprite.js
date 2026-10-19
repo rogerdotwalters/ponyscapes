@@ -5,8 +5,8 @@
  * drawn as overlays in the same direction, and replace the procedural look of that piece of gear. */
 const WORN_ORDER = ['cape', 'outfit', 'crown'];                 // wardrobe overlays are layered in this order
 const SWING_WINDUP_ANGLE = -1.6, SWING_CARRY_ANGLE = -0.9, SWING_FOLLOW_THROUGH = 0.35;
-const TOOL_SIZE = { axe: 34, hammer: 34, knife: 22, shovel: 50, spear: 64, rod: 56, hoe: 48, sickle: 32, hedge: 38, sword: 40, item: 26 };   // how tall each tool's picture is drawn (world px; the character is about 52 tall)
-const TOOL_LENGTH = { sickle: 12, axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10, hedge: 14, hoe: 22, water: 6 };
+const TOOL_SIZE = { axe: 34, hammer: 34, knife: 22, shovel: 50, spear: 64, rod: 56, hoe: 48, trowel: 30, sickle: 32, hedge: 38, sword: 40, item: 26 };   // how tall each tool's picture is drawn (world px; the character is about 52 tall)
+const TOOL_LENGTH = { sickle: 12, axe: 17, hammer: 17, knife: 11, spear: 28, rod: 30, bow: 12, sword: 22, shovel: 24, leash: 8, brush: 9, shears: 10, hedge: 14, hoe: 22, trowel: 12, water: 6 };
 /** Each lasso's look: rope, braid highlight, outline, the ring (honda) the loop runs through, its ribbon tails (none: a plain rope end)
  *  and whether it is old and frayed (the starter). A lasso made in the editor uses its item colour. Shared with the item icons and the throw effect. */
 const LASSO_LOOKS = {
@@ -378,6 +378,7 @@ class PlayerSprite {
     else if (tool.kind === 'shovel') this._drawShovelHead(tipX, tipY, dirX, dirY, perpX, perpY);
     else if (tool.kind === 'sickle') { ctx.strokeStyle = '#c9ced6'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(tipX + perpX * 5, tipY + perpY * 5, 6, Math.atan2(-perpY, -perpX) - 1.6, Math.atan2(-perpY, -perpX) + 1.6); ctx.stroke(); }
     else if (tool.kind === 'hedge') { for (const s of [-1, 1]) this.g.polygon([tipX - dirX + perpX * s, tipY - dirY + perpY * s, tipX + dirX * 9 + perpX * s, tipY + dirY * 9 + perpY * s, tipX + dirX * 9 + perpX * s * 4, tipY + dirY * 9 + perpY * s * 4], '#c9ced6'); }
+    else if (tool.kind === 'trowel') this.g.polygon([tipX - perpX * 2.5, tipY - perpY * 2.5, tipX + dirX * 7, tipY + dirY * 7, tipX + perpX * 2.5, tipY + perpY * 2.5], '#c9ced6');
     else if (tool.kind === 'hoe') this.g.polygon([tipX - dirX, tipY - dirY, tipX + dirX * 2, tipY + dirY * 2, tipX + dirX * 2 + perpX * 7, tipY + dirY * 2 + perpY * 7, tipX - dirX * 2 + perpX * 6, tipY - dirY * 2 + perpY * 6], '#9aa2ad');
     else if (tool.kind === 'sword') this._drawSwordBlade(handX, handY, tipX, tipY, dirX, dirY, perpX, perpY, p.held);
     else if (tool.kind === 'rod') { ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX + dirX * 6, tipY + dirY * 6 + 12); ctx.stroke(); }

@@ -206,6 +206,7 @@ const ItemIcons = (() => {
     shears(ctx) { PixelWool.shearsIcon(ctx); },
     linen(ctx) { PixelCraftIcons.linen(ctx); },
     hoe(ctx) { PixelCraftIcons.hoe(ctx); },
+    hand_trowel(ctx) { PixelCraftIcons.trowel(ctx); },
     watering_can(ctx) { PixelCraftIcons.wateringCan(ctx); },
     antler(ctx) {
       ctx.strokeStyle = '#d9c9a6'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.beginPath();

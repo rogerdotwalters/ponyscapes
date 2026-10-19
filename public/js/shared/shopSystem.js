@@ -11,6 +11,24 @@ const Shops = {
   price: id => (ItemDefs[id] && ItemDefs[id].price) || [],
   /** What a price asks for in coins, in COPPER (the coin entries of the price, any kind of coin, added up). */
   coinPrice: price => price.reduce((sum, [item, n]) => sum + (Coins.isCoin(item) ? n * Coins.value(item) : 0), 0),
+  /** A cart from the client, cleaned: [[item id, count]...] of things this shop sells (whole counts of 1 to 99, at most 24 kinds, repeats merged). */
+  cleanCart(lines, site) {
+    const stock = Shops.stock(site), merged = new Map();
+    for (const l of Array.isArray(lines) ? lines.slice(0, 48) : []) {
+      const item = Array.isArray(l) ? l[0] : null, n = Math.floor(+(Array.isArray(l) ? l[1] : 0));
+      if (typeof item !== 'string' || !stock.includes(item) || !(n >= 1)) continue;
+      merged.set(item, Math.min(99, (merged.get(item) || 0) + Math.min(99, n)));
+    }
+    return [...merged].slice(0, 24);
+  },
+  /** What a cart asks for in coins, in COPPER. */
+  cartCoinPrice: cart => cart.reduce((sum, [item, n]) => sum + Shops.coinPrice(Shops.price(item)) * n, 0),
+  /** What a cart asks for besides coins: [[item, count]...]. */
+  cartOthers(cart) {
+    const out = new Map();
+    for (const [item, n] of cart) for (const [need, k] of Shops.price(item)) if (!Coins.isCoin(need)) out.set(need, (out.get(need) || 0) + k * n);
+    return [...out];
+  },
   /** What the shop pays for ONE of an item, in COPPER (0 = it buys nothing: coins). Every other item sells. In order: the item's own `sell` (copper, in its data); 40% of what the
    *  shop charges for it; 60% of what its ingredients sell for; food by what it fills (2 copper a point); a tool or weapon by its damage; else by rarity. At least 1. */
   sellPrice(id, depth = 0) {
@@ -74,22 +92,25 @@ Object.assign(GameServer.prototype, {
     this._notice(id, `Sold ${n} ${ItemDefs[itemId].name} for ${Coins.format(total)}`);
   },
 
-  /** `pay`: the coins the player put on the counter (an array of counts, copper first). The coin part of the price is taken from THEM (the shop gives
-   *  change when a bigger coin was needed); anything else a price asks for comes out of the bag (and the pack beside you) as before. */
-  _buy(id, itemId, pay) {
+  /** `lines`: the cart, [[item id, count]...] (one item with a count of 1 is a plain purchase). `pay`: the coins the player put on the counter (an array of counts, copper
+   *  first). The coin part of the total is taken from THEM (the shop gives change when a bigger coin was needed); anything else a price asks for comes out of the bag
+   *  (and the pack beside you) as before. Everything in the cart is bought at once or nothing is. */
+  _buy(id, lines, pay) {
+    if (typeof lines === 'string') lines = [[lines, 1]];
     const p = this.players[id], inventory = this.inventories[id], near = p && Shops.counterNear(this.mapOf(p), p);
     if (!near) { this._notice(id, 'Walk up to the shop counter to buy'); return; }
-    if (!Shops.stock(near.site).includes(itemId)) return;
-    const pony = this._packPonyOf(id), pack = pony ? pony.pack : null, price = Shops.price(itemId), coinPrice = Shops.coinPrice(price), others = price.filter(([item]) => !Coins.isCoin(item));
+    const cart = Shops.cleanCart(lines, near.site);
+    if (!cart.length) return;
+    const pony = this._packPonyOf(id), pack = pony ? pony.pack : null, coinPrice = Shops.cartCoinPrice(cart), others = Shops.cartOthers(cart);
     const have = item => inventory.count(item) + (pack ? pack.count(item) : 0);
     const short = others.find(([item, n]) => have(item) < n);
-    if (short) { this._notice(id, `You need ${short[1]} ${ItemDefs[short[0]].name.toLowerCase()}s for the ${ItemDefs[itemId].name} (you have ${have(short[0])})`); return; }
+    if (short) { this._notice(id, `You need ${short[1]} ${ItemDefs[short[0]].name.toLowerCase()}s for your cart (you have ${have(short[0])})`); return; }
     const paid = Coins.sanitize(pay), paidTotal = Coins.total(paid);
     if (coinPrice > 0) {
       if (inventory.coins === null || paid.some((n, t) => n > inventory.coins[t])) { this._notice(id, 'Put coins from your bag on the counter'); return; }
       if (paidTotal < coinPrice) { this._notice(id, `The counter needs ${Coins.format(coinPrice)}: you put down ${Coins.format(paid)}`); return; }
     }
-    const trialInv = inventory.clone(), trialPack = pack ? pack.clone() : null;                // pay, then see whether it fits
+    const trialInv = inventory.clone(), trialPack = pack ? pack.clone() : null;                // pay, then see whether it all fits
     for (const [item, n] of others) { const fromBag = Math.min(trialInv.count(item), n); trialInv.remove(item, fromBag); if (n > fromBag) trialPack.remove(item, n - fromBag); }
     if (coinPrice > 0) {
       for (let t = 0; t < Coins.N; t++) trialInv._coins[t] -= paid[t];                          // the coins on the counter go to the shop ...
@@ -97,12 +118,15 @@ Object.assign(GameServer.prototype, {
       for (let t = 0; t < Coins.N; t++) if (change[t]) Coins.add(trialInv._coins, t, change[t]);   // ... and the change comes back
       Coins.merge(trialInv._coins);                                                               // (and the purse merges up again)
     }
-    let left = trialInv.add(itemId, 1);
-    if (left && trialPack) left = trialPack.add(itemId, left);
-    if (left) { this._notice(id, 'No room in your bag for it'); return; }
+    for (const [itemId, n] of cart) {
+      let left = trialInv.add(itemId, n);
+      if (left && trialPack) left = trialPack.add(itemId, left);
+      if (left) { this._notice(id, `No room in your bag for the ${ItemDefs[itemId].name}`); return; }
+    }
     inventory.adopt(trialInv); if (pack) pack.slots = trialPack.slots;
     this.inventoryRev[id]++;
-    this.pendingEvents.push({ type: 'bought', to: id, item: itemId, x: p.x, y: p.y });
-    this._notice(id, `You bought the ${ItemDefs[itemId].name}` + (coinPrice > paidTotal ? '' : paidTotal > coinPrice ? ` (change: ${Coins.format(paidTotal - coinPrice)})` : '') + (Bags.isPlayerBag(itemId) ? ': wear it from your bag (Wear bag) or Gear' : Bags.isPonyBag(itemId) ? ': put it on your pony from your bag (Put on pony)' : ''));
+    for (const [itemId] of cart) this.pendingEvents.push({ type: 'bought', to: id, item: itemId, x: p.x, y: p.y });
+    const [first] = cart[0], what = cart.length === 1 && cart[0][1] === 1 ? `the ${ItemDefs[first].name}` : cart.map(([item, n]) => `${n} ${ItemDefs[item].name}`).join(', ');
+    this._notice(id, `You bought ${what}` + (coinPrice > paidTotal ? '' : paidTotal > coinPrice ? ` (change: ${Coins.format(paidTotal - coinPrice)})` : '') + (cart.length === 1 && Bags.isPlayerBag(first) ? ': wear it from your bag (Wear bag) or Gear' : cart.length === 1 && Bags.isPonyBag(first) ? ': put it on your pony from your bag (Put on pony)' : ''));
   }
 });

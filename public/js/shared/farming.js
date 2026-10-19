@@ -52,7 +52,9 @@ const Farming = {
     if (plot.c) return !plot.v ? 'seed' : plot.dead ? 'dead' : Farming.ripe(plot) ? 'ripe' : 'growing';
     return plot.u ? 'packed' : plot.h ? 'hole' : 'loose';
   },
-  /** Does the player carry a tool of this kind (hoe, shovel, water)? */
+  /** Does the player carry a tool that digs a hole: a hand trowel or a shovel? */
+  canDig: inventory => Farming.hasTool(inventory, 'trowel') || Farming.hasTool(inventory, 'shovel'),
+  /** Does the player carry a tool of this kind (hoe, shovel, trowel, water)? */
   hasTool: (inventory, kind) => inventory.slots.some(s => { const t = s && ItemDB.getTool(s.id); return !!t && t.kind === kind; }),
   /** Open grass or dirt in the overworld, with nothing standing on its tile. */
   tillable(map, cx, cy) {
@@ -129,7 +131,7 @@ Object.assign(GameServer.prototype, {
     } else if (op === 'dig') {
       if (plot.c || plot.h) return;
       if (plot.u) { this._notice(id, 'The soil is packed hard: loosen it with the hoe first'); return; }
-      if (!need('shovel', 'a shovel')) return;
+      if (!Farming.canDig(inventory)) { this._notice(id, 'You need a hand trowel or a shovel for that'); return; }
       plot.h = 1; event('till');
     } else if (op === 'water') {
       if (plot.w === today || !need('water', 'a watering can')) return;

@@ -11,6 +11,7 @@ Tools.registerAll([
   { id: 'sickle', name: 'Sickle', price: [['gold_coin', 3]], craft: [['stone', 1], ['plank', 1]], tool: { kind: 'sickle', damage: 0, reach: 1.1, swingTime: 0.45, impactTime: 0.22 } },
   /* ---- farming (farming.js): a hoe tills the ground (a half tile in front of you), a watering can waters what grows there ---- */
   { id: 'hoe', name: 'Hoe', price: [['gold_coin', 3]], craft: [['plank', 2], ['stone', 1]], tool: { kind: 'hoe', damage: 0, reach: 1, swingTime: 0.5, impactTime: 0.3 } },
+  { id: 'hand_trowel', name: 'Hand Trowel', price: [['gold_coin', 2]], craft: [['plank', 1], ['stone', 1]], tool: { kind: 'trowel', damage: 0, reach: 1, swingTime: 0.5, impactTime: 0.3 } },   // digs the holes seeds go in (a shovel does too)
   { id: 'watering_can', name: 'Watering Can', price: [['gold_coin', 3]], craft: [['plank', 3], ['string', 1]], tool: { kind: 'water', damage: 0, reach: 1, swingTime: 0.6, impactTime: 0.35 } },
   /* ---- the hedge cutter (hedges.js): Use beside a berry bush to cut it down (a Hedge Bush to plant, and its berries); Use on a planted hedge to trim it into the next shape ---- */
   { id: 'hedge_cutter', name: 'Hedge Cutter', price: [['gold_coin', 4]], craft: [['stone', 2], ['string', 1], ['plank', 1]], tool: { kind: 'hedge', damage: 0, reach: 1.3, swingTime: 0.55, impactTime: 0.3 } },

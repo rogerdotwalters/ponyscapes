@@ -142,6 +142,8 @@ class ClientGame {
   useApple(item) { this.net.sendCommand({ type: 'apple', item }); }
   sell(item, count) { this.net.sendCommand({ type: 'sell', item, count }); }
   buy(item, pay) { this.net.sendCommand({ type: 'buy', item, pay }); }
+  /** Check out a whole cart at the shop counter: lines is [[item, count]...], paid once with the coins on the counter. */
+  checkout(lines, pay) { this.net.sendCommand({ type: 'buy', cart: lines, pay }); }
   _applyPack(wire) {
     this.pack = wire ? { id: wire.id, name: wire.name, bags: wire.bags, riding: !!wire.riding, main: !!wire.main, inventory: Inventory.fromJSON(wire.slots || [], null) } : null;
     this.events.emit('packChanged');

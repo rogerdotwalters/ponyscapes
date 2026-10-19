@@ -65,4 +65,23 @@ test('an old save with half-tile plots becomes a field', () => {
   assert.deepStrictEqual(again, farm, 'a field survives a save');
 });
 
+
+test('a hand trowel digs a hole just like a shovel, and a dig without either is refused', () => {
+  const fresh = () => run('T.s._farm()[Farming.key(T.tx, T.ty)].cells.findIndex(c => !c.c && !c.h && !c.u)');
+  run('T.p.x = T.tx + 0.5; T.p.y = T.ty + 1.5'); run("T.inv.remove('shovel', 1)"); const i = fresh(); assert(i >= 0);
+  op('dig', i); assert(!plot(i).h, 'no digging tool');
+  run("T.inv.add('hand_trowel', 1)"); op('dig', i); assert.strictEqual(plot(i).h, 1, 'the trowel digs');
+});
+
+test('the shop cart: several things are bought with one payment', () => {
+  const r = run(`(() => {
+    const s = T.s, site = BuildingSites.list.find(b => b.def.id === 'general_store' || (Array.isArray(b.def.shop) && b.def.shop.includes('hand_trowel')));
+    const grid = Grids.room(site.index), world = s.grids.get(grid) || s.grids.values().next().value;
+    return { ok: !!site, stock: Shops.stock(site).includes('hand_trowel'), cart: Shops.cleanCart([['hoe', 2], ['hoe', 1], ['nonsense', 5], ['hand_trowel', 1]], site), total: Shops.cartCoinPrice(Shops.cleanCart([['hoe', 2], ['hand_trowel', 1]], site)) };
+  })()`);
+  assert(r.ok && r.stock, 'the general store sells the trowel');
+  assert.strictEqual(JSON.stringify(r.cart), JSON.stringify([['hoe', 3], ['hand_trowel', 1]]), 'repeats merge, junk is dropped');
+  assert.strictEqual(r.total, run("Shops.coinPrice(Shops.price('hoe')) * 2 + Shops.coinPrice(Shops.price('hand_trowel'))"));
+});
+
 console.log(`${passed} passed`);

@@ -8,18 +8,22 @@
 class ShopUI {
   constructor({ panel, body, closeButton, game, requestOpen, coinBag }) {
     this.panel = panel; this.body = body; this.game = game; this.coinBag = coinBag; this.items = []; this.site = -1; this.since = 0;
+    this.cart = new Map();                                                               // the cart: item id -> how many (nothing is paid until you check out)
     this.tab = 'buy';                                                                    // 'buy' or 'sell' (the General Store buys everything but coins)
     this.paying = null;                                                                  // { item, ask (coins the shop asks for), copper, offered, sent }
     closeButton.addEventListener('click', () => this.close());
     body.addEventListener('click', e => {
       const t = e.target.closest('button[data-tab]'); if (t) { this.tab = t.dataset.tab; this.refresh(); return; }
       const s = e.target.closest('button[data-sell]'); if (s) { this.game.sell(s.dataset.sell, s.dataset.count === 'all' ? 9999 : 1); return; }
-      const b = e.target.closest('button[data-buy]'); if (b && !b.disabled) { this._buy(b.dataset.buy); return; }
+      const add = e.target.closest('button[data-add]'); if (add && !add.disabled) { this._cartAdd(add.dataset.add, 1); return; }
+      const inc = e.target.closest('button[data-inc]'); if (inc) { this._cartAdd(inc.dataset.inc, Number(inc.dataset.by)); return; }
+      if (e.target.closest('button[data-clear]')) { this.cart.clear(); this.refresh(); return; }
+      if (e.target.closest('button[data-checkout]') && !e.target.closest('button[data-checkout]').disabled) { this._checkout(); return; }
       if (e.target.closest('button[data-cancel]')) { this._stopPaying(); this.refresh(); return; }
       const chip = e.target.closest('[data-take]'); if (chip && this.paying && !this.paying.sent) this.coinBag.unoffer(Number(chip.dataset.take));
     });
     game.events.on('shop', e => { this.items = e.items || []; this.site = e.site; requestOpen(); });
-    game.events.on('bought', () => { if (this.paying) { this._stopPaying(); this.refresh(); } });
+    game.events.on('bought', () => { if (this.paying) { this.cart.clear(); this._stopPaying(); this.refresh(); } });
     for (const ev of ['inventoryChanged', 'packChanged', 'gearChanged']) game.events.on(ev, () => this.isOpen && !this.paying && this.refresh());
   }
   get isOpen() { return !this.panel.hidden; }
@@ -46,12 +50,27 @@ class ShopUI {
     return out.join(' ');
   }
 
-  /* ---- buying: put the coins on the counter ---- */
-  _buy(id) {
-    const copper = Shops.coinPrice(Shops.price(id)), g = this.game;
-    if (copper <= 0) { g.buy(id, Coins.empty()); return; }                              // (nothing to pay in coins: the server takes whatever else it asks for)
-    if ((g.inventory.purse || 0) < copper) return;
-    this.paying = { item: id, copper, offered: Coins.empty(), sent: false };
+  /* ---- the cart ---- */
+  _cartAdd(id, by) {
+    const n = Math.max(0, Math.min(99, (this.cart.get(id) || 0) + by));
+    if (n) this.cart.set(id, n); else this.cart.delete(id);
+    this.refresh();
+  }
+  /** The cart as [[item, count]...], without anything the counter no longer sells. */
+  _lines() { return [...this.cart].filter(([id]) => this.items.includes(id)); }
+  /** What the cart costs: { copper, others: [[item, n]...] } (the same sums the server makes). */
+  _total(lines = this._lines()) { return { copper: Shops.cartCoinPrice(lines), others: Shops.cartOthers(lines) }; }
+  _canPay(lines = this._lines()) {
+    const { copper, others } = this._total(lines);
+    return lines.length > 0 && (this.game.inventory.purse || 0) >= copper && others.every(([item, n]) => this._have(item) >= n);
+  }
+
+  /* ---- checking out: put the coins for the whole cart on the counter ---- */
+  _checkout() {
+    const lines = this._lines(), { copper } = this._total(lines), g = this.game;
+    if (!this._canPay(lines)) return;
+    if (copper <= 0) { g.checkout(lines, Coins.empty()); return; }                      // (nothing to pay in coins: the server takes whatever else it asks for)
+    this.paying = { cart: lines, copper, offered: Coins.empty(), sent: false };
     this.panel.classList.add('paying');
     this.refresh();
     const zone = this.body.querySelector('#shopCounter'), need = Coins.fromTotal(copper);
@@ -69,7 +88,7 @@ class ShopUI {
     const pay = this.paying; if (!pay || pay.sent) return;
     pay.offered = offered;
     if (Coins.total(offered) >= pay.copper) {                                           // enough on the counter: the shop takes it
-      pay.sent = true; this.game.buy(pay.item, offered); this.coinBag.commitOffer();
+      pay.sent = true; this.game.checkout(pay.cart, offered); this.coinBag.commitOffer();
       this._drawPay();
       setTimeout(() => { if (this.paying === pay) { pay.sent = false; this._drawPay(); } }, 1800);   // (if the shop refused, the coins come back to the bag and you can try again)
       return;
@@ -99,8 +118,8 @@ class ShopUI {
   refresh() {
     const g = this.game, site = BuildingSites.list[this.site], purse = InventoryUI.coinHtml(g.inventory.coins);
     if (this.paying) {                                                                  // the counter: what the shop asks for, and where the coins go
-      const id = this.paying.item, def = ItemDefs[id];
-      this.body.innerHTML = `<div class="payTitle"><img alt="" src="${ItemIcons.url(id)}"><span>${def.name}</span><small>${site ? site.def.name : 'Shop'}</small></div>` +
+      const cart = this.paying.cart, [id] = cart[0], count = cart.reduce((sum, [, n]) => sum + n, 0), title = cart.length === 1 && cart[0][1] === 1 ? ItemDefs[id].name : `Your cart (${count} items)`;
+      this.body.innerHTML = `<div class="payTitle"><img alt="" src="${ItemIcons.url(id)}"><span>${title}</span><small>${site ? site.def.name : 'Shop'}</small></div>` +
         `<div class="shopPay"><div class="askLine"><span>Put down:</span></div><div id="shopCounter"></div><div class="paidRow" id="shopPaid"></div>` +
         `<div class="gempty">Hold a coin in your coin bag and drag it onto the slot of its own kind. Double-tap a coin to break it into smaller ones; Merge coins makes bigger ones.</div><div class="payBtns"><button class="tbig alt" data-cancel>Cancel</button></div></div>`;
       this._drawPay(); return;
@@ -109,12 +128,22 @@ class ShopUI {
     const tabs = !(site && site.def.buys) ? '' : `<div class="shopTabs"><button data-tab="buy" class="${this.tab === 'buy' ? 'on' : ''}">Buy</button><button data-tab="sell" class="${this.tab === 'sell' ? 'on' : ''}">Sell</button></div>`;
     if (this.tab === 'sell') { this._drawSell(site, purse, tabs); return; }
     const rows = this.items.map(id => {
-      const def = ItemDefs[id], price = Shops.price(id), copper = Shops.coinPrice(price), others = price.filter(([item]) => !Coins.isCoin(item));
-      const afford = (g.inventory.purse || 0) >= copper && others.every(([item, n]) => this._have(item) >= n);
+      const def = ItemDefs[id], price = Shops.price(id), copper = Shops.coinPrice(price), others = price.filter(([item]) => !Coins.isCoin(item)), inCart = this.cart.get(id) || 0;
       const cost = (copper ? ShopUI.askChips(copper) : '') + others.map(([item, n]) => `<span class="need${this._have(item) < n ? ' missing' : ''}">x${n}<img alt="" src="${ItemIcons.url(item)}"></span>`).join(' ');
-      return `<div class="recipe"><div class="out"><img alt="" src="${ItemIcons.url(id)}"></div><div class="info"><div class="name">${def.name}</div><small class="gwho">${ShopUI.what(id, g.gear)}</small><div class="needs">${cost}</div></div><button class="shopbuy" data-buy="${id}"${afford ? '' : ' disabled'}>Buy</button></div>`;
+      return `<div class="recipe"><div class="out"><img alt="" src="${ItemIcons.url(id)}">${inCart ? `<span class="qty">${inCart}</span>` : ''}</div><div class="info"><div class="name">${def.name}</div><small class="gwho">${ShopUI.what(id, g.gear)}</small><div class="needs">${cost}</div></div><button class="shopbuy" data-add="${id}">Add</button></div>`;
     });
-    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <span class="shopPurse">${purse}</span></div>` + tabs + (rows.join('') || '<div class="gnone">Nothing for sale.</div>');
+    this.body.innerHTML = `<div class="shophead">${site ? site.def.name : 'Shop'} &middot; your coins: <span class="shopPurse">${purse}</span></div>` + tabs + this._cartHtml() + (rows.join('') || '<div class="gnone">Nothing for sale.</div>');
+  }
+
+  /** The cart box: each line with - / + buttons, the total, and Checkout (the only place you pay). */
+  _cartHtml() {
+    const lines = this._lines();
+    if (!lines.length) return '<div class="shopCart empty">Your cart is empty. Press Add on what you want, then check out once.</div>';
+    const { copper, others } = this._total(lines), ok = this._canPay(lines);
+    const list = lines.map(([id, n]) => `<div class="cartLine"><img alt="" src="${ItemIcons.url(id)}"><span class="cartName">${ItemDefs[id].name}</span><button class="cartBtn" data-inc="${id}" data-by="-1" title="One fewer">-</button><b class="cartQty">${n}</b><button class="cartBtn" data-inc="${id}" data-by="1" title="One more">+</button></div>`).join('');
+    const cost = (copper ? ShopUI.askChips(copper) : '') + others.map(([item, n]) => `<span class="need${this._have(item) < n ? ' missing' : ''}">x${n}<img alt="" src="${ItemIcons.url(item)}"></span>`).join(' ');
+    return `<div class="shopCart"><div class="cartHead">Your cart</div>${list}<div class="cartTotal"><span>Total:</span> ${cost}</div>` +
+      `<div class="cartBtns"><button class="shopbuy" data-checkout${ok ? '' : ' disabled'}>Checkout</button><button class="shopbuy alt" data-clear>Empty cart</button></div>${ok ? '' : '<small class="cartWarn">You cannot afford everything in your cart yet.</small>'}</div>`;
   }
 
   /** The Sell tab: everything in your bag the shop will buy (all but coins), with what one is worth and buttons to sell one or the whole stack. */

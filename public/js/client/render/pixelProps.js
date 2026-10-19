@@ -388,6 +388,13 @@ const PixelCraftIcons = (() => {
       for (let x = 17; x <= 21; x++) px(x, 3, '#e4e8ee'); for (let y = 4; y <= 9; y++) px(21, y, '#6b727c');
     }));
   }
+  function trowel(g) {
+    put(g, grid(px => {
+      for (let i = 0; i < 7; i++) { px(4 + i, 20 - i, '#8a5f33'); px(5 + i, 20 - i, '#b07a46'); }          // the short wooden grip
+      for (let i = 0; i < 4; i++) px(11 + i, 13 - i, '#6b727c');                                          // the neck
+      for (let y = 2; y <= 10; y++) for (let x = 14; x <= 22; x++) if (Math.abs((x - 18) + (y - 6)) + Math.abs((x - 18) - (y - 6)) <= 8 && x + y > 18) px(x, y, (x + y) % 5 ? '#9aa2ad' : '#e4e8ee');   // the pointed scoop
+    }));
+  }
   function wateringCan(g) {
     put(g, grid(px => {
       const tin = '#6f9fc8', lite = '#a9cdea', dark = '#41698f';
@@ -430,7 +437,7 @@ const PixelCraftIcons = (() => {
       }
     }));
   }
-  return { dye, linen, hoe, wateringCan, seeds, produce };
+  return { dye, linen, hoe, trowel, wateringCan, seeds, produce };
 })();
 
 /* ---- CROPS: a growing crop in a farm plot, by its look (root, bush, stalk, vine) and stage (0 sprout, 1 young, 2 grown / in flower, 3 ripe,

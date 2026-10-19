@@ -60,7 +60,7 @@ class TapActions {
   /** Is something in hand that works a field: a hoe, a shovel, a watering can, or seeds? */
   _gardening() {
     const held = this.game.heldItemId(), tool = ItemDB.getTool(held), def = held && ItemDefs[held];
-    return !!(tool && ['hoe', 'shovel', 'water'].includes(tool.kind)) || !!(def && def.seed);
+    return !!(tool && ['hoe', 'shovel', 'trowel', 'water'].includes(tool.kind)) || !!(def && def.seed);
   }
 
   /** A door, stockpile, chest, crop, pick-up, shop counter, boat... right where the pointer is: asks the interaction rules as if we stood on that spot. */

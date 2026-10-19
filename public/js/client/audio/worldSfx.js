@@ -109,7 +109,7 @@
     /** A tool swung: a whoosh whose weight and pitch follow the tool. */
     swing(kind, v = 1, pan = 0) {
       const c = ready(); if (!c) return; const o = { vol: v, pan };
-      const W = { axe: [520, 190, 0.26, 0.2], hammer: [480, 170, 0.28, 0.2], pick: [560, 200, 0.24, 0.2], shovel: [800, 350, 0.22, 0.17], hoe: [800, 350, 0.22, 0.17], sword: [1900, 800, 0.17, 0.2], knife: [2600, 1200, 0.11, 0.14], spear: [2000, 650, 0.2, 0.18], rod: [3000, 1500, 0.13, 0.12], scythe: [1200, 500, 0.22, 0.17], leash: [650, 1200, 0.36, 0.17] }[kind] || [900, 400, 0.2, 0.15];
+      const W = { axe: [520, 190, 0.26, 0.2], hammer: [480, 170, 0.28, 0.2], pick: [560, 200, 0.24, 0.2], shovel: [800, 350, 0.22, 0.17], hoe: [800, 350, 0.22, 0.17], trowel: [900, 420, 0.18, 0.14], sword: [1900, 800, 0.17, 0.2], knife: [2600, 1200, 0.11, 0.14], spear: [2000, 650, 0.2, 0.18], rod: [3000, 1500, 0.13, 0.12], scythe: [1200, 500, 0.22, 0.17], leash: [650, 1200, 0.36, 0.17] }[kind] || [900, 400, 0.2, 0.15];
       P(c, o, { len: W[2], freq: W[0], freq2: W[1], q: 1, gain: W[3], attack: W[2] * 0.4 });
       if (kind === 'leash') T(c, o, { len: 0.3, from: 140, to: 190, gain: 0.04, type: 'sawtooth' });
     },

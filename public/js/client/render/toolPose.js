@@ -18,6 +18,7 @@ const ToolPose = (() => {
     hammer: [K(60, 7, 8),  K(145, -1, -8),  K(-50, 11, 7)],
     shovel: [K(65, 6, 8),  K(108, 1, -5),   K(-72, 10, 9)],              // dig: raised, then driven down
     hoe:    [K(60, 7, 8),  K(128, 0, -8),   K(-32, 11, 8)],              // raised, then pulled down and in
+    trowel: [K(40, 7, 8),  K(95, 3, -2),    K(-55, 10, 8)],              // a short dig: lifted, then jabbed down
     knife:  [K(20, 8, 8),  K(28, 2, 6),     K(-4, 14, 5)],               // a short stab
     spear:  [K(72, 7, 6),  K(14, 0, 3),     K(2, 14, 3)],                // a long thrust
     sword:  [K(50, 8, 8),  K(135, 0, -6, -5), K(-22, 12, 6, 5)],         // a slash across the body
