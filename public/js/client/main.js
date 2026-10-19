@@ -16,15 +16,22 @@ function preventBrowserGestures() {                  // no scroll / zoom / selec
   ['gesturestart', 'gesturechange', 'gestureend', 'contextmenu', 'dblclick'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
 }
 
+/** Go full screen (and landscape where the browser allows it). Browsers only allow it from a tap or click, so it is called from those. */
+async function enterFullscreen() {
+  if (!document.fullscreenEnabled || document.fullscreenElement) return;
+  try {
+    await document.documentElement.requestFullscreen();
+    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+  } catch (e) { /* not allowed */ }
+}
+
 function setupFullscreenButton(button) {
   if (!document.fullscreenEnabled) { button.style.display = 'none'; return; }
   button.addEventListener('click', async () => {
-    try {
-      if (document.fullscreenElement) { await document.exitFullscreen(); return; }
-      await document.documentElement.requestFullscreen();
-      if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
-    } catch (e) { /* not allowed */ }
+    try { if (document.fullscreenElement) await document.exitFullscreen(); else await enterFullscreen(); } catch (e) { /* not allowed */ }
   });
+  // using the on-screen joystick forces full screen (the lift of the finger counts as the tap the browser asks for)
+  for (const el of [$('joyZone'), $('joyBase')]) if (el) el.addEventListener('pointerup', () => enterFullscreen());
 }
 
 function collectLayoutDom(game) {
