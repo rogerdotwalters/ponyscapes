@@ -1167,18 +1167,19 @@ body.padMenu #padBubbles{display:none}
 body.coinsOpen #miniMap,body.gardenOpen #miniMap{visibility:hidden}
 
 
-/* THE TOOL BAR: one curved frame, bottom centre (a flat bottom, an arched top). Raised top: health and energy (with thin hunger and thirst lines under them) are
- * built into it. Its row: the Menu, the five tool slots, the Bag, the Emote button. Nothing floats beside it. Sizes come from the layout (--slot --cap --strip --pad). */
+/* THE TOOL BAR: one curved frame, bottom centre (a flat bottom, an arched top). Health and energy run along the WHOLE arch, edge to edge (health on the left half,
+ * energy on the right, hunger and thirst as thin lines along their bottoms): they are the top of the frame, tallest in the middle where the arch is highest.
+ * Its row: the Menu, the five tool slots, the Bag, the Emote button. Nothing floats beside it. Sizes come from the layout (--slot --cap --strip --rise --pad). */
 #toolbar{position:fixed;display:flex;flex-direction:column;gap:0;padding:0 var(--pad,5px) var(--pad,5px);box-sizing:border-box;
-  border:2px solid var(--deep);border-radius:50% 50% 22px 22px / calc(var(--strip,22px) * .9) calc(var(--strip,22px) * .9) 22px 22px;
+  border:2px solid var(--deep);border-radius:50% 50% 22px 22px / var(--rise,16px) var(--rise,16px) 22px 22px;
   background:radial-gradient(ellipse at 50% 0,#6a4a2a,#3d2a15 55%,#2a1a0b);box-shadow:inset 0 0 0 1px var(--gold),inset 0 2px 0 rgba(255,220,150,.25),0 4px 0 rgba(0,0,0,.5)}
-#tbVitals{display:flex;gap:3px;height:calc(var(--strip,22px) - 4px);margin:4px calc(var(--pad,5px) + 2 * (var(--cap,40px) + var(--gap,4px))) 0 calc(var(--pad,5px) + var(--cap,40px) + var(--gap,4px))}
-.tbSeg{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden;border:1px solid var(--deep);background:rgba(0,0,0,.5)}
-.tbSeg:first-child{border-top-left-radius:16px}.tbSeg:last-child{border-top-right-radius:16px}
+#tbVitals{display:flex;gap:3px;height:var(--strip,30px);margin:0 calc(-1 * var(--pad,5px));overflow:hidden;border-radius:50% 50% 0 0 / calc(var(--rise,16px) - 2px) calc(var(--rise,16px) - 2px) 0 0;
+  background:var(--deep);border-bottom:2px solid var(--deep)}
+.tbSeg{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,.5)}
 #tbVitals .vital{position:relative;flex:1;min-height:0;border:0;border-radius:0;background:rgba(0,0,0,.35)}
 #tbVitals .vital.thin{flex:none;height:4px}
 #tbVitals .vital.thin .vlabel{display:none}
-#tbVitals .vlabel{font-size:10px;line-height:1}
+#tbVitals .vlabel{font-size:10px;line-height:1;align-items:flex-end;padding-bottom:3px}
 #tbRow{display:flex;align-items:stretch;gap:var(--gap,4px);padding-top:var(--pad,5px);position:relative}
 .tbCap{position:relative;flex:none;width:var(--cap,40px);height:var(--slot,46px);display:flex;align-items:center;justify-content:center;padding:0;border:2px solid var(--deep);
   background:linear-gradient(180deg,#5a3d22,#3a2511);color:var(--parch);font:700 20px/1 var(--font-title);box-shadow:inset 0 0 0 1px rgba(217,164,65,.45);touch-action:none;cursor:pointer}
@@ -1189,3 +1190,4 @@ body.coinsOpen #miniMap,body.gardenOpen #miniMap{visibility:hidden}
 #btnEmote{order:6;border-radius:3px 18px 18px 3px}
 #toolbar .handSlot{margin-right:12px}
 body.padActive #btnMenu::after{right:auto;left:-4px;top:-10px}
+body.noVitals #hungerBar,body.noVitals #thirstBar{display:none !important}
