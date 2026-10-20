@@ -28,14 +28,14 @@ class SeasonUI {
    *  for every day of the season (the days gone by are filled, today is lit); the time of day (picture and name) and today's weather side by side below. */
   constructor({ root }) { this.root = root; this.shown = ''; this.season = null; this.cells = []; this.cellsFor = 0; }
   update(info, weather) {
-    const s = info.season, text = `${s.id}|${info.dayInSeason}|${info.length}|${info.year}|${weather ? weather.t : ''}`;
+    const s = info.season, text = `${s.id}|${info.day}|${info.dayInSeason}|${info.length}|${info.year}|${weather ? weather.t : ''}`;
     if (text === this.shown) return;
     this.shown = text;
     const q = sel => this.root.querySelector(sel);
     this.root.style.setProperty('--season', s.color);
     q('.sbIcon').textContent = s.icon; q('.sbName').textContent = s.name;
     const sky = weather && Weather.TYPES[weather.t], sbw = q('.sbWeather'); sbw.textContent = sky ? sky.icon : ''; sbw.parentNode.title = sky ? sky.name : '';      // today's weather
-    q('.sbDate').textContent = SeasonUI.dayName(info.dayInSeason);
+    q('.sbDate').textContent = SeasonUI.dayName(info.dayInSeason, info.day % 7);
     this.root.title = `${s.name}, day ${info.dayInSeason} of ${info.length}, year ${info.year}`;
     this._calendar(info);
     if (this.season && this.season !== s.id) {                                       // a new season: say so for a moment
@@ -44,22 +44,25 @@ class SeasonUI {
     }
     this.season = s.id;
   }
-  /** "Monday the 1st": a season starts on a Monday, and the seven columns of the calendar are its weekdays. */
-  static dayName(day) {
+  /** "Monday the 1st". The weekdays run on through every season and year without a break (day 1 of the world is a Monday), so a season that ends on a Friday
+   *  is followed by one that begins on a Saturday. */
+  static dayName(day, weekday) {
     const week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], mod100 = day % 100, mod10 = day % 10;
     const suffix = mod100 >= 11 && mod100 <= 13 ? 'th' : mod10 === 1 ? 'st' : mod10 === 2 ? 'nd' : mod10 === 3 ? 'rd' : 'th';
-    return `${week[(day - 1) % 7]} the ${day}${suffix}`;
+    return `${week[weekday % 7]} the ${day}${suffix}`;
   }
-  /** One box per day, seven to a row (always at least three rows); boxes past the end of a short season stay blank. */
+  /** One box per day, a week of seven to a row (Monday first): the season's first day sits in the column of its weekday, so the columns are always the same weekdays.
+   *  Boxes before the first day and after the last stay blank. Always at least three rows. */
   _calendar(info) {
-    const cal = this.root.querySelector('.sbCal'), rows = Math.max(3, Math.ceil(info.length / 7)), count = rows * 7;
-    if (this.cellsFor !== count + ':' + info.length) {
+    const cal = this.root.querySelector('.sbCal'), offset = (((info.day - info.dayInSeason + 1) % 7) + 7) % 7;
+    const rows = Math.max(3, Math.ceil((offset + info.length) / 7)), count = rows * 7, key = `${count}:${offset}:${info.length}`;
+    if (this.cellsFor !== key) {
       cal.innerHTML = ''; this.cells = [];
       cal.style.setProperty('--rows', rows);
-      for (let i = 0; i < count; i++) { const c = document.createElement('i'); c.textContent = i < info.length ? i + 1 : ''; cal.appendChild(c); this.cells.push(c); }       // (each box wears its day number)
-      this.cellsFor = count + ':' + info.length;
+      for (let i = 0; i < count; i++) { const c = document.createElement('i'), day = i - offset + 1; c.textContent = day >= 1 && day <= info.length ? day : ''; cal.appendChild(c); this.cells.push(c); }       // (each box wears its day number)
+      this.cellsFor = key;
     }
-    this.cells.forEach((c, i) => { const day = i + 1; c.className = day > info.length ? 'blank' : day < info.dayInSeason ? 'past' : day === info.dayInSeason ? 'today' : ''; });
+    this.cells.forEach((c, i) => { const day = i - offset + 1; c.className = day < 1 || day > info.length ? 'blank' : day < info.dayInSeason ? 'past' : day === info.dayInSeason ? 'today' : ''; });
   }
 }
 
