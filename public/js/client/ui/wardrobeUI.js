@@ -5,8 +5,9 @@ const WARDROBE_LABELS = { crown: 'Crown', outfit: 'Outfit', cape: 'Cape', lasso:
 
 class WardrobeUI {
   constructor({ panel, body, closeButton, game }) {
-    this.panel = panel; this.body = body; this.game = game;
+    this.panel = panel; this.body = body; this.game = game; this.view = 'gear';            // the Character window's tabs: gear (tools, clothes, bag), stats (attributes), skills
     closeButton.addEventListener('click', () => this.close());
+    for (const ev of ['progressChanged', 'levelup']) game.events.on(ev, () => this.isOpen && this.view !== 'gear' && this.refresh());
     game.events.on('gearChanged', () => this.isOpen && this.refresh());
     game.events.on('inventoryChanged', () => this.isOpen && this.refresh());
     body.addEventListener('click', e => this._onClick(e));
@@ -22,7 +23,39 @@ class WardrobeUI {
     else this.game.equip(Number(el.dataset.equip));
   }
 
+  /** Which tab of the Character window: 'gear' | 'stats' | 'skills'. */
+  setView(view) { this.view = view; if (this.isOpen) this.refresh(); }
+
+  /** The base stats: who you are, and the attributes every skill trains under the surface. */
+  _renderStats() {
+    const g = this.game, lv = g.local.lv || defaultLevels(), xp = g.progress || { s: {}, a: {} }, E = LobbyUI.escape;
+    const bar = points => `<div class="bar"><i style="width:${Math.round(100 * Skills.progress(points).fraction)}%"></i></div>`;
+    const attrs = Object.keys(AttributeDefs).map(k => {
+      const d = AttributeDefs[k];
+      return `<div class="arow" title="${d.effect}"><span class="aname">${d.short}</span><span class="alvl">${lv.a[k]}</span>${bar((xp.a || {})[k] || 0)}<span class="aeff">${d.effect}</span></div>`;
+    }).join('');
+    const total = Object.values(lv.s).reduce((a, b) => a + b, 0);
+    this.body.innerHTML = `<div class="jsum"><b>${E(g.local.name || 'You')}</b> &middot; health ${Math.ceil(g.local.hp)} / ${g.local.maxHp} &middot; total skill level <b>${total}</b></div>` +
+      `<div class="jhead">Attributes <small>every skill trains these under the surface</small></div><div class="jattrs">${attrs}</div>`;
+  }
+
+  /** Every skill with its level and progress, and the attributes it trains. */
+  _renderSkills() {
+    const g = this.game, lv = g.local.lv || defaultLevels(), xp = g.progress || { s: {}, a: {} };
+    const bar = points => `<div class="bar"><i style="width:${Math.round(100 * Skills.progress(points).fraction)}%"></i></div>`;
+    const skills = Object.keys(SkillDefs).map(k => {
+      const d = SkillDefs[k], points = (xp.s || {})[k] || 0, pr = Skills.progress(points);
+      const tags = Object.entries(d.attrs).map(([a, share]) => `<b>${AttributeDefs[a].short}</b> ${Math.round(share * 100)}%`).join(' &middot; ');
+      return `<div class="srow"><span class="sglyph">${SKILL_GLYPH[k] || '*'}</span><span class="sname">${d.name}</span><span class="slvl">${lv.s[k]}</span>${bar(points)}` +
+             `<span class="sxp">${pr.need ? `${pr.into} / ${pr.need} xp` : 'max'}</span><span class="stags">trains ${tags}</span></div>`;
+    }).join('');
+    this.body.innerHTML = `<div class="jhead">Skills <small>use a skill to level it up</small></div><div class="jskills">${skills}</div>`;
+  }
+
   refresh() {
+    for (const b of this.panel.querySelectorAll('.panTabs button')) b.classList.toggle('on', b.dataset.go === this.view);
+    if (this.view === 'stats') { this._renderStats(); return; }
+    if (this.view === 'skills') { this._renderSkills(); return; }
     const g = this.game, gear = g.gear, appearance = g.local && g.local.appearance;
     const slotHtml = name => {
       const item = gear[name], icon = item ? `<img alt="" src="${ItemIcons.url(item)}">` : '';

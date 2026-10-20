@@ -177,16 +177,16 @@ canvas{display:block}
 .arow .aname{font-weight:700;color:#ffe08a}
 .arow .alvl{text-align:right;font-weight:700}
 .arow .aeff{grid-column:1/4;font-size:10px;color:#a9b6c4;margin-top:-2px}
-.srow{display:grid;grid-template-columns:20px 1fr 26px;grid-template-areas:"g n l" "b b b" "x t t";gap:2px 6px;align-items:center;padding:5px 0;border-top:1px solid rgba(227,194,122,.18);font-size:12px}
+.srow{display:grid;grid-template-columns:20px auto 1fr;grid-template-areas:"g n l" "b b b" "x x t";gap:2px 6px;align-items:center;padding:5px 0;border-top:1px solid rgba(227,194,122,.18);font-size:12px}
 .srow .sglyph{grid-area:g;color:#ffe08a;text-align:center}
 .srow .sname{grid-area:n;font-weight:700}
 .srow .slvl{grid-area:l;text-align:right;font-weight:700;color:#ffe08a}
 .srow .bar{grid-area:b}
-.srow .sxp{grid-area:x;font-size:10px;color:#b9c4d0}
+.srow .sxp{grid-area:x;font-size:10px;color:#b9c4d0;white-space:nowrap}
 .srow .stags{grid-area:t;font-size:10px;color:#a9b6c4;text-align:right}
 .srow .stags b{color:#9cc9ff}
 .mapwrap{display:flex;justify-content:center}
-#miniMap{image-rendering:pixelated;background:#ecdcab}
+#treasureMap{image-rendering:pixelated;background:#ecdcab}
 .mapinfo{font-size:12px;margin:8px 0 4px;color:#f4e6c1;text-align:center}
 .mapnav{display:flex;justify-content:center}
 .mapnav button{padding:6px 12px;border-radius:7px;border:1.5px solid rgba(227,194,122,.8);background:rgba(227,194,122,.85);color:#10202f;font:700 12px Georgia,serif}
@@ -205,9 +205,9 @@ canvas{display:block}
 .menugrid .mt i{font:400 10px Georgia,serif;font-style:normal;color:#b9c4d0;white-space:normal}
 .menugrid kbd{position:absolute;top:3px;right:5px;font:600 9px ui-monospace,monospace;color:#e3c27a;opacity:.8}
 .menunote{margin-top:8px;font-size:11px;color:#a9b6c4;text-align:center}
-#areaMap,#miniMap{position:static;inset:auto;display:block;touch-action:auto;border-radius:6px;border:2px solid rgba(70,45,20,.9)}      /* (the base canvas rule is the full-screen game canvas) */
+#areaMap,#treasureMap{position:static;inset:auto;display:block;touch-action:auto;border-radius:6px;border:2px solid rgba(70,45,20,.9)}      /* (the base canvas rule is the full-screen game canvas) */
 #areaMap{width:min(70vh,86vw,420px);height:auto;aspect-ratio:1/1}
-#miniMap{width:min(100%,260px,36vh);height:auto;aspect-ratio:1/1}
+#treasureMap{width:min(100%,260px,36vh);height:auto;aspect-ratio:1/1}
 .mapcontent{display:flex;flex-direction:column;gap:8px;align-items:center}
 .mapside{width:100%}
 @media (min-aspect-ratio:5/4){.mapcontent{flex-direction:row;align-items:flex-start}.mapside{flex:1;min-width:110px;max-width:260px}}
