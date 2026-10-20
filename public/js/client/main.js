@@ -18,11 +18,22 @@ function preventBrowserGestures() {                  // no scroll / zoom / selec
 
 /** Go full screen (and landscape where the browser allows it). Browsers only allow it from a tap or click, so it is called from those. */
 async function enterFullscreen() {
-  if (!document.fullscreenEnabled || document.fullscreenElement) return;
   try {
-    await document.documentElement.requestFullscreen();
-    if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+    if (document.fullscreenEnabled && !document.fullscreenElement) await document.documentElement.requestFullscreen();
   } catch (e) { /* not allowed */ }
+  try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { /* (not supported here, or not in full screen): the turn-sideways notice covers it */ }
+}
+
+/** The game is played full screen and in landscape, and does not wait for the player to turn the device: on a phone or tablet the FIRST touch, click or key press
+ *  (the title screen's Play, anything) goes full screen and locks the screen to landscape; after leaving full screen the next touch goes back in. Where the browser
+ *  will not do it (iPhone Safari has no full screen or orientation lock for pages) a portrait screen shows the turn-sideways notice instead. */
+function setupForcedLandscape() {
+  const touchy = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!touchy) return;                                           // (desktop windows are left alone: the full screen button is there)
+  const go = () => { if (!document.fullscreenElement || !(screen.orientation && /landscape/.test(screen.orientation.type))) enterFullscreen(); };
+  for (const type of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(type, go, { capture: true, passive: true });
+  const portraitFs = $('portraitFs'); if (portraitFs) portraitFs.addEventListener('click', e => { e.stopPropagation(); enterFullscreen(); });
+  enterFullscreen();                                             // (works at once only where the page was opened from a tap, e.g. an installed app)
 }
 
 function setupFullscreenButton(button) {
@@ -47,6 +58,7 @@ const shortVerb = label => label.replace(/^Talk to .*/, 'Talk').replace(/^Give .
 function start() {
   const query = applyUrlOverrides();
   preventBrowserGestures();
+  setupForcedLandscape();
   if (query.get('solo') === '1') { launch({ adapter: new LocalAdapter() }, query); return; }
   Loader.hide();                                                       // (the page's own loading screen: the scripts are all here)
   new LobbyUI({ root: $('lobby'), query }).show().then(choice => launch(choice, query));
