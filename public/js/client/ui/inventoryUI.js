@@ -30,7 +30,7 @@ class InventoryUI {
     }
     body.addEventListener('pointerdown', e => {
       const b = e.target.closest('button[data-bag],#invMainPony');
-      if (!b) { if (e.target.closest('#invDropCoins')) { e.preventDefault(); game.events.emit('openCoins'); } return; }
+      if (!b) { if (e.target.closest('#invDropCoins')) { e.preventDefault(); game.events.emit('openCoins'); } else if (e.target.closest('#invPonyCoins')) { e.preventDefault(); game.events.emit('openPonyCoins'); } return; }
       e.preventDefault();
       if (b.id === 'invMainPony') game.makeMainPony(); else this._onBagSlot(Number(b.dataset.bag));
     });
@@ -192,7 +192,7 @@ class InventoryUI {
     if (shape === this.shape) return;
     this.shape = shape;
     const bagName = bag && ItemDefs[bag] ? ItemDefs[bag].name : 'No bag';
-    const html = [`<div class="invpurse"><img alt="" src="${ItemIcons.url('gold_coin')}"><b>Coins</b><span id="invCoins">0</span><button id="invDropCoins" tabindex="-1" title="Open your coin bag: drag coins out onto the world to drop them">Coin bag</button></div>`,
+    const html = [`<div class="invpurse"><img alt="" src="${ItemIcons.url('gold_coin')}"><b>Coins</b><span id="invCoins">0</span><button id="invDropCoins" tabindex="-1" title="Open your coin bag: drag coins out onto the world to drop them">Coin bag</button><button id="invPonyCoins" tabindex="-1" title="Open your pony coin bag: the collector coins from the ponies you have caught">Pony coins</button></div>`,
       '<div class="invgrid" data-sec="all">',
       `<div class="invsec"><span>${bagName}</span><small>${belt} pockets + ${inv.size - belt} bag slots</small></div>`, '<!--me-->'];
     if (chest) html.push(`<div class="invsec"><span>${chest.name}</span><small>${chest.inventory.size} slots</small></div>`, '<!--chest-->');

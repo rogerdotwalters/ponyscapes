@@ -1,4 +1,39 @@
-# Ponyscapes: multiplayer on Cloudflare
+# Ponyscapes
+
+A cosy isometric pixel-art adventure about ponies: catch wild ponies with a lasso and raise them in your own stable, breed new colours, farm and forage,
+build a home, meet the villagers and take on quests, caves and bosses. Play alone, or host a game for up to three friends. This is a **prototype** build:
+it is played **in landscape** (phones, tablets and desktop; there is no portrait layout, a portrait phone is asked to turn sideways), with keyboard and mouse,
+touch, or a game controller laid out like the Nintendo Switch's.
+
+## Quick start
+
+```bash
+npm install
+python3 -m http.server 8000 --directory public     # then open http://localhost:8000/?solo=1  (solo skips the title screen)
+npm run dev                                         # the relay Worker + game on Cloudflare's local runtime (needed for hosting / joining)
+node tools/test-lassos.js                           # each tools/test-*.js is a stand-alone test; npm run test:<name> runs the ones listed in package.json
+```
+
+Useful query switches: `?solo=1`, `?kit=0` (start with only an axe), `?debug=1`, `?weather=thunderstorm`, `?hour=22`, `?renderer=pixi`, `?padintro=1` (show the controller guide again).
+
+## The screen (landscape only)
+
+```
+┌ date card ┐                                                [⛶ DBG]  ┌ mini map ┐
+│ Spring    │                                                          │ click: the│
+│ Day 5 of 20                                                          │ big map   │
+│ Morning   │                       the game                           └──────────┘
+└───────────┘
+ stick (touch)             health | hunger | thirst | energy              [Apple Leash Ride...]
+                (  ☰  Lasso  Hoe  Sword  Rod  Axe  Bag  ☺  )   <- health | energy in the arched top   [Bag] [tool button]
+```
+
+* **Top left**: the date card, a small calendar box in three rows: the season (with today's weather), the day of the season and year, and the time of day. **Top right**: the mini map (the land around you in the game's own view, with you, home, the village, your ponies and quest pins); it is also the Map button: tap or click it, or press **-** on a controller, for the big map. Fullscreen and the debug overlay sit just left of it.
+* **Bottom centre**: one curved **tool bar**, with nothing floating beside it. Its row, left to right: the **Menu** (+ on a controller), the five character tool slots (lasso, hoe, sword, fishing rod, axe: keys 1-5, left / right on the D-pad), the **Bag** (the Gear tab, the **coin bag** and the **pony coin bag** are opened from inside the Bag window) and the **Emote** button. Health and energy are built into the raised top of the frame, each with a thin line under it for hunger and thirst.
+* **Tool slots** live on the character: Menu > **Gear** (a tab of the Bag window) holds the five tool slots, your clothes and your bag. Seeds, food, building pieces and the other tools (shovel, watering can...) stay in the **Bag**: pick one and press **Hold** to take it in hand (it shows beside the tool bar until you choose a tool).
+* The layout is computed by one pure function, `computeUiLayout` in `public/js/client/ui/uiLayout.js`.
+
+## How multiplayer works
 
 **Cloudflare Pages serves the game** (static files in `public/`) and a small **relay Worker relays WebSocket messages** between the player who hosts a game and up to three friends. The game itself runs in the **host's browser**; the relay only copies messages. Nothing about the game is stored on Cloudflare.
 
@@ -200,11 +235,12 @@ The craftable 3 x 2 shelter that used to be called the Stable is now the **Pony 
 
 * **Mouse / touch** (not rebindable): left click or tap uses what is in your hand where you point (water, plant, hoe, chop, swing or shoot a weapon; hold the mouse button to repeat). On a villager it talks (a window offers their shop, any quests and gifts; with nothing to offer they just say hello). On an animal it feeds it (food in hand), ropes it (lasso in hand), attacks it (weapon in hand) or pets it. **Right click** throws the lasso in the lasso slot at the animal under the pointer; phones keep the **Lasso** button. Swords sweep a 120 degree fan and hit every animal in it.
 * **Holding a finger down** rings what is under it (a villager, an animal, or the spot); lifting the finger acts on it. Out of reach, nothing happens unless **Walk to it, then act** is on (Menu > Controls > Mouse & touch): then you walk there first and the action follows.
-* **Taps and clicks never attack or rope**: on a phone the Use button becomes **Attack** while a weapon is in hand (it swings at the nearest animal in reach) and the **Lasso** button ropes; on PC use E / Space to attack and L or right click to rope. A tap on an animal feeds or pets it.
+* **Taps and clicks never attack or rope**: on a phone the round **tool button** (bottom right, where Use was) shows the picture of the tool in hand and what it does (Attack, Chop, Cast, Till, Lasso...) and swings it at what is in reach; on PC use E / Space to use the tool, L or right click to throw the lasso from the lasso slot. A tap on an animal feeds or pets it (a brush grooms it).
 * **Joystick**: fixed by default (it stays put and only a touch on it steers, so taps never move it); turn **Fixed joystick** off for the old floating stick.
 * **Tap to walk** (pathfinding) is **on** by default: a tap on bare ground far away walks there; close by it uses your tool. A tap on a villager, animal, door, stockpile, crop, shop counter... walks to it and does its action (**Walk to it, then act**, also on by default). Both are switches in Menu > Controls > Mouse & touch.
 * **Keys**: Menu > Controls > Keys rebinds every keyboard action (two keys each, kept in the browser). Slots 1-9 and Esc are fixed.
-* **Controller** (Nintendo Switch layout; Xbox and PlayStation pads have the same buttons in the same places): left stick moves; **A** uses your tool, talks to a villager (their shop and quests), enters a building, pets; **B** picks, picks up, feeds, boards; **Y** unties / lets go or leashes your pony; **X** mounts / dismounts; **ZR** lasso; **R** opens the stall / stable menu beside you (else the Town); **L** fly / land; **ZL** the first pony power that is ready; **-** map; **+** menu; D-pad changes the tool bar slot (in a window it jumps between buttons and slots); click the left stick for the bag and the right stick for the journal. The first time a controller is used, one pop-up shows a picture of the pad with every button; it is also at the top of Menu > Controls > Controller. With a window open the **D-pad jumps between buttons and slots** (hold to repeat), the **right stick moves a pointer**, **A** clicks, **B** closes it, and holding **L** turns the right stick into scroll and map pan. Prompts show once a controller is used: little bubbles float above the door, tree, villager, animal or stall a button would act on ("A Enter Carpenter", "B Pick apples", "Y Untie"), and a small strip at the bottom right holds the rest (Use, Lasso, Town, Map, Menu) (`input/gamepad*.js`, `ui/gamepadHints.js`); the full list is in Menu > Controls > Controller. Buttons are not rebindable.
+* **Controller** (Nintendo Switch layout; Xbox and PlayStation pads have the same buttons in the same places). Playing: left stick moves; **ZR** uses the tool in hand (swing, chop, cast, till, throw the lasso: hold to repeat); **D-pad left / right** change the tool; **D-pad up / down** step through the things around you (see below); **A** talks to a villager (their shop and quests), enters a building, opens chests and stations, pets; **B** picks, picks up and holds, feeds, boards; **Y** unties / lets go or leashes your pony; **X** mounts / dismounts; **R** opens the stall / stable menu beside you (else the Town); **L** fly / land; **ZL** the first pony power that is ready; **-** map; **+** menu; click the left stick for the bag and the right stick for the journal. In a window the **D-pad jumps between buttons and slots** (hold to repeat), the **right stick moves a pointer**, **A** clicks, **B** closes, and holding **L** turns the right stick into scroll and map pan. The first time a controller is used one pop-up shows a picture of the pad with every button (also at the top of Menu > Controls > Controller). Buttons are not rebindable (`input/gamepad*.js`, `ui/gamepadGuide.js`).
+* **Selecting what the buttons mean** (`input/targetSelector.js`): everything you could interact with in reach is scored by distance and by whether you face it, and the best is selected automatically; only the selected thing shows a bubble ("A Enter Carpenter", "B Pick apples", "Y Untie", "X Ride", "▲▼ Next 2/3") floating above it, and A / B / Y / X act on exactly that thing (the client sends `input.pick`, a key from `Interactions.keyOf`, so the server does what the bubble says). D-pad up / down hard-select the next / previous thing; the selection then holds until you start moving again. A corner strip lists what has nothing to point at (the tool button, Town, Map, Menu).
 * **The rope**: any friendly animal can be lasso'd (not monsters or guardians) and nothing is picked up any more; a roped animal follows you until you untie it (U). You can hold 3 at once, +1 per 3 levels of Animal Friendship or Horsemanship (the higher one), up to 10 (`Skills.leashCap`). Every rope put on an animal is counted per kind (`server.leashLog`, saved in the character's `book.leashed`) for future quests; `server.leashedNow(id)` lists what is roped right now.
 * Under the hood a click sends an **aim point** with the input (`aim, ax, ay`, read server side through `AimPoints[playerId]`); the server checks reach for everything. Clicks on people and animals send `talkTo` / `animalAct` commands (`shared/tapActions.js`).
 
@@ -410,7 +446,7 @@ younger testers out, not real security: the code is in `js/client/ui/settingsUI.
   you first raise your earth pony to about level 18 (`js/shared/ponyProgress.js`).
 * **Ponies level up** from distance ridden, tasks done in the saddle (chopping, hunting, lassoing...), treats (more for food they love) and grooming.
 * **Taming** (`shared/animalSystem.js`, `AnimalLevels.tameFruit`; `npm run test:taming`): **L** throws the lasso at a *wild* pony. **The rope never breaks.** A caught pony follows you and is gentled **anywhere** (no stable or pen needed) by feeding it fruit (hold it, press the action button): a **rainbow bar** over its head fills as it is fed, and when the bar is full it is yours. Kinds and levels want rarer fruit up a ladder (`AnimalLevels.TAME_LADDER`: apple, green, pink lady, golden, russet, crystal; a pony kind starts at its `tameTier` and climbs one rung every 8 levels; a more exotic fruit than asked is fine) and more of it (`tameApples`).
-* **Lasso slot** (Gear, **G**): **L** (or the Lasso button) throws whatever lasso is in it. Rope Lasso (tier 1: ponies, earth ponies) → Silk (2: pegasi) →
+* **Lasso slot** (Gear, **G**, the first slot of the tool bar): **L** throws whatever lasso is in it; or select it on the tool bar and use the tool button / trigger. Rope Lasso (tier 1: ponies, earth ponies) → Silk (2: pegasi) →
   Golden (3: unicorns) → Starlight (4: alicorns), each crafted from the one before at the crafting table.
 * **The Lasso Dealer** (a counter in the stable, `lasso_dealer` in `data/furniture/basic.js`; the stable's `shop` list) sells 15 themed lassos for gold, each with its own colours (`LASSO_LOOKS` in `render/playerSprite.js`; the rope, icon and flying loop all use it)
   and its own reach / cast speed / catch bonus. **Tier 2** (pegasi): Red, Blue, Yellow (the primary colours), Flower, Candy. **Tier 3** (unicorns): Water, Jungle, Fire (quick cast), Cloud (long reach),

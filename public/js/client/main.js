@@ -35,8 +35,8 @@ function setupFullscreenButton(button) {
 }
 
 function collectLayoutDom(game) {
-  const dom = { coinPanel: $('coinPanel'), ponyBagPanel: $('ponyBagPanel'), controlsPanel: $('controlsPanel'), controlsBody: $('controlsBody'), dialoguePanel: $('dialoguePanel'), puzzlePanel: $('puzzlePanel'), stablePanel: $('stablePanel'), stableBody: $('stableBody'), isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnApple: $('btnApple'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), posterPanel: $('posterPanel'), posterBody: $('posterBody'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), energy: $('energyBar'), clock: $('clock'), season: $('seasonBar') };
-  ['btnMenu', 'btnCoins', 'btnPonyCoins', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
+  const dom = { miniMap: $('miniMap'), coinPanel: $('coinPanel'), ponyBagPanel: $('ponyBagPanel'), controlsPanel: $('controlsPanel'), controlsBody: $('controlsBody'), dialoguePanel: $('dialoguePanel'), puzzlePanel: $('puzzlePanel'), stablePanel: $('stablePanel'), stableBody: $('stableBody'), isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnApple: $('btnApple'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), posterPanel: $('posterPanel'), posterBody: $('posterBody'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), energy: $('energyBar'), clock: $('clock'), season: $('seasonBar') };
+  ['btnMenu', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
 
@@ -91,7 +91,7 @@ function launch(choice, query) {
     window.addEventListener('orientationchange', () => setTimeout(() => renderer.resize(), 150));
 
     /* ui */
-    new ToolbarUI({ root: $('toolbar'), game });
+    new ToolbarUI({ root: $('tbRow'), game });
     const healthBar = new VitalBar({ root: $('healthBar'), fill: $('healthFill'), label: $('healthLabel'), config: { max: CONFIG.sim.health.max, lowThreshold: 30 }, words: { ok: 'Healthy', low: 'Hurt', empty: 'Down' } });
     const hungerBar = new VitalBar({ root: $('hungerBar'), fill: $('hungerFill'), label: $('hungerLabel'), config: CONFIG.sim.hunger, words: { ok: 'Fed', low: 'Hungry', empty: 'Starving!' } });
     const energyBar = new VitalBar({ root: $('energyBar'), fill: $('energyFill'), label: $('energyLabel'), config: CONFIG.sim.energy, words: { ok: 'Energetic', low: 'Tired', empty: 'Exhausted!' } });
@@ -148,6 +148,7 @@ function launch(choice, query) {
     const emoteUI = new EmoteWheelUI({ root: $('emoteWheel'), button: $('btnEmote'), game, onTrade: () => { const t = game.nearestTrader(); if (t) game.requestTrade(t); else game.events.emit('notice', { to: game.myId, text: 'Nobody within reach to trade with' }); panels.open('trade'); } });
     bus.on('openGarden', e => gardenUI.show(e.tx, e.ty));                                    // a tap on a tilled tile (tapToMove.js)
     game.events.on('openCoins', () => panels.open('coins'));
+    game.events.on('openPonyCoins', () => panels.open('ponyCoins'));            // (the coin bags are opened from the Bag window)
     game.events.on('openPoster', () => panels.open('poster'));
     game.events.on('openWardrobe', () => panels.open('gear')); game.events.on('openChest', () => panels.open('inventory'));       // (the wardrobe and the worn chest in your home)
     panels.register('coins', coinBagUI); panels.register('ponyCoins', ponyBagUI); panels.register('poster', posterUI); panels.register('connect4', connect4UI); connect4UI.attach(panels); panels.register('memory', memoryUI); memoryUI.attach(panels); panels.register('garden', gardenUI); panels.register('inventory', inventoryUI); panels.register('crafting', craftingUI); panels.register('settings', settingsUI); panels.register('gear', gearUI); panels.register('ponies', ponyUI); panels.register('journal', journalUI); panels.register('menu', menuUI); if (sessionUI) panels.register('session', sessionUI); panels.register('confirm', confirmUI); panels.register('stable', stableUI); panels.register('map', mapUI); panels.register('trade', tradeUI); panels.register('town', townUI); panels.register('shop', shopUI); panels.register('controls', controlsUI); panels.register('dialogue', dialogueUI); panels.register('puzzle', puzzleUI);
@@ -167,7 +168,7 @@ function launch(choice, query) {
     /* events: devices -> intent */
     bus.on('selectSlot', i => game.selectSlot(i));
     bus.on('toggleInventory', () => panels.toggle('inventory'));
-    { const icon = $('btnBag') && $('btnBag').querySelector('.bagIcon'); if (icon) icon.style.backgroundImage = `url(${ItemIcons.url(CONFIG.sim.inventory.starterBag)})`; }   // the touch Bag button shows a backpack
+    for (const id of ['btnBag', 'btnBagBar']) { const icon = $(id) && $(id).querySelector('.bagIcon'); if (icon) icon.style.backgroundImage = `url(${ItemIcons.url(CONFIG.sim.inventory.starterBag)})`; }   // the touch Bag button shows a backpack
     bus.on('toggleGear', () => panels.toggle('gear'));
     bus.on('togglePonies', () => panels.toggle('ponies'));
     bus.on('toggleJournal', () => panels.toggle('journal'));
@@ -177,7 +178,8 @@ function launch(choice, query) {
     padActions.panels = panels; padActions.mapUI = mapUI;
     const padIntro = new GamepadIntro({ pad }); panels.register('padIntro', padIntro); padActions.intro = padIntro;
     bus.on('padActive', on => { if (on && (!GamepadIntro.seen() || query.get('padintro') === '1')) { GamepadIntro.markSeen(); setTimeout(() => panels.open('padIntro'), 250); } });      // the one pop-up: the guide, the first time a controller is used
-    const padHints = new GamepadHints({ root: $('padHints'), bubbles: $('padBubbles'), camera: renderer.camera, pad, actions: padActions, badges: { PLUS: $('btnMenu'), MINUS: $('btnMap') } });
+    const miniMap = new MiniMap({ canvas: $('miniMap'), game, mapUI, bus });
+    const padHints = new GamepadHints({ root: $('padHints'), bubbles: $('padBubbles'), camera: renderer.camera, pad, actions: padActions, badges: { PLUS: $('btnMenu') } });
     bus.on('toggleTown', () => panels.toggle('town'));
     bus.on('throwLasso', () => game.throwLasso());
     bus.on('dropHeld', all => game.dropHeld(all));                  // X / the Drop button: what is in your hand, onto the ground                  // L / the Lasso button: the lasso in the lasso slot
@@ -204,9 +206,7 @@ function launch(choice, query) {
     bus.on('toggleDebug', () => debug.toggle());
     bus.on('touchUiShown', () => { $('hint').hidden = true; });
     $('btnMenu').addEventListener('click', () => panels.toggle('menu'));
-    $('btnMap').addEventListener('click', () => panels.toggle('map'));
-    $('btnCoins').addEventListener('click', () => panels.toggle('coins'));
-    $('btnPonyCoins').addEventListener('click', () => panels.toggle('ponyCoins'));
+    $('btnBagBar').addEventListener('click', () => panels.toggle('inventory'));
     $('btnDbg').addEventListener('click', () => debug.toggle());
     setupFullscreenButton($('btnFs'));
 
@@ -246,7 +246,7 @@ function launch(choice, query) {
       tickMs: TICK_MS,
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
-        padActions.update(frameMs);
+        padActions.update(frameMs); miniMap.tick(frameMs);
         tapToMove.tick();
         footsteps.update(); worldSfx.update(frameMs / 1000); music.update(game, effects.weather.cur);
         game.advanceRemoteClock(frameMs);

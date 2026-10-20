@@ -17,9 +17,8 @@ canvas{display:block}
   padding:6px 8px;border-radius:6px;pointer-events:none;white-space:pre}
 #hint{position:fixed;color:#f1e6c4;font-size:13px;background:rgba(15,28,43,.6);padding:7px 11px;border-radius:6px;
   pointer-events:none;transition:opacity 1.2s}
-#portraitHint{position:fixed;top:42%;left:50%;transform:translateX(-50%);display:none;color:#f1e6c4;
-  background:rgba(15,28,43,.7);padding:7px 12px;border-radius:6px;font-size:13px;pointer-events:none;animation:fadeout 1s 6s forwards}
-@media (orientation:portrait){#portraitHint{display:block}}
+#portraitHint{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:20px;line-height:1.4;color:#f1e6c4;background:#12100c}
+@media (orientation:portrait) and (pointer:coarse){#portraitHint{display:flex}}
 @keyframes fadeout{to{opacity:0;visibility:hidden}}
 
 /* ---------- toolbar + panels (size variables --slot --gap --pad are set by the layout) ---------- */
@@ -463,32 +462,31 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .admMsg{font-size:12px;opacity:.85}
 @media (max-width:560px){.admSlide{grid-template-columns:1fr auto}.admSlide input[type=range],.admSlide input[type=number]{grid-column:1/-1;order:3}}
 
-/* the season bar: the season, its day, and a bar filling as it passes (seasonUI in vitalsUI.js) */
-#seasonBar{position:fixed;z-index:4;box-sizing:border-box;padding:0 .7em;border-radius:9px;display:flex;align-items:center;gap:.7em;
-  background:rgba(14,22,32,.72);border:1.5px solid rgba(227,194,122,.55);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
-#seasonBar .sbText{display:flex;align-items:center;gap:.45em;justify-content:center;white-space:nowrap;overflow:hidden}
-#seasonBar .sbName{color:var(--season,#7cc86a)}
-#seasonBar .sbWeather{font-size:1.05em;cursor:default}
-#seasonBar .sbDay,#seasonBar .sbDayShort{opacity:.85;font-weight:400}
-#seasonBar .sbDayShort,#seasonBar.compact .sbDay{display:none}
-#seasonBar.compact .sbDayShort{display:inline}
-#seasonBar .sbTrack{position:relative;margin-top:.3em;height:.55em;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
-#seasonBar .sbFill{height:100%;width:0;background:var(--season,#7cc86a);border-radius:4px;transition:width .6s linear}
-#seasonBar .sbTrack::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(var(--dayw,5%) - 1px),rgba(0,0,0,.35) calc(var(--dayw,5%) - 1px) var(--dayw,5%))}
-#seasonBar .sbNews{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:4px 12px;border-radius:8px;
-  background:rgba(14,22,32,.85);color:var(--season,#7cc86a);font-size:14px;animation:sbNews 4s ease forwards}
-@keyframes sbNews{0%{opacity:0;transform:translate(-50%,-6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
-#seasonBar .sbSeason{flex:1;min-width:0}
-#seasonBar .sbClock{display:flex;align-items:center;gap:.45em;padding-right:.7em;border-right:1px solid rgba(227,194,122,.35);white-space:nowrap;flex:none}
-#seasonBar .sbClock canvas{width:2.3em;height:2.3em;image-rendering:pixelated;image-rendering:crisp-edges}
-#seasonBar .sbPhase{font-weight:700;color:#f6e3a6}
-#seasonBar.tiny .sbPhase{display:none}
-#seasonBar.tiny{gap:.5em;padding:0 .55em}
-#seasonBar.tiny .sbClock{padding-right:.5em}
+/* the date card (seasonUI + ClockUI in vitalsUI.js): a grid of 2 columns x 3 rows.
+ *   [ season name                  icon ]
+ *   [ calendar: 7 boxes a week, 3 weeks ]   (a box for every day: the days gone by filled, today lit)
+ *   [ time of day  ][ weather ]                                                                               */
+#seasonBar{position:fixed;z-index:4;box-sizing:border-box;padding:0;border-radius:3px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:2em 1.5em 1fr 2.3em;overflow:visible;
+  background:rgba(14,22,32,.82);border:2px solid var(--deep);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45)}
+#seasonBar .sbHead{grid-column:1 / 3;display:flex;align-items:center;justify-content:space-between;gap:.4em;padding:0 .5em;background:color-mix(in srgb,var(--season,#7cc86a) 38%,#14202c);border-bottom:1px solid rgba(0,0,0,.45);white-space:nowrap;overflow:hidden}
+#seasonBar .sbName{color:#fff6dc;text-shadow:1px 1px 0 rgba(0,0,0,.6);letter-spacing:.5px;font-size:1.05em}
+#seasonBar .sbIcon{font-size:1.1em}
+#seasonBar .sbCal{grid-column:1 / 3;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(var(--rows,3),1fr);gap:2px;padding:.4em .45em;border-bottom:1px solid rgba(227,194,122,.3)}
+#seasonBar .sbCal i{display:block;border-radius:1px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(0,0,0,.5)}
+#seasonBar .sbCal i.past{background:var(--season,#7cc86a);opacity:.85}
+#seasonBar .sbCal i.today{background:#fff6dc;box-shadow:0 0 0 2px var(--season,#7cc86a),0 0 6px var(--season,#7cc86a);position:relative;z-index:1}
+#seasonBar .sbCal i.blank{background:none;box-shadow:none}
+#seasonBar .sbClock{display:flex;align-items:center;justify-content:center;gap:.3em;padding:0 .3em;white-space:nowrap;overflow:hidden;border-right:1px solid rgba(227,194,122,.3)}
+#seasonBar .sbClock canvas{flex:none;width:2.1em;height:2.1em;image-rendering:pixelated;image-rendering:crisp-edges}
+#seasonBar .sbPhase{display:none}                                  /* (the picture says the time of day; its name is the tooltip) */
+#seasonBar .sbWeatherCell{display:flex;align-items:center;justify-content:center;overflow:hidden}
+#seasonBar .sbWeather{font-size:1.5em;line-height:1;cursor:default}
 #seasonBar .sbClock[data-phase="night"] .sbPhase,#seasonBar .sbClock[data-phase="predawn"] .sbPhase{color:#b9cdf5}
 #seasonBar .sbClock[data-phase="evening"] .sbPhase{color:#f2a45a}
 #seasonBar .sbClock[data-phase="glow"] .sbPhase{color:#f07a6a}
+#seasonBar .sbNews{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:4px 12px;border-radius:8px;
+  background:rgba(14,22,32,.85);color:var(--season,#7cc86a);font-size:14px;animation:sbNews 4s ease forwards}
+@keyframes sbNews{0%{opacity:0;transform:translate(-50%,-6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
 #clock[hidden]{display:none}
 /* ---------- short landscape phones: a compact creator (the big preview stays; the header and the three small views give way) ---------- */
 @media (max-height:500px) and (min-aspect-ratio:5/4){
@@ -1044,11 +1042,6 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .invpurse{flex-wrap:wrap}
 .invpurse #invCoins{flex:1 1 auto}
 .shopPurse{margin-left:6px;vertical-align:middle}
-/* portrait phones: bigger tap targets for the action row, the body scrolls with the page-style touch drag */
-@media (orientation:portrait) and (pointer:coarse){
-  #invActions{flex-wrap:wrap;height:auto;row-gap:4px}
-  #invActions button{height:34px}
-  #invBody{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 }
 
 .c4Screen{background:radial-gradient(ellipse at center,rgba(30,18,8,.78),rgba(6,3,0,.94));image-rendering:pixelated}
@@ -1128,8 +1121,8 @@ body.gardenOpen .tbtn,body.gardenOpen #touchUI,body.gardenOpen #toolbar,body.gar
 .padBtn.stick{border-radius:12px;background:linear-gradient(180deg,#9cc0d8,#6f93ad);min-width:48px}
 body:not(.padActive) #padHints{display:none}
 body.padActive #hint{display:none}
-body.padActive #btnMenu::after,body.padActive #btnMap::after{content:attr(data-pad);position:absolute;right:-6px;top:-9px;min-width:18px;height:18px;padding:0 3px;box-sizing:border-box;border-radius:9px;border:2px solid var(--deep);background:linear-gradient(180deg,#f6e7bb,#d9b970);color:var(--ink);font:700 11px/14px var(--font-title);text-align:center}
-#btnMenu:not([data-pad])::after,#btnMap:not([data-pad])::after{display:none}
+body.padActive #btnMenu::after{content:attr(data-pad);position:absolute;right:-6px;top:-9px;min-width:18px;height:18px;padding:0 3px;box-sizing:border-box;border-radius:9px;border:2px solid var(--deep);background:linear-gradient(180deg,#f6e7bb,#d9b970);color:var(--ink);font:700 11px/14px var(--font-title);text-align:center}
+#btnMenu:not([data-pad])::after{display:none}
 #padCursor{position:fixed;left:0;top:0;width:28px;height:28px;margin:-3px 0 0 -3px;z-index:100;pointer-events:none;display:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));
   background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M3 2 L3 22 L8.5 17 L12.5 25.5 L16 24 L12 15.8 L19.5 15.8 Z' fill='%23f6e7bb' stroke='%231d120a' stroke-width='2' stroke-linejoin='round'/></svg>") no-repeat}
 body.padActive.padMenu #padCursor{display:block}
@@ -1167,3 +1160,38 @@ body.padMenu #padBubbles{display:none}
 /* the tool button (touch): the picture of the tool in hand over its verb */
 #btnAct{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1;font-size:11px}
 #btnAct .toolIcon{display:block;width:52%;height:52%;background:center/contain no-repeat;image-rendering:pixelated}
+
+/* LANDSCAPE ONLY (prototype): the mini map, upper right; no portrait layouts */
+#miniMap{position:fixed;z-index:3;box-sizing:border-box;border:2px solid var(--deep);border-radius:4px;background:#1f4f73;box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45);cursor:pointer;image-rendering:auto}
+#portraitHint{border:0;box-shadow:none;border-radius:0;background:#12100c}
+body.coinsOpen #miniMap,body.gardenOpen #miniMap{visibility:hidden}
+
+
+/* THE TOOL BAR: one curved frame, bottom centre (a flat bottom, an arched top). Health and energy run along the WHOLE arch, edge to edge (health on the left half,
+ * energy on the right, hunger and thirst as thin lines along their bottoms): they are the top of the frame, tallest in the middle where the arch is highest.
+ * Its row: the Menu, the five tool slots, the Bag, the Emote button. Nothing floats beside it. Sizes come from the layout (--slot --cap --strip --rise --pad). */
+#toolbar{position:fixed;display:flex;flex-direction:column;gap:0;padding:0 var(--pad,5px) var(--pad,5px);box-sizing:border-box;
+  border:2px solid var(--deep);border-radius:50% 50% 22px 22px / var(--rise,16px) var(--rise,16px) 22px 22px;
+  background:radial-gradient(ellipse at 50% 0,#6a4a2a,#3d2a15 55%,#2a1a0b);box-shadow:inset 0 0 0 1px var(--gold),inset 0 2px 0 rgba(255,220,150,.25),0 4px 0 rgba(0,0,0,.5)}
+#tbVitals{display:flex;gap:3px;height:var(--strip,30px);margin:0 calc(-1 * var(--pad,5px));overflow:hidden;border-radius:50% 50% 0 0 / calc(var(--rise,16px) - 2px) calc(var(--rise,16px) - 2px) 0 0;
+  background:var(--deep);border-bottom:2px solid var(--deep)}
+.tbSeg{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;background:rgba(0,0,0,.5)}
+#tbVitals .vital{position:relative;flex:1;min-height:0;border:0;border-radius:0;background:rgba(0,0,0,.35)}
+#tbVitals .vital.thin{flex:none;height:4px}
+#tbVitals .vital.thin .vlabel{display:none}
+#tbVitals .vlabel{font-size:10px;line-height:1;align-items:flex-end;padding-bottom:3px}
+#tbRow{display:flex;align-items:stretch;gap:var(--gap,4px);padding-top:var(--pad,5px);position:relative}
+.tbCap{position:relative;flex:none;width:var(--cap,40px);height:var(--slot,46px);display:flex;align-items:center;justify-content:center;padding:0;border:2px solid var(--deep);
+  background:linear-gradient(180deg,#5a3d22,#3a2511);color:var(--parch);font:700 20px/1 var(--font-title);box-shadow:inset 0 0 0 1px rgba(217,164,65,.45);touch-action:none;cursor:pointer}
+.tbCap:active{transform:translateY(1px)}
+#btnMenu{order:-1;border-radius:18px 3px 3px 18px}
+#btnBagBar{order:5;border-radius:3px}
+#btnBagBar .bagIcon{display:block;width:62%;height:62%;background:center/contain no-repeat;image-rendering:pixelated}
+#btnEmote{order:6;border-radius:3px 18px 18px 3px}
+#toolbar .handSlot{margin-right:12px}
+body.padActive #btnMenu::after{right:auto;left:-4px;top:-10px}
+body.noVitals #hungerBar,body.noVitals #thirstBar{display:none !important}
+#seasonBar .sbDate{grid-column:1 / 3;display:flex;align-items:center;justify-content:center;padding:0 .4em;font-size:.82em;color:#f6e3a6;white-space:nowrap;overflow:hidden;border-bottom:1px solid rgba(227,194,122,.3)}
+#seasonBar .sbCal i{display:flex;align-items:center;justify-content:center;font:700 .62em/1 Georgia,serif;font-style:normal;color:rgba(246,236,214,.55);text-shadow:none}
+#seasonBar .sbCal i.past{color:rgba(20,32,44,.75)}
+#seasonBar .sbCal i.today{color:#14202c;font-size:.7em}

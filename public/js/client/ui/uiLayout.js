@@ -3,13 +3,13 @@
  *
  * computeUiLayout() is PURE: screen size in, a rectangle for every control out. Because nothing is positioned by
  * hand-tuned CSS, it can be tested for overlaps on any screen size (see tools/ or the test suite), and the same
- * rules serve phones in landscape or portrait, tablets and desktop.
+ * rules serve phones and tablets held in LANDSCAPE, and desktop. Portrait is not supported (a rotate-your-phone notice shows instead).
  *
- *   touch layout            ┌ toolbar (beside the system buttons, or on its own row if the screen is narrow) ┐ [Craft Bag ⛶ DBG]
- *                           │  panels (inventory / crafting) open in the free space between the two thumbs  │
- *                           └ left thumb: floating joystick      right thumb: [Let go Ride Rot Board] / [Apple Leash Lasso Power] / [Bag Use] ┘
+ *   ┌ day / season / time ┐   [Menu Coins Pony coins Map ⛶ DBG]   ┌ mini map ┐
+ *   │  panels (bag, crafting...) open over the middle, under the top row, over the thumb controls (they are modal)  │
+ *   └ left thumb: stick       health | hunger | thirst | energy / TOOL BAR (bottom centre) / emote       right thumb: [Let go Ride Rot Board] / [Apple Leash Power] / [Bag Tool] ┘
  */
-const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnCoins', w: 62 }, { id: 'btnPonyCoins', w: 90 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
+const SYSTEM_BUTTONS = [{ id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];             // (the Menu and the two coin bags are small buttons on the tool bar; the mini map is the Map button)
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
 const INV_ACTIONS_H = 22 + 36;                      // what you picked, and the Wear / To pony / Drop / Destroy row
@@ -55,65 +55,40 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const m = Math.round(10 * k), gap = Math.round(6 * k);
   const left = insets.left + m, right = w - insets.right - m, top = insets.top + m, bottom = h - insets.bottom - m;
 
-  /* ---- toolbar sizing (needed to decide how much room the system buttons may take) ---- */
-  const slots = CONFIG.sim.inventory.hotbarSlots, slotGap = Math.round(4 * k), pad = Math.round(5 * k);
-  const barW = s => slots * s + (slots - 1) * slotGap + 2 * pad, barH = s => s + 2 * pad;
-  const maxSlot = Math.round(MAX_SLOT * Math.max(k, 1)), minSlot = Math.round(MIN_TOUCH_SLOT * k);
-  const fitSlot = space => Math.floor((space - 2 * pad - (slots - 1) * slotGap) / slots);
+  /* ---- LANDSCAPE ONLY. The top row, left to right: the day / season / time bar, the system buttons, the mini map (upper right).
+   *      The tool bar sits bottom centre, the vitals just above it; touch controls take the two bottom corners. ---- */
+  const miniSize = Math.round(clamp(h * 0.3, 96, 200));
+  const minimap = makeRect(right - miniSize, top, miniSize, miniSize);
+  const season = makeRect(left, top, Math.round(132 * k), Math.round(126 * k));                       // the date card: season / calendar / time and weather
+  season.compact = season.tiny = false;
 
-  /* ---- system buttons, top right: shrink until the toolbar fits beside them; on the very narrowest screens they wrap to a second row ---- */
+  /* ---- system buttons: a row between the season bar and the mini map (shrinking to fit, wrapping onto a second row on the narrowest screens) ---- */
   const buttons = SYSTEM_BUTTONS.filter(b => host || !b.hostOnly);
+  const rowLeft = season.x + season.w + m, rowRight = minimap.x - m;
   const placeButtons = shrink => {
     const bh = Math.round(34 * k * shrink), out = {};
-    let x = right, y = top, rows = 1;
+    let x = rowRight, y = top, rows = 1;
     for (const b of [...buttons].reverse()) {
       const bw = Math.round(b.w * k * shrink);
-      if (x - bw < left && x !== right) { x = right; y += bh + gap; rows++; }                 // out of room: next row
+      if (x - bw < rowLeft && x !== rowRight) { x = rowRight; y += bh + gap; rows++; }                 // out of room: next row
       x -= bw; out[b.id] = makeRect(x, y, bw, bh); x -= gap;
     }
     const rects = Object.values(out), x0 = Math.min(...rects.map(r => r.x)), y1 = Math.max(...rects.map(r => r.y + r.h));
-    return { out, rows, bar: makeRect(x0, top, right - x0, y1 - top), shrink, bh };
+    return { out, rows, bar: makeRect(x0, top, rowRight - x0, y1 - top), shrink, bh };
   };
   let sys = placeButtons(1);
-  if (touch) for (const shrink of [1, 0.9, 0.8, 0.7]) { sys = placeButtons(shrink); if (sys.rows === 1 && fitSlot(sys.bar.x - m - left) >= minSlot) break; }
-  const topButtons = sys.out, systemBar = sys.bar, buttonH = sys.bh;
+  for (const shrink of [1, 0.9, 0.8, 0.7, 0.62]) { sys = placeButtons(shrink); if (sys.rows === 1) break; }
+  const topButtons = sys.out, systemBar = sys.bar;
+  const topUsed = Math.max(season.y + season.h, systemBar.y + systemBar.h) + m;   // y where free space starts (the mini map is a corner: panels may lie over it)
 
-  /* ---- toolbar ---- */
-  let toolbar, slot;
-  if (touch) {
-    const besideSlot = sys.rows === 1 ? fitSlot(systemBar.x - m - left) : -1;
-    if (besideSlot >= minSlot) {                               // beside the system buttons, centred on screen if there is room
-      slot = Math.min(maxSlot, besideSlot);
-      toolbar = makeRect(clamp(w / 2 - barW(slot) / 2, left, systemBar.x - m - barW(slot)), top, barW(slot), barH(slot));
-    } else {                                                   // narrow screen: its own row under the buttons
-      slot = Math.min(maxSlot, fitSlot(right - left));
-      toolbar = makeRect(clamp(w / 2 - barW(slot) / 2, left, right - barW(slot)), systemBar.y + systemBar.h + gap, barW(slot), barH(slot));
-    }
-  } else {                                                     // desktop: bottom centre
-    slot = maxSlot;
-    toolbar = makeRect(w / 2 - barW(slot) / 2, bottom - barH(slot), barW(slot), barH(slot));
-  }
-
-  /* ---- the vitals row (health | hunger | thirst | clock) ---- */
-  const vitalsH = Math.round(16 * k), clockW = 0, barW4 = Math.floor((toolbar.w - 3 * gap) / 4);         // (the clock lives beside the season bar now: the bars share the row)
-  const vitalsY = touch ? toolbar.y + toolbar.h + gap : toolbar.y - gap - vitalsH;
-  const health = makeRect(toolbar.x, vitalsY, barW4, vitalsH);
-  let hunger = makeRect(toolbar.x + (barW4 + gap), vitalsY, barW4, vitalsH);
-  let thirst = makeRect(toolbar.x + 2 * (barW4 + gap), vitalsY, barW4, vitalsH);
-  const energy = makeRect(toolbar.x + 3 * (barW4 + gap), vitalsY, barW4, vitalsH);                       // (energy is always there: health | hunger | thirst | energy)
-  if (!CONFIG.sim.vitals) { const half = Math.floor((toolbar.w - gap) / 2); health.w = half; energy.x = toolbar.x + half + gap; energy.w = toolbar.w - half - gap; hunger = thirst = null; }       // hunger and thirst are off: health and energy share their room
-  const clock = makeRect(toolbar.x + toolbar.w, vitalsY, clockW, vitalsH);
-  let topUsed = (touch ? Math.max(vitalsY + vitalsH, systemBar.y + systemBar.h) : systemBar.y + systemBar.h) + m;   // y where free space starts
-
-  /* ---- the season bar (with the time-of-day clock): top centre on desktop, clear of the buttons; on touch screens its own row under the vitals ---- */
-  const seasonH = Math.round(36 * k);
-  let season;
-  const besideBar = toolbar.x - m - left;                                     // landscape phones: free room at the top left, beside the toolbar
-  if (touch && besideBar >= 210 * k) season = makeRect(left, top, Math.min(Math.round(340 * k), besideBar), seasonH);
-  else if (touch) season = makeRect(toolbar.x, vitalsY + vitalsH + gap, toolbar.w, seasonH);
-  else { const room = systemBar.x - m - left, sw = Math.min(Math.round(440 * k), room); season = makeRect(clamp(w / 2 - sw / 2, left, systemBar.x - m - sw), top, sw, seasonH); }
-  season.compact = season.w < 400 * k; season.tiny = season.w < 300 * k;   // (shorter day text; then the clock shows its picture only)
-  topUsed = Math.max(topUsed, season.y + season.h + m);
+  /* ---- sizing of the tool bar: ONE curved frame. Its row, left to right: the Menu, the five tool slots, the Bag, the Emotes; health and energy (with thin hunger and
+   *      thirst lines) are built into the frame's raised top. Nothing floats beside it. ---- */
+  const slots = CONFIG.sim.inventory.hotbarSlots, slotGap = Math.round(4 * k), pad = Math.round(5 * k);
+  const CAPS = 3, capW = s => Math.round(s * 0.85);                                        // Menu, Bag and Emote: the buttons built into the row
+  const rise = Math.round(16 * k), vitalsStrip = rise + Math.round(14 * k);                   // the arched top, health | energy running along the whole frame: `rise` is how far the arch climbs, the strip is its tallest (middle) height
+  const barW = s => slots * s + (slots - 1) * slotGap + 2 * pad + CAPS * (capW(s) + slotGap), barH = s => vitalsStrip + s + 2 * pad;
+  const maxSlot = Math.round(MAX_SLOT * Math.max(k, 1)), minSlot = Math.round(MIN_TOUCH_SLOT * k);
+  const fitSlot = space => Math.floor((space - 2 * pad - (slots - 1) * slotGap - CAPS * slotGap) / (slots + CAPS * 0.85));
 
   /* ---- touch controls: both thumbs' controls must fit side by side, so they shrink on narrow screens ---- */
   let touchLayout = null;
@@ -123,44 +98,30 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
       if (touchLayout.base.x + touchLayout.base.w + 2 * m <= touchLayout.cluster.x) break;
     }
   }
+  const freeLeft = touch ? touchLayout.base.x + touchLayout.base.w + m : left, freeRight = touch ? touchLayout.bag.x - m : right;      // the bottom row between the thumbs
 
-  /* ---- the emote button ---- */
-  const ub = Math.round(44 * Math.max(k, 0.85)), rowW = ub;
-  let emote, utilityAtBottom = false;
-  const place2 = (x0, y0) => { emote = makeRect(x0, y0, ub, ub); };
-  let stackedAbove = false;
-  if (!touch) {                                                // desktop: beside the toolbar, else above the bars on very narrow windows
-    const rightX = toolbar.x + toolbar.w + gap, leftX = toolbar.x - gap - ub, rowY = toolbar.y + toolbar.h - ub;
-    if (rightX + ub <= right) place2(rightX, rowY);
-    else if (leftX >= left) place2(leftX, rowY);
-    else { place2(toolbar.x, vitalsY - gap - ub); stackedAbove = true; }
-  } else {
-    const freeLeft = touchLayout.base.x + touchLayout.base.w + m, freeRight = touchLayout.cluster.x - m;
-    if (freeRight - freeLeft >= rowW + 8) {                    // room at the bottom centre between the thumbs
-      const x0 = freeLeft + (freeRight - freeLeft - rowW) / 2;
-      place2(x0, bottom - ub); utilityAtBottom = true;
-      touchLayout.zone = makeRect(0, touchLayout.zone.y, Math.min(touchLayout.zone.w, emote.x - 4), touchLayout.zone.h);
-    } else {                                                   // narrow (portrait): a small row under the vitals instead
-      place2(toolbar.x, season.y + season.h + gap);
-      topUsed = Math.max(topUsed, emote.y + emote.h + m);
-      touchLayout.zone = makeRect(0, Math.max(h * 0.38, topUsed), touchLayout.zone.w, h - Math.max(h * 0.38, topUsed));
-    }
-  }
+  /* ---- the tool bar: bottom centre, as wide as the room between the thumbs allows ---- */
+  const slot = touch ? clamp(fitSlot(2 * Math.min(w / 2 - freeLeft, freeRight - w / 2)), Math.round(MIN_TOUCH_SLOT * 0.75), maxSlot) : maxSlot;
+  const toolbar = makeRect(w / 2 - barW(slot) / 2, bottom - barH(slot), barW(slot), barH(slot));
+
+  /* ---- the vitals are in the frame now: these rectangles are only where the controls that used to be there are looked up from ---- */
+  const clock = makeRect(toolbar.x + toolbar.w, toolbar.y, 0, vitalsStrip);
+  const health = null, hunger = null, thirst = null, energy = null;
+  const ub = Math.round(44 * Math.max(k, 0.85));
+  const emote = makeRect(toolbar.x + toolbar.w - pad - capW(slot), toolbar.y + vitalsStrip + pad, capW(slot), slot);       // (the Emote cap, at the right end of the row)
+  const utilityAtBottom = true, stackedAbove = false;
+  if (touch) touchLayout.zone = makeRect(0, touchLayout.zone.y, Math.min(touchLayout.zone.w, Math.max(60, toolbar.x - 4)), touchLayout.zone.h);       // (the stick's zone stops short of the tool bar)
 
   /* ---- desktop: the ridden pony's abilities, in a strip above the vitals (touch screens have the ability button instead) ---- */
   const abilityH = Math.round(22 * k);
-  const abilityBar = touch ? null : makeRect(toolbar.x, (stackedAbove ? emote.y - gap - ub : vitalsY) - gap - abilityH, toolbar.w, abilityH);   // (above the Fly button when it all stacks up)
+  const abilityBar = touch ? null : makeRect(toolbar.x, toolbar.y - gap - abilityH, toolbar.w, abilityH);
 
   /* ---- overlay panels: they are modal (a click-off backdrop sits over the thumb controls), so they may cover those, but never the HUD that stays usable above the backdrop ---- */
   const pp = Math.round(12 * k), pg = Math.round(5 * k), ig = Math.round(3 * k), header = Math.round(34 * k);
   const invSlotFor = r => Math.min(maxSlot, Math.floor((r.w - 2 * pp - INV_CHROME - (INV_COLS - 1) * ig) / INV_COLS), Math.floor((r.h - header - 2 * pp - 3 * pg) / 4));
   let region;
   if (touch) {
-    const regionBottom = utilityAtBottom ? emote.y - m : bottom;
-    const between = makeRect(touchLayout.base.x + touchLayout.base.w + m, topUsed, touchLayout.cluster.x - m - (touchLayout.base.x + touchLayout.base.w + m), regionBottom - topUsed);
-    const above = makeRect(left, topUsed, right - left, touchLayout.cluster.y - m - topUsed);
-    region = invSlotFor(between) >= MIN_PANEL_SLOT || invSlotFor(between) >= invSlotFor(above) ? between : above;
-    if (w > h) region = makeRect(left, topUsed, right - left, bottom - topUsed);   // landscape phones: the panels are modal, so they take the full height under the toolbar (over the thumb controls)
+    region = makeRect(left, topUsed, right - left, bottom - topUsed);     // the panels are modal, so they take the full height under the top row (over the thumb controls)
   } else {
     region = makeRect(left, topUsed, right - left, abilityBar.y - m - topUsed);
   }
@@ -168,11 +129,10 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   const needH = header + 4 * MIN_PANEL_SLOT + 3 * pg + 2 * pp, regionBottomY = region.y + region.h;
   const coversHud = region.h < needH;
   if (coversHud) region = makeRect(region.x, top, region.w, regionBottomY - top);
-  /* portrait phones: the bag gets its own tall layout - the full screen width and all the height under the HUD (modal, so it may cover the thumb controls), and the body scrolls */
-  const portraitBag = touch && h > w, invRegion = portraitBag ? makeRect(left, topUsed, right - left, bottom - topUsed) : region;
+  const invRegion = region;
   const invSlot = Math.max(MIN_INV_SLOT, invSlotFor(invRegion)), sectionH = Math.round(20 * k);
   const invW = Math.min(invRegion.w, Math.max(INV_COLS * invSlot + (INV_COLS - 1) * ig + 2 * pp + INV_CHROME, Math.round(300 * k)));
-  const invH = portraitBag ? invRegion.h : Math.min(invRegion.h, header + 2 * pp + INV_ACTIONS_H + INV_ROWS * (invSlot + ig) + 3 * sectionH);         // (the sections scroll inside when there is more)
+  const invH = Math.min(invRegion.h, header + 2 * pp + INV_ACTIONS_H + INV_ROWS * (invSlot + ig) + 3 * sectionH);         // (the sections scroll inside when there is more)
   const craftW = Math.min(Math.round(350 * k), region.w);
   const sidePanel = makeRect(region.x + (region.w - craftW) / 2, region.y, craftW, region.h);   // crafting, gear, trade and host settings share one rect
   const mapW = Math.min(right - left, 720), mapH = Math.min(bottom - top, 470);                 // the map is view-only, so it may cover the thumb controls: a big window in the middle
@@ -188,13 +148,13 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
   };
 
   /* ---- text overlays ---- */
-  const debug = { x: left, y: touch ? (emote && !utilityAtBottom ? emote.y + emote.h : season.y + season.h) + gap : season.y + season.h + gap };
+  const debug = { x: left, y: season.y + season.h + gap };
   const hintWidth = touch ? 0 : toolbar.x - m - left;
   const hint = hintWidth >= 220 ? { x: left, bottom: h - bottom, w: hintWidth } : null;
 
   /* ---- the Apple button: touch has its own place in the thumb cluster; on desktop it sits beside the emote button ---- */
-  const appleRect = touch ? touchLayout.apple : [emote.x + ub + gap, emote.x - ub - gap].map(x => makeRect(x, emote.y, ub, ub)).find(r => r.x >= left && r.x + r.w <= right) || makeRect(emote.x, emote.y - 2 * (gap + ub), ub, ub);
-  return { k, w, h, buttonScale: sys.shrink, apple: appleRect, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, energy, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  const appleRect = touch ? touchLayout.apple : [toolbar.x + toolbar.w + gap, toolbar.x - ub - gap].map(x => makeRect(x, toolbar.y + toolbar.h - ub, ub, ub)).find(r => r.x >= left && r.x + r.w <= right) || makeRect(toolbar.x + toolbar.w - ub, toolbar.y - 2 * (gap + ub), ub, ub);
+  return { k, w, h, minimap, buttonScale: sys.shrink, apple: appleRect, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad, cap: capW(slot), strip: vitalsStrip, rise }), health, hunger, thirst, energy, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(toolbar.x + toolbar.w + gap, toolbar.y + toolbar.h - 2 * ub - gap, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -229,11 +189,12 @@ class UiLayout {
   _apply(L) {
     const { dom } = this, place = (el, r) => { el.style.left = r.x + 'px'; el.style.top = r.y + 'px'; el.style.width = r.w + 'px'; el.style.height = r.h + 'px'; };
 
+    if (dom.miniMap) place(dom.miniMap, L.minimap);
     for (const id in L.topButtons) { place(dom[id], L.topButtons[id]); dom[id].style.fontSize = Math.round(12 * L.k * (L.buttonScale || 1)) + 'px'; }
 
     const bar = dom.toolbar, t = L.toolbar;
     bar.style.left = t.x + 'px'; bar.style.top = t.y + 'px';
-    bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
+    bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px'); bar.style.setProperty('--cap', t.cap + 'px'); bar.style.setProperty('--strip', t.strip + 'px'); bar.style.setProperty('--rise', t.rise + 'px');
 
     const P = L.panels;
     for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.inventory], [dom.ponyPanel, P.gear], [dom.posterPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.stablePanel, P.gear], [dom.mapPanel, P.map], [dom.coinPanel, P.gear], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
@@ -250,10 +211,10 @@ class UiLayout {
     dom.confirmPanel.style.width = P.confirm.w + 'px';
     dom.mapPanel.style.width = P.map.w + 'px'; dom.mapBody.style.maxHeight = Math.max(80, P.map.h - P.header - 2 * P.pad - 6) + 'px';        // the tab row takes some of the room
 
-    place(dom.health, L.health); place(dom.clock, L.clock); if (dom.energy) place(dom.energy, L.energy);
+    place(dom.clock, L.clock);
     if (dom.season) { place(dom.season, L.season); dom.season.style.fontSize = Math.round(12 * L.k) + 'px'; dom.season.classList.toggle('compact', L.season.compact); dom.season.classList.toggle('tiny', L.season.tiny); }
-    for (const [el, r] of [[dom.hunger, L.hunger], [dom.thirst, L.thirst]]) { el.style.display = r ? '' : 'none'; if (r) place(el, r); }
-    place(dom.btnEmote, L.emote); dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px';
+    document.body.classList.toggle('noVitals', !CONFIG.sim.vitals);                                    // (hunger and thirst off: their thin lines are not drawn)
+    dom.btnEmote.style.fontSize = Math.round(L.emote.w * 0.5) + 'px'; dom.btnMenu.style.fontSize = Math.round(L.emote.w * 0.55) + 'px';
     if (dom.btnApple && L.apple) { place(dom.btnApple, L.apple); dom.btnApple.style.fontSize = Math.max(11, Math.round(L.apple.w * 0.26)) + 'px'; }
     if (dom.btnFly) { place(dom.btnFly, L.fly); dom.btnFly.style.fontSize = Math.max(10, Math.round(L.fly.w * 0.24)) + 'px'; }       // (on touch it takes the Rotate button's place: you cannot build from a saddle)
     dom.clock.style.fontSize = Math.round(11 * L.k) + 'px';
