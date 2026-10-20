@@ -5,6 +5,7 @@ class DebugOverlay {
     this.el = element; this.button = button; this.game = game; this.input = input; this.camera = camera;
     this.fps = 60; this.sinceUpdate = 0;
   }
+  get shown() { return !this.el.hidden; }
   toggle() { this.el.hidden = !this.el.hidden; this.button.classList.toggle('on', !this.el.hidden); }
 
   update(frameMs) {

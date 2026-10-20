@@ -115,7 +115,7 @@ function launch(choice, query) {
     const gardenUI = new GardenUI({ panel: $('gardenPanel'), canvas: $('gardenCanvas'), seedList: $('gardenSeedList'), toolBar: $('gardenTools'), pouchHost: $('gardenPouches'), title: $('gardenTitle'), hint: $('gardenHint'), closeButton: $('gardenClose'), game, requestOpen: () => panels.open('garden') });
     const craftingUI = new CraftingUI({ panel: $('craftPanel'), list: $('craftList'), closeButton: $('craftClose'), game });
     const settingsUI = new SettingsUI({ panel: $('settingsPanel'), list: $('settingsList'), closeButton: $('settingsClose'), game });
-    const controlsUI = new ControlsUI({ panel: $('controlsPanel'), tabs: $('controlsTabs'), body: $('controlsBody'), closeButton: $('controlsClose'), pad });
+    const controlsUI = new ControlsUI({ panel: $('controlsPanel'), tabs: $('controlsTabs'), body: $('controlsBody'), closeButton: $('controlsClose'), pad, hooks: { isHost: () => game.isHost, openDev: () => panels.open('settings'), debug: () => debug, game } });
     const panels = new PanelGroup();
     const gearUI = new WardrobeUI({ panel: $('gearPanel'), body: $('gearBody'), closeButton: $('gearClose'), game });
     const journalUI = new JournalUI({ panel: $('journalPanel'), tabs: $('journalTabs'), body: $('journalBody'), closeButton: $('journalClose'), game });
@@ -123,7 +123,7 @@ function launch(choice, query) {
     const mapUI = new MapUI({ prefs: waypointPrefs, panel: $('mapPanel'), body: $('mapBody'), closeButton: $('mapClose'), game, onTreasure: () => { panels.closeAll(); journalUI.openTab('map'); } });
     const confirmUI = new ConfirmUI({ panel: $('confirmPanel'), title: $('confirmTitle'), text: $('confirmText'), keepButton: $('confirmKeep'), goButton: $('confirmGo'), game, requestOpen: () => panels.open('confirm') });
     const stableUI = new StableUI({ panel: $('stablePanel'), title: $('stableTitle'), body: $('stableBody'), closeButton: $('stableClose'), game, requestOpen: () => panels.open('stable') });
-    const menuUI = new MenuUI({ panel: $('menuPanel'), body: $('menuBody'), closeButton: $('menuClose'), game, onPick: section => openSection(section) });
+    const menuUI = new MenuUI({ panel: $('menuPanel'), body: $('menuBody'), title: $('menuTitle'), closeButton: $('menuClose'), game, onPick: section => openSection(section), onAction: act => menuAction(act) });
     const ponyUI = new PonyBookUI({ panel: $('ponyPanel'), body: $('ponyBody'), closeButton: $('ponyClose'), game });
     const posterUI = new PosterUI({ panel: $('posterPanel'), body: $('posterBody'), closeButton: $('posterClose'), game, coinBag: ponyBagUI });
     const townUI = new TownUI({ panel: $('townPanel'), body: $('townBody'), closeButton: $('townClose'), game });
@@ -169,9 +169,19 @@ function launch(choice, query) {
       if (section === 'skills') { panels.closeAll(); journalUI.openTab('skills'); return; }
       if (section === 'treasure') { panels.closeAll(); journalUI.openTab('map'); return; }
       if (section === 'soundtrack') { panels.open('controls'); controlsUI.show('music'); return; }
+      if (section === 'options') { panels.open('controls'); controlsUI.show(controlsUI.tab); return; }              // Options: controls, sound, soundtrack, graphics, dev settings
       const names = { inventory: 'inventory', crafting: 'crafting', gear: 'gear', map: 'map', ponies: 'ponies', town: 'town', settings: 'settings', session: 'session', controls: 'controls' };
       if (names[section]) panels.open(names[section]);
     }
+    /** The Menu's Go online / Save / Load / Exit (the session's own rules and confirmations live in SessionUI). */
+    function menuAction(act) {
+      const a = game.session;
+      if (act === 'online') { if (sessionUI) sessionUI._act('online'); return; }
+      if (act === 'save') { if (a) a.saveAll('manual'); return; }                                                  // (a "Game saved" toast follows)
+      if (act === 'load') { confirmUI.askCustom({ title: 'Load a saved game?', text: 'Your game is saved first, then you go back to the title screen to pick a saved game.', goLabel: 'Save & go', keepLabel: 'Keep playing', onGo: async () => { try { if (a) await a.saveAll('manual'); } finally { location.href = location.pathname; } } }); return; }
+      if (act === 'exit') { if (sessionUI) sessionUI._act(a instanceof HostAdapter ? 'end' : 'leave'); else location.href = location.pathname; }
+    }
+    if (game.session) adapter.onSession(() => { if (menuUI.isOpen) menuUI.refresh(); });
     const backdrop = $('panelBackdrop');                       // tap anywhere outside a window to close it
     backdrop.addEventListener('pointerdown', e => { e.preventDefault(); panels.closeAll(); emoteUI.close(); });
     const debug = new DebugOverlay({ element: $('dbg'), button: $('btnDbg'), game, input, camera: renderer.camera });

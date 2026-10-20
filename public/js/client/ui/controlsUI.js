@@ -2,15 +2,18 @@
 /* CLIENT - the Controls window (Menu > Controls): a KEYS tab to rebind every keyboard action (click a key, press the new one; Backspace clears it;
  * a key already used by another action moves to this one) and a MOUSE & TOUCH tab with what clicks and taps do and the tap-to-walk switch. */
 class ControlsUI {
-  constructor({ panel, tabs, body, closeButton, pad = null }) {
-    this.pad = pad; this.panel = panel; this.tabs = tabs; this.body = body; this.tab = 'keys'; this.waiting = null; this.tick = 0; this.note = ''; this.scrubbing = false;       // waiting: { id, index } while a key is awaited
-    tabs.innerHTML = '<button data-tab="keys">Keys</button><button data-tab="pointer">Mouse &amp; touch</button><button data-tab="pad">Controller</button><button data-tab="music">Soundtrack</button>';
+  constructor({ panel, tabs, body, closeButton, pad = null, hooks = {} }) {
+    this.pad = pad; this.hooks = hooks; this.panel = panel; this.tabs = tabs; this.body = body; this.tab = 'keys'; this.waiting = null; this.tick = 0; this.note = ''; this.scrubbing = false;       // waiting: { id, index } while a key is awaited
+    this._buildTabs();
     tabs.addEventListener('click', e => { const t = e.target.closest('button'); if (t) this.show(t.dataset.tab); });
     closeButton.addEventListener('click', () => this.close());
     body.addEventListener('click', e => this._click(e));
     body.addEventListener('change', e => {
       if (e.target.id === 'ctlMurmur') { WorldSfx.setMurmur(e.target.checked); return; }
       if (e.target.id === 'trackScrub') { const m = PonyMusic.current; if (m) m.seek(Number(e.target.value)); this.scrubbing = false; return; }
+      if (e.target.id === 'ctlRenderer') { try { localStorage.setItem('ponyscapes.renderer', e.target.value); } catch (err) { /* kept for this visit only */ } this.note = 'Graphics: restart the game to use the ' + (e.target.value === 'canvas' ? 'canvas' : 'WebGL') + ' renderer.'; this.refresh(); return; }
+      if (e.target.id === 'ctlDebug') { const d = this.hooks.debug && this.hooks.debug(); if (d && d.shown !== e.target.checked) d.toggle(); return; }
+      if (e.target.dataset && e.target.dataset.setting && this.hooks.game && this.hooks.game.isHost) { this.hooks.game.setSetting(e.target.dataset.setting, e.target.checked); return; }
       const set = { ctlTapMove: 'setTapToMove', ctlFixedStick: 'setFixedJoystick', ctlWalkToAct: 'setWalkToAct' }[e.target.id];
       if (set) { Controls[set](e.target.checked); this.refresh(); }
     });
@@ -25,7 +28,15 @@ class ControlsUI {
   get isOpen() { return !this.panel.hidden; }
   open() { this.panel.hidden = false; this.show(this.tab); }
   close() { this._stopWaiting(); this.panel.hidden = true; }
+  /** The tabs of the Options window: Controls (keys), Mouse & touch, Controller, Sound, Soundtrack, Graphics and, for the host, Dev settings. */
+  _buildTabs() {
+    const tabs = [['keys', 'Controls'], ['pointer', 'Mouse & touch'], ['pad', 'Controller'], ['sound', 'Sound'], ['music', 'Soundtrack'], ['graphics', 'Graphics']];
+    if (this.hooks.isHost && this.hooks.isHost()) tabs.push(['dev', 'Dev settings']);
+    this.tabs.innerHTML = tabs.map(([id, name]) => `<button data-tab="${id}">${name.replace('&', '&amp;')}</button>`).join('');
+  }
   show(tab) {
+    this._buildTabs();
+    if (tab === 'dev' && !(this.hooks.isHost && this.hooks.isHost())) tab = 'keys';
     this.tab = tab; this.note = ''; this._stopWaiting();
     for (const b of this.tabs.querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === tab);
     this.refresh();
@@ -41,6 +52,7 @@ class ControlsUI {
     }
     const act = e.target.closest('button[data-act]');
     if (act) {
+      if (act.dataset.act === 'dev') { if (this.hooks.openDev) this.hooks.openDev(); return; }
       const m = PonyMusic.current;
       if (m && GameAudio.ctx) { if (act.dataset.act === 'next') m.skip(1); else if (act.dataset.act === 'prev') m.skip(-1); else if (act.dataset.act === 'amb') m.setAmbient(!m.forcedAmb); else if (m.paused) m.resume(); else m.pause(); }
       else this.note = 'Tap or press a key once to start the sound.';
@@ -66,7 +78,7 @@ class ControlsUI {
 
   refresh() {
     clearInterval(this.tick); this.tick = 0;
-    this.body.innerHTML = this.tab === 'keys' ? this._keys() : this.tab === 'music' ? this._music() : this.tab === 'pad' ? this._pad() : this._pointer();
+    this.body.innerHTML = this.tab === 'keys' ? this._keys() : this.tab === 'music' ? this._music() : this.tab === 'pad' ? this._pad() : this.tab === 'sound' ? this._sound() : this.tab === 'graphics' ? this._graphics() : this.tab === 'dev' ? this._dev() : this._pointer();
     if (this.tab === 'music') this._nowPlaying();
     if (this.tab === 'music') this.tick = setInterval(() => { if (!this.isOpen || this.tab !== 'music') { clearInterval(this.tick); return; } this._nowPlaying(); }, 250);
   }
@@ -113,6 +125,33 @@ class ControlsUI {
       '<div class="menunote">The layout follows the Nintendo Switch pad. Xbox and PlayStation pads work the same: the buttons sit in the same places and are printed with their own names here and in the on-screen prompts. The prompts at the bottom right of the game change with what is next to you and go away when you use the keyboard or mouse. Controller buttons cannot be rebound.</div>';
   }
 
+  /** Sound: the volumes (0 is off) and the villager murmur. The soundtrack player has its own tab. */
+  _sound() {
+    const slider = (id, name, hint, kind) => { const pct = Math.round(GameAudio.volume(kind) * 100); return `<label class="admSlide"><span><b>${name}</b><small>${hint}</small></span><input type="range" id="${id}" min="0" max="100" step="5" value="${pct}"><output>${pct}%</output></label>`; };
+    return '<div class="gtitle">Sound</div>' +
+      slider('ctlMusicVol', 'Music', `Flute, harp and cello: ${PonyMusic.TITLES.calm} by day, ${PonyMusic.TITLES.storm} in storms, ${PonyMusic.TITLES.battle} in battle and caves. 0 is off.`, 'music') +
+      slider('ctlSfxVol', 'Sound effects', 'Footsteps, doors, tools, hits, picking, animals, slimes, eating and the bag. 0 is off.', 'sfx') +
+      `<label class="chk"><input type="checkbox" id="ctlMurmur"${WorldSfx.murmurOn ? ' checked' : ''}><span><b>Villager murmur (experimental)</b><small>Villagers babble softly when they speak or when you walk among them.</small></span></label>` +
+      slider('ctlWeatherVol', 'Weather sounds', 'Rain, wind and thunder. 0 is off. Browsers only start sound after you tap or press a key.', 'weather');
+  }
+
+  /** Graphics: which renderer draws the world (kept in this browser; takes effect when the game is restarted) and the debug overlay. */
+  _graphics() {
+    const now = (() => { try { return localStorage.getItem('ponyscapes.renderer') === 'canvas' ? 'canvas' : 'pixi'; } catch (e) { return 'pixi'; } })();
+    const d = this.hooks.debug && this.hooks.debug(), using = window.ponyscapes && window.ponyscapes.renderer && window.ponyscapes.renderer.backend;
+    return (this.note ? `<div class="ctlNote">${this.note}</div>` : '') + '<div class="gtitle">Graphics</div>' +
+      `<label class="admSlide"><span><b>Renderer</b><small>WebGL is faster and draws the lights and the sky; Canvas is the plain fallback. Restart the game after changing it. Now drawing with: ${using || '?'}.</small></span><select id="ctlRenderer"><option value="pixi"${now === 'pixi' ? ' selected' : ''}>WebGL</option><option value="canvas"${now === 'canvas' ? ' selected' : ''}>Canvas</option></select></label>` +
+      `<label class="chk"><input type="checkbox" id="ctlDebug"${d && d.shown ? ' checked' : ''}><span><b>Show the debug overlay</b><small>Frame rate, position and what is in hand, at the top left.</small></span></label>`;
+  }
+
+  /** Dev settings (the host): the testing switch, and the full dev settings window. */
+  _dev() {
+    const g = this.hooks.game, on = !!(g && g.settings && g.settings.ponyCare);
+    return '<div class="gtitle">Dev settings</div>' +
+      `<label class="chk"><input type="checkbox" data-setting="ponyCare"${on ? ' checked' : ''}><span><b>Pony care (testing)</b><small>Turn the feeding systems on: food, water, happiness, stable desk and tanks.</small></span></label>` +
+      '<div class="admRow"><button data-act="dev" tabindex="-1">Open the dev settings window</button></div>';
+  }
+
   _keys() {
     let group = '', html = '';
     for (const a of Controls.actions) {
@@ -137,11 +176,6 @@ class ControlsUI {
       '<div class="gtitle">Taps</div>' +
       `<label class="chk"><input type="checkbox" id="ctlWalkToAct"${Controls.walkToAct ? ' checked' : ''}><span><b>Walk to it, then act</b><small>Tap a villager, animal, door, stockpile, crop or shop counter out of reach: walk there and do the action. Off: nothing happens when it is out of reach.</small></span></label>` +
       `<label class="chk"><input type="checkbox" id="ctlTapMove"${Controls.tapToMove ? ' checked' : ''}><span><b>Tap the ground to walk there</b><small>On by default. A tap on bare ground walks there (the joystick and keys still steer). Off: a tap near you uses your tool or interacts instead.</small></span></label>` +
-      '<div class="gtitle">Sound</div>' +
-      slider('ctlMusicVol', 'Music', `Flute, harp and cello: ${PonyMusic.TITLES.calm} by day, ${PonyMusic.TITLES.storm} in storms, ${PonyMusic.TITLES.battle} in battle and caves. 0 is off.`, 'music') +
-      slider('ctlSfxVol', 'Sound effects', 'Footsteps, doors, tools, hits, picking, animals, slimes, eating and the bag. 0 is off.', 'sfx') +
-      `<label class="chk"><input type="checkbox" id="ctlMurmur"${WorldSfx.murmurOn ? ' checked' : ''}><span><b>Villager murmur (experimental)</b><small>Villagers babble softly when they speak or when you walk among them.</small></span></label>` +
-      slider('ctlWeatherVol', 'Weather sounds', 'Rain, wind and thunder. 0 is off. Browsers only start sound after you tap or press a key.', 'weather') +
       '<div class="gtitle">What clicks and taps do</div>' + rows;
   }
 }
