@@ -1,38 +1,47 @@
 'use strict';
-/* CLIENT - the Menu: one big, labelled button for every section of the game, so nothing hides behind a tiny icon. */
+/* CLIENT - the Menu: a small window in the middle of the screen. At the top the room and its code (or "offline" and a button to go online); then Inventory,
+ * Character (tools, clothes, bag), Pony Book, Journal, Map and Options; at the bottom Save, Load and Exit.
+ * Options (the Controls window) holds Controls, Sound, Soundtrack, Graphics and, for the host, Dev settings. */
 const MENU_SECTIONS = [
-  { id: 'inventory', glyph: '\uD83C\uDF92', label: 'Inventory', sub: 'Your pack and tool bar', key: 'I' },
-  { id: 'crafting',  glyph: '\uD83D\uDD28', label: 'Crafting',  sub: 'Make tools, outfits, buildings', key: 'Q' },
-  { id: 'gear',      glyph: '\uD83D\uDC51', label: 'Gear',      sub: 'Tools, clothes and bag', key: 'G' },
-  { id: 'skills',    glyph: '\uD83D\uDCD6', label: 'Journal',   sub: 'Skills and attributes', key: 'J' },
-  { id: 'treasure',  glyph: '\uD83D\uDDFA', label: 'Treasure',  sub: 'Maps you have read', key: '' },
-  { id: 'map',       glyph: '\uD83E\uDDED', label: 'Map',       sub: 'The land around you', key: 'M' },
-  { id: 'ponies',    glyph: '\uD83D\uDC0E', label: 'Ponies',    sub: 'Pony Book and your herd', key: 'P' },
-  { id: 'town',      glyph: '\uD83C\uDFD8', label: 'Town',      sub: 'Stockpiles and upgrades', key: 'T' },
-  { id: 'soundtrack', glyph: '\uD83C\uDFB5', label: 'Soundtrack', sub: 'Play any track', key: '' },
-  { id: 'controls',  glyph: '\uD83C\uDFAE', label: 'Controls',  sub: 'Keys, mouse, touch and controller', key: '' },
-  { id: 'session',   glyph: '\uD83C\uDF10', label: 'Session',   sub: 'Room code, players, saving', key: '', needsSession: true },
-  { id: 'settings',  glyph: '\u2699',       label: 'Dev settings', sub: 'Host: testing tools and game settings (code)', key: '', hostOnly: true }
+  { id: 'inventory', label: 'Inventory' },
+  { id: 'gear',      label: 'Character' },
+  { id: 'ponies',    label: 'Pony Book' },
+  { id: 'skills',    label: 'Journal' },
+  { id: 'map',       label: 'Map' },
+  { id: 'options',   label: 'Options' }
 ];
 
 class MenuUI {
-  /** @param {{panel, body, closeButton, game, onPick:(sectionId)=>void}} opts */
-  constructor({ panel, body, closeButton, game, onPick }) {
-    this.panel = panel; this.body = body; this.game = game; this.onPick = onPick;
+  /** @param {{panel, body, title, closeButton, game, onPick:(sectionId)=>void, onAction:(act)=>void}} opts  act: 'online' | 'save' | 'load' | 'exit' */
+  constructor({ panel, body, title, closeButton, game, onPick, onAction }) {
+    this.panel = panel; this.body = body; this.title = title; this.game = game; this.onPick = onPick; this.onAction = onAction;
     closeButton.addEventListener('click', () => this.close());
-    body.addEventListener('change', e => { const c = e.target.closest('input[data-setting]'); if (c && this.game.isHost) this.game.setSetting(c.dataset.setting, c.checked); });   // the testing checkbox
-    game.events.on('settingsChanged', () => this.isOpen && this.refresh());
-    body.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.section) this.onPick(b.dataset.section); });
+    body.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b || b.disabled) return;
+      if (b.dataset.section) this.onPick(b.dataset.section);
+      else if (b.dataset.act) this.onAction(b.dataset.act);
+    });
   }
   get isOpen() { return !this.panel.hidden; }
   open() { this.panel.hidden = false; this.refresh(); }
   close() { this.panel.hidden = true; }
+
+  /** The room line: "Room · ABCDE" when the game is open to friends, "Offline" (with a Go online button for the host) when it is not. */
+  _room() {
+    const s = this.game.session, info = s && s.getSessionInfo(), host = s instanceof HostAdapter;
+    if (info && info.online) return { text: `Room · ${info.code}`, online: true, host };
+    return { text: 'Room · offline', online: false, host, canGo: !!s && host };
+  }
+
   refresh() {
-    const sections = MENU_SECTIONS.filter(s => (!s.hostOnly || this.game.isHost) && (!s.needsSession || this.game.session));
-    const maps = this.game.treasureMaps.length;
-    this.body.innerHTML = '<div class="menugrid">' + sections.map(s =>
-      `<button data-section="${s.id}"><span class="mg">${s.glyph}</span><span class="mt"><b>${s.label}</b><i>${s.id === 'treasure' && maps ? `${maps} map${maps === 1 ? '' : 's'} read` : s.sub}</i></span>${s.key ? `<kbd>${s.key}</kbd>` : ''}</button>`).join('') + '</div>' +
-      (this.game.isHost ? `<label class="chk menutest"><input type="checkbox" data-setting="ponyCare"${this.game.settings && this.game.settings.ponyCare ? ' checked' : ''}><span><b>Pony care (testing)</b><small>Turn the feeding systems on: food, water, happiness, stable desk and tanks.</small></span></label>` : '') +
-      '<div class="menunote">Tap outside a window to close it.</div>';
+    const room = this._room(), hasSession = !!this.game.session;
+    this.title.textContent = room.text;
+    this.body.innerHTML =
+      (room.canGo ? '<div class="menuOnline"><button data-act="online" tabindex="-1">Go online</button><small>Let up to 3 friends join with a room code</small></div>' : '') +
+      '<div class="menuList">' + MENU_SECTIONS.map(s => `<button data-section="${s.id}" tabindex="-1">${s.label}</button>`).join('') + '</div>' +
+      '<div class="menuFoot">' +
+        `<button data-act="save" tabindex="-1"${hasSession ? '' : ' disabled'}>Save</button>` +
+        `<button data-act="load" tabindex="-1"${hasSession ? '' : ' disabled'}>Load</button>` +
+        '<button data-act="exit" class="danger" tabindex="-1">Exit</button></div>';
   }
 }

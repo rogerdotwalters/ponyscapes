@@ -205,7 +205,10 @@ class UiLayout {
     for (const el of [dom.craftList, dom.settingsList, dom.gearBody, dom.ponyBody, dom.posterBody, dom.townBody, dom.shopBody, dom.tradeBody, dom.stableBody]) el.style.maxHeight = P.craftListMaxHeight + 'px';
     dom.controlsBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
     dom.journalBody.style.maxHeight = Math.max(60, P.craftListMaxHeight - 38) + 'px';
-    dom.menuBody.style.maxHeight = dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';
+    dom.sessionBody.style.maxHeight = P.craftListMaxHeight + 'px';
+    const menu = dom.menuPanel;                                                                                  // the Menu pops up in the middle of the screen
+    menu.style.left = '50%'; menu.style.top = '50%'; menu.style.transform = 'translate(-50%,-50%)'; menu.style.width = Math.round(Math.min(330 * L.k, L.w * 0.86)) + 'px';
+    dom.menuBody.style.maxHeight = Math.max(160, L.h - 2 * L.k * 40 - 70) + 'px';
     dom.gearPanel.style.width = P.inventory.w + 'px'; dom.gearBody.style.maxHeight = P.invBodyMaxHeight + 'px';       // (Gear is a tab of the Bag window: the same place and size)
     dom.inventoryPanel.style.setProperty('--gap', P.invGap + 'px'); dom.inventoryPanel.style.width = P.inventory.w + 'px'; if (dom.invBody) dom.invBody.style.maxHeight = P.invBodyMaxHeight + 'px';
     dom.confirmPanel.style.width = P.confirm.w + 'px';

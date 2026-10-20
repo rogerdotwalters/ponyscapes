@@ -12,7 +12,12 @@ const RenderBackend = (() => {
     const s = document.createElement('script'); s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('could not load ' + src));
     document.head.appendChild(s);
   });
-  const wanted = query => (query && query.get('renderer')) === 'canvas' ? 'canvas' : 'pixi';
+  /** Which renderer: ?renderer=canvas / pixi in the link, else the one chosen in Options > Graphics (kept in this browser), else WebGL (pixi). */
+  const wanted = query => {
+    const asked = query && query.get('renderer');
+    if (asked === 'canvas' || asked === 'pixi') return asked;
+    try { return localStorage.getItem('ponyscapes.renderer') === 'canvas' ? 'canvas' : 'pixi'; } catch (e) { return 'pixi'; }
+  };
   const hasWebGL = () => { try { const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); } catch (e) { return false; } };
 
   /** Fetch whatever the chosen backend needs (resolves to the name of the backend to use). */
