@@ -4,14 +4,17 @@
  *   playing   Left stick  move                         A   use your tool / talk and shop / enter a building / pet
  *             B  pick, pick up and hold, feed, pet     Y   untie / let go, or leash your pony        X  mount / dismount
  *             ZR lasso                                 R   the stall, stable or building menu beside you (else the Town)
- *             - map, + menu                            L   fly / land     ZL  pony power     D-pad  tool bar, bag, crafting
- *   a window  Right stick moves a pointer, A clicks it, B closes the window; hold L and the right stick (or D-pad up / down) scrolls a list or pans the map.
+ *             - map, + menu                            L   fly / land     ZL  pony power     D-pad  tool bar
+ *   a window  D-pad jumps between the buttons, right stick moves a pointer, A clicks it, B closes the window; hold L and the right stick scrolls a list or pans the map.
  *
  * Nothing here changes a game rule: every button ends in the same call the keyboard or the touch buttons make (bus events, ClientGame methods). */
 const PAD_A_KINDS = ['talk', 'gift', 'door', 'loot', 'stockpile'];       // A always takes these (villagers, shops, doors, chests, stockpiles)...
 const PAD_A_SOFT_KINDS = ['pet', 'treat', 'give', 'feed'];               // ...and these when no tool is in hand (with a tool, A uses it and B pets)
 const PAD_POINTER_SPEED = 1000;                                         // pointer: pixels per second at full push
 const PAD_SCROLL_SPEED = 900;
+const PAD_DIRS = { UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 }, LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 } };
+const PAD_FOCUSABLE = 'button, input, select, a[href], label, [data-bind], [data-act], [data-track], .gslot';
+const PAD_REPEAT_FIRST_MS = 380, PAD_REPEAT_MS = 110;                   // holding a direction keeps moving
 const PAD_POINTER_ID = 7331;                                            // (not the mouse's id: a made-up pointer of our own)
 
 class GamepadActions {
@@ -20,7 +23,7 @@ class GamepadActions {
     this.menuMode = false;
     this.aUsing = false;                          // A went down on "use the tool" (so holding it keeps swinging)
     this.cx = 0; this.cy = 0;                     // the pointer
-    this.downTarget = null; this.hoverEl = null;
+    this.downTarget = null; this.hoverEl = null; this.heldDir = null;
     swallowSyntheticCapture();
     bus.on('padActive', on => { document.body.classList.toggle('padActive', on); if (!on) this._setHover(null); });
   }
@@ -59,10 +62,8 @@ class GamepadActions {
       case 'R': if (g.stallHint()) g.openStall(); else this.bus.emit('toggleTown'); break;
       case 'L': this.bus.emit('ability'); break;
       case 'ZL': { const i = g.abilityState().findIndex(a => !(a.cooldown > 0)); if (i >= 0) this.bus.emit('ponyPower', i + 1); break; }
-      case 'LEFT': g.cycleSlot(-1); break;
-      case 'RIGHT': g.cycleSlot(1); break;
-      case 'UP': this.bus.emit('toggleInventory'); break;
-      case 'DOWN': this.bus.emit('toggleCrafting'); break;
+      case 'LEFT': case 'UP': g.cycleSlot(-1); break;                 // the D-pad changes the tool in your hand
+      case 'RIGHT': case 'DOWN': g.cycleSlot(1); break;
       case 'RS': this.bus.emit('toggleJournal'); break;
     }
   }
@@ -102,7 +103,7 @@ class GamepadActions {
   hints() {
     const out = [], g = this.game, L = g.local;
     if (this.menuMode) {
-      out.push({ button: 'A', text: 'Select' }, { button: 'B', text: 'Back' }, { button: 'RSTICK', text: 'Pointer' }, { button: 'L', text: 'Hold + R Stick: scroll' }, { button: 'PLUS', text: 'Menu' }, { button: 'MINUS', text: 'Map' });
+      out.push({ button: 'A', text: 'Select' }, { button: 'B', text: 'Back' }, { button: 'RSTICK', text: 'Pointer' }, { button: 'DPAD', text: 'Move' }, { button: 'L', text: 'Hold + R Stick: scroll' }, { button: 'PLUS', text: 'Menu' }, { button: 'MINUS', text: 'Map' });
       return out;
     }
     if (!L || L.asleep) return out;
@@ -138,17 +139,40 @@ class GamepadActions {
   _pressedInMenu(name) {
     if (name === 'A') this._pointerDown();
     else if (name === 'B') this.bus.emit('closePanels');
+    else if (PAD_DIRS[name]) { this.heldDir = { name, next: performance.now() + PAD_REPEAT_FIRST_MS }; this._navigate(PAD_DIRS[name]); }
+  }
+
+  /** D-pad in a window: jump the pointer to the nearest button / slot / field in that direction (scrolling it into view). */
+  _navigate(dir) {
+    const from = this.hoverEl && this.hoverEl.isConnected ? this.hoverEl.getBoundingClientRect() : null;
+    const ox = from ? from.left + from.width / 2 : this.cx, oy = from ? from.top + from.height / 2 : this.cy;
+    const roots = Object.values(this.panels.panels).filter(p => p.isOpen && p.panel && p.panel.querySelectorAll).map(p => p.panel);
+    let best = null;
+    for (const root of roots) for (const el of root.querySelectorAll(PAD_FOCUSABLE)) {
+      if (el === this.hoverEl) continue;
+      const r = el.getBoundingClientRect(); if (r.width < 4 || r.height < 4 || el.disabled || el.closest('[hidden]')) continue;
+      const dx = r.left + r.width / 2 - ox, dy = r.top + r.height / 2 - oy;
+      const along = dx * dir.x + dy * dir.y, across = Math.abs(dx * dir.y) + Math.abs(dy * dir.x);
+      if (along < 4 || across > along * 2.5 + 60) continue;                      // (behind, or too far off to the side)
+      const score = along + across * 2;
+      if (!best || score < best.score) best = { el, score };
+    }
+    if (!best) return;
+    best.el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const r = best.el.getBoundingClientRect();
+    this.cx = clamp(r.left + r.width / 2, 0, innerWidth - 1); this.cy = clamp(r.top + r.height / 2, 0, innerHeight - 1);
+    this._place();
   }
 
   _menuTick(dt) {
     const pad = this.pad, stick = pad.right.mag > 0 ? pad.right : pad.left;
     if (pad.isDown('L')) {                                                // scroll / pan instead of moving the pointer
-      const dx = stick.x * stick.mag * PAD_SCROLL_SPEED * dt, dy = (stick.y * stick.mag + (pad.isDown('DOWN') ? 0.7 : 0) - (pad.isDown('UP') ? 0.7 : 0)) * PAD_SCROLL_SPEED * dt;
+      const dx = stick.x * stick.mag * PAD_SCROLL_SPEED * dt, dy = stick.y * stick.mag * PAD_SCROLL_SPEED * dt;
       if (this.mapUI && this.mapUI.isOpen) this.mapUI.panView(dx, dy); else if (dy) this._scrollAt(dy);
       return;
     }
-    const dy = (pad.isDown('DOWN') ? 0.7 : 0) - (pad.isDown('UP') ? 0.7 : 0);
-    if (dy) this._scrollAt(dy * PAD_SCROLL_SPEED * dt);
+    if (this.heldDir && !pad.isDown(this.heldDir.name)) this.heldDir = null;
+    if (this.heldDir && performance.now() >= this.heldDir.next) { this.heldDir.next += PAD_REPEAT_MS; this._navigate(PAD_DIRS[this.heldDir.name]); }
     if (stick.mag > 0) {
       const k = Math.pow(stick.mag, 1.4) * PAD_POINTER_SPEED * dt;       // (gentle near the centre: easy to land on a small button)
       this.cx = clamp(this.cx + stick.x * k, 0, innerWidth - 1); this.cy = clamp(this.cy + stick.y * k, 0, innerHeight - 1);
