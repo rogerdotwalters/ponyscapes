@@ -216,14 +216,16 @@ class ClientGame {
   latestDrops() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.drops) || this.welcomeDrops || {}; }
   latestBoats() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.boats) || this.welcomeBoats; }
   /** What the interact button would do right now: 'Exit' | 'Pick' | 'Board' | 'Drink' | 'Fill' | null (nearest wins). */
-  interactHint(skip = []) {
+  interactHint(skip = []) { const a = this.interactAction(skip); return a ? a.label : null; }
+  /** The same, as { kind, label }: the controller decides from the kind which button it belongs to (gamepadActions.js). */
+  interactAction(skip = []) {
     if (!this.local) return null;
-    if (this.local.boat) return 'Exit';
+    if (this.local.boat) return { kind: 'exit', label: 'Exit' };
     if (Downed.isDown(this.local)) return null;                                       // on your knees: only snacks
     const ally = Downed.findAlly(this.latestPlayers(), this.local, this.myId);          // a teammate down beside you
-    if (ally) return ally.label;
+    if (ally) return { kind: 'revive', label: ally.label };
     const action = Interactions.find(this.map, this.latestBoats(), this.local, this.heldItemId(), this.latestAnimals(), this.myId, this.npcs, this.latestDrops());
-    return action && !skip.includes(action.kind) ? action.label : null;
+    return action && !skip.includes(action.kind) ? action : null;
   }
   /** The stall button: the nearest stall within reach ({ name, fx, fy }), else null. It opens that stall's menu. */
   stallHint() {

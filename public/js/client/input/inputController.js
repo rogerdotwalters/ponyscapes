@@ -3,8 +3,8 @@
  *   { moveX, moveY, action, seq }   (moveX/Y are WORLD axes; slot is added by ClientGame). There is no run or sneak: every push is full speed.
  * Movement is camera-relative: W / stick-up always means "up on the screen". */
 class InputController {
-  constructor({ bus, keyboard, touch }) {
-    this.keyboard = keyboard; this.touch = touch; this.bus = bus;
+  constructor({ bus, keyboard, touch, gamepad = null }) {
+    this.keyboard = keyboard; this.touch = touch; this.bus = bus; this.gamepad = gamepad;      // gamepad: { moveAxis, actionHeld } (gamepadActions.js)
     this.nav = null; this.camera = null;
     this.pulse = null;                                          // a tap / click: { ax, ay, action, lasso, until } for a moment (world point it aims at)
     this.hold = null;                                           // the mouse button is down: { sx, sy } screen point; Use repeats, aimed at the pointer
@@ -33,7 +33,7 @@ class InputController {
       if (step.done) this.nav = null; else { moveX = step.moveX; moveY = step.moveY; }
     }
     const ptr = this._pointerAim();
-    const action = this.keyboard.actionHeld || this.touch.actionHeld || ptr.action;
+    const action = this.keyboard.actionHeld || this.touch.actionHeld || !!(this.gamepad && this.gamepad.actionHeld) || ptr.action;
     return (this.last = { moveX, moveY, action, seq, lasso: ptr.lasso, aim: ptr.aim, ax: ptr.ax, ay: ptr.ay });
   }
 
@@ -58,6 +58,8 @@ class InputController {
     if (stick.active && stick.magnitude > cfg.deadzone) {
       return { x: stick.dx, y: stick.dy };
     }
+    const pad = this.gamepad && this.gamepad.moveAxis;
+    if (pad) return pad;
     const key = this.keyboard.moveAxis;
     if (key.x || key.y) return { x: key.x, y: key.y };
     return null;

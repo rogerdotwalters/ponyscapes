@@ -2,9 +2,9 @@
 /* CLIENT - the Controls window (Menu > Controls): a KEYS tab to rebind every keyboard action (click a key, press the new one; Backspace clears it;
  * a key already used by another action moves to this one) and a MOUSE & TOUCH tab with what clicks and taps do and the tap-to-walk switch. */
 class ControlsUI {
-  constructor({ panel, tabs, body, closeButton }) {
-    this.panel = panel; this.tabs = tabs; this.body = body; this.tab = 'keys'; this.waiting = null; this.tick = 0; this.note = ''; this.scrubbing = false;       // waiting: { id, index } while a key is awaited
-    tabs.innerHTML = '<button data-tab="keys">Keys</button><button data-tab="pointer">Mouse &amp; touch</button><button data-tab="music">Soundtrack</button>';
+  constructor({ panel, tabs, body, closeButton, pad = null }) {
+    this.pad = pad; this.panel = panel; this.tabs = tabs; this.body = body; this.tab = 'keys'; this.waiting = null; this.tick = 0; this.note = ''; this.scrubbing = false;       // waiting: { id, index } while a key is awaited
+    tabs.innerHTML = '<button data-tab="keys">Keys</button><button data-tab="pointer">Mouse &amp; touch</button><button data-tab="pad">Controller</button><button data-tab="music">Soundtrack</button>';
     tabs.addEventListener('click', e => { const t = e.target.closest('button'); if (t) this.show(t.dataset.tab); });
     closeButton.addEventListener('click', () => this.close());
     body.addEventListener('click', e => this._click(e));
@@ -66,7 +66,7 @@ class ControlsUI {
 
   refresh() {
     clearInterval(this.tick); this.tick = 0;
-    this.body.innerHTML = this.tab === 'keys' ? this._keys() : this.tab === 'music' ? this._music() : this._pointer();
+    this.body.innerHTML = this.tab === 'keys' ? this._keys() : this.tab === 'music' ? this._music() : this.tab === 'pad' ? this._pad() : this._pointer();
     if (this.tab === 'music') this._nowPlaying();
     if (this.tab === 'music') this.tick = setInterval(() => { if (!this.isOpen || this.tab !== 'music') { clearInterval(this.tick); return; } this._nowPlaying(); }, 250);
   }
@@ -104,6 +104,15 @@ class ControlsUI {
     this._setTimes(pos);
   }
 
+  /** The controller tab: the Switch layout, printed with the names of the pad in use. */
+  _pad() {
+    const pad = this.pad, name = b => (pad ? pad.label(b) : b);
+    const status = pad && pad.connected ? `Connected: ${escapeAttr(pad.id)}` : 'No controller found yet. Plug one in or pair it by Bluetooth, then press any button on it.';
+    const rows = PAD_LAYOUT.map(r => `<div class="ctlHelpRow"><b>${name(r.button)}</b><span>${r.world || '-'}${r.menu ? `<br><i>In a window: ${r.menu}</i>` : ''}</span></div>`).join('');
+    return `<div class="ctlHelp">${status}</div><div class="gtitle">Button layout</div>` + rows +
+      '<div class="menunote">The layout follows the Nintendo Switch pad. Xbox and PlayStation pads work the same: the buttons sit in the same places and are printed with their own names here and in the on-screen prompts. The prompts at the bottom right of the game change with what is next to you and go away when you use the keyboard or mouse. Controller buttons cannot be rebound.</div>';
+  }
+
   _keys() {
     let group = '', html = '';
     for (const a of Controls.actions) {
@@ -136,3 +145,5 @@ class ControlsUI {
       '<div class="gtitle">What clicks and taps do</div>' + rows;
   }
 }
+
+function escapeAttr(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }

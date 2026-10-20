@@ -64,6 +64,15 @@ class MapUI {
     const end = e => { if (this.drag && this.drag.id === e.pointerId) { this.drag = null; canvas.style.cursor = 'grab'; } };
     canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
   }
+  /** Move the view by this many screen pixels (a stick instead of a drag: right looks further right on the map). */
+  panView(dx, dy) {
+    const canvas = this.canvas; if (!canvas || !this.isOpen) return;
+    const rect = canvas.getBoundingClientRect(), k = canvas.width / (rect.width || 1), far = this.zoom === 'far';
+    const px = far ? canvas.width / FAR_MAP_SPAN : canvas.width / (2 * AREA_MAP_RADIUS + 1), K1 = far ? MAP_K1_FAR : MAP_K1_NEAR, K2 = K1 / 2;
+    const a = dx * k / (px * K1), b = dy * k / (px * K2);
+    this.pan = { x: this.pan.x + (a + b) / 2, y: this.pan.y + (b - a) / 2 };
+    if (!this.frame) this.frame = requestAnimationFrame(() => { this.frame = 0; this.draw(); });
+  }
   /** An arrow on the edge of the map pointing at something off it, with a label. */
   static edgeArrow(ctx, mid, x, y, color, label) {
     const a = Math.atan2(y - mid, x - mid), r = mid - 12, ax = mid + Math.cos(a) * r, ay = mid + Math.sin(a) * r;
