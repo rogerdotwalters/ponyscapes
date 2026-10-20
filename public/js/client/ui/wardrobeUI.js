@@ -1,7 +1,7 @@
 'use strict';
 /* CLIENT - the Wardrobe panel: the three things you wear (crown, outfit, cape), the lasso slot (L throws it), the bag slot (your bag: always one;
  * wear a bigger one to swap), and everything in your bag you could put on or slot in. Better lassos (crafted from the one before) catch rarer ponies. */
-const WARDROBE_LABELS = { crown: 'Crown', outfit: 'Outfit', cape: 'Cape', lasso: 'Lasso', bag: 'Bag' };
+const WARDROBE_LABELS = { crown: 'Crown', outfit: 'Outfit', cape: 'Cape', lasso: 'Lasso', hoe: 'Hoe', sword: 'Sword', rod: 'Fishing rod', axe: 'Axe', bag: 'Bag' };
 
 class WardrobeUI {
   constructor({ panel, body, closeButton, game }) {
@@ -31,11 +31,12 @@ class WardrobeUI {
     const wearable = [];
     g.inventory.slots.forEach((s, i) => { if (s && Wardrobe.slotFor(s.id)) wearable.push({ i, id: s.id, fits: Wardrobe.fits(s.id, appearance) }); });
     this.body.innerHTML =
+      `<div class="gtitle">Tool bar (keys 1-5, left / right on the D-pad)</div><div class="ggrid">${ToolSlots.map(slotHtml).join('')}</div>` +
       `<div class="gpreview"><canvas id="wardrobePreview" width="120" height="152"></canvas><div><div class="gsum">${WardrobeUI.worn(gear)}</div><small class="gwho">${CharacterLook.describe(appearance).body}${gear.cape ? ` &middot; Power ${Math.round(Wardrobe.power(gear) * 100)}% &middot; Def ${Wardrobe.def(gear)} (${Math.round(Wardrobe.damageReduction(gear) * 100)}% less damage)` : ''}</small></div></div>` +
-      `<div class="ggrid">${WardrobeSlots.concat(GearExtraSlots).map(slotHtml).join('')}</div>` +
+      `<div class="ggrid">${WardrobeSlots.concat('bag').map(slotHtml).join('')}</div>` +
       `<small class="gwho">${WardrobeUI.lassoLine(gear.lasso)} ${WardrobeUI.bagLine(gear.bag)}</small>` +
-      `<div class="gtitle">In your pack</div>` +
-      (wearable.length ? wearable.map(w => `<div class="grow"><img alt="" src="${ItemIcons.url(w.id)}"><span>${ItemDefs[w.id].name}<small>${WardrobeUI.describe(w.id, gear)}</small></span>${w.fits ? `<button data-equip="${w.i}">${ItemDB.getLasso(w.id) ? 'Equip' : Bags.isPlayerBag(w.id) ? 'Swap bag' : 'Wear'}</button>` : '<em>not for you</em>'}</div>`).join('') : '<div class="gnone">Nothing to wear yet. Make crowns, dresses, garb and capes at a crafting table.</div>');
+      `<div class="gtitle">In your bag</div>` +
+      (wearable.length ? wearable.map(w => `<div class="grow"><img alt="" src="${ItemIcons.url(w.id)}"><span>${ItemDefs[w.id].name}<small>${WardrobeUI.describe(w.id, gear)}</small></span>${w.fits ? `<button data-equip="${w.i}">${ItemDB.getLasso(w.id) ? 'Equip' : Bags.isPlayerBag(w.id) ? 'Swap bag' : Wardrobe.isToolSlot(Wardrobe.slotFor(w.id)) ? 'Equip' : 'Wear'}</button>` : '<em>not for you</em>'}</div>`).join('') : '<div class="gnone">Nothing to wear or equip yet. Make crowns, dresses, garb and capes at a crafting table; buy tools at the shops.</div>');
   }
   /** Draw the character as they look right now, slowly turning so every side of the outfit and cape shows. Driven by the main frame loop (like the other panels). */
   tick(frameMs) {
@@ -49,6 +50,8 @@ class WardrobeUI {
     const lasso = ItemDB.getLasso(id);
     if (Bags.isPlayerBag(id)) return `Bag &middot; ${Bags.slots(id)} slots (yours: ${Bags.slots((gear && gear.bag) || CONFIG.sim.inventory.starterBag)})`;
     if (lasso) return `Lasso &middot; ${WardrobeUI.lassoStats(id)} &middot; ${WardrobeUI.catches(lasso.tier)}${WardrobeUI.special(id)}`;
+    const tool = ItemDB.getTool(id), slot = Wardrobe.slotFor(id);
+    if (tool && Wardrobe.isToolSlot(slot)) return `${WARDROBE_LABELS[slot]} slot &middot; reach ${tool.reach}${tool.damage ? ` &middot; damage ${tool.damage}` : ''} &middot; swing ${tool.swingTime.toFixed(2)}s`;
     return `${WARDROBE_LABELS[ItemDefs[id].equip.slot]} &middot; ${Wardrobe.forWhom(id)}${WardrobeUI.stats(id)}`;
   }
   /** A lasso's numbers: how far it reaches, how quick the cast is, and its bonus to the catch chance. */
@@ -67,7 +70,7 @@ class WardrobeUI {
     return kinds.length ? ` &middot; also ${id === 'lasso_rainbow' ? 'every ' : ''}${kinds.join(', ')}` : '';
   }
   static bagLine(item) {
-    return item && ItemDefs[item] ? `Your ${ItemDefs[item].name} holds ${Bags.slots(item)} things beside your ${Bags.BELT}-slot tool belt: buy a bigger bag at the General Store or craft one.` : '';
+    return item && ItemDefs[item] ? `Your ${ItemDefs[item].name} holds ${Bags.slots(item)} things, on top of ${Bags.BELT} pocket slots: buy a bigger bag at the General Store or craft one.` : '';
   }
   static lassoLine(item) {
     const lasso = item && ItemDB.getLasso(item);

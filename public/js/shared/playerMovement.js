@@ -41,6 +41,7 @@ function sanitizeInput(i) {
     moveX: clamp(num(i.moveX), -1, 1), moveY: clamp(num(i.moveY), -1, 1),
     action: !!i.action, interact: !!i.interact,
     slot: sanitizeSlot(i.slot), hand: Number.isInteger(i.hand) ? clamp(i.hand, -1, 4096) : -1, seq: i.seq | 0,      // slot: the tool slot (0-4); hand: a Bag slot taken in hand instead (-1: none)
+    pick: typeof i.pick === 'string' ? i.pick.slice(0, 64) : '',            // which of the things in reach the interact press means (the controller's selection: Interactions.keyOf)
     power: clamp(i.power | 0, 0, 4),                                         // 1-4: fire the ridden pony's first .. fourth power this tick (rarity abilities, then skills)
     lasso: !!i.lasso,                                                        // L / right click: throw the lasso from the lasso slot
     aim: !!i.aim && Number.isFinite(i.ax) && Number.isFinite(i.ay), ax: clamp(num(i.ax), -1e6, 1e6), ay: clamp(num(i.ay), -1e6, 1e6)   // a click / tap: the world point the swing, throw or tool is aimed at

@@ -283,8 +283,8 @@ class GameServer {
       case 'devLasso': if (id === this.hostId) this._devLasso(id, cmd.item); break;                                                           // the host's lasso picker (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
-      case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
-      case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
+      case 'ride': this._rideNearest(id, cmd.animal); break;                                                              // the Ride button (its own button, interaction.js findRide)
+      case 'leashPony': this._leashPony(id, cmd.animal); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
       case 'vendorPick': this._vendorPick(id, cmd); break;                                                    // the pony vendor's menu (ponyTrade.js)
       case 'openStall': this._openStall(id, cmd); break;                                                      // the stall button: open that stall's menu (stableSystem.js)
       case 'stableAccess': this._setStableAccess(id, cmd); if (this.players[id]) { const p = this.players[id], hit = this._deskNear(p, cmd.fx, cmd.fy); if (hit) this._useDesk(id, p, { fx: cmd.fx, fy: cmd.fy }); } break;      // the host's stable access list (stableSystem.js)
@@ -700,7 +700,7 @@ class GameServer {
       this._useCarriedAnimal(id, p, inventory, input, TICK_DT);
       this._useItem(id, p, inventory, input);
     }
-    if (input.interact) this._interact(id, p);
+    if (input.interact) { p.pick = input.pick || ''; this._interact(id, p); }
     if (input.power) this._useRarityAbility(id, p, input.power - 1);
   }
 
@@ -724,7 +724,7 @@ class GameServer {
       if (spot) BoatSystem.leave(p, boat, spot); else this._notice(id, 'No shore nearby');
       return;
     }
-    const action = Interactions.find(map, outside ? this.boats : {}, p, p.held, this.animals.animals, id, this.npcs.visible(), this.drops);   // (boats are in the overworld; a villager is on their own grid: a shopkeeper in the shop's room)
+    const action = Interactions.choose(Interactions.list(map, outside ? this.boats : {}, p, p.held, this.animals.animals, id, this.npcs.visible(), this.drops), p.pick);   // (the one the player selected, else the nearest; boats are in the overworld; a villager is on their own grid: a shopkeeper in the shop's room)
     if (!action) return;
     if (action.kind === 'dismount') this._dismount(id, p);
     else if (action.kind === 'pick') this._pickUp(id, action.forage);
@@ -860,10 +860,11 @@ class GameServer {
 
   /* ---- riding ---- */
   /** The Ride button: get on the nearest loose pony of yours. */
-  _rideNearest(id) {
+  _rideNearest(id, animalId) {
     const p = this.players[id];
     if (!p || p.down > 0 || p.hp <= 0 || p.asleep || p.mount || p.boat || p.flying) return;
-    const found = findRide(p, this.animals.animals, id);
+    const pool = typeof animalId === 'string' && this.animals.animals[animalId] ? { [animalId]: this.animals.animals[animalId] } : this.animals.animals;       // (the controller names the pony it selected)
+    const found = findRide(p, pool, id);
     if (found) this._mount(id, p, found.animal); else this._notice(id, 'No pony of yours is close enough to ride (a pony in a stall must be taken out first)');
   }
   _mount(id, p, animal) {
