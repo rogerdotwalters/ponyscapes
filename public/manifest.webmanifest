@@ -1,0 +1,9 @@
+{
+  "name": "Ponyscapes",
+  "short_name": "Ponyscapes",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#12100c",
+  "theme_color": "#12100c"
+}

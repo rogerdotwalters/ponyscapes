@@ -18,7 +18,8 @@ canvas{display:block}
 #hint{position:fixed;color:#f1e6c4;font-size:13px;background:rgba(15,28,43,.6);padding:7px 11px;border-radius:6px;
   pointer-events:none;transition:opacity 1.2s}
 #portraitHint{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:20px;line-height:1.4;color:#f1e6c4;background:#12100c}
-@media (orientation:portrait) and (pointer:coarse){#portraitHint{display:flex}}
+@media (orientation:portrait) and (pointer:coarse){#portraitHint{display:flex;flex-direction:column;gap:18px}}
+#portraitFs{padding:12px 26px;border:2px solid var(--deep);border-radius:3px;background:linear-gradient(180deg,#e8bb55,#c08a2a);color:var(--ink);font:700 18px var(--font-title);box-shadow:0 3px 0 rgba(0,0,0,.5);pointer-events:auto}
 @keyframes fadeout{to{opacity:0;visibility:hidden}}
 
 /* ---------- toolbar + panels (size variables --slot --gap --pad are set by the layout) ---------- */

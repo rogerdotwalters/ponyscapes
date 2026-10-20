@@ -2,7 +2,7 @@
 
 A cosy isometric pixel-art adventure about ponies: catch wild ponies with a lasso and raise them in your own stable, breed new colours, farm and forage,
 build a home, meet the villagers and take on quests, caves and bosses. Play alone, or host a game for up to three friends. This is a **prototype** build:
-it is played **in landscape** (phones, tablets and desktop; there is no portrait layout, a portrait phone is asked to turn sideways), with keyboard and mouse,
+it is played **full screen in landscape** (phones, tablets and desktop; there is no portrait layout: on a phone or tablet the first touch goes full screen and locks the screen to landscape without waiting for you to turn the device, and where the browser refuses, as iPhone Safari does, a portrait screen shows a turn-sideways notice with a full-screen button; the web app manifest asks an installed copy to open full screen and landscape), with keyboard and mouse,
 touch, or a game controller laid out like the Nintendo Switch's.
 
 ## Quick start
