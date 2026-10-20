@@ -174,7 +174,7 @@ function launch(choice, query) {
     bus.on('toggleMap', () => panels.toggle('map'));
     bus.on('toggleMenu', () => panels.toggle('menu'));            // the controller's + button
     padActions.panels = panels; padActions.mapUI = mapUI;
-    const padHints = new GamepadHints({ root: $('padHints'), pad, actions: padActions, badges: { PLUS: $('btnMenu'), MINUS: $('btnMap') } });
+    const padHints = new GamepadHints({ root: $('padHints'), bubbles: $('padBubbles'), camera: renderer.camera, pad, actions: padActions, badges: { PLUS: $('btnMenu'), MINUS: $('btnMap') } });
     bus.on('toggleTown', () => panels.toggle('town'));
     bus.on('throwLasso', () => game.throwLasso());
     bus.on('dropHeld', all => game.dropHeld(all));                  // X / the Drop button: what is in your hand, onto the ground                  // L / the Lasso button: the lasso in the lasso slot
@@ -242,12 +242,12 @@ function launch(choice, query) {
       tickMs: TICK_MS,
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
-        padActions.update(frameMs); padHints.update(frameMs);
+        padActions.update(frameMs);
         tapToMove.tick();
         footsteps.update(); worldSfx.update(frameMs / 1000); music.update(game, effects.weather.cur);
         game.advanceRemoteClock(frameMs);
         game.streamWorld();
-        renderer.render(game.getRenderState(alpha), frameMs, now); waypointOverlay.draw(now);
+        renderer.render(game.getRenderState(alpha), frameMs, now); waypointOverlay.draw(now); padHints.update(frameMs);
         debug.update(frameMs);
         healthBar.config.max = game.local.maxHp; journalUI.tick(frameMs); mapUI.tick(frameMs); gearUI.tick(frameMs); if (sessionUI) sessionUI.tick(frameMs);
         const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health

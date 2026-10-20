@@ -1134,3 +1134,13 @@ body.padActive #btnMenu::after,body.padActive #btnMap::after{content:attr(data-p
   background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M3 2 L3 22 L8.5 17 L12.5 25.5 L16 24 L12 15.8 L19.5 15.8 Z' fill='%23f6e7bb' stroke='%231d120a' stroke-width='2' stroke-linejoin='round'/></svg>") no-repeat}
 body.padActive.padMenu #padCursor{display:block}
 .padHover{outline:3px solid var(--brass);outline-offset:1px}
+
+/* controller prompts as bubbles above the door / tree / villager / animal they act on (ui/gamepadHints.js) */
+#padBubbles{position:fixed;inset:0;z-index:4;pointer-events:none;overflow:hidden}
+.padBubble{position:absolute;left:0;top:0;display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:4px 6px;margin-top:-9px;border:2px solid var(--deep);border-radius:10px;background:rgba(29,18,10,.9);color:var(--parch);box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45);animation:padPop .14s ease-out}
+.padBubble::after{content:"";position:absolute;left:50%;bottom:-9px;margin-left:-7px;border:7px solid transparent;border-top-color:var(--deep);border-bottom:0}
+.padBubble::before{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-5px;border:5px solid transparent;border-top-color:rgba(29,18,10,.95);border-bottom:0;z-index:1}
+.padBubble .padHint{padding:0;border:0;background:none;box-shadow:none;font-size:13px}
+body:not(.padActive) #padBubbles{display:none}
+body.padMenu #padBubbles{display:none}
+@keyframes padPop{from{opacity:0;scale:.8}to{opacity:1;scale:1}}
