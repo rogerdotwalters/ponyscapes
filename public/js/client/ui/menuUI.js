@@ -6,7 +6,7 @@ const MENU_SECTIONS = [
   { id: 'inventory', label: 'Inventory' },
   { id: 'gear',      label: 'Character' },
   { id: 'ponies',    label: 'Pony Book' },
-  { id: 'skills',    label: 'Journal' },
+  { id: 'journal',   label: 'Journal' },
   { id: 'map',       label: 'Map' },
   { id: 'options',   label: 'Options' }
 ];

@@ -166,11 +166,13 @@ function launch(choice, query) {
     panels.register('coins', coinBagUI); panels.register('ponyCoins', ponyBagUI); panels.register('poster', posterUI); panels.register('connect4', connect4UI); connect4UI.attach(panels); panels.register('memory', memoryUI); memoryUI.attach(panels); panels.register('garden', gardenUI); panels.register('inventory', inventoryUI); panels.register('crafting', craftingUI); panels.register('settings', settingsUI); panels.register('gear', gearUI); panels.register('ponies', ponyUI); panels.register('journal', journalUI); panels.register('menu', menuUI); if (sessionUI) panels.register('session', sessionUI); panels.register('confirm', confirmUI); panels.register('stable', stableUI); panels.register('map', mapUI); panels.register('trade', tradeUI); panels.register('town', townUI); panels.register('shop', shopUI); panels.register('controls', controlsUI); panels.register('dialogue', dialogueUI); panels.register('puzzle', puzzleUI);
     /** The Menu: every section opens from here (and closes the menu). */
     function openSection(section) {
-      if (section === 'skills') { panels.closeAll(); journalUI.openTab('skills'); return; }
+      if (section === 'journal') { panels.open('journal'); return; }
+      if (section === 'skills') { gearUI.setView('skills'); panels.open('gear'); return; }
       if (section === 'treasure') { panels.closeAll(); journalUI.openTab('map'); return; }
       if (section === 'soundtrack') { panels.open('controls'); controlsUI.show('music'); return; }
       if (section === 'options') { panels.open('controls'); controlsUI.show(controlsUI.tab); return; }              // Options: controls, sound, soundtrack, graphics, dev settings
       const names = { inventory: 'inventory', crafting: 'crafting', gear: 'gear', map: 'map', ponies: 'ponies', town: 'town', settings: 'settings', session: 'session', controls: 'controls' };
+      if (section === 'gear') gearUI.setView('gear');                                                              // (Menu > Character opens on the Gear tab)
       if (names[section]) panels.open(names[section]);
     }
     /** The Menu's Go online / Save / Load / Exit (the session's own rules and confirmations live in SessionUI). */
@@ -194,7 +196,7 @@ function launch(choice, query) {
     bus.on('toggleGear', () => panels.toggle('gear'));
     bus.on('togglePonies', () => panels.toggle('ponies'));
     bus.on('toggleJournal', () => panels.toggle('journal'));
-    document.addEventListener('click', e => { const tab = e.target.closest('.panTabs button'); if (tab) panels.open(tab.dataset.go); });      // Bag | Gear: two tabs of one window
+    document.addEventListener('click', e => { const tab = e.target.closest('.panTabs button'); if (!tab) return; const go = tab.dataset.go; if (go === 'gear' || go === 'stats' || go === 'skills') { gearUI.setView(go); panels.open('gear'); } else panels.open(go); });      // Bag | Gear: two tabs of one window
     bus.on('toggleMap', () => panels.toggle('map'));
     bus.on('toggleMenu', () => panels.toggle('menu'));            // the controller's + button
     padActions.panels = panels; padActions.mapUI = mapUI;

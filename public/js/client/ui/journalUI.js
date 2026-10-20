@@ -1,6 +1,7 @@
 'use strict';
 /* CLIENT - the Journal.
- *   SKILLS tab: every skill with its level and progress, and under each one the attributes it trains "under the surface".
+ *   (Skills and attributes live in the Character window: Stats and Skills tabs, wardrobeUI.js.)
+ *   QUESTS, FRIENDS tabs.
  *   TREASURE MAP tab: the mini map of the area around where a treasure map you read leads, with an X on the spot. */
 const SKILL_GLYPH = { woodcutting: '\u2692', foraging: '\u2740', fishing: '\u224B', hunting: '\u27B6', building: '\u2302', crafting: '\u270E', digging: '\u26CF', horsemanship: '\u265E', friendship: '\u2665', animal_friendship: '\u2766' };
 const MINIMAP_RADIUS = 24, MINIMAP_TILE_PX = 4;
@@ -9,13 +10,11 @@ const COMPASS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-wes
 
 class JournalUI {
   constructor({ panel, tabs, body, closeButton, game }) {
-    this.panel = panel; this.tabs = tabs; this.body = body; this.game = game; this.tab = 'skills'; this.mapCache = {}; this.sinceRefresh = 0;
+    this.panel = panel; this.tabs = tabs; this.body = body; this.game = game; this.tab = 'quests'; this.mapCache = {}; this.sinceRefresh = 0;
     closeButton.addEventListener('click', () => this.close());
-    tabs.innerHTML = '<button data-tab="skills">Skills</button><button data-tab="quests">Quests</button><button data-tab="friends">Friends</button><button data-tab="map">Treasure Maps</button>';
+    tabs.innerHTML = '<button data-tab="quests">Quests</button><button data-tab="friends">Friends</button><button data-tab="map">Treasure Maps</button>';
     tabs.addEventListener('click', e => { const t = e.target.closest('button'); if (t) this.show(t.dataset.tab); });
-    game.events.on('progressChanged', () => this.isOpen && this.tab === 'skills' && this.refresh());
     game.events.on('treasureChanged', () => this.isOpen && this.refresh());
-    game.events.on('levelup', () => this.isOpen && this.tab === 'skills' && this.refresh());
     game.events.on('questsChanged', () => this.isOpen && this.tab === 'quests' && this.refresh());
     game.events.on('friendsChanged', () => this.isOpen && this.tab === 'friends' && this.refresh());
   }
@@ -34,7 +33,7 @@ class JournalUI {
 
   refresh() {
     this.tabs.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === this.tab));
-    if (this.tab === 'skills') this._renderSkills(); else if (this.tab === 'friends') this._renderFriends(); else if (this.tab === 'quests') this._renderQuests(); else this._renderMap();
+    if (this.tab === 'friends') this._renderFriends(); else if (this.tab === 'quests') this._renderQuests(); else this._renderMap();
   }
 
   /* ---------------- quests ---------------- */
@@ -81,26 +80,6 @@ class JournalUI {
     }
   }
 
-  /* ---------------- skills ---------------- */
-  _renderSkills() {
-    const g = this.game, lv = g.local.lv || defaultLevels(), xp = g.progress || { s: {}, a: {} };
-    const bar = (level, points) => `<div class="bar"><i style="width:${Math.round(100 * Skills.progress(points).fraction)}%"></i></div>`;
-    const attrs = Object.keys(AttributeDefs).map(k => {
-      const d = AttributeDefs[k];
-      return `<div class="arow" title="${d.effect}"><span class="aname">${d.short}</span><span class="alvl">${lv.a[k]}</span>${bar(lv.a[k], (xp.a || {})[k] || 0)}<span class="aeff">${d.effect}</span></div>`;
-    }).join('');
-    const skills = Object.keys(SkillDefs).map(k => {
-      const d = SkillDefs[k], points = (xp.s || {})[k] || 0, pr = Skills.progress(points);
-      const tags = Object.entries(d.attrs).map(([a, share]) => `<b>${AttributeDefs[a].short}</b> ${Math.round(share * 100)}%`).join(' &middot; ');
-      return `<div class="srow"><span class="sglyph">${SKILL_GLYPH[k] || '*'}</span><span class="sname">${d.name}</span><span class="slvl">${lv.s[k]}</span>${bar(lv.s[k], points)}` +
-             `<span class="sxp">${pr.need ? `${pr.into} / ${pr.need} xp` : 'max'}</span><span class="stags">trains ${tags}</span></div>`;
-    }).join('');
-    const total = Object.values(lv.s).reduce((a, b) => a + b, 0);
-    this.body.innerHTML = `<div class="jsum">Total skill level <b>${total}</b></div>` +
-      `<div class="jhead">Attributes <small>every skill trains these under the surface</small></div><div class="jattrs">${attrs}</div>` +
-      `<div class="jhead">Skills</div><div class="jskills">${skills}</div>`;
-  }
-
   /* ---------------- treasure map ---------------- */
   _renderMap() {
     const g = this.game, maps = g.treasureMaps;
@@ -109,7 +88,7 @@ class JournalUI {
       return;
     }
     const entry = maps[Math.min(g.mapIndex, maps.length - 1)], size = (2 * MINIMAP_RADIUS + 1) * MINIMAP_TILE_PX;
-    this.body.innerHTML = `<div class="mapwrap"><canvas id="miniMap" width="${size}" height="${size}"></canvas></div>` +
+    this.body.innerHTML = `<div class="mapwrap"><canvas id="treasureMap" width="${size}" height="${size}"></canvas></div>` +
       `<div class="mapinfo" id="mapInfo">${entry.kind === 'dungeon' ? `<b>Cave in ${g.map.layers.rings.def(entry.ring).name}</b>: the guardian waits inside. Defeat it to open the next ring.` : ''}</div>` +
       `<div class="mapnav">${maps.length > 1 ? `<button id="mapNext">Next map (${g.mapIndex + 1}/${maps.length})</button>` : ''}</div>`;
     const next = this.body.querySelector('#mapNext');
@@ -132,7 +111,7 @@ class JournalUI {
   }
 
   _drawMapOverlay() {
-    const canvas = this.body.querySelector('#miniMap'), g = this.game, maps = g.treasureMaps;
+    const canvas = this.body.querySelector('#treasureMap'), g = this.game, maps = g.treasureMaps;
     if (!canvas || !maps.length) return;
     const entry = maps[Math.min(g.mapIndex, maps.length - 1)], R = MINIMAP_RADIUS, px = MINIMAP_TILE_PX, size = canvas.width, ctx = canvas.getContext('2d');
     const layer = this._terrainLayer(entry);
