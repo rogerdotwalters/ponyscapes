@@ -24,7 +24,9 @@ class VitalBar {
 
 /** The season bar at the top: the season's name and icon, the day in it, a bar that fills as it passes (a notch per day), and a word when a new one begins. */
 class SeasonUI {
-  constructor({ root }) { this.root = root; this.shown = ''; this.season = null; }
+  /** The date card (a grid of 2 columns x 3 rows): the season across the top; the calendar across the middle, a week of seven boxes three times over, one box
+   *  for every day of the season (the days gone by are filled, today is lit); the time of day (picture and name) and today's weather side by side below. */
+  constructor({ root }) { this.root = root; this.shown = ''; this.season = null; this.cells = []; this.cellsFor = 0; }
   update(info, weather) {
     const s = info.season, text = `${s.id}|${info.dayInSeason}|${info.length}|${info.year}|${weather ? weather.t : ''}`;
     if (text === this.shown) return;
@@ -32,13 +34,25 @@ class SeasonUI {
     const q = sel => this.root.querySelector(sel);
     this.root.style.setProperty('--season', s.color);
     q('.sbIcon').textContent = s.icon; q('.sbName').textContent = s.name;
-    const sky = weather && Weather.TYPES[weather.t], sbw = q('.sbWeather'); sbw.textContent = sky ? sky.icon : ''; sbw.title = sky ? sky.name : '';      // today's weather (weather.js)
-    q('.sbDayNum').textContent = 'Day ' + info.dayInSeason; q('.sbDay').textContent = `of ${info.length} \u00B7 Year ${info.year}`;       // (a calendar card: the season, the day, the time of day)
+    const sky = weather && Weather.TYPES[weather.t], sbw = q('.sbWeather'); sbw.textContent = sky ? sky.icon : ''; sbw.parentNode.title = sky ? sky.name : '';      // today's weather
+    this.root.title = `${s.name}, day ${info.dayInSeason} of ${info.length}, year ${info.year}`;
+    this._calendar(info);
     if (this.season && this.season !== s.id) {                                       // a new season: say so for a moment
       const news = q('.sbNews'); news.hidden = false; news.textContent = `${s.icon} ${s.name} has begun!`;
       news.style.animation = 'none'; void news.offsetWidth; news.style.animation = '';
     }
     this.season = s.id;
+  }
+  /** One box per day, seven to a row (always at least three rows); boxes past the end of a short season stay blank. */
+  _calendar(info) {
+    const cal = this.root.querySelector('.sbCal'), rows = Math.max(3, Math.ceil(info.length / 7)), count = rows * 7;
+    if (this.cellsFor !== count) {
+      cal.innerHTML = ''; this.cells = [];
+      cal.style.setProperty('--rows', rows);
+      for (let i = 0; i < count; i++) { const c = document.createElement('i'); cal.appendChild(c); this.cells.push(c); }
+      this.cellsFor = count;
+    }
+    this.cells.forEach((c, i) => { const day = i + 1; c.className = day > info.length ? 'blank' : day < info.dayInSeason ? 'past' : day === info.dayInSeason ? 'today' : ''; });
   }
 }
 

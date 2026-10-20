@@ -59,7 +59,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
    *      The tool bar sits bottom centre, the vitals just above it; touch controls take the two bottom corners. ---- */
   const miniSize = Math.round(clamp(h * 0.3, 96, 200));
   const minimap = makeRect(right - miniSize, top, miniSize, miniSize);
-  const season = makeRect(left, top, Math.round(128 * k), Math.round(92 * k));                       // the date card: a small calendar box (season / day / time of day)
+  const season = makeRect(left, top, Math.round(124 * k), Math.round(104 * k));                       // the date card: season / calendar / time and weather
   season.compact = season.tiny = false;
 
   /* ---- system buttons: a row between the season bar and the mini map (shrinking to fit, wrapping onto a second row on the narrowest screens) ---- */
