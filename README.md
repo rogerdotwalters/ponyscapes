@@ -19,15 +19,17 @@ Useful query switches: `?solo=1`, `?kit=0` (start with only an axe), `?debug=1`,
 ## The screen (landscape only)
 
 ```
-┌ day / season / time ┐   [Menu  Coins  Pony coins  Map  ⛶  DBG]                  ┌ mini map ┐
-│                                                                                 │ (click: big map) │
-│                              the game                                           └──────────┘
-│ stick (touch)         health | hunger | thirst | energy                         [Apple Leash Ride...]
-│                       [ tool bar: Lasso  Hoe  Sword  Rod  Axe ]  (emote)         [Bag] [tool button]
+┌ date card ┐                                                [⛶ DBG]  ┌ mini map ┐
+│ Spring    │                                                          │ click: the│
+│ Day 5 of 20                                                          │ big map   │
+│ Morning   │                       the game                           └──────────┘
+└───────────┘
+ stick (touch)             health | hunger | thirst | energy              [Apple Leash Ride...]
+                [ Lasso  Hoe  Sword  Rod  Axe | ☰ menu  ● coins  ● pony coins ]  (emote)   [Bag] [tool button]
 ```
 
-* **Top left**: the day, season and time of day. **Top right**: the mini map (the land around you in the game's own view, with you, home, the village, your ponies and quest pins); tap it or press **−** for the big map. The system buttons sit between them.
-* **Bottom centre**: the **tool bar** of five character tool slots (lasso, hoe, sword, fishing rod, axe: keys 1-5, left / right on the D-pad) with your health, hunger, thirst and energy above it.
+* **Top left**: the date card, a small calendar box in three rows: the season (with today's weather), the day of the season and year, and the time of day. **Top right**: the mini map (the land around you in the game's own view, with you, home, the village, your ponies and quest pins); it is also the Map button: tap or click it, or press **-** on a controller, for the big map. Fullscreen and the debug overlay sit just left of it.
+* **Bottom centre**: the **tool bar** of five character tool slots (lasso, hoe, sword, fishing rod, axe: keys 1-5, left / right on the D-pad), with three small icon buttons at its right end: the **Menu** (+ on a controller), your **coin bag** and your **pony coin bag**. Health, hunger, thirst and energy sit above it.
 * **Tool slots** live on the character: Menu > **Gear** (a tab of the Bag window) holds the five tool slots, your clothes and your bag. Seeds, food, building pieces and the other tools (shovel, watering can...) stay in the **Bag**: pick one and press **Hold** to take it in hand (it shows beside the tool bar until you choose a tool).
 * The layout is computed by one pure function, `computeUiLayout` in `public/js/client/ui/uiLayout.js`.
 

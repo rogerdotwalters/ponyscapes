@@ -89,18 +89,18 @@
 
 <canvas id="miniMap" width="150" height="150"></canvas>
 <div id="topBtns">
-  <button class="tbtn" id="btnMenu" tabindex="-1" title="Menu: every section of the game">&#9776; Menu</button>
-  <button class="tbtn" id="btnCoins" tabindex="-1" title="Your coin bag: drag coins out onto the world to drop them"><span class="coinDot" aria-hidden="true"></span>Coins</button>
-  <button class="tbtn" id="btnPonyCoins" tabindex="-1" title="Your pony coin bag: the collector coins from the ponies you have caught"><span class="coinDot pony" aria-hidden="true"></span>Pony coins</button>
-  <button class="tbtn" id="btnMap" tabindex="-1" title="Map (M)">Map</button>
   <button class="tbtn" id="btnFs" tabindex="-1" title="Fullscreen">&#x26F6;</button>
   <button class="tbtn" id="btnDbg" tabindex="-1" title="Debug (`)">DBG</button>
 </div>
 <pre id="dbg" hidden></pre>
-<div id="hint">WASD move (screen-relative) &middot; always full speed (Dexterity and Animal Friendship let you get closer to animals) &middot; hold E / Space or the left mouse button: use the tool in your hand where you point &middot; right click: throw your lasso &middot; click a villager to talk, an animal to feed or pet it &middot; Menu &gt; Controls: rebind keys &middot; E: place a station (or hold the screen to aim, release to place) &middot; R: rotate &middot; L: throw your lasso (catch a wild pony; the rope never breaks, then feed it its fruit: rarer ponies want rarer fruit) &middot; Z: ride the pony beside you / get off &middot; U: let go of a roped animal (it asks first) &middot; ;: leash your own pony (then F beside a stall to stable it) &middot; F: pick up / board &middot; X: drop what is in your hand (Shift+X: the whole stack) &middot; farming: a hoe tills grass or dirt, a watering can waters it each day, F with seeds plants (in their season), F at a ripe crop harvests &middot; a brush grooms your pony &middot; G: gear (lasso and bag slots) &middot; V: emotes &middot; 1-5 / wheel: tool belt &middot; I: bag (your bag, your pony's pack, drop / destroy) &middot; F at the General Store counter: shop &middot; Q: craft &middot; P: Pony Book &middot; T: town (stockpiles, upgrades) &middot; H / K / Y / O: your pony's powers while riding (rarity abilities, then the skills it learns as it levels: Pony Book) &middot; riding one of your ponies, the bag (I) can make it your main pony (it follows you everywhere)</div>
+<div id="hint">WASD move &middot; E / Space use your tool &middot; F pick up / talk / enter &middot; L lasso &middot; 1-5 tools &middot; I bag &middot; M map &middot; the &#9776; button (bottom) opens the Menu, with every key</div>
 <div id="portraitHint">Ponyscapes is played in landscape.<br>Please turn your device sideways.</div>
 
-<div id="toolbar"></div>
+<div id="toolbar">
+  <button class="tbtn tb-mini" id="btnMenu" tabindex="-1" title="Menu: every section of the game (+)">&#9776;</button>
+  <button class="tbtn tb-mini" id="btnCoins" tabindex="-1" title="Your coin bag: drag coins out onto the world to drop them"><span class="coinDot" aria-hidden="true"></span></button>
+  <button class="tbtn tb-mini" id="btnPonyCoins" tabindex="-1" title="Your pony coin bag: the collector coins from the ponies you have caught"><span class="coinDot pony" aria-hidden="true"></span></button>
+</div>
 <button class="ubtn" id="btnEmote" tabindex="-1" title="Emotes (V)">&#9786;</button>
 <div id="emoteWheel" hidden></div>
 <div id="healthBar" class="vital health"><div id="healthFill" class="fill"></div><span id="healthLabel" class="vlabel">Healthy</span></div>
@@ -108,7 +108,7 @@
 <div id="energyBar" class="vital energy"><div id="energyFill" class="fill"></div><span id="energyLabel" class="vlabel">Energetic</span></div>
 <div id="thirstBar" class="vital water"><div id="thirstFill" class="fill"></div><span id="thirstLabel" class="vlabel">Hydrated</span></div>
 <div id="clock" hidden></div>
-<div id="seasonBar"><div class="sbClock"><canvas width="20" height="20"></canvas><span class="sbPhase"></span></div><div class="sbSeason"><div class="sbText"><span class="sbIcon"></span><b class="sbName"></b><span class="sbDay"></span><span class="sbDayShort"></span><span class="sbWeather"></span></div><div class="sbTrack"><div class="sbFill"></div></div></div><div class="sbNews" hidden></div></div>
+<div id="seasonBar"><div class="sbHead"><span class="sbIcon"></span><b class="sbName"></b><span class="sbWeather"></span></div><div class="sbDayRow"><b class="sbDayNum"></b><span class="sbDay"></span></div><div class="sbClock"><canvas width="20" height="20"></canvas><span class="sbPhase"></span></div><div class="sbNews" hidden></div></div>
 <div id="abilityBar" hidden></div>
 <div id="inventoryPanel" hidden>
   <header><span class="panTabs"><button data-go="inventory" class="on" tabindex="-1">Bag</button><button data-go="gear" tabindex="-1">Gear</button></span><button id="invClose" tabindex="-1">&#x2715;</button></header>

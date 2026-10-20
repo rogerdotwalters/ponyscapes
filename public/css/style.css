@@ -462,32 +462,24 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
 .admMsg{font-size:12px;opacity:.85}
 @media (max-width:560px){.admSlide{grid-template-columns:1fr auto}.admSlide input[type=range],.admSlide input[type=number]{grid-column:1/-1;order:3}}
 
-/* the season bar: the season, its day, and a bar filling as it passes (seasonUI in vitalsUI.js) */
-#seasonBar{position:fixed;z-index:4;box-sizing:border-box;padding:0 .7em;border-radius:9px;display:flex;align-items:center;gap:.7em;
-  background:rgba(14,22,32,.72);border:1.5px solid rgba(227,194,122,.55);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
-#seasonBar .sbText{display:flex;align-items:center;gap:.45em;justify-content:center;white-space:nowrap;overflow:hidden}
-#seasonBar .sbName{color:var(--season,#7cc86a)}
-#seasonBar .sbWeather{font-size:1.05em;cursor:default}
-#seasonBar .sbDay,#seasonBar .sbDayShort{opacity:.85;font-weight:400}
-#seasonBar .sbDayShort,#seasonBar.compact .sbDay{display:none}
-#seasonBar.compact .sbDayShort{display:inline}
-#seasonBar .sbTrack{position:relative;margin-top:.3em;height:.55em;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.35)}
-#seasonBar .sbFill{height:100%;width:0;background:var(--season,#7cc86a);border-radius:4px;transition:width .6s linear}
-#seasonBar .sbTrack::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(var(--dayw,5%) - 1px),rgba(0,0,0,.35) calc(var(--dayw,5%) - 1px) var(--dayw,5%))}
-#seasonBar .sbNews{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:4px 12px;border-radius:8px;
-  background:rgba(14,22,32,.85);color:var(--season,#7cc86a);font-size:14px;animation:sbNews 4s ease forwards}
-@keyframes sbNews{0%{opacity:0;transform:translate(-50%,-6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
-#seasonBar .sbSeason{flex:1;min-width:0}
-#seasonBar .sbClock{display:flex;align-items:center;gap:.45em;padding-right:.7em;border-right:1px solid rgba(227,194,122,.35);white-space:nowrap;flex:none}
-#seasonBar .sbClock canvas{width:2.3em;height:2.3em;image-rendering:pixelated;image-rendering:crisp-edges}
-#seasonBar .sbPhase{font-weight:700;color:#f6e3a6}
-#seasonBar.tiny .sbPhase{display:none}
-#seasonBar.tiny{gap:.5em;padding:0 .55em}
-#seasonBar.tiny .sbClock{padding-right:.5em}
+/* the date card (seasonUI + ClockUI in vitalsUI.js): a small calendar box in three rows: the season, the day, the time of day */
+#seasonBar{position:fixed;z-index:4;box-sizing:border-box;padding:0;border-radius:3px;display:grid;grid-template-rows:1fr 1.15fr 1fr;overflow:visible;
+  background:rgba(14,22,32,.78);border:2px solid var(--deep);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45)}
+#seasonBar .sbHead{display:flex;align-items:center;justify-content:center;gap:.4em;padding:0 .5em;background:color-mix(in srgb,var(--season,#7cc86a) 38%,#14202c);border-bottom:1px solid rgba(0,0,0,.45);white-space:nowrap;overflow:hidden}
+#seasonBar .sbName{color:#fff6dc;text-shadow:1px 1px 0 rgba(0,0,0,.6);letter-spacing:.5px}
+#seasonBar .sbWeather{font-size:1.05em;cursor:default;margin-left:auto}
+#seasonBar .sbDayRow{display:flex;align-items:baseline;justify-content:center;gap:.4em;padding:0 .4em;white-space:nowrap;overflow:hidden;border-bottom:1px solid rgba(227,194,122,.3)}
+#seasonBar .sbDayNum{font-size:1.45em;color:#fff6dc;text-shadow:1px 1px 0 rgba(0,0,0,.6)}
+#seasonBar .sbDay{opacity:.85;font-weight:400;font-size:.9em}
+#seasonBar .sbClock{display:flex;align-items:center;justify-content:center;gap:.4em;padding:0 .4em;white-space:nowrap;overflow:hidden}
+#seasonBar .sbClock canvas{width:1.9em;height:1.9em;image-rendering:pixelated;image-rendering:crisp-edges}
+#seasonBar .sbPhase{font-weight:700;color:#f6e3a6;font-size:.95em}
 #seasonBar .sbClock[data-phase="night"] .sbPhase,#seasonBar .sbClock[data-phase="predawn"] .sbPhase{color:#b9cdf5}
 #seasonBar .sbClock[data-phase="evening"] .sbPhase{color:#f2a45a}
 #seasonBar .sbClock[data-phase="glow"] .sbPhase{color:#f07a6a}
+#seasonBar .sbNews{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:4px 12px;border-radius:8px;
+  background:rgba(14,22,32,.85);color:var(--season,#7cc86a);font-size:14px;animation:sbNews 4s ease forwards}
+@keyframes sbNews{0%{opacity:0;transform:translate(-50%,-6px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
 #clock[hidden]{display:none}
 /* ---------- short landscape phones: a compact creator (the big preview stays; the header and the three small views give way) ---------- */
 @media (max-height:500px) and (min-aspect-ratio:5/4){
@@ -1122,8 +1114,8 @@ body.gardenOpen .tbtn,body.gardenOpen #touchUI,body.gardenOpen #toolbar,body.gar
 .padBtn.stick{border-radius:12px;background:linear-gradient(180deg,#9cc0d8,#6f93ad);min-width:48px}
 body:not(.padActive) #padHints{display:none}
 body.padActive #hint{display:none}
-body.padActive #btnMenu::after,body.padActive #btnMap::after{content:attr(data-pad);position:absolute;right:-6px;top:-9px;min-width:18px;height:18px;padding:0 3px;box-sizing:border-box;border-radius:9px;border:2px solid var(--deep);background:linear-gradient(180deg,#f6e7bb,#d9b970);color:var(--ink);font:700 11px/14px var(--font-title);text-align:center}
-#btnMenu:not([data-pad])::after,#btnMap:not([data-pad])::after{display:none}
+body.padActive #btnMenu::after{content:attr(data-pad);position:absolute;right:-6px;top:-9px;min-width:18px;height:18px;padding:0 3px;box-sizing:border-box;border-radius:9px;border:2px solid var(--deep);background:linear-gradient(180deg,#f6e7bb,#d9b970);color:var(--ink);font:700 11px/14px var(--font-title);text-align:center}
+#btnMenu:not([data-pad])::after{display:none}
 #padCursor{position:fixed;left:0;top:0;width:28px;height:28px;margin:-3px 0 0 -3px;z-index:100;pointer-events:none;display:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));
   background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><path d='M3 2 L3 22 L8.5 17 L12.5 25.5 L16 24 L12 15.8 L19.5 15.8 Z' fill='%23f6e7bb' stroke='%231d120a' stroke-width='2' stroke-linejoin='round'/></svg>") no-repeat}
 body.padActive.padMenu #padCursor{display:block}
@@ -1166,3 +1158,9 @@ body.padMenu #padBubbles{display:none}
 #miniMap{position:fixed;z-index:3;box-sizing:border-box;border:2px solid var(--deep);border-radius:4px;background:#1f4f73;box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45);cursor:pointer;image-rendering:auto}
 #portraitHint{border:0;box-shadow:none;border-radius:0;background:#12100c}
 body.coinsOpen #miniMap,body.gardenOpen #miniMap{visibility:hidden}
+
+/* the menu, coin bag and pony coin bag buttons live at the right end of the tool bar as small icon buttons */
+#toolbar .tb-mini{position:relative;order:10;flex:none;width:var(--btn,30px);height:var(--slot,46px);display:flex;align-items:center;justify-content:center;border-radius:2px;
+  font:700 calc(var(--btn,30px) * .6)/1 var(--font-title);touch-action:none;cursor:pointer;background:linear-gradient(180deg,#5a3d22,#3e2814)}
+#toolbar #btnMenu{margin-left:var(--div,6px)}
+#toolbar .tb-mini .coinDot{width:55%;height:auto;aspect-ratio:1;margin:0}

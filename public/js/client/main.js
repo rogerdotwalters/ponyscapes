@@ -36,7 +36,7 @@ function setupFullscreenButton(button) {
 
 function collectLayoutDom(game) {
   const dom = { miniMap: $('miniMap'), coinPanel: $('coinPanel'), ponyBagPanel: $('ponyBagPanel'), controlsPanel: $('controlsPanel'), controlsBody: $('controlsBody'), dialoguePanel: $('dialoguePanel'), puzzlePanel: $('puzzlePanel'), stablePanel: $('stablePanel'), stableBody: $('stableBody'), isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnApple: $('btnApple'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), posterPanel: $('posterPanel'), posterBody: $('posterBody'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), energy: $('energyBar'), clock: $('clock'), season: $('seasonBar') };
-  ['btnMenu', 'btnCoins', 'btnPonyCoins', 'btnMap', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
+  ['btnMenu', 'btnCoins', 'btnPonyCoins', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
   return dom;
 }
 
@@ -178,7 +178,7 @@ function launch(choice, query) {
     const padIntro = new GamepadIntro({ pad }); panels.register('padIntro', padIntro); padActions.intro = padIntro;
     bus.on('padActive', on => { if (on && (!GamepadIntro.seen() || query.get('padintro') === '1')) { GamepadIntro.markSeen(); setTimeout(() => panels.open('padIntro'), 250); } });      // the one pop-up: the guide, the first time a controller is used
     const miniMap = new MiniMap({ canvas: $('miniMap'), game, mapUI, bus });
-    const padHints = new GamepadHints({ root: $('padHints'), bubbles: $('padBubbles'), camera: renderer.camera, pad, actions: padActions, badges: { PLUS: $('btnMenu'), MINUS: $('btnMap') } });
+    const padHints = new GamepadHints({ root: $('padHints'), bubbles: $('padBubbles'), camera: renderer.camera, pad, actions: padActions, badges: { PLUS: $('btnMenu') } });
     bus.on('toggleTown', () => panels.toggle('town'));
     bus.on('throwLasso', () => game.throwLasso());
     bus.on('dropHeld', all => game.dropHeld(all));                  // X / the Drop button: what is in your hand, onto the ground                  // L / the Lasso button: the lasso in the lasso slot
@@ -205,7 +205,6 @@ function launch(choice, query) {
     bus.on('toggleDebug', () => debug.toggle());
     bus.on('touchUiShown', () => { $('hint').hidden = true; });
     $('btnMenu').addEventListener('click', () => panels.toggle('menu'));
-    $('btnMap').addEventListener('click', () => panels.toggle('map'));
     $('btnCoins').addEventListener('click', () => panels.toggle('coins'));
     $('btnPonyCoins').addEventListener('click', () => panels.toggle('ponyCoins'));
     $('btnDbg').addEventListener('click', () => debug.toggle());

@@ -26,16 +26,14 @@ class VitalBar {
 class SeasonUI {
   constructor({ root }) { this.root = root; this.shown = ''; this.season = null; }
   update(info, weather) {
-    const s = info.season, text = `${s.id}|${info.dayInSeason}|${info.length}|${info.year}|${Math.round(info.progress * 400)}|${weather ? weather.t : ''}`;
+    const s = info.season, text = `${s.id}|${info.dayInSeason}|${info.length}|${info.year}|${weather ? weather.t : ''}`;
     if (text === this.shown) return;
     this.shown = text;
     const q = sel => this.root.querySelector(sel);
-    this.root.style.setProperty('--season', s.color); this.root.style.setProperty('--dayw', (100 / info.length) + '%');
+    this.root.style.setProperty('--season', s.color);
     q('.sbIcon').textContent = s.icon; q('.sbName').textContent = s.name;
     const sky = weather && Weather.TYPES[weather.t], sbw = q('.sbWeather'); sbw.textContent = sky ? sky.icon : ''; sbw.title = sky ? sky.name : '';      // today's weather (weather.js)
-    q('.sbDay').textContent = `\u00B7 Day ${info.dayInSeason} of ${info.length} \u00B7 Year ${info.year}`;
-    q('.sbDayShort').textContent = `\u00B7 Day ${info.dayInSeason}/${info.length}`;
-    q('.sbFill').style.width = (info.progress * 100).toFixed(2) + '%';
+    q('.sbDayNum').textContent = 'Day ' + info.dayInSeason; q('.sbDay').textContent = `of ${info.length} \u00B7 Year ${info.year}`;       // (a calendar card: the season, the day, the time of day)
     if (this.season && this.season !== s.id) {                                       // a new season: say so for a moment
       const news = q('.sbNews'); news.hidden = false; news.textContent = `${s.icon} ${s.name} has begun!`;
       news.style.animation = 'none'; void news.offsetWidth; news.style.animation = '';

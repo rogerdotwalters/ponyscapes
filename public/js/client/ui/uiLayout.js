@@ -9,7 +9,7 @@
  *   │  panels (bag, crafting...) open over the middle, under the top row, over the thumb controls (they are modal)  │
  *   └ left thumb: stick       health | hunger | thirst | energy / TOOL BAR (bottom centre) / emote       right thumb: [Let go Ride Rot Board] / [Apple Leash Power] / [Bag Tool] ┘
  */
-const SYSTEM_BUTTONS = [{ id: 'btnMenu', w: 62 }, { id: 'btnCoins', w: 62 }, { id: 'btnPonyCoins', w: 90 }, { id: 'btnMap', w: 46 }, { id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];
+const SYSTEM_BUTTONS = [{ id: 'btnFs', w: 36 }, { id: 'btnDbg', w: 40 }];             // (the Menu and the two coin bags are small buttons on the tool bar; the mini map is the Map button)
 const MIN_TOUCH_SLOT = 34, MAX_SLOT = 46, MIN_PANEL_SLOT = 30;
 
 const INV_ACTIONS_H = 22 + 36;                      // what you picked, and the Wear / To pony / Drop / Destroy row
@@ -59,9 +59,8 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
    *      The tool bar sits bottom centre, the vitals just above it; touch controls take the two bottom corners. ---- */
   const miniSize = Math.round(clamp(h * 0.3, 96, 200));
   const minimap = makeRect(right - miniSize, top, miniSize, miniSize);
-  const seasonH = Math.round(36 * k);
-  const season = makeRect(left, top, Math.min(Math.round(340 * k), Math.round(w * 0.36)), seasonH);
-  season.compact = season.w < 400 * k; season.tiny = season.w < 300 * k;   // (shorter day text; then the clock shows its picture only)
+  const season = makeRect(left, top, Math.round(128 * k), Math.round(92 * k));                       // the date card: a small calendar box (season / day / time of day)
+  season.compact = season.tiny = false;
 
   /* ---- system buttons: a row between the season bar and the mini map (shrinking to fit, wrapping onto a second row on the narrowest screens) ---- */
   const buttons = SYSTEM_BUTTONS.filter(b => host || !b.hostOnly);
@@ -84,9 +83,10 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
 
   /* ---- sizing of the tool bar ---- */
   const slots = CONFIG.sim.inventory.hotbarSlots, slotGap = Math.round(4 * k), pad = Math.round(5 * k);
-  const barW = s => slots * s + (slots - 1) * slotGap + 2 * pad, barH = s => s + 2 * pad;
+  const MINI_BUTTONS = 3, miniW = s => Math.round(s * 0.7), divider = gap;                      // the Menu and the two coin bags: small buttons at the right end of the tool bar
+  const barW = s => slots * s + (slots - 1) * slotGap + 2 * pad + MINI_BUTTONS * (miniW(s) + slotGap) + divider, barH = s => s + 2 * pad;
   const maxSlot = Math.round(MAX_SLOT * Math.max(k, 1)), minSlot = Math.round(MIN_TOUCH_SLOT * k);
-  const fitSlot = space => Math.floor((space - 2 * pad - (slots - 1) * slotGap) / slots);
+  const fitSlot = space => Math.floor((space - 2 * pad - (slots - 1) * slotGap - MINI_BUTTONS * slotGap - divider) / (slots + MINI_BUTTONS * 0.7));
 
   /* ---- touch controls: both thumbs' controls must fit side by side, so they shrink on narrow screens ---- */
   let touchLayout = null;
@@ -164,7 +164,7 @@ function computeUiLayout({ w, h, insets = { top: 0, right: 0, bottom: 0, left: 0
 
   /* ---- the Apple button: touch has its own place in the thumb cluster; on desktop it sits beside the emote button ---- */
   const appleRect = touch ? touchLayout.apple : [emote.x + ub + gap, emote.x - ub - gap].map(x => makeRect(x, emote.y, ub, ub)).find(r => r.x >= left && r.x + r.w <= right) || makeRect(emote.x, emote.y - 2 * (gap + ub), ub, ub);
-  return { k, w, h, minimap, buttonScale: sys.shrink, apple: appleRect, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad }), health, hunger, thirst, energy, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
+  return { k, w, h, minimap, buttonScale: sys.shrink, apple: appleRect, topButtons, systemBar, toolbar: Object.assign(toolbar, { slot, gap: slotGap, pad, btn: miniW(slot), div: divider }), health, hunger, thirst, energy, clock, season, emote, abilityBar, fly: touchLayout ? touchLayout.rot : makeRect(emote.x, emote.y - gap - ub, ub, ub), touch: touchLayout, panels, debug, hint };
 }
 
 /** Applies a computed layout to the DOM and re-computes it whenever the screen changes. */
@@ -204,7 +204,7 @@ class UiLayout {
 
     const bar = dom.toolbar, t = L.toolbar;
     bar.style.left = t.x + 'px'; bar.style.top = t.y + 'px';
-    bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px');
+    bar.style.setProperty('--slot', t.slot + 'px'); bar.style.setProperty('--gap', t.gap + 'px'); bar.style.setProperty('--pad', t.pad + 'px'); bar.style.setProperty('--btn', t.btn + 'px'); bar.style.setProperty('--div', t.div + 'px');
 
     const P = L.panels;
     for (const [el, r] of [[dom.inventoryPanel, P.inventory], [dom.craftPanel, P.crafting], [dom.settingsPanel, P.settings], [dom.gearPanel, P.inventory], [dom.ponyPanel, P.gear], [dom.posterPanel, P.gear], [dom.journalPanel, P.gear], [dom.menuPanel, P.gear], [dom.sessionPanel, P.gear], [dom.townPanel, P.gear], [dom.shopPanel, P.gear], [dom.controlsPanel, P.gear], [dom.dialoguePanel, P.gear], [dom.puzzlePanel, P.gear], [dom.stablePanel, P.gear], [dom.mapPanel, P.map], [dom.coinPanel, P.gear], [dom.confirmPanel, P.confirm], [dom.tradePanel, P.trade]]) {
