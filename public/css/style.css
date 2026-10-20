@@ -17,9 +17,8 @@ canvas{display:block}
   padding:6px 8px;border-radius:6px;pointer-events:none;white-space:pre}
 #hint{position:fixed;color:#f1e6c4;font-size:13px;background:rgba(15,28,43,.6);padding:7px 11px;border-radius:6px;
   pointer-events:none;transition:opacity 1.2s}
-#portraitHint{position:fixed;top:42%;left:50%;transform:translateX(-50%);display:none;color:#f1e6c4;
-  background:rgba(15,28,43,.7);padding:7px 12px;border-radius:6px;font-size:13px;pointer-events:none;animation:fadeout 1s 6s forwards}
-@media (orientation:portrait){#portraitHint{display:block}}
+#portraitHint{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;font-size:20px;line-height:1.4;color:#f1e6c4;background:#12100c}
+@media (orientation:portrait) and (pointer:coarse){#portraitHint{display:flex}}
 @keyframes fadeout{to{opacity:0;visibility:hidden}}
 
 /* ---------- toolbar + panels (size variables --slot --gap --pad are set by the layout) ---------- */
@@ -1044,11 +1043,6 @@ body.coinsOpen .tbtn,body.coinsOpen #touchUI,body.coinsOpen #toolbar,body.coinsO
 .invpurse{flex-wrap:wrap}
 .invpurse #invCoins{flex:1 1 auto}
 .shopPurse{margin-left:6px;vertical-align:middle}
-/* portrait phones: bigger tap targets for the action row, the body scrolls with the page-style touch drag */
-@media (orientation:portrait) and (pointer:coarse){
-  #invActions{flex-wrap:wrap;height:auto;row-gap:4px}
-  #invActions button{height:34px}
-  #invBody{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 }
 
 .c4Screen{background:radial-gradient(ellipse at center,rgba(30,18,8,.78),rgba(6,3,0,.94));image-rendering:pixelated}
@@ -1167,3 +1161,8 @@ body.padMenu #padBubbles{display:none}
 /* the tool button (touch): the picture of the tool in hand over its verb */
 #btnAct{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1;font-size:11px}
 #btnAct .toolIcon{display:block;width:52%;height:52%;background:center/contain no-repeat;image-rendering:pixelated}
+
+/* LANDSCAPE ONLY (prototype): the mini map, upper right; no portrait layouts */
+#miniMap{position:fixed;z-index:3;box-sizing:border-box;border:2px solid var(--deep);border-radius:4px;background:#1f4f73;box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45);cursor:pointer;image-rendering:auto}
+#portraitHint{border:0;box-shadow:none;border-radius:0;background:#12100c}
+body.coinsOpen #miniMap,body.gardenOpen #miniMap{visibility:hidden}
