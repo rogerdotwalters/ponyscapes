@@ -1152,3 +1152,18 @@ body.padMenu #padBubbles{display:none}
 .padIntroGo{display:flex;justify-content:center}
 .padIntroGo .tbig{padding:8px 22px;font-size:16px}
 #padIntroPanel .padIntroX{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(227,194,122,.6);background:transparent;color:#f4e6c1;font-size:15px;padding:0}
+
+/* the tool bar: an empty tool slot names its tool; a Bag item in hand sits beside the bar */
+#toolbar{position:fixed}
+#toolbar .slot.empty .qty{opacity:.5;font-size:9px}
+#toolbar .handSlot{position:absolute;right:100%;bottom:0;margin-right:8px;width:var(--slot,48px);height:var(--slot,48px)}
+#toolbar .handSlot[hidden]{display:none}
+
+/* Bag | Gear tabs in the window header */
+.panTabs{display:flex;gap:6px}
+.panTabs button{padding:3px 12px;border-radius:2px;border:2px solid var(--deep);background:#5a3d22;color:var(--parch);font:700 15px var(--font-title);letter-spacing:1px;cursor:pointer}
+.panTabs button.on{background:linear-gradient(180deg,#e8bb55,#c08a2a);color:var(--ink)}
+
+/* the tool button (touch): the picture of the tool in hand over its verb */
+#btnAct{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;line-height:1;font-size:11px}
+#btnAct .toolIcon{display:block;width:52%;height:52%;background:center/contain no-repeat;image-rendering:pixelated}

@@ -1,15 +1,14 @@
 'use strict';
 /* CLIENT - what the controller's buttons DO (the Switch layout; the list the player sees is PAD_LAYOUT in gamepadInput.js).
  *
- *   playing   Left stick  move                         A   use your tool / talk and shop / enter a building / pet
- *             B  pick, pick up and hold, feed, pet     Y   untie / let go, or leash your pony        X  mount / dismount
- *             ZR lasso                                 R   the stall, stable or building menu beside you (else the Town)
- *             - map, + menu, L3 bag                            L   fly / land     ZL  pony power     D-pad  tool bar
+ *   playing   Left stick  move                         A   talk and shop / enter a building / pet
+ *             B  pick, pick up and hold, feed          Y   untie / let go, or leash your pony        X  mount / dismount
+ *             ZR the tool in hand (swing, chop, cast, till, lasso...)   R   the stall, stable or building menu beside you (else the Town)
+ *             - map, + menu, L3 bag      L   fly / land     ZL  pony power     D-pad left / right: tool, up / down: which thing is selected (targetSelector.js)
  *   a window  D-pad jumps between the buttons, right stick moves a pointer, A clicks it, B closes the window; hold L and the right stick scrolls a list or pans the map.
  *
  * Nothing here changes a game rule: every button ends in the same call the keyboard or the touch buttons make (bus events, ClientGame methods). */
-const PAD_B_KINDS = ['pick', 'pickDrop', 'pickup', 'board', 'exit', 'revive', 'drink', 'fill', 'stallFeed', 'camp', 'track', 'plant_hedge', 'plant_tree', 'trim', 'cut', 'digHedge'];   // B: pick, pick up and hold, board, drink...
-const PAD_A_SOFT_KINDS = ['pet', 'treat', 'give', 'feed'];               // A takes these when no tool is in hand (with a tool, A uses it and B does these)
+const PAD_B_KINDS = ['pick', 'pickDrop', 'pickup', 'board', 'exit', 'revive', 'drink', 'fill', 'feed', 'treat', 'give', 'stallFeed', 'camp', 'track', 'plant_hedge', 'plant_tree', 'trim', 'cut', 'digHedge'];   // B: pick, pick up and hold, board, drink...
 const PAD_USE_KINDS = ['mash'];                                          // a tug of war: A is plain Use (mash it)
 const PAD_LIFT = { npc: 60, animal: 46, pony: 58, tree: 58, door: 52, building: 70, prop: 40, me: 70 };   // how far above the spot the bubble floats (logical pixels)
 const PAD_POINTER_SPEED = 1000;                                         // pointer: pixels per second at full push
@@ -23,7 +22,7 @@ class GamepadActions {
   constructor({ bus, game, pad, panels, mapUI, cursor }) {
     this.bus = bus; this.game = game; this.pad = pad; this.panels = panels; this.mapUI = mapUI; this.cursor = cursor;
     this.menuMode = false;
-    this.aUsing = false;                          // A went down on "use the tool" (so holding it keeps swinging)
+    this.selector = new TargetSelector({ game, targetOf: a => this._target(a), isMoving: () => this.pad.left.mag > 0 || Math.hypot((game.local && game.local.vx) || 0, (game.local && game.local.vy) || 0) > 0.4 });
     this.cx = 0; this.cy = 0;                     // the pointer
     this.downTarget = null; this.hoverEl = null; this.heldDir = null; this.intro = null;
     swallowSyntheticCapture();
@@ -32,7 +31,8 @@ class GamepadActions {
 
   /** Left stick as a screen-space unit direction, or null (also null while a window is open: the stick moves the pointer then). */
   get moveAxis() { const l = this.pad.left; return !this.menuMode && l.mag > 0 ? { x: l.x, y: l.y } : null; }
-  get actionHeld() { return !this.menuMode && this.aUsing && this.pad.isDown('A'); }
+  /** The tool button: the right trigger uses what is in hand (swing, cast, chop, till, throw the lasso, place) for as long as it is held. */
+  get actionHeld() { return !this.menuMode && this.pad.isDown('ZR'); }
 
   /** Once per frame, from the game loop. */
   update(ms) {
@@ -41,8 +41,8 @@ class GamepadActions {
     const open = this.panels.anyOpen();
     if (open !== this.menuMode) { this.menuMode = open; if (open) this._enterMenu(); else this._leaveMenu(); }
     for (const name of pad.pressed) { this._pressedAny(name); if (open) this._pressedInMenu(name); else this._pressedInWorld(name); }
-    for (const name of pad.released) if (name === 'A') { this.aUsing = false; this._pointerUp(); }
-    if (open) this._menuTick(ms / 1000);
+    for (const name of pad.released) if (name === 'A') this._pointerUp();
+    if (open) this._menuTick(ms / 1000); else this.selector.update(ms);
   }
 
   /* ---------------------------------------------------------------- playing */
@@ -59,32 +59,28 @@ class GamepadActions {
       case 'A': this._primary(); break;
       case 'B': this._secondary(); break;
       case 'Y': this._untieOrLeash(); break;
-      case 'X': g.toggleRide(); break;
-      case 'ZR': this.bus.emit('throwLasso'); break;
+      case 'X': this._ride(); break;
       case 'R': if (g.stallHint()) g.openStall(); else this.bus.emit('toggleTown'); break;
       case 'L': this.bus.emit('ability'); break;
       case 'ZL': { const i = g.abilityState().findIndex(a => !(a.cooldown > 0)); if (i >= 0) this.bus.emit('ponyPower', i + 1); break; }
-      case 'LEFT': case 'UP': g.cycleSlot(-1); break;                 // the D-pad changes the tool in your hand
-      case 'RIGHT': case 'DOWN': g.cycleSlot(1); break;
+      case 'LEFT': g.cycleSlot(-1); break;                              // left / right: the tool in your hand
+      case 'RIGHT': g.cycleSlot(1); break;
+      case 'UP': this.selector.cycle(-1); break;                        // up / down: which of the things around you the buttons mean (a hard select: see targetSelector.js)
+      case 'DOWN': this.selector.cycle(1); break;
       case 'LS': this.bus.emit('toggleInventory'); break;               // click the left stick: the Bag
       case 'RS': this.bus.emit('toggleJournal'); break;
     }
+    // (ZR, the tool button, is not a press: it is held, and the game reads it as Use: actionHeld)
   }
 
-  /** What the interact button would do now, as { kind, label, ... } (the stall is the R button's, so it is left out here). */
-  _nearby() { return this.game.interactAction(['stall']); }
-  /** Does A take this (rather than B)? A: talking, shops, doors and every way in or out, chests and stations. B: picking, picking up, feeding, boarding, drinking. */
-  _aTakes(action) {
-    if (!action || PAD_USE_KINDS.includes(action.kind) || PAD_B_KINDS.includes(action.kind)) return false;
-    if (PAD_A_SOFT_KINDS.includes(action.kind)) return !ItemDB.getTool(this.game.heldItemId());       // (with a tool in hand, A uses it and B pets)
-    return true;
-  }
+  /** The selected thing: { key, action, target, score } or null. */
+  _selected() { return this.selector.current; }
+  /** Does A take this (rather than B)? A: talking, shops, doors and every way in or out, chests, stations, petting. B: picking, picking up, feeding, boarding, drinking. */
+  _aTakes(action) { return !!action && !PAD_USE_KINDS.includes(action.kind) && !PAD_B_KINDS.includes(action.kind); }
   _primary() {
-    const near = this._nearby();
-    if (this._aTakes(near)) {
-      this.aUsing = false;
-      if (near.npc) this._talk(near.npc); else this.game.requestInteract();
-    } else this.aUsing = true;                                       // nothing to talk to or enter: A swings the tool in your hand, and keeps going while held
+    const sel = this._selected();
+    if (!sel || !this._aTakes(sel.action)) return;
+    if (sel.action.npc) this._talk(sel.action.npc); else this.game.requestInteract(sel.key);
   }
   /** A villager: the dialogue window, like a tap on them (it offers their shop, their quests, and a gift if you hold one they like). */
   _talk(npc) {
@@ -92,20 +88,42 @@ class GamepadActions {
     if (id) this.bus.emit('talkTo', Object.assign({ id }, npc));
   }
   _secondary() {
-    if (this._nearby()) this.game.requestInteract();
+    const sel = this._selected();
+    if (sel) this.game.requestInteract(sel.key);
     else this.game.events.emit('notice', { to: this.game.myId, text: 'Nothing to pick up or feed here' });
   }
-  _untieOrLeash() {
-    const g = this.game;
-    if (g.releaseTarget()) g.requestRelease();
-    else if (g.leashHint()) g.leashPony();
-    else g.events.emit('notice', { to: g.myId, text: 'Nothing to untie, and no pony of yours to leash' });
+  /** The animal that is selected, if the selection is one. */
+  _selectedAnimal() { const sel = this._selected(); return sel && sel.action.animal && sel.action.animal.id ? sel.action.animal : null; }
+  /** What Y would do to this animal (or, with none, the nearest): { label, run } or null. */
+  _yFor(an) {
+    const g = this.game, L = g.local;
+    if (!an) {
+      const release = g.releaseTarget();
+      if (release) return { label: release.label, run: () => g.requestRelease(release) };
+      return g.leashHint() ? { label: 'Leash', run: () => g.leashPony() } : null;
+    }
+    const pool = { [an.id]: an }, release = findRelease(L, pool, g.myId);
+    if (release) return { label: release.label, run: () => g.requestRelease(release) };
+    return Stable.leashTarget(pool, L, g.myId, null) ? { label: 'Leash', run: () => g.leashPony(an.id) } : null;
   }
+  _untieOrLeash() {
+    const y = this._yFor(this._selectedAnimal()) || this._yFor(null);
+    if (y) y.run(); else this.game.events.emit('notice', { to: this.game.myId, text: 'Nothing to untie, and no pony of yours to leash' });
+  }
+  /** What X would do: get off, or get on this pony (or, with none selected, the nearest). */
+  _xFor(an) {
+    const g = this.game, L = g.local;
+    if (L.mount) return { label: 'Dismount', run: () => g.toggleRide() };
+    if (an) return findRide(L, { [an.id]: an }, g.myId) ? { label: 'Ride', run: () => g.toggleRide(an.id) } : null;
+    return g.rideHint() ? { label: g.rideHint(), run: () => g.toggleRide() } : null;
+  }
+  _ride() { const x = this._xFor(this._selectedAnimal()) || this._xFor(null); if (x) x.run(); else this.game.toggleRide(); }
 
   /* ---------------------------------------------------------------- the on-screen button hints */
 
   /** The prompts for the situation right now: [{ button, text, target? }] (Switch button names; GamepadHints prints them).
-   *  A prompt with a `target` floats in a bubble above that thing in the world (the door, the tree, the villager...); the others go in the corner strip. */
+   *  Only the SELECTED thing gets a bubble above it (so the prompts never crowd each other): what A, B, Y and X would do to it, and the arrows when there are
+   *  other things to step to. The rest go in the corner strip. */
   hints() {
     const out = [], g = this.game, L = g.local;
     if (this.menuMode) {
@@ -113,21 +131,29 @@ class GamepadActions {
       return out;
     }
     if (!L || L.asleep) return out;
-    const near = this._nearby(), held = ItemDB.getTool(g.heldItemId()), aTakes = this._aTakes(near);
-    if (aTakes) out.push({ button: 'A', text: near.npc ? `Talk to ${near.npc.name}` : near.label, target: this._target(near) });
-    else out.push({ button: 'A', text: near && near.kind === 'mash' ? near.label : held && WEAPON_KINDS.includes(held.kind) ? 'Attack' : 'Use' });
-    if (near && !aTakes && near.kind !== 'mash') out.push({ button: 'B', text: near.label, target: this._target(near) });
-    const release = g.releaseTarget(), leash = !release && g.leashHint() ? Stable.leashTarget(g.latestAnimals(), L, g.myId, null) : null;
-    if (release) out.push({ button: 'Y', text: release.label, target: this._target({ animal: release.animal }) });
-    else if (leash) out.push({ button: 'Y', text: 'Leash', target: this._target({ animal: leash }) });
-    const ride = g.rideHint();
-    if (ride) { const r = L.mount ? null : findRide(L, g.latestAnimals(), g.myId); out.push({ button: 'X', text: ride, target: r ? this._target({ animal: r.animal }) : { id: 'me', kind: 'me', lift: PAD_LIFT.me } }); }
-    if (L.gear && L.gear.lasso) out.push({ button: 'ZR', text: 'Lasso' });
+    const sel = this._selected(), target = sel ? sel.target : null, an = this._selectedAnimal();
+    if (sel) {
+      const act = sel.action, text = act.npc ? `Talk to ${act.npc.name}` : act.label;
+      if (this._aTakes(act)) out.push({ button: 'A', text, target });
+      else if (!PAD_USE_KINDS.includes(act.kind)) out.push({ button: 'B', text, target });
+      if (an) {
+        const y = this._yFor(an); if (y) out.push({ button: 'Y', text: y.label, target });
+        const x = !L.mount ? this._xFor(an) : null; if (x) out.push({ button: 'X', text: x.label, target });
+      }
+      const pos = this.selector.position;
+      if (pos.count > 1) out.push({ button: 'UPDOWN', text: `Next ${pos.index}/${pos.count}`, target });
+    }
+    if (L.mount) out.push({ button: 'X', text: 'Dismount' });
+    if (!an) {                                                                         // (no animal selected to untie or ride: the nearest one, in the strip)
+      const y = this._yFor(null); if (y) out.push({ button: 'Y', text: y.label });
+      const x = !L.mount ? this._xFor(null) : null; if (x) out.push({ button: 'X', text: x.label });
+    }
+    out.push({ button: 'ZR', text: toolVerb(g.heldItemId()) });
     const stall = g.stallHint();
-    out.push({ button: 'R', text: stall ? stall.name : 'Town', target: stall ? { id: 'tile:' + stall.fx + ',' + stall.fy, kind: 'spot', x: stall.fx + 0.5, y: stall.fy + 0.5, lift: PAD_LIFT.door } : null });
+    out.push({ button: 'R', text: stall ? stall.name : 'Town' });
     const fly = g.abilityHint(); if (fly) out.push({ button: 'L', text: fly.label });
     const power = g.abilityState().find(a => !(a.cooldown > 0)); if (power) out.push({ button: 'ZL', text: power.ability.name });
-    out.push({ button: 'LS', text: 'Bag' }, { button: 'MINUS', text: 'Map' }, { button: 'PLUS', text: 'Menu' });
+    out.push({ button: 'DPAD', text: 'Tool' }, { button: 'LS', text: 'Bag' }, { button: 'MINUS', text: 'Map' }, { button: 'PLUS', text: 'Menu' });
     return out;
   }
 

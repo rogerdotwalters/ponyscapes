@@ -20,17 +20,13 @@ class BotSystem {
     this.id = id; this.seq = 0; this.lostT = 0;
     const p = s.players[id], inv = s.inventories[id];
     p.bot = true;
-    inv.remove('knife', 1); inv.add('stone_sword', 1); s.inventoryRev[id]++;
+    p.gear.sword = 'stone_sword'; s.inventoryRev[id]++;                                   // (the sword slot holds its sword)
     s._moveToGrid(id, p, gridOf(host), host.x + 1, host.y);
     return true;
   }
 
-  /** The hotbar slot holding the sword. */
-  _swordSlot() {
-    const inv = this.s.inventories[this.id];
-    for (let i = 0; i < CONFIG.sim.inventory.hotbarSlots; i++) if (inv.itemIdAt(i) === 'stone_sword') return i;
-    return 0;
-  }
+  /** The tool slot holding the sword. */
+  _swordSlot() { return ToolSlots.indexOf('sword'); }
 
   /** Once a tick: decide this tick's input and queue it. */
   update() {

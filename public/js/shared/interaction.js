@@ -67,13 +67,20 @@ const Interactions = {
   /** Extra finders other systems add: (map, player) => action | null. They are asked first, so a cave mouth works even on a pony. */
   extra: [],
   /** @returns {{kind:'pick'|'door'|'board'|'untie'|'pickup'|'drink'|'fill', label:string, dist:number, forage?, door?, boat?, water?}|null} */
-  find(map, boats, p, heldItemId, animals = {}, selfId = p.id, npcs = {}, drops = {}) {
-    for (const finder of Interactions.extra) { const found = finder(map, p, heldItemId, animals, selfId); if (found) return found; }
+  find(map, boats, p, heldItemId, animals = {}, selfId = p.id, npcs = {}, drops = {}) { return Interactions.list(map, boats, p, heldItemId, animals, selfId, npcs, drops)[0] || null; },
+
+  /** EVERYTHING the interact key could do from here, the nearest first (find() is its first entry). The controller steps through it (targetSelector.js) and
+   *  tells the server which one it means (keyOf / choose), so the thing whose bubble you see is the thing that happens. */
+  list(map, boats, p, heldItemId, animals = {}, selfId = p.id, npcs = {}, drops = {}) {
+    const extras = [];
+    for (const finder of Interactions.extra) { const found = finder(map, p, heldItemId, animals, selfId); if (found) extras.push(found); }
     const mounted = !!p.mount;                           // in the saddle you can still pick, open and loot: only when there is nothing to do does the key get you off
     const primary = [];
     for (const id in animals) {                          // tied pets can be untied, small animals picked up
       const a = animals[id], def = AnimalDefs[a.type], d = def ? Math.hypot(a.x - p.x, a.y - p.y) : Infinity;
-      if (!def || a.game || !sameGrid(a, p)) continue;      // (only what is on your grid; a minigame's sheep are for the lasso only)
+      if (!def || a.game || !sameGrid(a, p)) continue;
+      const mark = n => { for (let k = n; k < primary.length; k++) primary[k].ref = id; };      // (each of this animal's entries remembers whose it is)
+      const before = primary.length;      // (only what is on your grid; a minigame's sheep are for the lasso only)
       if (mounted) {                                     // (the rest needs two feet on the ground, but from the saddle you can still feed the wild pony on your lasso)
         if (a.captor === selfId && d <= UNTIE_RANGE && ItemDB.isApple(heldItemId)) primary.push({ kind: 'feed', label: 'Feed ' + ItemDefs[heldItemId].name.toLowerCase(), dist: d - 1, animal: a });
         continue;
@@ -88,21 +95,22 @@ const Interactions = {
         if (opinion === 'liked' || opinion === 'loved') primary.push({ kind: 'treat', label: `Give ${ItemDefs[heldItemId].name}`, dist: mineToRide ? d + 0.3 : d - 0.3, animal: a });
         else primary.push({ kind: 'pet', label: `Pet ${def.name}`, dist: d + 0.6, animal: a });
       }
+      mark(before);
     }
     for (const id in npcs) {                              // people: talk, or give the thing you are holding if they have an opinion about it (works from the saddle too)
       const npc = npcs[id], d = Math.hypot(npc.x - p.x, npc.y - p.y);
       if (d > CONFIG.sim.friendship.reach || !sameGrid(npc, p)) continue;
       const tastes = Npcs.get(npc.type) && Npcs.get(npc.type).tastes;
-      if (heldItemId && Friendship.opinion(tastes, heldItemId) !== 'neutral') primary.push({ kind: 'gift', label: `Give ${ItemDefs[heldItemId].name}`, dist: d - 0.4, npc });
-      else primary.push({ kind: 'talk', label: `Talk to ${npc.name}`, dist: d, npc });                       // (the nearest thing wins: a pony beside you is ridden, not chatted to)
+      if (heldItemId && Friendship.opinion(tastes, heldItemId) !== 'neutral') primary.push({ kind: 'gift', label: `Give ${ItemDefs[heldItemId].name}`, dist: d - 0.4, npc, ref: id });
+      else primary.push({ kind: 'talk', label: `Talk to ${npc.name}`, dist: d, npc, ref: id });                       // (the nearest thing wins: a pony beside you is ridden, not chatted to)
     }                                  // things you pick up, open or climb into win over water (boats always sit next to water)
     const forage = findForageable(map, p, FORAGE_RANGE, heldItemId);
     if (forage) primary.push({ kind: 'pick', label: FORAGE_VERB[forageKind(forage.prop)] || 'Pick', dist: forage.dist, forage });
     const chest = findChest(map, p);
     if (chest && !p.looted) primary.push({ kind: 'loot', label: 'Open', dist: chest.dist, chest });
-    for (const d of Object.values(drops)) {               // items lying on the ground
+    for (const [dropId, d] of Object.entries(drops)) {    // items lying on the ground
       const dist = Math.hypot(d.x - p.x, d.y - p.y);
-      if (dist <= CONFIG.sim.drops.pickupRange && sameGrid(d, p)) primary.push({ kind: 'pickDrop', label: 'Pick up', dist: dist - 0.2, drop: d });
+      if (dist <= CONFIG.sim.drops.pickupRange && sameGrid(d, p)) primary.push({ kind: 'pickDrop', label: 'Pick up', dist: dist - 0.2, drop: d, ref: dropId });
     }
     const pile = Stockpiles.nearest(map, p);
     if (pile && map.stockpiles[pile.key]) primary.push({ kind: 'stockpile', label: 'Deliver', dist: pile.dist + 0.3, pile });     // deliver the resource you carry
@@ -110,11 +118,23 @@ const Interactions = {
     if (door) primary.push({ kind: 'door', label: StructureDefs[door.type].verb, dist: door.dist, door });
     const boat = BoatSystem.findBoardable(boats, p);
     if (boat && !mounted) primary.push({ kind: 'board', label: 'Board', dist: Math.hypot(boat.x - p.x, boat.y - p.y), boat });
-    if (primary.length) return primary.sort((a, b) => a.dist - b.dist)[0];
-    if (mounted) return null;                             // (getting off is the Ride button's job (Z), so the action button only shows what else there is to do from the saddle)
+    if (primary.length) return extras.concat(primary.sort((a, b) => a.dist - b.dist));
+    if (mounted) return extras;                           // (getting off is the Ride button's job (Z), so the action button only shows what else there is to do from the saddle)
     const water = CONFIG.sim.vitals ? findWaterSource(map, p) : null;      // (no drinking or jug filling while hunger and thirst are off)
-    if (!water) { const camp = Sleep.find(map, p, heldItemId, animals); return camp && camp.kind === 'camp' ? camp : null; }   // nothing else to do here: tired in the woods, you may camp
+    if (!water) { const camp = Sleep.find(map, p, heldItemId, animals); return camp && camp.kind === 'camp' ? extras.concat(camp) : extras; }   // nothing else to do here: tired in the woods, you may camp
     const fill = heldItemId === 'jug';                    // an empty jug gets filled
-    return { kind: fill ? 'fill' : 'drink', label: fill ? 'Fill' : 'Drink', dist: water.dist, water };
-  }
+    return extras.concat({ kind: fill ? 'fill' : 'drink', label: fill ? 'Fill' : 'Drink', dist: water.dist, water });
+  },
+
+  /** A name for one entry of list(), the same on the client and the server: kind + which thing (an animal's or villager's id, a tile, a prop...). */
+  keyOf(a) {
+    const at = (x, y) => Math.round(x * 2) / 2 + ',' + Math.round(y * 2) / 2;
+    let who = a.ref !== undefined ? a.ref : a.animal ? a.animal.id : a.who ? a.who : a.forage ? a.forage.tx + ',' + a.forage.ty : a.door ? a.door.tx + ',' + a.door.ty + ',' + a.door.slot
+      : a.chest ? at(a.chest.prop.x, a.chest.prop.y) : a.pile ? a.pile.key : a.boat ? (a.boat.id || at(a.boat.x, a.boat.y)) : a.water ? at(a.water.x, a.water.y)
+      : typeof a.site === 'number' ? a.site : typeof a.fx === 'number' ? a.fx + ',' + a.fy : typeof a.tx === 'number' ? a.tx + ',' + a.ty : a.node !== undefined ? a.node : a.dungeon !== undefined ? a.dungeon : '';
+    return a.kind + ':' + who;
+  },
+
+  /** The entry of `list` the player picked (by its key), else the first. */
+  choose(list, key) { return (key && list.find(a => Interactions.keyOf(a) === key)) || list[0] || null; }
 };

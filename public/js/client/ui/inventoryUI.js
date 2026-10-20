@@ -23,6 +23,7 @@ class InventoryUI {
     if (this.actions) {
       const press = (el, fn) => el.addEventListener('pointerdown', e => { e.preventDefault(); if (!el.disabled) fn(); });
       press(this.actions.use, () => this._use());
+      if (this.actions.hold) press(this.actions.hold, () => this._hold());
       press(this.actions.drop1, () => this._drop(1));
       press(this.actions.dropAll, () => this._drop(Infinity));
       press(this.actions.destroy, () => this._destroy());
@@ -108,11 +109,19 @@ class InventoryUI {
     const me = from.sec === 'me';
     if (me && Bags.isPlayerBag(s.id)) return { label: 'Wear bag', run: () => g.equip(from.i) };
     if (me && Bags.isPonyBag(s.id) && g.pack && g.pack.bags.includes('')) return { label: 'Put on pony', run: () => g.equip(from.i) };
+    if (me && Wardrobe.slotFor(s.id) && !Bags.isPonyBag(s.id)) return { label: Wardrobe.isToolSlot(Wardrobe.slotFor(s.id)) ? 'Equip' : 'Wear', run: () => g.equip(from.i) };      // a tool goes into its tool slot, clothes onto you
     if (me && g.chest) return { label: 'To chest', run: () => g.packMove(InventoryUI.wire(from), { chest: true, i: -1 }) };
     if (me && g.pack && g.pack.inventory.size) return { label: 'To pony', run: () => g.packMove(InventoryUI.wire(from), { pack: true, i: -1 }) };
     if (!me) return { label: 'To my bag', run: () => g.packMove(InventoryUI.wire(from), { pack: false, i: -1 }) };
     return null;
   }
+  /** Take it in hand (seeds, food, a building piece, the shovel...): the tool bar's selection is put aside until you choose a tool again. */
+  _holdAction() {
+    const s = this._picked(), from = this.picked;
+    if (!s || from.sec !== 'me' || Bags.isPlayerBag(s.id) || Bags.isPonyBag(s.id)) return null;
+    return { label: 'Hold', run: () => { this.game.holdFromBag(from.i); this.game.events.emit('closePanels'); } };
+  }
+  _hold() { const a = this._holdAction(); if (!a) return; a.run(); this.picked = null; this.destroyArmed = false; this.refresh(); }
   _use() { const a = this._useAction(); if (!a) return; a.run(); this.picked = null; this.destroyArmed = false; this.refresh(); }
   _drop(count) {
     const s = this._picked();
@@ -185,7 +194,7 @@ class InventoryUI {
     const bagName = bag && ItemDefs[bag] ? ItemDefs[bag].name : 'No bag';
     const html = [`<div class="invpurse"><img alt="" src="${ItemIcons.url('gold_coin')}"><b>Coins</b><span id="invCoins">0</span><button id="invDropCoins" tabindex="-1" title="Open your coin bag: drag coins out onto the world to drop them">Coin bag</button></div>`,
       '<div class="invgrid" data-sec="all">',
-      `<div class="invsec"><span>${bagName}</span><small>${belt} belt + ${inv.size - belt} bag slots</small></div>`, '<!--me-->'];
+      `<div class="invsec"><span>${bagName}</span><small>${belt} pockets + ${inv.size - belt} bag slots</small></div>`, '<!--me-->'];
     if (chest) html.push(`<div class="invsec"><span>${chest.name}</span><small>${chest.inventory.size} slots</small></div>`, '<!--chest-->');
     if (pack) {                                                                                  // the pony's pack is part of the same grid: its slots follow yours, tinted
       const star = pack.main ? ' <span title="Your main pony: it follows you everywhere">&#x2605;</span>' : '';
@@ -224,7 +233,7 @@ class InventoryUI {
     if (dropCoins) dropCoins.disabled = !(this.game.inventory.purse > 0);
     this.slotEls.me.forEach((el, i) => {
       SlotView.fill(el, this.game.inventory.getSlot(i));
-      el.classList.toggle('selected', i === this.game.selectedSlot);
+      el.classList.toggle('selected', i === this.game.hand);                                  // (the slot of the Bag item in hand)
       el.classList.toggle('picked', !!P && P.sec === 'me' && P.i === i);
     });
     this.slotEls.pack.forEach((el, i) => { SlotView.fill(el, this.game.pack.inventory.getSlot(i)); el.classList.toggle('picked', !!P && P.sec === 'pack' && P.i === i); });
@@ -236,6 +245,7 @@ class InventoryUI {
     const A = this.actions, def = s && ItemDefs[s.id], use = this._useAction();
     A.label.textContent = s ? `${def ? def.name : s.id}${s.count > 1 ? ' x' + s.count : ''}${P.sec === 'pack' ? ' (pony pack)' : P.sec === 'chest' ? ' (chest)' : ''}` : 'Tap an item to move, drop or destroy it';
     A.use.hidden = !use; if (use) A.use.textContent = use.label;
+    if (A.hold) A.hold.hidden = !this._holdAction();
     A.drop1.disabled = A.destroy.disabled = !s; A.dropAll.disabled = !s || s.count < 2;
     A.destroy.textContent = this.destroyArmed ? 'Really destroy?' : 'Destroy';
     A.destroy.classList.toggle('armed', this.destroyArmed);

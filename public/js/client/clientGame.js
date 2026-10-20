@@ -10,6 +10,7 @@ class ClientGame {
   constructor(net) {
     this.net = net;
     this.events = new EventBus();                      // 'inventoryChanged', 'selectedSlotChanged', 'builtChanged', 'chop', 'fell', 'gain', 'built', 'notice', ...
+    this.events.on('inventoryChanged', () => { if (this.hand >= 0 && !this.inventory.itemIdAt(this.hand)) { this.hand = -1; this.events.emit('selectedSlotChanged', this.selectedSlot); this._refreshBuildTarget(); } });      // (what you held is gone: used up, dropped, moved)
     this.map = null; this.myId = null;                   // map: the grid we stand on (the overworld, or a room / cave instance)
     this.worldMap = null; this.grids = null; this.grid = '';   // worldMap: the overworld, always kept (its buildings, trees and stockpiles keep updating)
     this.local = null; this.prevLocal = null;          // predicted local player (current / previous tick)
@@ -21,7 +22,7 @@ class ClientGame {
     this.npcs = {}; this.npcView = {}; this.friends = {}; this.beingTypes = {};                    // the villagers (and where they are drawn), and your hearts: { beingId: [level, points] }
     this.weather = null;                               // the sky the server sent: { t: type, rain, wind, lightning, snow, dir } (weather.js)
     this.clockTick = 0;                                // smooth tick counter for the time of day
-    this.inventory = new Inventory(); this.selectedSlot = 0;
+    this.inventory = new Inventory(); this.selectedSlot = 0; this.hand = -1;         // selectedSlot: the tool bar (0-4: lasso, hoe, sword, rod, axe); hand: a Bag slot taken in hand instead (-1: none)
     this.questLog = QuestLog.empty();                  // the host world's quests (questSystem.js)
     this.memory = null;                                // the Memory game you sit at (memoryGame.js stateFor), else null
     this.connect4 = null;                              // the Connect Four game you sit at (connectFour.js stateFor), else null
@@ -40,7 +41,7 @@ class ClientGame {
     this.treasureMaps = []; this.mapIndex = 0;         // [{ key, tx, ty }]: where your treasure maps lead
     this.trade = null;                                 // the server's view of our trade window (null = no trade)
     this.gearKey = '';
-    this.actionWasDown = false; this.interactQueued = false; this.powerQueued = 0;
+    this.actionWasDown = false; this.interactQueued = false; this.interactPick = ''; this.powerQueued = 0;
     this.streamFrames = 0;
   }
 
@@ -83,13 +84,20 @@ class ClientGame {
   get riding() { return !!(this.local && (this.local.boat || this.local.mount)); }      // in a boat or on a pony: no tools, no building
 
   /* ---- toolbar / inventory / crafting (called by the UI) ---- */
-  /** What the character is holding: whatever is in the selected hotbar slot (swords are ordinary hotbar items now). */
-  heldItemId() { return this.inventory.itemIdAt(this.selectedSlot); }
+  /** What the character is holding: an item taken in hand from the Bag, else the tool in the selected tool slot. */
+  heldItemId() { return Wardrobe.heldFor(this.gear, this.selectedSlot, this.hand, this.inventory); }
   get gear() { return (this.local && this.local.gear) || createWardrobe(); }
   selectSlot(index) {
-    if (index === this.selectedSlot || !(index >= 0 && index < CONFIG.sim.inventory.hotbarSlots)) return;
-    this.selectedSlot = index;
+    if (!(index >= 0 && index < CONFIG.sim.inventory.hotbarSlots) || (index === this.selectedSlot && this.hand < 0)) return;
+    this.selectedSlot = index; this.hand = -1;                                    // (choosing a tool puts whatever was in hand back)
     this.events.emit('selectedSlotChanged', index);
+    this._refreshBuildTarget();
+  }
+  /** Take an item out of the Bag into your hand (seeds, food, building pieces, the shovel...): the next tool you select puts it away. */
+  holdFromBag(index) {
+    if (!this.inventory.itemIdAt(index)) return;
+    this.hand = index;
+    this.events.emit('selectedSlotChanged', this.selectedSlot);
     this._refreshBuildTarget();
   }
   cycleSlot(direction) {
@@ -100,9 +108,9 @@ class ClientGame {
   /** Drop `count` from a pack slot onto the ground in front of you (anyone can pick it up), or destroy it for good. */
   /** X / the Drop button: one of what is in your hand (all: the whole stack) goes on the ground in front of you. */
   dropHeld(all = false) {
-    const s = this.inventory.getSlot(this.selectedSlot);
+    const s = this.hand >= 0 ? this.inventory.getSlot(this.hand) : null;                  // (only what you took from the Bag: the tools stay on you)
     if (!s) { this.events.emit('notice', { to: this.myId, text: 'Nothing in your hand to drop' }); return; }
-    this.dropItem(this.selectedSlot, all ? s.count : 1);
+    this.dropItem(this.hand, all ? s.count : 1);
   }
   dropItem(slot, count, pack = false, chest = false) { this.net.sendCommand({ type: 'drop', slot, count, pack: !!pack, chest: !!chest }); }
   destroyItem(slot, count, pack = false, chest = false) { this.net.sendCommand({ type: 'destroy', slot, count, pack: !!pack, chest: !!chest }); }
@@ -212,10 +220,20 @@ class ClientGame {
   latestPlayers() { const last = this.snapshots[this.snapshots.length - 1]; return last ? last.players : {}; }
 
   /* ---- boats ---- */
-  requestInteract() { this.interactQueued = true; }
+  /** The interact press. `pick`: which of the things in reach is meant (Interactions.keyOf: the controller's selection); '' lets the server take the nearest. */
+  requestInteract(pick = '') { this.interactQueued = true; this.interactPick = pick; }
   latestDrops() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.drops) || this.welcomeDrops || {}; }
   latestBoats() { const last = this.snapshots[this.snapshots.length - 1]; return (last && last.boats) || this.welcomeBoats; }
   /** What the interact button would do right now: 'Exit' | 'Pick' | 'Board' | 'Drink' | 'Fill' | null (nearest wins). */
+  /** Everything the interact press could do from here, as Interactions.list gives it (the controller steps through these: targetSelector.js). */
+  interactCandidates() {
+    const L = this.local;
+    if (!L) return [];
+    if (L.boat) return [{ kind: 'exit', label: 'Exit', dist: 0 }];
+    if (Downed.isDown(L)) return [];
+    const ally = Downed.findAlly(this.latestPlayers(), L, this.myId);
+    return (ally ? [ally] : []).concat(Interactions.list(this.map, this.latestBoats(), L, this.heldItemId(), this.latestAnimals(), this.myId, this.npcs, this.latestDrops()));
+  }
   interactHint(skip = []) { const a = this.interactAction(skip); return a ? a.label : null; }
   /** The same, as { kind, label }: the controller decides from the kind which button it belongs to (gamepadActions.js). */
   interactAction(skip = []) {
@@ -282,12 +300,12 @@ class ClientGame {
   /* ---- ponies: Ride and Leash have their own buttons (and keys) ---- */
   /** The Ride button's label when a pony of yours stands ready, else null. */
   rideHint() { const L = this.local; if (!L || L.boat || Downed.isDown(L)) return null; if (L.mount) return 'Dismount'; const r = findRide(L, this.latestAnimals(), this.myId); return r ? 'Ride' : null; }   // (in the saddle the same button reads Dismount)
-  requestRide() { if (this.rideHint()) this.net.sendCommand({ type: 'ride' }); else this.events.emit('notice', { to: this.myId, text: 'No pony of yours is close enough to ride' }); }
+  requestRide(animalId) { if (this.rideHint()) this.net.sendCommand({ type: 'ride', animal: animalId }); else this.events.emit('notice', { to: this.myId, text: 'No pony of yours is close enough to ride' }); }
   /** Z: get off the pony you ride, else get on the one beside you. */
-  toggleRide() { if (this.local && this.local.mount) this.requestDismount(); else this.requestRide(); }
+  toggleRide(animalId) { if (this.local && this.local.mount) this.requestDismount(); else this.requestRide(animalId); }
   /** The Leash button shows when a loose pony of yours is within reach. */
   leashHint() { const L = this.local; return L && !L.mount && !L.boat && Stable.leashTarget(this.latestAnimals(), L, this.myId, null) ? 'Leash' : null; }
-  leashPony() { if (this.local && !this.local.mount) this.net.sendCommand({ type: 'leashPony' }); }
+  leashPony(animalId) { if (this.local && !this.local.mount) this.net.sendCommand({ type: 'leashPony', animal: animalId }); }
   /** Do you own a pony (the Apple button is for them)? */
   hasPony() { return this.pets.some(p => !p.gentling); }
   /** A choice in the stable's menu. */
@@ -299,8 +317,7 @@ class ClientGame {
   deskPick(cmd) { this.net.sendCommand(Object.assign({ type: 'deskPick' }, cmd)); }                    // the stable desk's menu (ponyCare.js)
   _animalName(animal) { return animal.look ? PonyLook.describe(animal.look).name : AnimalDefs[animal.type].name; }
   /** Pressed the Let go button / U. Untying an animal you already own is safe; letting go of a catch opens the confirmation. */
-  requestRelease() {
-    const target = this.releaseTarget();
+  requestRelease(target = this.releaseTarget()) {
     if (!target) { if (this.local && this.local.mount) this.requestDismount(); return; }
     if (target.losesCatch) this.events.emit('confirmRelease', { id: target.animal.id, name: this._animalName(target.animal), need: AnimalDefs[target.animal.type].tameApples });
     else this.net.sendCommand({ type: 'release', animal: target.animal.id });
@@ -332,7 +349,7 @@ class ClientGame {
   commitBuild() {
     const target = this.buildTarget;
     this.buildCursor = null;
-    if (target && target.valid) this.net.sendCommand({ type: 'place', tx: target.tx, ty: target.ty, side: target.side, slot: this.selectedSlot });
+    if (target && target.valid) this.net.sendCommand({ type: 'place', tx: target.tx, ty: target.ty, side: target.side, slot: this.hand });
     else if (target) this.events.emit('notice', { to: this.myId, text: target.reason });
     this._refreshBuildTarget();
   }
@@ -370,8 +387,8 @@ class ClientGame {
 
   /* ---- fixed tick: predict locally, then send the same input to the server ---- */
   predict(rawInput) {
-    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, interact: this.interactQueued, power: this.powerQueued, lasso: this.lassoQueued || !!rawInput.lasso }));
-    this.interactQueued = false; this.powerQueued = 0; this.lassoQueued = false;
+    const input = sanitizeInput(Object.assign({}, rawInput, { slot: this.selectedSlot, hand: this.hand, interact: this.interactQueued, pick: this.interactQueued ? this.interactPick : '', power: this.powerQueued, lasso: this.lassoQueued || !!rawInput.lasso }));
+    this.interactQueued = false; this.interactPick = ''; this.powerQueued = 0; this.lassoQueued = false;
     this.prevLocal = clonePlayer(this.local);
     this._stepLocal(this.local, this.localBoat, input);
     this._tickCosmeticSwing(input);

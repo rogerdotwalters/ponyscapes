@@ -147,10 +147,10 @@ Object.assign(GameServer.prototype, {
     this._notice(id, `${t.name || 'Player'}: stable access ${level === 'default' ? 'default (feed, water, breed)' : level}`);
   },
   /** The Leash button: throw a leash on the pony of yours nearest to you (or at the point you aimed at). It then follows you and can be stabled. */
-  _leashPony(id) {
+  _leashPony(id, animalId) {
     const p = this.players[id];
     if (!p || p.down > 0 || p.hp <= 0 || p.asleep || p.mount) return;
-    const animals = this.animals.animals, a = Stable.leashTarget(animals, p, id, AimPoints[id]);
+    const animals = this.animals.animals, named = typeof animalId === 'string' && animals[animalId] ? { [animalId]: animals[animalId] } : animals, a = Stable.leashTarget(named, p, id, AimPoints[id]);      // (the controller names the pony it selected)
     if (!a) { this._notice(id, Object.values(animals).some(x => x.owner === id && x.leashed && sameGrid(x, p)) ? 'Your ponies are already on a leash' : 'No pony of yours is close enough to leash'); return; }
     const cap = Skills.leashCap(p.lv);
     if (this.animals.leashedCount(id) >= cap) { this._notice(id, `Your rope is full: ${cap} animals at most. Untie one first`); return; }

@@ -3,7 +3,7 @@
 const MENU_SECTIONS = [
   { id: 'inventory', glyph: '\uD83C\uDF92', label: 'Inventory', sub: 'Your pack and tool bar', key: 'I' },
   { id: 'crafting',  glyph: '\uD83D\uDD28', label: 'Crafting',  sub: 'Make tools, outfits, buildings', key: 'Q' },
-  { id: 'gear',      glyph: '\uD83D\uDC51', label: 'Wardrobe',  sub: 'Crown, outfit and cape', key: 'G' },
+  { id: 'gear',      glyph: '\uD83D\uDC51', label: 'Gear',      sub: 'Tools, clothes and bag', key: 'G' },
   { id: 'skills',    glyph: '\uD83D\uDCD6', label: 'Journal',   sub: 'Skills and attributes', key: 'J' },
   { id: 'treasure',  glyph: '\uD83D\uDDFA', label: 'Treasure',  sub: 'Maps you have read', key: '' },
   { id: 'map',       glyph: '\uD83E\uDDED', label: 'Map',       sub: 'The land around you', key: 'M' },

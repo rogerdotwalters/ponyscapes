@@ -9,7 +9,7 @@ const PAD_INDEX = { B: 0, A: 1, Y: 2, X: 3, L: 4, R: 5, ZL: 6, ZR: 7, MINUS: 8, 
 
 /** How each button is printed, by pad family. */
 const PAD_LABELS = {
-  nintendo: { A: 'A', B: 'B', X: 'X', Y: 'Y', L: 'L', R: 'R', ZL: 'ZL', ZR: 'ZR', MINUS: '−', PLUS: '+', LS: 'L3', RS: 'R3', UP: '▲', DOWN: '▼', LEFT: '◀', RIGHT: '▶', LSTICK: 'L Stick', RSTICK: 'R Stick', DPAD: 'D-Pad' },
+  nintendo: { A: 'A', B: 'B', X: 'X', Y: 'Y', L: 'L', R: 'R', ZL: 'ZL', ZR: 'ZR', MINUS: '−', PLUS: '+', LS: 'L3', RS: 'R3', UP: '▲', DOWN: '▼', LEFT: '◀', RIGHT: '▶', LSTICK: 'L Stick', RSTICK: 'R Stick', DPAD: 'D-Pad', UPDOWN: '\u25B2\u25BC' },
   xbox:     { A: 'B', B: 'A', X: 'Y', Y: 'X', L: 'LB', R: 'RB', ZL: 'LT', ZR: 'RT', MINUS: 'View', PLUS: 'Menu', LS: 'LS', RS: 'RS', UP: '▲', DOWN: '▼', LEFT: '◀', RIGHT: '▶', LSTICK: 'L Stick', RSTICK: 'R Stick', DPAD: 'D-Pad' },
   playstation: { A: '○', B: '✕', X: '△', Y: '□', L: 'L1', R: 'R1', ZL: 'L2', ZR: 'R2', MINUS: 'Create', PLUS: 'Options', LS: 'L3', RS: 'R3', UP: '▲', DOWN: '▼', LEFT: '◀', RIGHT: '▶', LSTICK: 'L Stick', RSTICK: 'R Stick', DPAD: 'D-Pad' }
 };
@@ -17,18 +17,18 @@ const PAD_LABELS = {
 /** What the buttons do, for the Controls window (Menu > Controls > Controller). `world`: while playing; `menu`: while a window is open. */
 const PAD_LAYOUT = [
   { button: 'LSTICK', world: 'Move', menu: '' },
-  { button: 'A',      world: 'Use your tool / Talk and shop / Enter a building / Pet', menu: 'Click where the pointer is' },
-  { button: 'B',      world: 'Pick, pick up and hold, feed, pet, board a boat', menu: 'Back (close the window)' },
+  { button: 'A',      world: 'Talk and shop / Enter a building / Pet', menu: 'Click where the pointer is' },
+  { button: 'B',      world: 'Pick, pick up and hold, feed, board a boat', menu: 'Back (close the window)' },
   { button: 'Y',      world: 'Untie or let go of an animal / Leash your pony', menu: '' },
   { button: 'X',      world: 'Mount / dismount your pony', menu: '' },
-  { button: 'ZR',     world: 'Throw the lasso', menu: '' },
+  { button: 'ZR',     world: 'Use the tool in hand: swing, chop, cast, till, throw the lasso', menu: '' },
   { button: 'R',      world: 'Open the stall, stable or building menu beside you (else the Town)', menu: '' },
   { button: 'L',      world: 'Fly / land (on a pegasus)', menu: 'Hold: the right stick scrolls and pans' },
   { button: 'ZL',     world: 'Pony power (the first one that is ready)', menu: '' },
   { button: 'MINUS',  world: 'Map', menu: 'Map' },
   { button: 'PLUS',   world: 'Menu', menu: 'Menu' },
   { button: 'RSTICK', world: '', menu: 'Move the pointer' },
-  { button: 'DPAD',   world: 'Change the tool in your hand (tool bar slot)', menu: 'Jump between buttons and slots' },
+  { button: 'DPAD',   world: 'Left / right: change tool. Up / down: step through the things around you (the bubble shows the one the buttons mean)', menu: 'Jump between buttons and slots' },
   { button: 'LS',     world: 'Bag (click the left stick)', menu: '' },
   { button: 'RS',     world: 'Journal (click the right stick)', menu: '' }
 ];

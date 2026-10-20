@@ -250,7 +250,7 @@ class LeashHandler {
   apply(id, target) {
     if (this.roundup().active(this.getPlayer(id))) { this.roundup().lassoApply(id, target); return; }
     const inventory = this.getInventory(id), a = this.animals.animals[target.ref], p = this.getPlayer(id), def = AnimalDefs[a.type];
-    const item = p.held, lasso = ItemDB.getLasso(item) || { tier: 1, chance: 0 }, fromSlot = p.lassoSwing && p.gear.lasso === item;   // thrown from the lasso slot (L), or held from the bar
+    const item = p.held, lasso = ItemDB.getLasso(item) || { tier: 1, chance: 0 }, fromSlot = p.gear.lasso === item;   // the lasso of the lasso slot (selected on the tool bar, or thrown with L), or one taken in hand from the Bag
     if (!fromSlot && !inventory.has(item, 1)) return;
     const mine = a.owner === id, need = def.pony ? (def.lassoTier || 1) : 1;
     if (!mine && def.pony && !ItemDB.lassoHolds(item, def)) {                           // a rarer pony slips out of a plain loop (or the wrong themed one)

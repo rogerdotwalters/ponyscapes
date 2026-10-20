@@ -132,7 +132,7 @@ Object.assign(GameServer.prototype, {
   /** The dye press: one of what you hold becomes a dye of its colour. */
   _press(id, p, action) {
     if (!this._roomPiece(p, action, d => d.press)) return;
-    const inventory = this.inventories[id], slot = p.sel | 0, s = inventory.slots[slot];
+    const inventory = this.inventories[id], slot = p.hand | 0, s = p.hand >= 0 ? inventory.slots[slot] : null;
     if (!s) { this._notice(id, 'Hold something to press it for dye'); return; }
     if (!Dyes.pressable(s.id)) { this._notice(id, ItemDefs[s.id].dye ? 'That is a dye already' : `A ${ItemDefs[s.id].name} is not something to press`); return; }
     const dye = Dyes.of(s.id), from = s.id;

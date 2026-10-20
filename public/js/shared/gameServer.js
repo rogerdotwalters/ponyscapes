@@ -205,6 +205,7 @@ class GameServer {
     if (!this.hostId) this.hostId = id;
     this.map.ensureAround(this.players[id].x, this.players[id].y, SERVER_STREAM_RADIUS);
     this.inventories[id] = createStarterInventory();
+    Wardrobe.autoEquip(this.players[id].gear, this.inventories[id]);            // the starter tools go into their tool slots
     this.progress.ensure(id); this.progressSent[id] = { value: -1 }; this.treasureMaps[id] = []; this.treasureRev[id] = 1; this.treasureSent[id] = 0;
     this.players[id].lv = this.progress.levels(id); this.players[id].maxHp = Skills.maxHp(this.players[id].lv); this.players[id].hp = this.players[id].maxHp;
     if (CONFIG.sim.testKit) this._giveStarterPony(id);
@@ -282,8 +283,8 @@ class GameServer {
       case 'devLasso': if (id === this.hostId) this._devLasso(id, cmd.item); break;                                                           // the host's lasso picker (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
       case 'ability': this._useAbility(id, cmd.id); break;
-      case 'ride': this._rideNearest(id); break;                                                              // the Ride button (its own button, interaction.js findRide)
-      case 'leashPony': this._leashPony(id); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
+      case 'ride': this._rideNearest(id, cmd.animal); break;                                                              // the Ride button (its own button, interaction.js findRide)
+      case 'leashPony': this._leashPony(id, cmd.animal); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)
       case 'vendorPick': this._vendorPick(id, cmd); break;                                                    // the pony vendor's menu (ponyTrade.js)
       case 'openStall': this._openStall(id, cmd); break;                                                      // the stall button: open that stall's menu (stableSystem.js)
       case 'stableAccess': this._setStableAccess(id, cmd); if (this.players[id]) { const p = this.players[id], hit = this._deskNear(p, cmd.fx, cmd.fy); if (hit) this._useDesk(id, p, { fx: cmd.fx, fy: cmd.fy }); } break;      // the host's stable access list (stableSystem.js)
@@ -358,7 +359,7 @@ class GameServer {
     const player = this.players[id];
     if (player.boat) return;                                       // no building from a boat
     if (gridOf(player)) { this._notice(id, 'You cannot build in here'); return; }       // (only the overworld is built on, for now)
-    const slotIndex = Number.isInteger(cmd.slot) ? sanitizeSlot(cmd.slot) : player.sel;
+    const slotIndex = Number.isInteger(cmd.slot) ? clamp(cmd.slot, 0, inventory.size - 1) : player.hand;       // (a building piece is taken in hand from the Bag)
     const itemId = inventory.itemIdAt(slotIndex), placeable = ItemDB.getPlaceable(itemId);
     if (!placeable || !Number.isInteger(cmd.tx) || !Number.isInteger(cmd.ty)) return;
     if (!CONFIG.sim.construction && StructureDefs[placeable.structure].layer !== 'station') { this._notice(id, 'Building walls, floors and fences is switched off'); return; }
@@ -532,7 +533,7 @@ class GameServer {
   _handleEquip(id, inventory, from) {
     const p = this.players[id], gear = p.gear;
     if (!Number.isInteger(from) || from < 0 || from >= inventory.size) return;
-    const item = inventory.itemIdAt(from), slot = item && Wardrobe.slotFor(item);          // (a lasso goes into the lasso slot)
+    const item = inventory.itemIdAt(from), slot = item && Wardrobe.slotFor(item);          // (a lasso goes into the lasso slot, an axe into the axe slot...)
     if (Bags.isPonyBag(item)) { this._ponyBagOn(id, inventory, from); return; }             // a pony bag: onto the pony you can reach
     if (slot === 'bag') { this._equipBag(id, inventory, from); return; }                     // a bigger bag: everything moves into it (packSystem.js)
     if (!slot) { if (item) this._notice(id, 'You cannot wear that'); return; }
@@ -549,7 +550,7 @@ class GameServer {
   _handleUnequip(id, inventory, slot) {
     const gear = this.players[id].gear, item = gear[slot];
     if (slot === 'bag') { if (item) this._notice(id, 'You always carry a bag: wear a bigger one to swap it'); return; }
-    if (!item || !(WardrobeSlots.includes(slot) || slot === 'lasso')) return;
+    if (!item || !(WardrobeSlots.includes(slot) || Wardrobe.isToolSlot(slot))) return;
     if (inventory.add(item, 1) > 0) { this._notice(id, 'Inventory full'); return; }
     gear[slot] = '';
     this.inventoryRev[id]++;
@@ -564,8 +565,9 @@ class GameServer {
 
   _heldFor(id, p, inventory, input) {
     p.sel = input.slot;
+    p.hand = Number.isInteger(input.hand) && input.hand >= 0 && inventory.itemIdAt(input.hand) ? input.hand : -1;      // an item taken in hand from the Bag (seeds, food, building pieces, the shovel...)
     if (p.lassoSwing && p.gear.lasso) return p.gear.lasso;             // throwing the lasso from its own slot (L)
-    return inventory.itemIdAt(p.sel);
+    return Wardrobe.heldFor(p.gear, p.sel, p.hand, inventory);
   }
 
   /* ---- health ---- */
@@ -698,7 +700,7 @@ class GameServer {
       this._useCarriedAnimal(id, p, inventory, input, TICK_DT);
       this._useItem(id, p, inventory, input);
     }
-    if (input.interact) this._interact(id, p);
+    if (input.interact) { p.pick = input.pick || ''; this._interact(id, p); }
     if (input.power) this._useRarityAbility(id, p, input.power - 1);
   }
 
@@ -722,7 +724,7 @@ class GameServer {
       if (spot) BoatSystem.leave(p, boat, spot); else this._notice(id, 'No shore nearby');
       return;
     }
-    const action = Interactions.find(map, outside ? this.boats : {}, p, p.held, this.animals.animals, id, this.npcs.visible(), this.drops);   // (boats are in the overworld; a villager is on their own grid: a shopkeeper in the shop's room)
+    const action = Interactions.choose(Interactions.list(map, outside ? this.boats : {}, p, p.held, this.animals.animals, id, this.npcs.visible(), this.drops), p.pick);   // (the one the player selected, else the nearest; boats are in the overworld; a villager is on their own grid: a shopkeeper in the shop's room)
     if (!action) return;
     if (action.kind === 'dismount') this._dismount(id, p);
     else if (action.kind === 'pick') this._pickUp(id, action.forage);
@@ -858,10 +860,11 @@ class GameServer {
 
   /* ---- riding ---- */
   /** The Ride button: get on the nearest loose pony of yours. */
-  _rideNearest(id) {
+  _rideNearest(id, animalId) {
     const p = this.players[id];
     if (!p || p.down > 0 || p.hp <= 0 || p.asleep || p.mount || p.boat || p.flying) return;
-    const found = findRide(p, this.animals.animals, id);
+    const pool = typeof animalId === 'string' && this.animals.animals[animalId] ? { [animalId]: this.animals.animals[animalId] } : this.animals.animals;       // (the controller names the pony it selected)
+    const found = findRide(p, pool, id);
     if (found) this._mount(id, p, found.animal); else this._notice(id, 'No pony of yours is close enough to ride (a pony in a stall must be taken out first)');
   }
   _mount(id, p, animal) {

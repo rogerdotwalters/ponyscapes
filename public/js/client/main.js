@@ -97,7 +97,7 @@ function launch(choice, query) {
     const energyBar = new VitalBar({ root: $('energyBar'), fill: $('energyFill'), label: $('energyLabel'), config: CONFIG.sim.energy, words: { ok: 'Energetic', low: 'Tired', empty: 'Exhausted!' } });
     const thirstBar = new VitalBar({ root: $('thirstBar'), fill: $('thirstFill'), label: $('thirstLabel'), config: CONFIG.sim.thirst, words: { ok: 'Hydrated', low: 'Thirsty', empty: 'Dehydrated!' } });
     const clockUI = new ClockUI({ root: $('seasonBar').querySelector('.sbClock') }), seasonUI = new SeasonUI({ root: $('seasonBar') });
-    const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), body: $('invBody'), closeButton: $('invClose'), game, actions: { label: $('invPicked'), use: $('invUse'), drop1: $('invDrop1'), dropAll: $('invDropAll'), destroy: $('invDestroy') } });
+    const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), body: $('invBody'), closeButton: $('invClose'), game, actions: { label: $('invPicked'), use: $('invUse'), hold: $('invHold'), drop1: $('invDrop1'), dropAll: $('invDropAll'), destroy: $('invDestroy') } });
     const coinBagUI = new CoinBagUI({ panel: $('coinPanel'), canvas: $('coinCanvas'), count: $('coinCount'), breakdown: $('coinBreakdown'), mergeButton: $('coinMerge'), game, camera: renderer.camera });          // (money)
     const ponyBagUI = new CoinBagUI({ kind: 'pony', panel: $('ponyBagPanel'), canvas: $('ponyBagCanvas'), count: $('ponyBagCount'), breakdown: $('ponyBagBreakdown'), game, camera: renderer.camera });      // (pony coins: a bag of their own)
     const gardenUI = new GardenUI({ panel: $('gardenPanel'), canvas: $('gardenCanvas'), seedList: $('gardenSeedList'), toolBar: $('gardenTools'), pouchHost: $('gardenPouches'), title: $('gardenTitle'), hint: $('gardenHint'), closeButton: $('gardenClose'), game, requestOpen: () => panels.open('garden') });
@@ -171,6 +171,7 @@ function launch(choice, query) {
     bus.on('toggleGear', () => panels.toggle('gear'));
     bus.on('togglePonies', () => panels.toggle('ponies'));
     bus.on('toggleJournal', () => panels.toggle('journal'));
+    document.addEventListener('click', e => { const tab = e.target.closest('.panTabs button'); if (tab) panels.open(tab.dataset.go); });      // Bag | Gear: two tabs of one window
     bus.on('toggleMap', () => panels.toggle('map'));
     bus.on('toggleMenu', () => panels.toggle('menu'));            // the controller's + button
     padActions.panels = panels; padActions.mapUI = mapUI;
@@ -197,6 +198,7 @@ function launch(choice, query) {
     game.events.on('gearChanged', () => layout.update());
     bus.on('toggleCrafting', () => panels.toggle('crafting'));
     bus.on('closePanels', () => { panels.closeAll(); emoteUI.close(); });
+    game.events.on('closePanels', () => bus.emit('closePanels'));
     bus.on('rotateBuild', () => game.rotateBuild());
     bus.on('interact', () => game.requestInteract());
     bus.on('toggleDebug', () => debug.toggle());
@@ -224,7 +226,7 @@ function launch(choice, query) {
     if (weatherParam && adapter.server && Weather.TYPES[weatherParam]) setTimeout(() => adapter.server.weather.force(weatherParam), 300);     // ?weather=thunderstorm: start under that sky (testing)
     window.ponyscapes = { pad, padActions, coinBagUI, ponyBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
 
-    let stallShown = null, rideShown = null, leashShown = null, appleShown = null, lassoShown = null, attackShown = false, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
+    let stallShown = null, rideShown = null, leashShown = null, appleShown = null, lassoShown = null, attackShown = null, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
     /** The ridden pony's rarity abilities: a strip above the vitals (desktop) and the power button (touch), with cooldowns. */
     const showAbilities = () => {
       const list = game.abilityState(), text = list.map(a => `${a.ability.glyph} ${a.ability.name}${a.cooldown > 0 ? ' ' + Math.ceil(a.cooldown) + 's' : ''}`);
@@ -255,8 +257,8 @@ function launch(choice, query) {
         const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health
         healthBar.update(game.local.down > 0 ? game.local.downHp : game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); energyBar.update(game.local.energy === undefined ? CONFIG.sim.energy.max : game.local.energy, game.local.asleep ? 'resting' : 'normal'); clockUI.update(game.hour()); seasonUI.update(Seasons.at(game.clockTick), game.weather); sleepUI.update(); downedUI.update(); roundupUI.update(); appleButton.update();
         craftingUI.tick(frameMs); townUI.tick(frameMs); dialogueUI.tick(frameMs); puzzleUI.tick(frameMs); shopUI.tick(frameMs); posterUI.tick(); showAbilities();
-        const held = ItemDB.getTool(game.heldItemId()), armed = !!held && WEAPON_KINDS.includes(held.kind);       // a weapon in hand: the Use button becomes Attack
-        if (armed !== attackShown) { attackShown = armed; $('btnAct').textContent = armed ? 'Attack' : 'Use'; $('btnAct').classList.toggle('attack', armed); }
+        const heldNow = game.heldItemId(), heldTool = ItemDB.getTool(heldNow), armed = !!heldTool && WEAPON_KINDS.includes(heldTool.kind);       // the action button is the tool button: the picture of what is in hand, and what it does (Chop, Cast, Attack, Till, Lasso...)
+        if (heldNow !== attackShown) { attackShown = heldNow; $('btnAct').innerHTML = (heldNow ? `<span class="toolIcon" style="background-image:url(${ItemIcons.url(heldNow)})"></span>` : '') + `<span>${toolVerb(heldNow)}</span>`; $('btnAct').classList.toggle('attack', armed); $('btnAct').title = heldNow && ItemDefs[heldNow] ? ItemDefs[heldNow].name : 'Nothing in hand'; }
         const showRotate = !!game.buildTarget;                       // context buttons only show when they do something
         if (showRotate !== rotateShown) { rotateShown = showRotate; $('btnRot').style.display = showRotate ? '' : 'none'; }
         const ability = game.abilityHint(), abilityKey = ability ? ability.label + (ability.ready ? '+' : '-') : '';                 // the Fly button: only on a pegasus or alicorn
@@ -272,7 +274,7 @@ function launch(choice, query) {
         const hasPony = game.hasPony();                                                                                       // the Apple and Lasso buttons: only for someone who has a pony / a lasso
         if (hasPony !== appleShown) { appleShown = hasPony; $('btnApple').style.display = hasPony ? '' : 'none'; }
         const hasLasso = !!(game.local && game.local.gear && game.local.gear.lasso);
-        if (hasLasso !== lassoShown) { lassoShown = hasLasso; $('btnLasso').style.display = hasLasso ? '' : 'none'; }
+        if (lassoShown !== false) { lassoShown = false; $('btnLasso').style.display = 'none'; }                                    // (the lasso is a tool slot now: the tool button throws it)
         const stall = game.stallHint(), stallKey = stall ? stall.name : '';                                                  // the stall button: wears the name of the stall beside you
         if (stallKey !== stallShown) { stallShown = stallKey; $('btnStall').style.display = stall ? '' : 'none'; $('btnStall').textContent = stallKey; }
         const interactHint = game.interactHint($('touchUI').hidden ? [] : ['stall']);
