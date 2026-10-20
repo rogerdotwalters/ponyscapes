@@ -1,0 +1,539 @@
+'use strict';
+/* SERVER-SIDE wildlife: spawning, simple AI (idle -> wander, flee from players, come to food), taming (leash, pets that
+ * follow or stay near home), damage, drops, respawn.
+ * Animals only think while a player is within ANIMAL_ACTIVE_RADIUS, so a big world costs nothing.
+ * GRIDS: every animal lives on one grid (a.grid: '' the overworld, or an instance such as a cave). It only sees, chases and is reached by players
+ * on the same grid, and moves through that grid's World (deps.mapOf). */
+const ANIMAL_ACCEL = 14, ANIMAL_TURN_RATE = 8, HURT_SPEED_FACTOR = 0.75;
+/** SENSES: how far an animal notices a player. Everyone always moves at full speed (there is no sneaking), so it is the ANIMAL and the PLAYER
+ *  that decide it: an animal's own senses (its kind's `detect`: standing still or moving) grow with its level, and a player's Dexterity and
+ *  Animal Friendship let them get closer before it notices. All of it is tuned on the Admin page (GameSettings). */
+const AnimalSenses = {
+  /** The animal's senses: 1 at level 1, a little sharper every level. */
+  sharpness: level => (GameSettings.values.animalSense / 100) * (1 + GameSettings.values.senseLevelScale / 100 * Math.max(0, (level || 1) - 1)),
+  /** How much of an animal's senses a player's skills take away: 0 (none) up to the cap. */
+  stealth(lv) {
+    const V = GameSettings.values, dex = Skills._a(lv, 'dexterity') - 1, friend = Skills._s(lv, 'animal_friendship') - 1;
+    return Math.min(V.stealthCap / 100, (dex * V.stealthDex + friend * V.stealthFriend) / 1000);
+  },
+  /** How far (tiles) this animal notices this player. */
+  range(a, def, h) { return def.detect[h.state === 'idle' ? 'idle' : 'walk'] * AnimalSenses.sharpness(a.level) * (1 - AnimalSenses.stealth(h.lv)); },
+  /** How fast a fleeing animal runs (ponies use their kind's level curve instead). */
+  flee: (def, level) => def.fleeSpeed * (1 + GameSettings.values.fleeLevelScale / 100 * Math.max(0, (level || 1) - 1))
+};
+
+/** How an animal reacts to food in a player's hand: { radius, trust, approach } or null. Earth ponies ADORE apples:
+ *  they notice them from much farther away, trust you for longer and trot up faster. Charisma widens everyone's trust. */
+function lureFor(def, itemId, levels, buffs) {
+  if (!def.lure || !ItemDB.getFood(itemId) || (def.lureItems && !def.lureItems.includes(itemId))) return null;      // (some only come for one thing: a lost cub for fish)
+  const charm = Skills.trustFactor(levels) * (1 + ((buffs && buffs.friendship) || 0) / 100);     // Warm Heart ponies: animals trust you from farther
+  if (def.id === 'pony_earth' && ItemDB.isApple(itemId)) return { radius: LURE_RADIUS * 1.8 * charm, trust: TRUST_SECONDS * 2, approach: 2.2 };
+  return { radius: LURE_RADIUS * charm, trust: TRUST_SECONDS, approach: 1.5 };
+}
+
+const ROAM_RADIUS = 16;                                     // how far a pony that was let out wanders from the stable door
+const def_radius = a => (AnimalDefs[a.type] ? AnimalDefs[a.type].radius : 0.3);
+
+class AnimalSystem {
+  /** @param {{map, mapOf:(animal)=>World, rng, getTick, emit, damagePlayer:(id,amount)=>void, getLights:()=>Array}} deps  (map: the overworld) */
+  constructor(deps) { Object.assign(this, deps); this.animals = {}; this.nodes = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; this.active = null; if (!this.mapOf) this.mapOf = () => this.map; }
+
+  /** @param {number} [gene] decides a pony's look (a chunk's herd always looks the same)
+   *  @param {{level?:number, variant?:number, grid?:string, nodeId?:string}} [opts] born level (default: from the distance to the origin), pony variety (default: from the biome here), grid ('' = overworld) */
+  spawn(type, x, y, gene, opts = {}) {
+    const def = AnimalDefs[type], id = 'a' + this.nextId++, grid = opts.grid || '', map = this.mapOf({ grid });
+    const level = opts.level !== undefined ? opts.level : AnimalLevels.roll(type, x, y, this.rng(), map.layers);
+    const variant = def.pony ? (opts.variant !== undefined ? opts.variant : PonyLook.variantOf(map.biome(Math.floor(x), Math.floor(y)))) : 0;
+    let look = def.pony ? PonyLook.fromGene(gene !== undefined ? gene : Math.floor(this.rng() * 2147483647), variant, def.rarity) : null;   // its rarity is rolled at birth (rarity.js)
+    if (look && opts.rarity) look = PonyLook.withRarity(look, opts.rarity);
+    const maxHp = Math.max(1, Math.round(def.hp * AnimalLevels.hpFactor(level)));
+    this.animals[id] = new Animal(id, type, x, y, { level, maxHp, facing: this.rng() * Math.PI * 2, timer: 1 + this.rng() * 4, look, nodeId: opts.nodeId });
+    if (grid) this.animals[id].grid = grid;
+    return id;
+  }
+
+  /** Found an animal home at a chunk's node (js/shared/world.js: chunk.animalNode) and move its animals in. Returns the node. */
+  addNode(key, n, members) {
+    const node = this.nodes[key] = { id: key, type: n.type, x: n.x, y: n.y, max: n.count, refill: [] };
+    for (const m of members) this.spawn(m.type, m.x, m.y, m.gene, { variant: m.variant, level: m.level, nodeId: key });
+    return node;
+  }
+  /** A home lost an animal (hunted, picked up, tamed): it will be replaced after a while. */
+  _vacate(a) {
+    const node = a.nodeId && this.nodes[a.nodeId];
+    a.nodeId = '';
+    if (node) node.refill.push(this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS));
+  }
+  /** Think + move every active animal, then handle respawns. `humans` are the player objects animals react to. */
+  update(tick, humans) {
+    const byGrid = {};                                                                   // an animal only reacts to people on its own grid
+    for (const h of humans) (byGrid[gridOf(h)] = byGrid[gridOf(h)] || []).push(h);
+    const moved = [];                                                                    // the animals that moved this tick (they push each other apart below)
+    for (const id in this.animals) {
+      const a = this.animals[id], near = byGrid[gridOf(a)];
+      if (a.game) continue;                                                              // a minigame's animal: its system moves it (roundupSystem.js)
+      if (a.shornUntil && tick >= a.shornUntil) a.shornUntil = 0;                       // its wool has grown back
+      if (a.rider || !near || !near.some(h => Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_ACTIVE_RADIUS)) continue;     // a ridden pony is steered by its rider
+      const def = AnimalDefs[a.type];
+      this.active = a;                                                                   // (what it does is shown on its grid: see GameServer's events)
+      this._think(a, def, near, TICK_DT);
+      this._move(a, def, TICK_DT);
+      moved.push(a);
+    }
+    this._separate(moved, TICK_DT);
+    this.active = null;
+    this._runRespawns(tick, byGrid[''] || []);
+    if (tick % 30 === 0) this._runNodes(tick, byGrid[''] || []);
+  }
+
+  /** Who is in charge of this animal this tick: its owner / captor (a pet), or the behaviour its data names. */
+  _think(a, def, humans, dt) {
+    if (a.owner || a.captor) { this._thinkPet(a, def, humans, dt); return; }
+    if (a.appeased || a.delivered || a.fed) {                                     // calmed for good / home again / fed and waiting to be picked up: no running off
+      if (a.state === 'flee' || a.state === 'chase') { a.state = 'idle'; a.timer = 1; }
+      if (a.delivered && a.home && Math.hypot(a.home.x - a.x, a.home.y - a.y) > 3) { a.state = 'idle'; this._steerAlong(a, a.home.x - a.x, a.home.y - a.y, def.wanderSpeed); return; }
+      this._wander(a, def, dt); return;
+    }
+    const wants = def.wants;
+    if (wants && def.hostile) {                                                   // someone holding what it wants (its cub): it does not attack them
+      const calmer = humans.find(h => wants.items.includes(h.held) && Math.hypot(h.x - a.x, h.y - a.y) < 10);
+      if (calmer) { a.state = 'idle'; this._steerAlong(a, 0, 0, 0); a.facing = Math.atan2(calmer.y - a.y, calmer.x - a.x); return; }
+    }
+    if (def.hostile) {
+      if (this.hostilesOff) {                                                    // the host switched monsters off: they only wander, never chase or attack
+        if (a.state !== 'wander') { a.state = 'idle'; if (!(a.timer > 0)) a.timer = 1; }
+        this._wander(a, def, dt); return;
+      }
+      humans = humans.filter(h => !h.flying);                                    // nothing on the ground can reach a rider in the air
+    }
+    Behaviors.require(def.behavior || 'timid').think(this, a, def, humans, dt);
+  }
+
+  _wander(a, def, dt) {
+    a.timer -= dt;
+    if (a.state === 'idle') {
+      this._steerAlong(a, 0, 0, 0);
+      if (a.timer <= 0) this._chooseWanderTarget(a);
+    } else {                                                           // wander (or a leftover chase)
+      const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
+      const moving = Math.hypot(a.vx, a.vy) > 0.25 * def.wanderSpeed;
+      a.stuckT = moving ? 0 : a.stuckT + dt;
+      if (d < 0.2 || a.timer <= 0 || a.stuckT > 0.8) { a.state = 'idle'; a.timer = 2 + this.rng() * 4; a.stuckT = 0; }
+      else this._steerAlong(a, dx, dy, def.wanderSpeed);
+    }
+  }
+
+  /** A tamed animal: on a leash it follows its owner; otherwise it potters about near the spot it was let go and never panics.
+   *  A CAUGHT wild pony (captor, not yet owner) follows the same way and the rope NEVER breaks: it is gentled by feeding it fruit (anywhere), while a rainbow bar fills. */
+  _thinkPet(a, def, humans, dt) {
+    if (!a.owner && !a.captor) return;
+    if (a.stall) { this._thinkStalled(a, def, dt); return; }
+    if (a.roam) { a.hurt = false; this._wander(a, def, dt); return; }                  // let out to roam the village (stableSystem.js)
+    const leaderId = a.owner || a.captor, owner = humans.find(h => h.id === leaderId);
+    if (!a.leashed) {
+      if (a.main && owner && !owner.boat) { this._follow(a, def, owner, dt, MAIN_PONY_FOLLOW_DISTANCE); a.home = { x: a.x, y: a.y }; return; }   // your main pony goes where you go
+      a.hurt = false; this._wander(a, def, dt); return;
+    }
+    if (!owner || !sameGrid(owner, a)) {                                               // the leader is out of reach for now (another room, a boat): the rope holds, it waits where it stands
+      a.state = 'idle'; this._steerAlong(a, 0, 0, 0);
+      return;
+    }
+    if (a.captor) { this._thinkCaught(a, def, owner, dt); return; }
+    this._follow(a, def, owner, dt, LEASH_FOLLOW_DISTANCE);
+  }
+  /** A pony in a stall of the stable (stableSystem.js): it potters about inside its own pen and never leaves it, even through an open gate. */
+  _thinkStalled(a, def, dt) {
+    if (!a.stallBox) a.stallBox = Stable.boxOfKey(a.stall);
+    if (!a.stallBox) {                                                                                  // its stall is gone (the stable was laid out again): it is let out beside the doormat
+      const k = Stable.parseKey(a.stall), plan = k && Grids.plan(k.grid), ex = plan && plan.layout && plan.layout.exit;
+      delete a.stall; delete a.stallAt; delete a.stallBox; a.vx = a.vy = 0; a.state = 'idle'; a.leashed = false;
+      if (ex) { a.x = ex[0] + 0.5; a.y = ex[1] - 1.5; a.home = { x: a.x, y: a.y }; }
+      return;
+    }
+    a.hurt = false; this._wander(a, def, dt);
+  }
+  /** Keep up with someone: trot after them, stop a little way off, and catch up at once if left far behind or stuck behind something. */
+  _follow(a, def, owner, dt, distance) {
+    const d = Math.hypot(owner.x - a.x, owner.y - a.y);
+    a.stuckT = (d > distance * 1.7 && Math.hypot(a.vx, a.vy) < 0.3) ? a.stuckT + dt : 0;
+    if (d > LEASH_TELEPORT_DISTANCE || a.stuckT > LEASH_STUCK_SECONDS) {
+      a.x = owner.x - Math.cos(owner.facing) * 1.2; a.y = owner.y - Math.sin(owner.facing) * 1.2; a.stuckT = 0; a.vx = a.vy = 0;
+      return;
+    }
+    a.state = d > distance ? 'follow' : 'idle';
+    this._steerAlong(a, owner.x - a.x, owner.y - a.y, d > distance ? Math.min(def.followSpeed || def.wanderSpeed * 3, 0.5 + d * 1.5) : 0);
+  }
+
+  /** A CAUGHT wild pony on the lasso. It pulls away from you (harder the less calm it is) until the rope reaches ROPE_LENGTH and comes under tension:
+   *  then player and pony drag each other (the stronger one gives less ground) and the rope's integrity wears down. Stay within ROPE_CALM_RANGE and the
+   *  calm bar fills (faster with Animal Friendship, slower for a higher-level pony); full calm settles it as your pet, an empty rope snaps and it bolts. */
+  _thinkCaught(a, def, owner, dt) {
+    if (a.rope === undefined) a.rope = 1;
+    if (a.calm === undefined) a.calm = 0;
+    const dx = a.x - owner.x, dy = a.y - owner.y, d = Math.hypot(dx, dy) || 1e-6;
+    const skittish = 1 - Math.min(1, a.calm / 0.75);                                   // a calm pony stops straining at the rope
+    if (skittish > 0.05) {                                                             // pulling away, a little off the straight line so it circles
+      const side = (a.id.length % 2 ? 1 : -1) * 0.6 * Math.sin(this.getTick() / 25 + a.level);
+      const ux = dx / d, uy = dy / d, tx = ux - uy * side, ty = uy + ux * side;
+      a.state = 'flee'; this._steerAlong(a, tx, ty, (def.fleeSpeed || def.wanderSpeed * 3) * 0.6 * skittish);
+    } else { a.state = 'idle'; this._steerAlong(a, 0, 0, 0); }
+    const taut = d > ROPE_LENGTH;
+    if (taut) {
+      const over = d - ROPE_LENGTH, handling = Skills._s(owner.lv, 'horsemanship');
+      const ponyPower = 4 + a.level * 1.5 * (0.5 + 0.5 * skittish), playerPower = 6 + handling;
+      const onPlayer = owner.boat ? 0 : clamp(ponyPower / (ponyPower + playerPower), 0.15, 0.85);   // the stronger side is dragged less
+      const ux = dx / d, uy = dy / d, map = this.mapOf(a);
+      a.x -= ux * over * (1 - onPlayer); a.y -= uy * over * (1 - onPlayer);
+      owner.x += ux * over * onPlayer; owner.y += uy * over * onPlayer;
+      resolveCollisions(map, a, def.radius);
+      if (!owner.flying) resolveCollisions(this.mapOf(owner), owner, CONFIG.sim.playerRadius || 0.3);
+      a.vx *= 0.5; a.vy *= 0.5;
+      a.rope = Math.max(0, a.rope - ROPE_WEAR * (0.5 + 0.5 * skittish) * (1 + a.level / (10 + Skills._s(owner.lv, 'horsemanship'))) * dt);
+      if (a.rope <= 0) { const captor = a.captor; this.releaseWild(a.id); if (this.onRopeSnapped) this.onRopeSnapped(captor, a); return; }
+    } else a.rope = Math.min(1, a.rope + ROPE_MEND * dt);
+    if (d <= ROPE_CALM_RANGE) {                                                        // near enough: it calms down
+      a.calm = Math.min(1, a.calm + dt * this.calmRate(a, owner.lv));
+      if (a.calm >= 1 - 1e-6) this._settle(a);
+    }
+  }
+  /** Calm bar per second: Animal Friendship soothes it, a higher-level pony takes longer. */
+  calmRate(a, levels) {
+    const friendship = 1 + 0.04 * (Skills._s(levels, 'animal_friendship') - 1), seconds = ROPE_CALM_SECONDS + 1.5 * ((a.level || 1) - 1);
+    return friendship / seconds;
+  }
+  /** The bar is full: the pony becomes the captor's own pet, and stays on the rope (it is already counted there) until they untie it. */
+  _settle(a) {
+    const captor = a.captor;
+    a.owner = captor; a.captor = ''; a.leashed = true; a.home = { x: a.x, y: a.y }; a.captureT = 0; a.warned = false; a.state = 'idle'; a.hp = a.maxHp; a.calm = 0; a.rope = 1;
+    if (this.onSettled) this.onSettled(captor, a);
+  }
+
+  _chooseWanderTarget(a) {
+    const angle = this.rng() * Math.PI * 2, dist = 1.5 + this.rng() * 4;
+    let tx = a.x + Math.cos(angle) * dist, ty = a.y + Math.sin(angle) * dist;
+    const node = a.nodeId && this.nodes[a.nodeId];
+    if (node) {                                                                        // a wild animal keeps to its home (and heads back if it was chased far off)
+      const nx = tx - node.x, ny = ty - node.y, nd = Math.hypot(nx, ny), far = Math.hypot(a.x - node.x, a.y - node.y) > NODE_ROAM_RADIUS + NODE_ROAM_PULL;
+      if (far) { tx = node.x + (a.x - node.x) * 0.5; ty = node.y + (a.y - node.y) * 0.5; }
+      else if (nd > NODE_ROAM_RADIUS) { tx = node.x + nx / nd * NODE_ROAM_RADIUS; ty = node.y + ny / nd * NODE_ROAM_RADIUS; }
+    }
+    if (a.stall && a.stallBox) { const b = a.stallBox, r = def_radius(a); tx = clamp(tx, b.x0 + r, b.x1 - r); ty = clamp(ty, b.y0 + r, b.y1 - r); }       // (a stalled pony keeps to its pen)
+    else if (a.roam) {                                                                 // a pony let out: it roams the village area only
+      const hx = tx - a.home.x, hy = ty - a.home.y, hd = Math.hypot(hx, hy);
+      if (hd > ROAM_RADIUS) { tx = a.home.x + hx / hd * ROAM_RADIUS; ty = a.home.y + hy / hd * ROAM_RADIUS; }
+      tx = clamp(tx, Village.area.x0 + 1, Village.area.x1 - 1); ty = clamp(ty, Village.area.y0 + 1, Village.area.y1 - 1);
+    }
+    else if (a.owner && a.home) {                                                      // pets stay near home
+      const hx = tx - a.home.x, hy = ty - a.home.y, hd = Math.hypot(hx, hy);
+      if (hd > PET_HOME_RADIUS) { tx = a.home.x + hx / hd * PET_HOME_RADIUS; ty = a.home.y + hy / hd * PET_HOME_RADIUS; }
+    }
+    a.tx = tx; a.ty = ty; a.state = 'wander'; a.timer = 8; a.stuckT = 0;
+  }
+
+  _steerAlong(a, dx, dy, speed) {
+    const d = Math.hypot(dx, dy) || 1;
+    let ux = dx / d, uy = dy / d;
+    if (speed > 0 && d > 1e-6) [ux, uy] = isoNormalize(ux, uy);                      // same constant ON-SCREEN speed in every direction, like the player
+    a.tvx = ux * speed; a.tvy = uy * speed;
+  }
+
+  _move(a, def, dt) {
+    let pace = def.pony ? 1 : AnimalLevels.speedFactor(a.level);          // higher-level animals are a little quicker (a pony's level is already in its speed curve)
+    pace *= GameSettings.speed();                                        // (the Admin page's global speed)
+    if (a.slowT > 0) { a.slowT -= dt; pace *= a.slowF || 1; }             // chilled by a Frost Nova
+    accelerateToward(a, (a.tvx || 0) * pace, (a.tvy || 0) * pace, ANIMAL_ACCEL * dt);
+    a.x += a.vx * dt; a.y += a.vy * dt;
+    resolveCollisions(this.mapOf(a), a, def.radius);                    // water, trees, walls (of its own grid): animals stay out of them too
+    if (a.stall && a.stallBox) { const b = a.stallBox; a.x = clamp(a.x, b.x0 + def.radius, b.x1 - def.radius); a.y = clamp(a.y, b.y0 + def.radius, b.y1 - def.radius); }   // (never out of its pen)
+    else if (a.roam && !gridOf(a)) { const v = Village.area; a.x = clamp(a.x, v.x0 + 1, v.x1 - 1); a.y = clamp(a.y, v.y0 + 1, v.y1 - 1); }
+    if (Math.hypot(a.vx, a.vy) > 0.05) turnToward(a, Math.atan2(a.vy, a.vx), ANIMAL_TURN_RATE * dt);
+  }
+
+  /** Soft collisions: animals are not solid to each other, they lean on each other and drift apart. Two free animals push apart as soon as their bodies
+   *  touch; while one is being PULLED (on a rope, or following its owner) the bodies may overlap about a third before they push, and more gently, so
+   *  a string of led ponies can bunch up at a gate. Once the pulling stops the full push returns and they ease apart. Ridden animals are left alone
+   *  (their rider steers them). Positions only: walls, water and trees still win (resolveCollisions). */
+  _separate(list, dt) {
+    if (list.length < 2) return;
+    const cell = new Map(), CELL = 2, pulled = a => !!(a.leashed || a.captor || a.state === 'follow');
+    for (const a of list) {
+      if (a.rider) continue;
+      const key = gridOf(a) + '|' + Math.floor(a.x / CELL) + ',' + Math.floor(a.y / CELL);
+      (cell.get(key) || cell.set(key, []).get(key)).push(a);
+    }
+    const push = new Map();                                                              // animal -> [dx, dy] to add (gathered first so the order does not matter)
+    const add = (a, dx, dy) => { const v = push.get(a) || push.set(a, [0, 0]).get(a); v[0] += dx; v[1] += dy; };
+    for (const a of list) {
+      if (a.rider) continue;
+      const g = gridOf(a), cx = Math.floor(a.x / CELL), cy = Math.floor(a.y / CELL), ra = AnimalDefs[a.type].radius;
+      for (let ix = cx - 1; ix <= cx + 1; ix++) for (let iy = cy - 1; iy <= cy + 1; iy++) {
+        for (const b of cell.get(g + '|' + ix + ',' + iy) || []) {
+          if (b === a || a.id >= b.id) continue;                                         // (each pair once)
+          let dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+          const soft = pulled(a) || pulled(b), contact = (ra + AnimalDefs[b.type].radius) * (soft ? 0.65 : 1);
+          if (d >= contact) continue;
+          if (d < 1e-4) { const ang = ((a.id.length * 7 + b.id.length * 13 + a.id.charCodeAt(a.id.length - 1)) % 628) / 100; dx = Math.cos(ang); dy = Math.sin(ang); d = 1; }
+          const overlap = contact - Math.hypot(dx, dy), k = Math.min(0.5, (soft ? 4 : 9) * dt) * overlap * 0.5;
+          const ux = dx / d, uy = dy / d;
+          add(a, -ux * k, -uy * k); add(b, ux * k, uy * k);
+        }
+      }
+    }
+    for (const [a, [dx, dy]] of push) {
+      a.x += dx; a.y += dy;
+      resolveCollisions(this.mapOf(a), a, AnimalDefs[a.type].radius);
+    }
+  }
+
+  /** Nearest animal whose body is within `reach` of the player: { id, animal, gap } or null. */
+  nearestInReach(p, reach) {
+    let best = null;
+    for (const id in this.animals) {
+      const a = this.animals[id], gap = Math.hypot(a.x - p.x, a.y - p.y) - AnimalDefs[a.type].radius;
+      if (this._huntable(a) && sameGrid(a, p) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
+    }
+    return best;
+  }
+
+  /** Every animal that is prey, within `reach` of the player's edge and inside `halfAngle` of where they face: [{ id, animal }] (a sword sweep). */
+  inArc(p, reach, halfAngle) {
+    const out = [];
+    for (const id in this.animals) {
+      const a = this.animals[id], gap = Math.hypot(a.x - p.x, a.y - p.y) - AnimalDefs[a.type].radius;
+      if (!this._huntable(a) || !sameGrid(a, p) || gap > reach) continue;
+      if (gap > 0.3 && Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing)) > halfAngle) continue;
+      out.push({ id, animal: a });
+    }
+    return out;
+  }
+
+  /** Pets and protected species (ponies) are never prey. */
+  _huntable(a) { return !a.owner && !a.game && !AnimalDefs[a.type].protected; }
+
+  /** Nearest animal you could put a leash on: tameable, and not somebody else's. */
+  nearestTameable(p, reach) {
+    let best = null;
+    for (const id in this.animals) {
+      const a = this.animals[id], def = AnimalDefs[a.type], gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
+      if (def.tameable && !a.game && sameGrid(a, p) && !a.captor && !a.rider && (!a.owner || (a.owner === p.id && !a.leashed)) && gap <= reach && (!best || gap < best.gap)) best = { id, animal: a, gap };
+    }
+    return best;
+  }
+
+  /** Animals you hold on a rope right now (leashed pets and the wild ponies you have caught). */
+  leashedCount(ownerId) {
+    let n = 0;
+    for (const id in this.animals) { const a = this.animals[id]; if ((a.owner === ownerId && a.leashed) || a.captor === ownerId) n++; }
+    return n;
+  }
+
+  /** The lasso's target: the best animal (any that is not hostile or a guardian) within `reach` tiles. A click / tap picks the one under the
+   *  pointer (AimPoints); otherwise it is the one inside the throwing cone (or very close). */
+  nearestLassoable(p, reach) {
+    const aim = AimPoints[p.id];
+    let best = null;
+    for (const id in this.animals) {
+      const a = this.animals[id], def = AnimalDefs[a.type];
+      if (!canBefriendAnimal(a.type) || a.game || !sameGrid(a, p) || a.captor || a.rider || a.stall || (a.owner && (a.owner !== p.id || a.leashed || def.pony))) continue;   // (your own ponies have the Leash button)
+      const gap = Math.hypot(a.x - p.x, a.y - p.y) - def.radius;
+      if (gap > reach) continue;
+      if (aim) {                                                          // pointed at: the animal nearest the click wins
+        const off = Math.hypot(a.x - aim.x, a.y - aim.y) - def.radius;
+        if (off <= LASSO_AIM_SLACK && (!best || off < best.score)) best = { id, animal: a, gap, score: off };
+        continue;
+      }
+      const off = Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing));
+      if (gap > LASSO_CLOSE && off > LASSO_HALF_ANGLE) continue;
+      const score = gap <= LASSO_CLOSE ? gap : gap + off * 1.5;           // within arm's length facing does not matter: whatever is right beside you is what you mean
+      if (!best || score < best.score) best = { id, animal: a, gap, score };
+    }
+    if (!best && aim) { const saved = AimPoints[p.id]; delete AimPoints[p.id]; try { best = this.nearestLassoable(p, reach); } finally { AimPoints[p.id] = saved; } }   // nothing at the click: fall back to what is in front
+    return best;
+  }
+
+  /** The level of the pony that helps you throw: the one you are riding, else your main pony, else your best pony (0 with none). */
+  ownPonyLevel(playerId, mountId) {
+    const mount = mountId && this.animals[mountId];
+    if (mount) return mount.level || 1;
+    let main = 0, best = 0;
+    for (const id in this.animals) {
+      const a = this.animals[id];
+      if (a.owner !== playerId || !AnimalDefs[a.type].pony || a.captor) continue;
+      best = Math.max(best, a.level || 1); if (a.main) main = a.level || 1;
+    }
+    return main || best;
+  }
+  /** Chance a thrown lasso lands: the target's level against your handling skill (Horsemanship for ponies, Animal Friendship for the rest),
+   *  and a boost from the level of your own pony (the one you ride, else your main pony). */
+  lassoChance(a, levels, ownPony = 0) {
+    const handling = Skills._s(levels, AnimalLevels.tameSkill(AnimalDefs[a.type])), gap = handling - (a.level || 1);
+    return clamp(0.5 + 0.04 * gap + Math.min(0.2, 0.01 * ownPony), 0.1, 0.95);
+  }
+
+  /** A missed throw spooks it. */
+  startle(id, from) {
+    const a = this.animals[id], def = AnimalDefs[a.type];
+    a.state = 'flee'; a.fleeT = def.fleeSeconds; a.fx = a.x - from.x; a.fy = a.y - from.y; a.trustT = 0;
+  }
+
+  /* ---- keeping animals ---- */
+  tame(id, ownerId) {
+    const a = this.animals[id];
+    this._vacate(a);                                                                   // (no longer a wild animal of its home)
+    a.owner = ownerId; a.leashed = true; a.home = { x: a.x, y: a.y }; a.state = 'idle'; a.fleeT = 0; a.hurt = false; a.hp = AnimalDefs[a.type].hp;
+    return a;
+  }
+  /** A wild pony is caught on the lasso: it follows you, but is not yours until it has been gentled with its fruit (and the rainbow bar is full). */
+  capture(id, captorId) {
+    const a = this.animals[id];
+    a.captor = captorId; a.leashed = true; a.trust = 0; a.calm = 0; a.rope = 1; a.captureT = 0; a.warned = false; a.shelter = null; a.shelterTick = -999;
+    a.applesNeed = AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count;
+    a.state = 'idle'; a.fleeT = 0; a.hurt = false; a.trustT = 0;
+    return a;
+  }
+  /** One fruit eaten (anywhere): a treat that adds to the calm bar. Returns { done, have, need }; the pony settles once the bar is full. */
+  feed(id, captorId, discount = 0) {
+    const a = this.animals[id];
+    if (!a || a.captor !== captorId) return null;
+    const need = a.applesNeed = Math.max(1, AnimalLevels.tameFruit(AnimalDefs[a.type], a.level).count - discount);   // an upgraded stable settles it with fewer
+    a.trust = Math.min(need, a.trust + 1);
+    a.calm = Math.min(1, (a.calm || 0) + AnimalLevels.fruitCalm(need));
+    const done = a.calm >= 1 - 1e-6;
+    if (done) this._settle(a);
+    return { done, have: a.trust, need };
+  }
+  /** How calm the caught pony is, 0..1 (0 for a pony that is not being gentled). */
+  tameProgress(a) { return a.captor ? clamp(a.calm || 0, 0, 1) : 0; }
+  /** Let a caught pony go: it bolts. Returns who held it. */
+  releaseWild(id) {
+    const a = this.animals[id], def = AnimalDefs[a.type], captor = a.captor, angle = this.rng() * Math.PI * 2;
+    a.captor = ''; a.leashed = false; a.trust = 0; a.captureT = 0; a.warned = false;
+    a.state = 'flee'; a.fleeT = def.fleeSeconds; a.fx = Math.cos(angle); a.fy = Math.sin(angle); a.trustT = 0;
+    return captor;
+  }
+  unleash(id) { const a = this.animals[id]; a.leashed = false; a.home = { x: a.x, y: a.y }; a.state = 'idle'; return a; }
+  /** Everything an owner has on a leash is let go (they left the game). */
+  releaseOwner(ownerId) {
+    for (const id in this.animals) {
+      const a = this.animals[id];
+      if (a.owner === ownerId && a.leashed) this.unleash(id);
+      else if (a.captor === ownerId) this.releaseWild(id);
+    }
+  }
+  /** Pick a small animal up. Returns its type. */
+  pickup(id) { const a = this.animals[id]; this._vacate(a); delete this.animals[id]; return a.type; }
+  /** Set a carried animal down as somebody's pet. */
+  release(type, x, y, ownerId, gene, opts) {
+    const id = this.spawn(type, x, y, gene, opts), a = this.animals[id];
+    a.owner = ownerId; a.home = { x, y };
+    return a;
+  }
+
+  /** What an owner sees in their Pony Book: every pet they own (wherever it is) + whether it is fenced in, plus wild ponies they are gentling. */
+  petsOf(ownerId, tick) {
+    const memo = this._petsMemo;                                                         // (the snapshot asks three times a tick: pets, Pony Book, varieties)
+    if (memo && memo.tick === tick && memo.owner === ownerId) return memo.out;
+    const out = [], PEN_BUDGET = 6;                                                      // (pens are re-checked a few at a time so they never all land on one tick)
+    let checked = 0;
+    for (const id in this.animals) {
+      const a = this.animals[id];
+      if (a.owner !== ownerId && a.captor !== ownerId) continue;
+      if (a.owner && tick - a.penTick > 30 && checked < PEN_BUDGET) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; checked++; }
+      const fruit = a.captor ? AnimalLevels.tameFruit(AnimalDefs[a.type], a.level) : null;
+      const gentling = a.captor ? { have: a.trust, need: a.applesNeed || fruit.count, item: fruit.item, progress: this.tameProgress(a) } : null;
+      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, foalMin: a.foal > 0 ? Math.ceil(a.foal / 60) : 0, ageMin: a.foal > 0 ? Stable.ageMin(a) : undefined, rest: a.breedRest > 0 ? Math.ceil(a.breedRest) : undefined, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null, gen: a.owner && a.look && AnimalDefs[a.type].pony ? PonyQuality.summaryOf(a) : undefined });
+    }
+    this._petsMemo = { tick, owner: ownerId, out };
+    return out;
+  }
+
+  /** Nearest animal within `range` and within `halfAngle` radians of where the player faces: { id, animal } or null. */
+  nearestInCone(p, range, halfAngle) {
+    let best = null, bestDist = range;
+    for (const id in this.animals) {
+      const a = this.animals[id], d = Math.hypot(a.x - p.x, a.y - p.y);
+      if (d > bestDist || !this._huntable(a) || !sameGrid(a, p)) continue;
+      if (Math.abs(wrapAngle(Math.atan2(a.y - p.y, a.x - p.x) - p.facing)) > halfAngle) continue;
+      bestDist = d; best = { id, animal: a };
+    }
+    return best;
+  }
+
+  /** Hurts an animal. Returns { killed, drops:[{item,count}], animal }. */
+  damage(id, amount) {
+    const a = this.animals[id], def = AnimalDefs[a.type];
+    a.hp -= amount; a.hurt = true; a.state = 'flee'; a.fleeT = def.fleeSeconds;
+    if (a.hp > 0) return { killed: false, drops: [], animal: a };
+    delete this.animals[id];
+    if (this.onKilled) this.onKilled(a, def);
+    const home = a.nodeId && this.nodes[a.nodeId];
+    if (home) this._vacate(a);                                                         // an animal of a home comes back to that home
+    else if (!def.boss && !gridOf(a)) this.respawns.push({ type: a.type, cx: Math.floor(a.x) >> CHUNK_SHIFT, cy: Math.floor(a.y) >> CHUNK_SHIFT, atTick: this.getTick() + secondsToTicks(ANIMAL_RESPAWN_SECONDS) });
+    const drops = [];
+    for (const d of LootTables.dropsOf(def)) {                                       // (the editor's loot tables, else the creature's own: lootTables.js)
+      if (d.chance !== undefined && this.rng() >= d.chance) continue;
+      const count = d.min + Math.floor(this.rng() * (d.max - d.min + 1));
+      drops.push({ item: d.item, count: Coins.isCoin(d.item) ? LootTables.coinCount(count, a.level, () => this.rng()) : count });      // coins grow with the creature's level and vary
+    }
+    return { killed: true, drops, animal: a };
+  }
+
+  /** Homes whose animals were lost take a new one in, one at a time, when nobody is near. */
+  _runNodes(tick, humans) {
+    for (const key in this.nodes) {
+      const node = this.nodes[key];
+      if (!node.refill.length || node.refill[0] > tick) continue;
+      const alive = Object.values(this.animals).filter(a => a.nodeId === key).length;
+      if (alive >= node.max) { node.refill.shift(); continue; }
+      if (humans.some(h => Math.hypot(h.x - node.x, h.y - node.y) < NODE_REFILL_DISTANCE)) { node.refill[0] = tick + secondsToTicks(30); continue; }    // not in front of anyone: try again later
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const tx = Math.floor(node.x + (this.rng() - 0.5) * 5), ty = Math.floor(node.y + (this.rng() - 0.5) * 5), tile = this.map.tile(tx, ty);
+        if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || this.map.navBlocked(tx, ty)) continue;
+        this.spawn(node.type, tx + 0.5, ty + 0.5, undefined, { nodeId: key });
+        node.refill.shift();
+        break;
+      }
+      if (node.refill.length && node.refill[0] <= tick) node.refill[0] = tick + secondsToTicks(30);
+    }
+  }
+
+  /** A hunted animal is replaced later in the same chunk, out of sight of every player. */
+  _runRespawns(tick, humans) {
+    this.respawns = this.respawns.filter(r => {
+      if (r.atTick > tick) return true;
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const tx = r.cx * CHUNK_SIZE + Math.floor(this.rng() * CHUNK_SIZE), ty = r.cy * CHUNK_SIZE + Math.floor(this.rng() * CHUNK_SIZE);
+        const tile = this.map.tile(tx, ty);
+        if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || this.map.navBlocked(tx, ty) || humans.some(h => Math.hypot(h.x - tx, h.y - ty) < 14)) continue;
+        this.spawn(r.type, tx + 0.5, ty + 0.5);
+        return false;
+      }
+      r.atTick = tick + secondsToTicks(30);                              // no room right now: try again later
+      return true;
+    });
+  }
+
+  /** Snapshot part: animals within sync range of any human on their grid (each player is later sent only their own grid's). */
+  states(humans) {
+    const out = {};
+    for (const id in this.animals) {
+      const a = this.animals[id];
+      if (humans.some(h => sameGrid(h, a) && Math.hypot(h.x - a.x, h.y - a.y) < ANIMAL_SYNC_RADIUS)) {
+        out[id] = { id, type: a.type, level: a.level, x: a.x, y: a.y, vx: a.vx, vy: a.vy, facing: a.facing, hp: a.hp, state: a.state, look: a.look, owner: a.owner, captor: a.captor, leashed: a.leashed, rider: a.rider };
+        if (a.grid) out[id].grid = a.grid;
+        if (a.jumpLift) out[id].lift = Math.round(a.jumpLift * 100) / 100;                     // the Slime King mid-leap: how high (0..1; drawn like a flying pony's lift)
+        if (a.main) out[id].main = true;
+        if (a.captor) { out[id].tame = Math.round(this.tameProgress(a) * 100) / 100; out[id].rope = Math.round((a.rope === undefined ? 1 : a.rope) * 100) / 100; }   // a caught pony's calm bar and its rope's integrity (0..1)
+        if (a.breedP !== undefined) out[id].breed = Math.round(a.breedP * 100) / 100;           // breeding in a stall: the same rainbow bar (0..1)
+        if (a.foal > 0) out[id].foal = Math.round(a.foal / Stable.FOAL_SECONDS * 100) / 100;     // a foal: how much of its growing up is left (1 = just born)
+        if (a.stall) out[id].stall = true;                                                    // in a stall of the stable: it stays put and cannot be ridden
+        if (a.rs) out[id].rs = { s: a.rs.st, t: a.rs.team, by: a.rs.by, p: Math.round(a.rs.tame * 100) / 100, k: a.rs.slot };
+        if (a.rs && a.rs.gold) out[id].rs.g = 1;
+        if (a.rs && a.rs.ct) { out[id].rs.c = Math.round(a.rs.ct.bar * 100) / 100; out[id].rs.cb = a.rs.ct.by; }   // a minigame sheep: where it stands in the round (roundupSystem.js)
+        if (a.shornUntil) out[id].shorn = true;                                                // shorn: drawn without its wool until it grows back                                                       // someone's main pony (it follows them)
+        if (a.want !== undefined) { out[id].want = a.want; out[id].wantN = a.wantN || ''; }     // what it asks for (a bubble over its head: wantSystem.js)
+      }
+    }
+    return out;
+  }
+}

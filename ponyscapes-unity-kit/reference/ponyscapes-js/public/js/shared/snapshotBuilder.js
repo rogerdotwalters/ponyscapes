@@ -1,0 +1,81 @@
+'use strict';
+/* SHARED - turns the server's state into the messages a player receives. One place, used by the solo LocalAdapter and by the host
+ * of an online session, so a remote friend gets exactly what a local player gets.
+ * GRIDS: a player is only sent what is on THEIR grid (people, animals, items on the ground, and the events that happened there); villagers and
+ * boats only in the overworld. The overworld's buildings, trees and stockpiles are always sent (the client keeps the overworld while indoors). */
+const SnapshotBuilder = {
+  /** Only what is on this grid: a { id: thing } table filtered by each thing's `grid`. */
+  onGrid(table, grid) { const out = {}; for (const k in table || {}) if (gridOf(table[k]) === grid) out[k] = table[k]; return out; },
+  /** Events this player should see: everything addressed to them, plus what happened on their grid (or nowhere in particular). */
+  eventsFor(events, id, grid) { return events.filter(e => e.to === id || (e.to === undefined && (e.grid === undefined ? !grid || (e.x === undefined && e.tx === undefined) : e.grid === grid))); },
+  /** Everything a player needs to start: their seat, the world seed, and the full state around them. */
+  welcomeFor(server, id) {
+    const player = server.players[id], grid = gridOf(player), outside = !grid, on = t => SnapshotBuilder.onGrid(t, grid);
+    return {
+      id, slot: player.slot, mapSeed: server.map.seed, tickRate: CONFIG.sim.tickRate, tick: server.tick, player,
+      inventory: server.inventoryUpdateFor(id), coins: (c => (server.coinsSent[id] = c.join(), c.slice()))(server.inventories[id].coins || Coins.empty()), questLog: (server.quests.sentRev[id] = server.quests.rev, server.quests.wire()), pack: (delete server.packSent[id], server.packUpdateFor(id)), built: server.builtUpdateFor(id), floors: server.floorsUpdateFor(id), farm: server.farmUpdateFor(id), stockpiles: server.stockpilesUpdateFor(id), host: id === server.hostId,
+      boats: outside ? server.boatStates() : {}, drops: on(server.dropStates()), trees: collectTreeStates(server.map), forage: collectForageStates(server.map),
+      animals: on(server.animals.states(server._humans())), npcs: on(server.npcs.states()), friends: server.friendship.fullFor(id), progress: server.progressUpdateFor(id), treasure: server.treasureUpdateFor(id),
+      pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id), rings: server.ringsUpdateFor(id) || server.worldProgress.toWire(), versions: (server.interiors.versionsSent[id] = server.interiors.versionsRev, BuildingVersions.wire()), settings: server.settingsUpdateFor(id), admin: (server.adminSentRev[id] = server.adminRev, GameSettings.wire()), weather: (server.weather.sentRev[id] = server.weather.rev, server.weather.wire())
+    };
+  },
+
+  /** The local player's own copy of a snapshot (deep, so the game can keep it). The long felled-tree / picked-bush lists are not copied: they are
+   *  the same read-only objects until something changes, and `treesSame` / `forageSame` tell the game it already has them. `memo` is kept between calls. */
+  copyForLocal(snap, memo) {
+    const { trees, forage } = snap, rest = Object.assign({}, snap); delete rest.trees; delete rest.forage;
+    const reuse = memo.json || (memo.json = {}), copy = {};
+    for (const k in rest) {                                                                // (the Pony Book lists are big and often unchanged: parse them again only when they differ)
+      const v = rest[k];
+      if (k !== 'pets' && k !== 'varieties' && k !== 'book') { copy[k] = v === undefined ? v : JSON.parse(JSON.stringify(v)); continue; }
+      const json = JSON.stringify(v), hit = reuse[k];
+      copy[k] = hit && hit.json === json ? hit.value : (reuse[k] = { json, value: JSON.parse(json) }).value;
+    }
+    copy.trees = trees; copy.forage = forage;
+    copy.treesSame = trees === memo.trees; copy.forageSame = forage === memo.forage;
+    memo.trees = trees; memo.forage = forage;
+    return copy;
+  },
+
+  /** Take ONE broadcast snapshot (this drains the server's events) and make a personal copy for each id. */
+  snapshotsFor(server, ids) {
+    const base = server.takeSnapshot(), out = {};
+    for (const id of ids) out[id] = SnapshotBuilder.personalize(server, base, id);
+    return out;
+  },
+
+  /** The shared part plus what only this player may see: their pack, maps, trade window, ponies, and events addressed to them. */
+  personalize(server, base, id) {
+    const snapshot = Object.assign({}, base), grid = gridOf(server.players[id]), on = t => SnapshotBuilder.onGrid(t, grid);
+    snapshot.players = on(base.players); snapshot.animals = on(base.animals); snapshot.drops = on(base.drops);            // only your own grid
+    snapshot.npcs = on(base.npcs);                                                                                      // (a villager is on their own grid: a shopkeeper stands in their shop's room)
+    if (grid) snapshot.boats = {};
+    snapshot.events = SnapshotBuilder.eventsFor(base.events, id, grid);
+    snapshot.pets = server.petsFor(id); snapshot.book = server.bookFor(id); snapshot.varieties = server.varietiesFor(id);   // the Pony Book, every snapshot (it is small)
+    snapshot.memory = server.memory.stateFor(id);                                                                     // the Memory game you are sitting at (else null)
+    snapshot.connect4 = server.connect4.stateFor(id);                                                                 // the Connect Four game you are sitting at (else null)
+    snapshot.roundup = server.roundup.stateFor(id);                                                                   // the Round-Up's scoreboard and clock, while you are in an arena (else null)
+    const inventory = server.inventoryUpdateFor(id);   if (inventory) snapshot.inventory = inventory;
+    const coins = server.coinsUpdateFor(id);           if (coins !== null) snapshot.coins = coins;           // the coin purse, only when it changed
+    const questLog = server.quests.updateFor(id);      if (questLog) snapshot.questLog = questLog;           // the world's quest log, only when it changed
+    const built = server.builtUpdateFor(id);           if (built) snapshot.built = built;
+    const floors = server.floorsUpdateFor(id);         if (floors) snapshot.floors = floors;
+    const gates = server.gatesUpdateFor(id);          if (gates) snapshot.gates = gates;                  // the open gates of the stable you are in (stableSystem.js)
+    const stallNames = server.stallNamesUpdateFor(id); if (stallNames) snapshot.stallNames = stallNames;   // the names of the stalls in the stable you are in (stableSystem.js)
+    const farm = server.farmUpdateFor(id);             if (farm) snapshot.farm = farm;                    // the fields: tilled, watered, growing (farming.js)
+    const stock = server.stockpilesUpdateFor(id);      if (stock) snapshot.stockpiles = stock;            // { piles, levels }: the town's storage
+    const progress = server.progressUpdateFor(id);     if (progress) snapshot.progress = progress;        // { s: {skill: xp}, a: {attribute: xp} }
+    const treasure = server.treasureUpdateFor(id);     if (treasure) snapshot.treasure = treasure;        // [{ key, tx, ty }] where your maps lead
+    const versions = server.interiors.versionsFor(id); if (versions) snapshot.versions = versions;               // a building was restored
+    const rings = server.ringsUpdateFor(id);           if (rings) snapshot.rings = rings;                  // a guardian fell: a ring opened
+    const friends = server.friendship.updateFor(id);  if (friends) snapshot.friends = friends;            // your hearts with people and animals, only when they changed
+    const settings = server.settingsUpdateFor(id);     if (settings) snapshot.settings = settings;          // the host's testing aids, only when they changed
+    const admin = server.adminUpdateFor(id);           if (admin) snapshot.admin = admin;
+    const weather = server.weather.updateFor(id);      if (weather) snapshot.weather = weather;          // the sky, only when a new spell begins (weather.js)
+    const quests = server.tick % 15 === 0 || !server.wants.marksSent[id] ? server.wants.marksFor(id) : null; if (quests) snapshot.quests = quests;   // lost young you have tracked (map)                  // the Admin page's speed, day split, time and clock (everyone)
+    const trade = server.tradeUpdateFor(id);           if (trade) snapshot.trade = trade;                  // { state }, only when it changed
+    const pack = server.packUpdateCheck(id);           if (pack !== null) snapshot.pack = pack;            // the pack of the pony you can reach (false: none), only when it changed
+    const chest = server.chestUpdateFor(id);           if (chest !== null) snapshot.chest = chest;         // the chest you have open (false: closed), only when it changed
+    return snapshot;
+  }
+};

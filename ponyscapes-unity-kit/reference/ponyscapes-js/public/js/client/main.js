@@ -1,0 +1,312 @@
+'use strict';
+/* CLIENT composition root: creates the objects and wires them together. No game rules live here. */
+const $ = id => document.getElementById(id);
+
+function applyUrlOverrides() {                       // ?lag=120&jitter=30&debug=1
+  const q = new URLSearchParams(location.search);
+  if (q.has('lag')) CONFIG.net.fakeLatencyMs = Number(q.get('lag')) || 0;
+  if (q.has('jitter')) CONFIG.net.fakeJitterMs = Number(q.get('jitter')) || 0;
+  if (q.get('kit') === '0') CONFIG.sim.testKit = false;                 // ?kit=0: start with just an axe, no home, no pony
+  if (q.has('hour')) CONFIG.sim.time.startHour = clamp(Number(q.get('hour')) || 0, 0, 24);
+  return q;
+}
+
+function preventBrowserGestures() {                  // no scroll / zoom / selection / pull-to-refresh
+  document.addEventListener('touchmove', e => { if (!e.target.closest('.scrollable, #lobby')) e.preventDefault(); }, { passive: false });      // (the lobby's character screen is taller than a phone: it must be scrollable with a finger)
+  ['gesturestart', 'gesturechange', 'gestureend', 'contextmenu', 'dblclick'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
+}
+
+/** Go full screen (and landscape where the browser allows it). Browsers only allow it from a tap or click, so it is called from those. */
+async function enterFullscreen() {
+  try {
+    if (document.fullscreenEnabled && !document.fullscreenElement) await document.documentElement.requestFullscreen();
+  } catch (e) { /* not allowed */ }
+  try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { /* (not supported here, or not in full screen): the turn-sideways notice covers it */ }
+}
+
+/** The game is played full screen and in landscape, and does not wait for the player to turn the device: on a phone or tablet the FIRST touch, click or key press
+ *  (the title screen's Play, anything) goes full screen and locks the screen to landscape; after leaving full screen the next touch goes back in. Where the browser
+ *  will not do it (iPhone Safari has no full screen or orientation lock for pages) a portrait screen shows the turn-sideways notice instead. */
+function setupForcedLandscape() {
+  const touchy = matchMedia('(pointer: coarse)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!touchy) return;                                           // (desktop windows are left alone: the full screen button is there)
+  const go = () => { if (!document.fullscreenElement || !(screen.orientation && /landscape/.test(screen.orientation.type))) enterFullscreen(); };
+  for (const type of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(type, go, { capture: true, passive: true });
+  const portraitFs = $('portraitFs'); if (portraitFs) portraitFs.addEventListener('click', e => { e.stopPropagation(); enterFullscreen(); });
+  enterFullscreen();                                             // (works at once only where the page was opened from a tap, e.g. an installed app)
+}
+
+function setupFullscreenButton(button) {
+  if (!document.fullscreenEnabled) { button.style.display = 'none'; return; }
+  button.addEventListener('click', async () => {
+    try { if (document.fullscreenElement) await document.exitFullscreen(); else await enterFullscreen(); } catch (e) { /* not allowed */ }
+  });
+  // using the on-screen joystick forces full screen (the lift of the finger counts as the tap the browser asks for)
+  for (const el of [$('joyZone'), $('joyBase')]) if (el) el.addEventListener('pointerup', () => enterFullscreen());
+}
+
+function collectLayoutDom(game) {
+  const dom = { miniMap: $('miniMap'), coinPanel: $('coinPanel'), ponyBagPanel: $('ponyBagPanel'), controlsPanel: $('controlsPanel'), controlsBody: $('controlsBody'), dialoguePanel: $('dialoguePanel'), puzzlePanel: $('puzzlePanel'), stablePanel: $('stablePanel'), stableBody: $('stableBody'), isHost: () => game.isHost, gear: () => game.gear, health: $('healthBar'), btnEmote: $('btnEmote'), btnFly: $('btnFly'), btnApple: $('btnApple'), gearPanel: $('gearPanel'), gearBody: $('gearBody'), ponyPanel: $('ponyPanel'), posterPanel: $('posterPanel'), posterBody: $('posterBody'), journalPanel: $('journalPanel'), journalBody: $('journalBody'), sessionPanel: $('sessionPanel'), sessionBody: $('sessionBody'), confirmPanel: $('confirmPanel'), menuPanel: $('menuPanel'), menuBody: $('menuBody'), mapPanel: $('mapPanel'), mapBody: $('mapBody'), ponyBody: $('ponyBody'), tradePanel: $('tradePanel'), tradeBody: $('tradeBody'), townPanel: $('townPanel'), townBody: $('townBody'), shopPanel: $('shopPanel'), shopBody: $('shopBody'), abilityBar: $('abilityBar'), settingsPanel: $('settingsPanel'), settingsList: $('settingsList'), touchRoot: $('touchUI'), toolbar: $('toolbar'), inventoryPanel: $('inventoryPanel'), invBody: $('invBody'), craftPanel: $('craftPanel'), craftList: $('craftList'), debug: $('dbg'), hint: $('hint'), hunger: $('hungerBar'), thirst: $('thirstBar'), energy: $('energyBar'), clock: $('clock'), season: $('seasonBar') };
+  ['btnMenu', 'btnFs', 'btnDbg', 'btnAct', 'btnBag', 'btnBoard', 'btnRelease', 'btnRot', 'btnAbility', 'btnLasso', 'btnLeash', 'btnRide', 'btnStall'].forEach(id => { dom[id] = $(id); });
+  return dom;
+}
+
+/** Title screen first (Play solo / Host / Join); ?solo=1 skips it and starts the single-player game straight away. */
+/** The round touch button is small: "Talk to Bramble" / "Give Lingonberry" / "Pet Goat" become Talk / Give / Pet (the full text stays as its tooltip). */
+const shortVerb = label => label.replace(/^Talk to .*/, 'Talk').replace(/^Give .*/, 'Give').replace(/^Pet .*/, 'Pet');
+
+function start() {
+  const query = applyUrlOverrides();
+  preventBrowserGestures();
+  setupForcedLandscape();
+  if (query.get('solo') === '1') { launch({ adapter: new LocalAdapter() }, query); return; }
+  Loader.hide();                                                       // (the page's own loading screen: the scripts are all here)
+  new LobbyUI({ root: $('lobby'), query }).show().then(choice => launch(choice, query));
+}
+
+/** Builds the game around an adapter: LocalAdapter (solo), HostAdapter (you host) or RemoteAdapter (you joined a friend). */
+function launch(choice, query) {
+  const bus = new EventBus();                         // input + UI events
+  const adapter = choice.adapter;
+  const game = new ClientGame(adapter);
+  game.session = typeof adapter.getSessionInfo === 'function' ? adapter : null;      // only hosted / joined games have a session
+  Loader.show(choice.welcome ? 'Starting...' : 'Connecting...');
+  const backendName = RenderBackend.prepare(query);                    // 'canvas' (default) or 'pixi' (?renderer=pixi): fetches the Pixi scripts if asked
+
+  Promise.all([choice.welcome ? Promise.resolve(choice.welcome) : adapter.connect(), backendName]).then(([welcome, backend]) => {
+    game.onWelcome(welcome);
+    adapter.onSnapshot(snapshot => game.onSnapshot(snapshot));          // (registered after the welcome: anything that arrived earlier is replayed in order)
+
+    /* input */
+    const keyboard = new KeyboardInput(bus);
+    const touch = new TouchControls(bus, {
+      root: $('touchUI'), zone: $('joyZone'), base: $('joyBase'), knob: $('joyKnob'),
+      btnBag: $('btnBag'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility'), btnLasso: $('btnLasso'), btnLeash: $('btnLeash'), btnRide: $('btnRide'), btnStall: $('btnStall')
+    });
+    const pad = new GamepadInput(bus);
+    const padActions = new GamepadActions({ bus, game, pad, panels: null, mapUI: null, cursor: $('padCursor') });          // (its windows and the map are handed over below, once they exist)
+    const input = new InputController({ bus, keyboard, touch, gamepad: padActions });
+    const appleButton = new AppleButton({ root: $('btnApple'), game, bus });
+    const layout = new UiLayout({ dom: collectLayoutDom(game), touchControls: touch });
+    bus.on('touchUiShown', () => layout.update());
+
+    /* view */
+    const effects = new Effects(bus, game);
+    effects.weather = new WeatherFx(game); effects.weather.audio = new WeatherAudio();                // the sky: clouds, rain, snow, lightning and their sound
+    const footsteps = new Sfx.Footsteps(game, () => effects.weather.cur.rain), worldSfx = new WorldSfx(game), music = new PonyMusic();                             // your footfalls, and the soundtrack
+    let tapToMove = null;
+    const renderer = RenderBackend.create(backend, { canvas: $('game'), game, effects, getTapMarker: now => tapToMove.currentMarker(now) });
+    tapToMove = new TapActions({ bus, game, camera: renderer.camera, input });
+    input.setCamera(renderer.camera);
+    renderer.rebuildBuilt(); renderer.resize();
+    window.addEventListener('resize', () => renderer.resize());
+    window.addEventListener('orientationchange', () => setTimeout(() => renderer.resize(), 150));
+
+    /* ui */
+    new ToolbarUI({ root: $('tbRow'), game });
+    const healthBar = new VitalBar({ root: $('healthBar'), fill: $('healthFill'), label: $('healthLabel'), config: { max: CONFIG.sim.health.max, lowThreshold: 30 }, words: { ok: 'Healthy', low: 'Hurt', empty: 'Down' } });
+    const hungerBar = new VitalBar({ root: $('hungerBar'), fill: $('hungerFill'), label: $('hungerLabel'), config: CONFIG.sim.hunger, words: { ok: 'Fed', low: 'Hungry', empty: 'Starving!' } });
+    const energyBar = new VitalBar({ root: $('energyBar'), fill: $('energyFill'), label: $('energyLabel'), config: CONFIG.sim.energy, words: { ok: 'Energetic', low: 'Tired', empty: 'Exhausted!' } });
+    const thirstBar = new VitalBar({ root: $('thirstBar'), fill: $('thirstFill'), label: $('thirstLabel'), config: CONFIG.sim.thirst, words: { ok: 'Hydrated', low: 'Thirsty', empty: 'Dehydrated!' } });
+    const clockUI = new ClockUI({ root: $('seasonBar').querySelector('.sbClock') }), seasonUI = new SeasonUI({ root: $('seasonBar') });
+    const inventoryUI = new InventoryUI({ panel: $('inventoryPanel'), body: $('invBody'), closeButton: $('invClose'), game, actions: { label: $('invPicked'), use: $('invUse'), hold: $('invHold'), drop1: $('invDrop1'), dropAll: $('invDropAll'), destroy: $('invDestroy') } });
+    const coinBagUI = new CoinBagUI({ panel: $('coinPanel'), canvas: $('coinCanvas'), count: $('coinCount'), breakdown: $('coinBreakdown'), mergeButton: $('coinMerge'), game, camera: renderer.camera });          // (money)
+    const ponyBagUI = new CoinBagUI({ kind: 'pony', panel: $('ponyBagPanel'), canvas: $('ponyBagCanvas'), count: $('ponyBagCount'), breakdown: $('ponyBagBreakdown'), game, camera: renderer.camera });      // (pony coins: a bag of their own)
+    const gardenUI = new GardenUI({ panel: $('gardenPanel'), canvas: $('gardenCanvas'), seedList: $('gardenSeedList'), toolBar: $('gardenTools'), pouchHost: $('gardenPouches'), title: $('gardenTitle'), hint: $('gardenHint'), closeButton: $('gardenClose'), game, requestOpen: () => panels.open('garden') });
+    const craftingUI = new CraftingUI({ panel: $('craftPanel'), list: $('craftList'), closeButton: $('craftClose'), game });
+    const settingsUI = new SettingsUI({ panel: $('settingsPanel'), list: $('settingsList'), closeButton: $('settingsClose'), game });
+    const controlsUI = new ControlsUI({ panel: $('controlsPanel'), tabs: $('controlsTabs'), body: $('controlsBody'), closeButton: $('controlsClose'), pad, hooks: { isHost: () => game.isHost, openDev: () => panels.open('settings'), debug: () => debug, game } });
+    const panels = new PanelGroup();
+    const gearUI = new WardrobeUI({ panel: $('gearPanel'), body: $('gearBody'), closeButton: $('gearClose'), game });
+    const journalUI = new JournalUI({ panel: $('journalPanel'), tabs: $('journalTabs'), body: $('journalBody'), closeButton: $('journalClose'), game });
+    const waypointPrefs = new WaypointPrefs(), waypointOverlay = new WaypointOverlay({ game, camera: renderer.camera, prefs: waypointPrefs });
+    const mapUI = new MapUI({ prefs: waypointPrefs, panel: $('mapPanel'), body: $('mapBody'), closeButton: $('mapClose'), game, onTreasure: () => { panels.closeAll(); journalUI.openTab('map'); } });
+    const confirmUI = new ConfirmUI({ panel: $('confirmPanel'), title: $('confirmTitle'), text: $('confirmText'), keepButton: $('confirmKeep'), goButton: $('confirmGo'), game, requestOpen: () => panels.open('confirm') });
+    const stableUI = new StableUI({ panel: $('stablePanel'), title: $('stableTitle'), body: $('stableBody'), closeButton: $('stableClose'), game, requestOpen: () => panels.open('stable') });
+    const menuUI = new MenuUI({ panel: $('menuPanel'), body: $('menuBody'), title: $('menuTitle'), closeButton: $('menuClose'), game, onPick: section => openSection(section), onAction: act => menuAction(act) });
+    const ponyUI = new PonyBookUI({ panel: $('ponyPanel'), body: $('ponyBody'), closeButton: $('ponyClose'), game });
+    const posterUI = new PosterUI({ panel: $('posterPanel'), body: $('posterBody'), closeButton: $('posterClose'), game, coinBag: ponyBagUI });
+    const townUI = new TownUI({ panel: $('townPanel'), body: $('townBody'), closeButton: $('townClose'), game });
+    const shopUI = new ShopUI({ panel: $('shopPanel'), body: $('shopBody'), closeButton: $('shopClose'), game, coinBag: coinBagUI, requestOpen: () => panels.open('shop') });
+    const tradeUI = new TradeUI({ panel: $('tradePanel'), body: $('tradeBody'), closeButton: $('tradeClose'), game, requestOpen: () => panels.open('trade') });
+    const toasts = new Toasts($('toasts')), sleepUI = new SleepUI({ game }), downedUI = new DownedUI({ game }), roundupUI = new RoundupUI({ game }), connect4UI = new ConnectFourUI({ game }), memoryUI = new MemoryUI({ game });
+    if (ContentPack.source === 'draft') toasts.show('Playing your content editor draft (this browser only)', 'info', 6000);
+    game.events.on('bossDefeated', e => toasts.show(e.appeased ? `The ${e.name} is at peace with her cubs home! ${e.final ? 'Her cave is quiet at last.' : e.nextRing + ' is open.'}` : e.final ? `The ${e.name} is defeated! Her cave is quiet at last.` : `The ${e.name} has fallen! ${e.nextRing} is open.`, 'ok', 8000));
+    /* the Slime Warren: which rooms have had their slimes beaten (the exit is drawn as plain rock until then), and the cave mouth stays rubble until the Cave Bear is down */
+    game.clearedRooms = new Set();
+    game.events.on('roomState', e => { if (e.cleared) game.clearedRooms.add(e.grid); });
+    game.events.on('roomCleared', e => { game.clearedRooms.add(e.grid); toasts.show('The way on has opened!', 'ok', 4000); });
+    game.events.on('kingDefeated', () => toasts.show('The Slime King is defeated!', 'ok', 8000));
+    const exitOf = new WeakMap();
+    StructureSprites.sealed = (o, tx, ty) => {
+      if (o === OBJ.CAVEMOUTH) {                                                          // outside: a mouth whose dungeon wants a guardian down first
+        const mouth = game.map.terrain && game.map.terrain.caveSites && game.map.terrain.caveSites.caves().find(c => Math.floor(c.x) === tx && Math.floor(c.y) === ty), def = mouth && Dungeons.all()[mouth.index];
+        return !!(def && def.requires && !game.defeated.includes(def.requires.defeated));
+      }
+      const plan = game.map.plan;                                                         // inside: the exit of a room that still has slimes to beat
+      if (!plan || !plan.dungeon || !plan.dungeon.waves || !plan.dungeon.waves[plan.index] || game.clearedRooms.has(game.grid)) return false;
+      let m = exitOf.get(plan); if (!m) exitOf.set(plan, m = plan._middle(plan.room.exits));
+      return m.x === tx && m.y === ty;
+    };
+    game.events.on('nightSkipped', () => toasts.show('The night passes...', 'info', 3000));
+    game.events.on('fellAsleep', e => toasts.show(e.camping ? 'You settle down to camp for a rest...' : 'You climb into bed...', 'info', 2500));
+    game.events.on('enteredCave', () => toasts.show('You descend into the cave...', 'info', 3000));
+    game.events.on('dungeonChest', e => { DungeonState.opened.add(DungeonState.key(game.grid, e.tx, e.ty)); const prop = game.map.peekPropAt(e.tx, e.ty); if (prop) prop.opened = true; });       // (a dungeon chest somebody opened)
+    let sessionUI = null;
+    if (game.session) sessionUI = new SessionUI({ panel: $('sessionPanel'), body: $('sessionBody'), closeButton: $('sessionClose'), badge: $('sessionBadge'), endOverlay: $('endOverlay'), adapter, toasts, confirm: confirmUI });
+    const dialogueUI = new DialogueUI({ panel: $('dialoguePanel'), title: $('dialogueTitle'), body: $('dialogueBody'), closeButton: $('dialogueClose'), game, requestOpen: () => panels.open('dialogue') });
+    bus.on('talkTo', npc => { dialogueUI.talk(npc); worldSfx.talk(npc); });
+    const puzzleUI = new PuzzleUI({ panel: $('puzzlePanel'), title: $('puzzleTitle'), body: $('puzzleBody'), closeButton: $('puzzleClose'), game, requestOpen: () => panels.open('puzzle') });
+    const emoteUI = new EmoteWheelUI({ root: $('emoteWheel'), button: $('btnEmote'), game, onTrade: () => { const t = game.nearestTrader(); if (t) game.requestTrade(t); else game.events.emit('notice', { to: game.myId, text: 'Nobody within reach to trade with' }); panels.open('trade'); } });
+    bus.on('openGarden', e => gardenUI.show(e.tx, e.ty));                                    // a tap on a tilled tile (tapToMove.js)
+    game.events.on('openCoins', () => panels.open('coins'));
+    game.events.on('openPonyCoins', () => panels.open('ponyCoins'));            // (the coin bags are opened from the Bag window)
+    game.events.on('openPoster', () => panels.open('poster'));
+    game.events.on('openWardrobe', () => panels.open('gear')); game.events.on('openChest', () => panels.open('inventory'));       // (the wardrobe and the worn chest in your home)
+    panels.register('coins', coinBagUI); panels.register('ponyCoins', ponyBagUI); panels.register('poster', posterUI); panels.register('connect4', connect4UI); connect4UI.attach(panels); panels.register('memory', memoryUI); memoryUI.attach(panels); panels.register('garden', gardenUI); panels.register('inventory', inventoryUI); panels.register('crafting', craftingUI); panels.register('settings', settingsUI); panels.register('gear', gearUI); panels.register('ponies', ponyUI); panels.register('journal', journalUI); panels.register('menu', menuUI); if (sessionUI) panels.register('session', sessionUI); panels.register('confirm', confirmUI); panels.register('stable', stableUI); panels.register('map', mapUI); panels.register('trade', tradeUI); panels.register('town', townUI); panels.register('shop', shopUI); panels.register('controls', controlsUI); panels.register('dialogue', dialogueUI); panels.register('puzzle', puzzleUI);
+    /** The Menu: every section opens from here (and closes the menu). */
+    function openSection(section) {
+      if (section === 'journal') { panels.open('journal'); return; }
+      if (section === 'skills') { gearUI.setView('skills'); panels.open('gear'); return; }
+      if (section === 'treasure') { panels.closeAll(); journalUI.openTab('map'); return; }
+      if (section === 'soundtrack') { panels.open('controls'); controlsUI.show('music'); return; }
+      if (section === 'options') { panels.open('controls'); controlsUI.show(controlsUI.tab); return; }              // Options: controls, sound, soundtrack, graphics, dev settings
+      const names = { inventory: 'inventory', crafting: 'crafting', gear: 'gear', map: 'map', ponies: 'ponies', town: 'town', settings: 'settings', session: 'session', controls: 'controls' };
+      if (section === 'gear') gearUI.setView('gear');                                                              // (Menu > Character opens on the Gear tab)
+      if (names[section]) panels.open(names[section]);
+    }
+    /** The Menu's Go online / Save / Load / Exit (the session's own rules and confirmations live in SessionUI). */
+    function menuAction(act) {
+      const a = game.session;
+      if (act === 'online') { if (sessionUI) sessionUI._act('online'); return; }
+      if (act === 'save') { if (a) a.saveAll('manual'); return; }                                                  // (a "Game saved" toast follows)
+      if (act === 'load') { confirmUI.askCustom({ title: 'Load a saved game?', text: 'Your game is saved first, then you go back to the title screen to pick a saved game.', goLabel: 'Save & go', keepLabel: 'Keep playing', onGo: async () => { try { if (a) await a.saveAll('manual'); } finally { location.href = location.pathname; } } }); return; }
+      if (act === 'exit') { if (sessionUI) sessionUI._act(a instanceof HostAdapter ? 'end' : 'leave'); else location.href = location.pathname; }
+    }
+    if (game.session) adapter.onSession(() => { if (menuUI.isOpen) menuUI.refresh(); });
+    const backdrop = $('panelBackdrop');                       // tap anywhere outside a window to close it
+    backdrop.addEventListener('pointerdown', e => { e.preventDefault(); panels.closeAll(); emoteUI.close(); });
+    const debug = new DebugOverlay({ element: $('dbg'), button: $('btnDbg'), game, input, camera: renderer.camera });
+    if (query.has('debug')) debug.toggle();
+
+    /* events: devices -> intent */
+    bus.on('selectSlot', i => game.selectSlot(i));
+    bus.on('toggleInventory', () => panels.toggle('inventory'));
+    for (const id of ['btnBag', 'btnBagBar']) { const icon = $(id) && $(id).querySelector('.bagIcon'); if (icon) icon.style.backgroundImage = `url(${ItemIcons.url(CONFIG.sim.inventory.starterBag)})`; }   // the touch Bag button shows a backpack
+    bus.on('toggleGear', () => panels.toggle('gear'));
+    bus.on('togglePonies', () => panels.toggle('ponies'));
+    bus.on('toggleJournal', () => panels.toggle('journal'));
+    document.addEventListener('click', e => { const tab = e.target.closest('.panTabs button'); if (!tab) return; const go = tab.dataset.go; if (go === 'gear' || go === 'stats' || go === 'skills') { gearUI.setView(go); panels.open('gear'); } else panels.open(go); });      // Bag | Gear: two tabs of one window
+    bus.on('toggleMap', () => panels.toggle('map'));
+    bus.on('toggleMenu', () => panels.toggle('menu'));            // the controller's + button
+    padActions.panels = panels; padActions.mapUI = mapUI;
+    const padIntro = new GamepadIntro({ pad }); panels.register('padIntro', padIntro); padActions.intro = padIntro;
+    bus.on('padActive', on => { if (on && (!GamepadIntro.seen() || query.get('padintro') === '1')) { GamepadIntro.markSeen(); setTimeout(() => panels.open('padIntro'), 250); } });      // the one pop-up: the guide, the first time a controller is used
+    const miniMap = new MiniMap({ canvas: $('miniMap'), game, mapUI, bus });
+    const padHints = new GamepadHints({ root: $('padHints'), bubbles: $('padBubbles'), camera: renderer.camera, pad, actions: padActions, badges: { PLUS: $('btnMenu') } });
+    bus.on('toggleTown', () => panels.toggle('town'));
+    bus.on('throwLasso', () => game.throwLasso());
+    bus.on('dropHeld', all => game.dropHeld(all));                  // X / the Drop button: what is in your hand, onto the ground                  // L / the Lasso button: the lasso in the lasso slot
+    bus.on('ponyPower', n => game.requestPonyPower(n));          // a pony's rarity abilities (H / K / the power button); flight stays on B
+    bus.on('dismount', () => game.toggleRide());                  // Z: get on the pony beside you, or get off the one you ride
+    bus.on('ability', () => game.useAbility('fly'));
+    $('btnFly').addEventListener('pointerdown', e => { e.preventDefault(); bus.emit('ability'); });
+    bus.on('mainPony', () => game.makeMainPony());                                    // N / the Main button: this pony follows you from now on
+    bus.on('release', () => game.requestRelease());               // its own button and key: never shared with Ride / Feed / Pick
+    game.events.on('confirmRelease', e => confirmUI.ask(e));
+    game.events.on('stallMenu', e => stableUI.show(e));
+    game.events.on('deskMenu', e => stableUI.showDesk(e));
+    game.events.on('vendorMenu', e => stableUI.showVendor(e));
+    bus.on('openStall', () => game.openStall());                  // the stall button: that stall's menu
+    bus.on('leashPony', () => game.leashPony());                  // the Leash button: a lasso for a pony that is already yours
+    bus.on('ridePony', () => game.toggleRide());                 // the Ride button: its own button, never shared with Board / Feed / Pick
+    bus.on('toggleEmotes', () => emoteUI.toggle());
+    game.events.on('gearChanged', () => layout.update());
+    bus.on('toggleCrafting', () => panels.toggle('crafting'));
+    bus.on('closePanels', () => { panels.closeAll(); emoteUI.close(); });
+    game.events.on('closePanels', () => bus.emit('closePanels'));
+    bus.on('rotateBuild', () => game.rotateBuild());
+    bus.on('interact', () => game.requestInteract());
+    bus.on('toggleDebug', () => debug.toggle());
+    bus.on('touchUiShown', () => { $('hint').hidden = true; });
+    $('btnMenu').addEventListener('click', () => panels.toggle('menu'));
+    $('btnBagBar').addEventListener('click', () => panels.toggle('inventory'));
+    $('btnDbg').addEventListener('click', () => debug.toggle());
+    setupFullscreenButton($('btnFs'));
+
+    /* pointer: aim / place walls, tap-to-move, wheel cycles the toolbar */
+    new CanvasPointer({ canvas: $('game'), bus, game, camera: renderer.camera, tapActions: tapToMove, input });
+    $('game').addEventListener('wheel', e => { e.preventDefault(); game.cycleSlot(Math.sign(e.deltaY)); }, { passive: false });
+    setTimeout(() => { $('hint').style.opacity = '0'; }, 10000);
+
+    const enterParam = new URLSearchParams(location.search).get('enter');
+    if (enterParam && adapter.server) {                     // ?enter=<building id>: start inside that building (testing rooms from level-editor.html)
+      const site = BuildingSites.list.find(s => s.id === enterParam || s.def.interior === enterParam);
+      if (site) setTimeout(() => { const s = adapter.server, p = s.players[game.myId]; if (p) s.interiors.enter(game.myId, p, site.index); }, 400);
+    }
+    const castleParam = new URLSearchParams(location.search).get('castle');
+    if (castleParam && adapter.server) setTimeout(() => adapter.server.interiors.setRestored('castle', castleParam === 'restored'), 200);   // ?castle=restored|ruined: see the castle as it will be once the village has restored it (testing)
+    const weatherParam = new URLSearchParams(location.search).get('weather');
+    if (weatherParam && adapter.server && Weather.TYPES[weatherParam]) setTimeout(() => adapter.server.weather.force(weatherParam), 300);     // ?weather=thunderstorm: start under that sky (testing)
+    window.ponyscapes = { pad, padActions, coinBagUI, ponyBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
+
+    let stallShown = null, rideShown = null, leashShown = null, appleShown = null, lassoShown = null, attackShown = null, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
+    /** The ridden pony's rarity abilities: a strip above the vitals (desktop) and the power button (touch), with cooldowns. */
+    const showAbilities = () => {
+      const list = game.abilityState(), text = list.map(a => `${a.ability.glyph} ${a.ability.name}${a.cooldown > 0 ? ' ' + Math.ceil(a.cooldown) + 's' : ''}`);
+      const key = text.join('|');
+      if (key === powerShown) return;
+      powerShown = key;
+      $('abilityBar').hidden = !list.length;
+      $('abilityBar').innerHTML = list.map((a, i) => `<span class="${a.cooldown > 0 ? 'cd' : 'ready'}" style="--c:${a.ability.color}"><kbd>${['H', 'K', 'Y', 'O'][i]}</kbd>${text[i]}</span>`).join('');
+      const ready = list.find(a => !(a.cooldown > 0)) || list[0];
+      $('btnAbility').style.display = list.length ? '' : 'none';
+      $('btnAbility').textContent = ready ? ready.ability.glyph + (ready.cooldown > 0 ? ' ' + Math.ceil(ready.cooldown) : '') : '';
+      $('btnAbility').classList.toggle('cd', !!ready && ready.cooldown > 0);
+    };
+
+    /* loop: it starts once the loading screen has everything the first moments need (Loader.initial); the rest loads while you play */
+    const loop = new GameLoop({
+      tickMs: TICK_MS,
+      onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
+      onRender: (alpha, frameMs, now) => {
+        padActions.update(frameMs); miniMap.tick(frameMs);
+        tapToMove.tick();
+        footsteps.update(); worldSfx.update(frameMs / 1000); music.update(game, effects.weather.cur);
+        game.advanceRemoteClock(frameMs);
+        game.streamWorld();
+        renderer.render(game.getRenderState(alpha), frameMs, now); waypointOverlay.draw(now); padHints.update(frameMs);
+        debug.update(frameMs);
+        healthBar.config.max = game.local.maxHp; journalUI.tick(frameMs); mapUI.tick(frameMs); gearUI.tick(frameMs); if (sessionUI) sessionUI.tick(frameMs);
+        const anyPanel = panels.anyOpen(); if (anyPanel === backdrop.hidden) backdrop.hidden = !anyPanel;                      // Constitution raises maximum health
+        healthBar.update(game.local.down > 0 ? game.local.downHp : game.local.hp); hungerBar.update(game.local.hunger, game.local.hungerMode); thirstBar.update(game.local.thirst, game.local.thirstMode); energyBar.update(game.local.energy === undefined ? CONFIG.sim.energy.max : game.local.energy, game.local.asleep ? 'resting' : 'normal'); clockUI.update(game.hour()); seasonUI.update(Seasons.at(game.clockTick), game.weather); sleepUI.update(); downedUI.update(); roundupUI.update(); appleButton.update();
+        craftingUI.tick(frameMs); townUI.tick(frameMs); dialogueUI.tick(frameMs); puzzleUI.tick(frameMs); shopUI.tick(frameMs); posterUI.tick(); showAbilities();
+        const heldNow = game.heldItemId(), heldTool = ItemDB.getTool(heldNow), armed = !!heldTool && WEAPON_KINDS.includes(heldTool.kind);       // the action button is the tool button: the picture of what is in hand, and what it does (Chop, Cast, Attack, Till, Lasso...)
+        if (heldNow !== attackShown) { attackShown = heldNow; $('btnAct').innerHTML = (heldNow ? `<span class="toolIcon" style="background-image:url(${ItemIcons.url(heldNow)})"></span>` : '') + `<span>${toolVerb(heldNow)}</span>`; $('btnAct').classList.toggle('attack', armed); $('btnAct').title = heldNow && ItemDefs[heldNow] ? ItemDefs[heldNow].name : 'Nothing in hand'; }
+        const showRotate = !!game.buildTarget;                       // context buttons only show when they do something
+        if (showRotate !== rotateShown) { rotateShown = showRotate; $('btnRot').style.display = showRotate ? '' : 'none'; }
+        const ability = game.abilityHint(), abilityKey = ability ? ability.label + (ability.ready ? '+' : '-') : '';                 // the Fly button: only on a pegasus or alicorn
+        if (abilityKey !== abilityShown) { abilityShown = abilityKey; const b = $('btnFly'); b.style.display = ability ? '' : 'none'; if (ability) { b.textContent = ability.label; b.classList.toggle('on', !!ability.flying); b.classList.toggle('cooling', !ability.ready); } }
+        const mainHint = game.mainPonyHint() + '|' + (game.local.mount || ''); if (mainHint !== mainShown) { mainShown = mainHint; inventoryUI.refreshPony(); }     // (the Make main pony button lives in the bag)
+        const releaseHint = game.releaseHint();
+        if (releaseHint !== releaseShown) { releaseShown = releaseHint; $('btnRelease').style.display = releaseHint ? '' : 'none'; $('btnRelease').textContent = releaseHint || ''; }
+        if (confirmUI.isOpen && confirmUI.kind === 'release' && !game.isMyCatch(confirmUI.animalId)) confirmUI.close();      // it is gone (or already yours): nothing left to confirm
+        const rideHint = game.rideHint();                                                                                     // the Ride button: only when a pony of yours stands ready
+        if (rideHint !== rideShown) { rideShown = rideHint; $('btnRide').style.display = rideHint ? '' : 'none'; $('btnRide').textContent = rideHint || ''; }
+        const leashHint = game.leashHint();                                                                                   // the Leash button: only when a pony of yours is loose nearby
+        if (leashHint !== leashShown) { leashShown = leashHint; $('btnLeash').style.display = leashHint ? '' : 'none'; }
+        const hasPony = game.hasPony();                                                                                       // the Apple and Lasso buttons: only for someone who has a pony / a lasso
+        if (hasPony !== appleShown) { appleShown = hasPony; $('btnApple').style.display = hasPony ? '' : 'none'; }
+        const hasLasso = !!(game.local && game.local.gear && game.local.gear.lasso);
+        if (lassoShown !== false) { lassoShown = false; $('btnLasso').style.display = 'none'; }                                    // (the lasso is a tool slot now: the tool button throws it)
+        const stall = game.stallHint(), stallKey = stall ? stall.name : '';                                                  // the stall button: wears the name of the stall beside you
+        if (stallKey !== stallShown) { stallShown = stallKey; $('btnStall').style.display = stall ? '' : 'none'; $('btnStall').textContent = stallKey; }
+        const interactHint = game.interactHint($('touchUI').hidden ? [] : ['stall']);
+        if (interactHint !== interactShown) { interactShown = interactHint; $('btnBoard').style.display = interactHint ? '' : 'none'; $('btnBoard').textContent = shortVerb(interactHint || ''); $('btnBoard').title = interactHint || ''; }
+      }
+    });
+    Promise.resolve(renderer.ready).then(() => Loader.initial({ game, renderer })).catch(err => { console.error('loading:', err); Loader.hide(); }).then(() => { loop.start(); Loader.background(game, renderer); });
+  });
+}
+
+start();

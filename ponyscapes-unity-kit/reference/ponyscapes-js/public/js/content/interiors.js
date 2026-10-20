@@ -1,0 +1,232 @@
+'use strict';
+/* ROOMS - what is inside each building, written by level-editor.html ("Download interiors.js"). Put this file at public/js/content/interiors.js.
+ *
+ *   <layout id>: { name, tiles: [rows of one-character tiles], furniture: [{ id, x, y, rot }], exit: [x, y] }
+ *     tiles      see js/data/interiors/tiles.js:  .  nothing   w d s t r b h  floors   m  doormat (the way out)   W S P B  walls   V Q  walls with a window
+ *     furniture  see js/data/furniture/: x, y = its top-left tile; rot 0-3 turns it (1 and 3 swap its width and depth)
+ *     exit       the doormat tile: you arrive on the tile just north of it, and interact on it to go back outside
+ *     links, exitTo   (code only, js/content/castleRooms.js) doorways to a building's other rooms, and the room the doormat leads back to
+ * A building (js/data/buildings/) names the layout it opens into with `interior`. North is the top row; walls at the top and left of a room are
+ * drawn tall, walls at the bottom and right are drawn low so you can see in. */
+window.PONYSCAPES_INTERIORS = {
+  "carpenter": {
+    "name": "Carpenter's Workshop",
+    "tiles": [
+      "WWWVWWWWVWWW",
+      "WddddddddddW",
+      "WddddddddddW",
+      "WddddddddddW",
+      "WddddddddddW",
+      "WddddddddddW",
+      "WddddddddddW",
+      "WddddddddddW",
+      "WWWWWmWWWWWW"
+    ],
+    "furniture": [
+      { "id": "workbench", "x": 1, "y": 1, "rot": 0 }, { "id": "workbench", "x": 4, "y": 1, "rot": 0 }, { "id": "lumber_rack", "x": 8, "y": 1, "rot": 0 },
+      { "id": "lumber_rack", "x": 10, "y": 3, "rot": 1 }, { "id": "table", "x": 5, "y": 4, "rot": 0 }, { "id": "chair", "x": 5, "y": 5, "rot": 0 },
+      { "id": "crate", "x": 1, "y": 6, "rot": 0 }, { "id": "crate", "x": 1, "y": 7, "rot": 0 }, { "id": "crate", "x": 2, "y": 7, "rot": 0 },
+      { "id": "lamp", "x": 1, "y": 3, "rot": 0 }, { "id": "potted_plant", "x": 10, "y": 7, "rot": 0 }
+    ],
+    "exit": [5, 8]
+  },
+  "veterinary": {
+    "name": "Veterinary",
+    "tiles": [
+      "PPQPPPPQPP",
+      "PttttttttP",
+      "PttttttttP",
+      "PttttttttP",
+      "PhhhhttttP",
+      "PhhhhttttP",
+      "PhhhhttttP",
+      "PttttttttP",
+      "PPPPmPPPPP"
+    ],
+    "furniture": [
+      { "id": "medicine_cabinet", "x": 1, "y": 1, "rot": 0 }, { "id": "medicine_cabinet", "x": 2, "y": 1, "rot": 0 }, { "id": "exam_table", "x": 5, "y": 2, "rot": 0 },
+      { "id": "lamp", "x": 8, "y": 1, "rot": 0 }, { "id": "hay_bale", "x": 1, "y": 6, "rot": 0 }, { "id": "hay_bale", "x": 2, "y": 6, "rot": 0 },
+      { "id": "chair", "x": 7, "y": 5, "rot": 0 }, { "id": "potted_plant", "x": 8, "y": 7, "rot": 0 }
+    ],
+    "exit": [4, 8]
+  },
+  "general_store": {
+    "name": "General Store",
+    "tiles": [
+      "WWVWWWWWWVWW",
+      "WwwwwwwwwwwW",
+      "WwwwwwwwwwwW",
+      "WwwwwwwwwwwW",
+      "WwwwwrrwwwwW",
+      "WwwwwrrwwwwW",
+      "WwwwwrrwwwwW",
+      "WwwwwrrwwwwW",
+      "WWWWWmWWWWWW"
+    ],
+    "furniture": [
+      { "id": "goods_shelf", "x": 1, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 3, "y": 1, "rot": 0 }, { "id": "lamp", "x": 5, "y": 1, "rot": 0 },
+      { "id": "potted_plant", "x": 6, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 7, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 9, "y": 1, "rot": 0 },
+      { "id": "goods_shelf", "x": 1, "y": 4, "rot": 1 }, { "id": "counter", "x": 8, "y": 4, "rot": 0 }, { "id": "crate", "x": 1, "y": 7, "rot": 0 },
+      { "id": "crate", "x": 10, "y": 7, "rot": 0 }, { "id": "crate", "x": 10, "y": 6, "rot": 0 }
+    ],
+    "exit": [5, 8]
+  },
+  "blacksmith": {
+    "name": "Smithy",
+    "tiles": [
+      "WWVWWWWWWVWW",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssrrssssS",
+      "SssssrrssssS",
+      "SssssrrssssS",
+      "SssssrrssssS",
+      "SSSSSmSSSSSS"
+    ],
+    "furniture": [
+      { "id": "weapon_rack", "x": 1, "y": 1, "rot": 0 }, { "id": "weapon_rack", "x": 3, "y": 1, "rot": 0 }, { "id": "lamp", "x": 5, "y": 1, "rot": 0 },
+      { "id": "weapon_rack", "x": 7, "y": 1, "rot": 0 }, { "id": "weapon_rack", "x": 9, "y": 1, "rot": 0 }, { "id": "workbench", "x": 1, "y": 5, "rot": 1 },
+      { "id": "counter", "x": 8, "y": 4, "rot": 0 }, { "id": "crate", "x": 1, "y": 7, "rot": 0 }, { "id": "crate", "x": 10, "y": 7, "rot": 0 }, { "id": "cask", "x": 10, "y": 6, "rot": 0 }
+    ],
+    "exit": [5, 8]
+  },
+  "player_home": {
+    "name": "Your Home",
+    "tiles": [
+      "WWVWWWVWW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WwwwwwwwW",
+      "WWWWmWWWW"
+    ],
+    "furniture": [
+      { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "worn_chest", "x": 2, "y": 1, "rot": 0 }, { "id": "wardrobe", "x": 5, "y": 1, "rot": 0 },
+      { "id": "coin_poster", "x": 3, "y": 1, "rot": 0 }, { "id": "torn_rug", "x": 3, "y": 4, "rot": 0 }
+    ],
+    "exit": [4, 7]
+  },
+  "pony_stable": {
+    "name": "Stable",
+    "tiles": [
+      "WWWVWWWWVWWWWVWWWWVWWWWVWWWWVWWW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WWdWWWWdWWWwwwwwwwwwwWWdWWWWdWWW",
+      "WddddddddddwwwwwwwwwwddddddddddW",
+      "WddddddddddwwwwwwwwwwddddddddddW",
+      "WWWWWWWWWWWwwwwwwwwwwWWWWWWWWWWW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WWdWWWWdWWWwwwwwwwwwwWWdWWWWdWWW",
+      "WddddddddddwwwwwwwwwwddddddddddW",
+      "WddddddddddwwwwwwwwwwddddddddddW",
+      "WWWWWWWWWWWwwwwwwwwwwWWWWWWWWWWW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WhhhhWhhhhWwwwwwwwwwwWhhhhWhhhhW",
+      "WWdWWWWdWWWwwwwwwwwwwWWdWWWWdWWW",
+      "WddddddddddwwwwwwwwwwddddddddddW",
+      "WddddddddddwwwwwwwwwwddddddddddW",
+      "WWWWWWWWWWWWWWWmWWWWWWWWWWWWWWWW"
+    ],
+    "furniture": [
+      { "id": "stall", "x": 1, "y": 1, "rot": 0 }, { "id": "stall", "x": 6, "y": 1, "rot": 0 }, { "id": "stall", "x": 22, "y": 1, "rot": 0 }, { "id": "stall", "x": 27, "y": 1, "rot": 0 },
+      { "id": "stall", "x": 1, "y": 9, "rot": 0 }, { "id": "stall", "x": 6, "y": 9, "rot": 0 }, { "id": "stall", "x": 22, "y": 9, "rot": 0 }, { "id": "stall", "x": 27, "y": 9, "rot": 0 },
+      { "id": "stall", "x": 1, "y": 17, "rot": 0 }, { "id": "stall", "x": 6, "y": 17, "rot": 0 }, { "id": "stall", "x": 22, "y": 17, "rot": 0 }, { "id": "stall", "x": 27, "y": 17, "rot": 0 },
+      { "id": "stall_gate", "x": 2, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 7, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 23, "y": 5, "rot": 0 }, { "id": "stall_gate", "x": 28, "y": 5, "rot": 0 },
+      { "id": "stall_gate", "x": 2, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 7, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 23, "y": 13, "rot": 0 }, { "id": "stall_gate", "x": 28, "y": 13, "rot": 0 },
+      { "id": "stall_gate", "x": 2, "y": 21, "rot": 0 }, { "id": "stall_gate", "x": 7, "y": 21, "rot": 0 }, { "id": "stall_gate", "x": 23, "y": 21, "rot": 0 }, { "id": "stall_gate", "x": 28, "y": 21, "rot": 0 },
+      { "id": "coin_poster", "x": 15, "y": 1, "rot": 0 }, { "id": "stable_desk", "x": 15, "y": 4, "rot": 0 }, { "id": "pony_vendor", "x": 15, "y": 17, "rot": 0 }, { "id": "lasso_dealer", "x": 15, "y": 20, "rot": 0 }, { "id": "lamp", "x": 12, "y": 1, "rot": 0 }, { "id": "lamp", "x": 19, "y": 1, "rot": 0 }, { "id": "lamp", "x": 11, "y": 12, "rot": 0 },
+      { "id": "lamp", "x": 20, "y": 12, "rot": 0 }, { "id": "hay_bale", "x": 12, "y": 22, "rot": 0 }, { "id": "hay_bale", "x": 13, "y": 22, "rot": 0 }, { "id": "hay_bale", "x": 18, "y": 22, "rot": 0 },
+      { "id": "hay_bale", "x": 19, "y": 22, "rot": 0 }, { "id": "rug", "x": 14, "y": 10, "rot": 0 }, { "id": "potted_plant", "x": 12, "y": 6, "rot": 0 }, { "id": "potted_plant", "x": 19, "y": 6, "rot": 0 }
+    ],
+    "exit": [15, 24]
+  },
+  "cottage": {
+    "name": "Cottage",
+    "tiles": [
+      "WWVWWWW",
+      "WwwwwwW",
+      "WwwwwwW",
+      "WwwwwwW",
+      "WwwwwwW",
+      "WWWmWWW"
+    ],
+    "furniture": [
+      { "id": "bed", "x": 1, "y": 1, "rot": 0 }, { "id": "worn_chest", "x": 2, "y": 1, "rot": 0 }, { "id": "table", "x": 4, "y": 2, "rot": 0 },
+      { "id": "chair", "x": 3, "y": 3, "rot": 0 }, { "id": "torn_rug", "x": 2, "y": 3, "rot": 0 }, { "id": "lamp", "x": 5, "y": 1, "rot": 0 }
+    ],
+    "exit": [3, 5]
+  },
+  "storehouse": {
+    "name": "Storehouse",
+    "tiles": [
+      "SSSSSSSSSSSS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SssssssssssS",
+      "SSSSSmSSSSSS"
+    ],
+    "furniture": [
+      { "id": "wool_bin", "x": 4, "y": 1, "rot": 0 }, { "id": "lumber_rack", "x": 1, "y": 1, "rot": 0 }, { "id": "lumber_rack", "x": 8, "y": 1, "rot": 0 },
+      { "id": "crate", "x": 1, "y": 4, "rot": 0 }, { "id": "crate", "x": 1, "y": 5, "rot": 0 }, { "id": "crate", "x": 2, "y": 5, "rot": 0 },
+      { "id": "hay_bale", "x": 10, "y": 4, "rot": 0 }, { "id": "hay_bale", "x": 10, "y": 5, "rot": 0 }, { "id": "hay_bale", "x": 9, "y": 5, "rot": 0 },
+      { "id": "lamp", "x": 7, "y": 1, "rot": 0 }, { "id": "crate", "x": 10, "y": 7, "rot": 0 }
+    ],
+    "exit": [5, 8]
+  },
+  "pony_inn": {
+    "name": "The Pony Inn",
+    "tiles": [
+      "WWWVWWWVWWWWVWWWWWWVWWWW",
+      "WwwwwwwwwwwwwwwwPttttttW",
+      "WwwwwwwwwwwwwwwwsttttttW",
+      "WwwwwwwwwwwwwwwwPttttttV",
+      "WwwwwwwwwwwwwwwwPttttttW",
+      "WwwwwwwwwwwwwwwwPPPPPPPW",
+      "WwwwwwwwwwwwwwwwPddddddW",
+      "WwwwwwwwwwwwwwwwsddddddW",
+      "WwwwwwwwwwwwwwwwPddddddV",
+      "WPPPPPPsssPPPPPPPddddddW",
+      "WwwwwwwrrrwwwwwwPPPPPPPW",
+      "WwwwwwwrrrwwwwwwPddddddW",
+      "WwwwwwwrrrwwwwwwsddddddW",
+      "WwwwwwwrrrwwwwwwPddddddV",
+      "WwwwwwwrrrwwwwwwPddddddW",
+      "WWWWWWWWmWWWWWWWWWWWWWWW"
+    ],
+    "furniture": [
+      { "id": "fireplace", "x": 7, "y": 1, "rot": 0 }, { "id": "lamp", "x": 6, "y": 1, "rot": 0 }, { "id": "lamp", "x": 9, "y": 1, "rot": 0 },
+      { "id": "bookshelf", "x": 1, "y": 1, "rot": 0 }, { "id": "bookshelf", "x": 2, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 12, "y": 1, "rot": 0 },
+      { "id": "potted_plant", "x": 15, "y": 1, "rot": 0 }, { "id": "potted_plant", "x": 1, "y": 8, "rot": 0 }, { "id": "potted_plant", "x": 15, "y": 8, "rot": 0 },
+      { "id": "rug", "x": 6, "y": 3, "rot": 0 }, { "id": "connect4_table", "x": 3, "y": 4, "rot": 0 }, { "id": "chair", "x": 2, "y": 4, "rot": 0 },
+      { "id": "chair", "x": 5, "y": 4, "rot": 0 }, { "id": "connect4_table", "x": 10, "y": 4, "rot": 0 }, { "id": "chair", "x": 9, "y": 4, "rot": 0 },
+      { "id": "chair", "x": 12, "y": 4, "rot": 0 }, { "id": "memory_table", "x": 6, "y": 6, "rot": 0 }, { "id": "chair", "x": 5, "y": 6, "rot": 0 },
+      { "id": "chair", "x": 8, "y": 6, "rot": 0 }, { "id": "bench", "x": 12, "y": 8, "rot": 0 }, { "id": "lamp", "x": 3, "y": 8, "rot": 0 },
+      { "id": "goods_shelf", "x": 10, "y": 10, "rot": 0 }, { "id": "bar_counter", "x": 10, "y": 12, "rot": 0 }, { "id": "lamp", "x": 14, "y": 10, "rot": 0 },
+      { "id": "potted_plant", "x": 15, "y": 14, "rot": 0 }, { "id": "potted_plant", "x": 1, "y": 14, "rot": 0 }, { "id": "table", "x": 2, "y": 11, "rot": 0 },
+      { "id": "chair", "x": 2, "y": 12, "rot": 0 }, { "id": "chair", "x": 3, "y": 12, "rot": 0 }, { "id": "bench", "x": 4, "y": 14, "rot": 0 },
+      { "id": "great_hearth", "x": 18, "y": 1, "rot": 0 }, { "id": "goods_shelf", "x": 21, "y": 1, "rot": 0 }, { "id": "crate", "x": 22, "y": 2, "rot": 0 },
+      { "id": "table", "x": 18, "y": 3, "rot": 0 }, { "id": "counter", "x": 20, "y": 3, "rot": 0 }, { "id": "cask", "x": 22, "y": 4, "rot": 0 },
+      { "id": "bunk", "x": 22, "y": 6, "rot": 0 }, { "id": "dresser", "x": 21, "y": 6, "rot": 0 }, { "id": "wardrobe", "x": 18, "y": 6, "rot": 0 },
+      { "id": "lamp", "x": 17, "y": 6, "rot": 0 }, { "id": "rug", "x": 19, "y": 7, "rot": 0 }, { "id": "potted_plant", "x": 22, "y": 9, "rot": 0 },
+      { "id": "bunk", "x": 22, "y": 11, "rot": 0 }, { "id": "dresser", "x": 21, "y": 11, "rot": 0 }, { "id": "wardrobe", "x": 18, "y": 11, "rot": 0 },
+      { "id": "lamp", "x": 17, "y": 11, "rot": 0 }, { "id": "rug", "x": 19, "y": 12, "rot": 0 }, { "id": "bookshelf", "x": 22, "y": 14, "rot": 0 }
+    ],
+    "exit": [8, 15]
+  }
+
+};

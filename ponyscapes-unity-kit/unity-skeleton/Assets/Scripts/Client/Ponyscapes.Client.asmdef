@@ -1,0 +1,1 @@
+{ "name": "Ponyscapes.Client", "rootNamespace": "Ponyscapes.Client", "references": ["Ponyscapes.Sim", "Ponyscapes.Data"], "autoReferenced": true }

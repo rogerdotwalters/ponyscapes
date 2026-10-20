@@ -1,0 +1,1 @@
+{ "name": "Ponyscapes.Editor", "rootNamespace": "Ponyscapes.EditorTools", "references": ["Ponyscapes.Sim", "Ponyscapes.Data", "Ponyscapes.Client"], "includePlatforms": ["Editor"], "autoReferenced": true }
