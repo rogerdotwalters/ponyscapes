@@ -249,7 +249,7 @@ const SaveData = {
     const xp = server.progress.ensure(id);
     return {
       v: SaveData.VERSION, savedAt: Date.now(), cid: server.charIds[id],
-      x: spot.x, y: spot.y, hp: p.hp, hunger: p.hunger, thirst: p.thirst, energy: p.energy, sel: p.sel,
+      x: spot.x, y: spot.y, hp: p.hp, hunger: p.hunger, thirst: p.thirst, energy: p.energy, sel: p.sel, toolSlots: 1,
       inventory: inventory.toJSON(), coins: (inventory.coins || Coins.empty()).slice(), gear: Object.assign({}, p.gear),
       xp: { s: Object.assign({}, xp.s), a: Object.assign({}, xp.a) },
       maps: (server.treasureMaps[id] || []).map(m => Object.assign({ key: m.key, tx: m.tx, ty: m.ty }, m.kind === 'dungeon' ? { kind: 'dungeon', ring: m.ring } : {})),
@@ -264,7 +264,7 @@ const SaveData = {
   sanitizeCharacter(data) {
     if (!SaveData._plain(data) || data.v !== SaveData.VERSION) return null;
     const N = SaveData._num, I = SaveData._int, S = CONFIG.sim;
-    const out = { v: data.v, cid: SaveData.validCharacterId(data.cid) ? data.cid : '', x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), energy: N(data.energy, 0, S.energy.max, S.energy.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0),
+    const out = { v: data.v, cid: SaveData.validCharacterId(data.cid) ? data.cid : '', x: N(data.x, -1e7, 1e7, NaN), y: N(data.y, -1e7, 1e7, NaN), hp: N(data.hp, 1, 100000, 1), hunger: N(data.hunger, 0, S.hunger.max, S.hunger.max), thirst: N(data.thirst, 0, S.thirst.max, S.thirst.max), energy: N(data.energy, 0, S.energy.max, S.energy.max), sel: I(data.sel, 0, S.inventory.hotbarSlots - 1, 0), toolSlots: data.toolSlots === 1,
       appearance: CharacterLook.sanitize(data.appearance), inventory: [], coins: Array.isArray(data.coins) ? Coins.sanitize(data.coins) : I(data.coins, 0, 999999, 0), gear: { crown: 'crown_simple', lasso: 'leash' }, xp: { s: {}, a: {} }, maps: [], looted: !!data.looted, book: { types: [], variants: [], leashed: {} }, pets: [] };
     const source = Array.isArray(data.inventory) ? data.inventory : [], refunds = [];
     const refund = (id, count) => { const old = LEGACY_ITEMS[id]; if (old) refunds.push({ id: old[0], count: old[1] * count }); else if (ItemDefs[id]) refunds.push({ id, count }); };
@@ -316,6 +316,7 @@ const SaveData = {
     server.inventories[id] = Inventory.fromJSON(c.inventory).openPurse(c.coins); server.inventoryRev[id]++;
     for (const k of Object.keys(p.gear)) delete p.gear[k];
     Object.assign(p.gear, c.gear);
+    if (!c.toolSlots) Wardrobe.autoEquip(p.gear, server.inventories[id]);        // (an older save kept its tools in the belt: each goes into its tool slot)
     p.sel = c.sel; p.looted = c.looted; if (c.appearance) p.appearance = c.appearance;
     const ledger = server.progress.ensure(id); ledger.s = c.xp.s; ledger.a = c.xp.a; server.progress.rev[id] = (server.progress.rev[id] || 0) + 1;
     server._applyLevels(id, server.progress.levels(id));

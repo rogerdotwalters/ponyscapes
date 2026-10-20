@@ -205,6 +205,7 @@ class GameServer {
     if (!this.hostId) this.hostId = id;
     this.map.ensureAround(this.players[id].x, this.players[id].y, SERVER_STREAM_RADIUS);
     this.inventories[id] = createStarterInventory();
+    Wardrobe.autoEquip(this.players[id].gear, this.inventories[id]);            // the starter tools go into their tool slots
     this.progress.ensure(id); this.progressSent[id] = { value: -1 }; this.treasureMaps[id] = []; this.treasureRev[id] = 1; this.treasureSent[id] = 0;
     this.players[id].lv = this.progress.levels(id); this.players[id].maxHp = Skills.maxHp(this.players[id].lv); this.players[id].hp = this.players[id].maxHp;
     if (CONFIG.sim.testKit) this._giveStarterPony(id);
@@ -358,7 +359,7 @@ class GameServer {
     const player = this.players[id];
     if (player.boat) return;                                       // no building from a boat
     if (gridOf(player)) { this._notice(id, 'You cannot build in here'); return; }       // (only the overworld is built on, for now)
-    const slotIndex = Number.isInteger(cmd.slot) ? sanitizeSlot(cmd.slot) : player.sel;
+    const slotIndex = Number.isInteger(cmd.slot) ? clamp(cmd.slot, 0, inventory.size - 1) : player.hand;       // (a building piece is taken in hand from the Bag)
     const itemId = inventory.itemIdAt(slotIndex), placeable = ItemDB.getPlaceable(itemId);
     if (!placeable || !Number.isInteger(cmd.tx) || !Number.isInteger(cmd.ty)) return;
     if (!CONFIG.sim.construction && StructureDefs[placeable.structure].layer !== 'station') { this._notice(id, 'Building walls, floors and fences is switched off'); return; }
@@ -532,7 +533,7 @@ class GameServer {
   _handleEquip(id, inventory, from) {
     const p = this.players[id], gear = p.gear;
     if (!Number.isInteger(from) || from < 0 || from >= inventory.size) return;
-    const item = inventory.itemIdAt(from), slot = item && Wardrobe.slotFor(item);          // (a lasso goes into the lasso slot)
+    const item = inventory.itemIdAt(from), slot = item && Wardrobe.slotFor(item);          // (a lasso goes into the lasso slot, an axe into the axe slot...)
     if (Bags.isPonyBag(item)) { this._ponyBagOn(id, inventory, from); return; }             // a pony bag: onto the pony you can reach
     if (slot === 'bag') { this._equipBag(id, inventory, from); return; }                     // a bigger bag: everything moves into it (packSystem.js)
     if (!slot) { if (item) this._notice(id, 'You cannot wear that'); return; }
@@ -549,7 +550,7 @@ class GameServer {
   _handleUnequip(id, inventory, slot) {
     const gear = this.players[id].gear, item = gear[slot];
     if (slot === 'bag') { if (item) this._notice(id, 'You always carry a bag: wear a bigger one to swap it'); return; }
-    if (!item || !(WardrobeSlots.includes(slot) || slot === 'lasso')) return;
+    if (!item || !(WardrobeSlots.includes(slot) || Wardrobe.isToolSlot(slot))) return;
     if (inventory.add(item, 1) > 0) { this._notice(id, 'Inventory full'); return; }
     gear[slot] = '';
     this.inventoryRev[id]++;
@@ -564,8 +565,9 @@ class GameServer {
 
   _heldFor(id, p, inventory, input) {
     p.sel = input.slot;
+    p.hand = Number.isInteger(input.hand) && input.hand >= 0 && inventory.itemIdAt(input.hand) ? input.hand : -1;      // an item taken in hand from the Bag (seeds, food, building pieces, the shovel...)
     if (p.lassoSwing && p.gear.lasso) return p.gear.lasso;             // throwing the lasso from its own slot (L)
-    return inventory.itemIdAt(p.sel);
+    return Wardrobe.heldFor(p.gear, p.sel, p.hand, inventory);
   }
 
   /* ---- health ---- */

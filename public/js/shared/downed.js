@@ -66,7 +66,7 @@ class DownedSystem {
   input(id, p, inventory, input) {
     const s = this.server, R = this.rules();
     if (p.eatT > 0) p.eatT = Math.max(0, p.eatT - TICK_DT);
-    p.sel = input.slot; p.held = inventory.itemIdAt(p.sel);
+    p.sel = input.slot; p.hand = Number.isInteger(input.hand) && input.hand >= 0 && inventory.itemIdAt(input.hand) ? input.hand : -1; p.held = Wardrobe.heldFor(p.gear, p.sel, p.hand, inventory);
     if (!input.action || p.eatT > 0) return;
     const snack = Downed.snack(p.held, R);
     if (!snack) return;

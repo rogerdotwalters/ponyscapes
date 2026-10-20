@@ -10,7 +10,7 @@ function createPlayer(slot, spawn) {
     hunger: CONFIG.sim.hunger.max, thirst: CONFIG.sim.thirst.max, eatT: 0,   // written by the server's VitalsSystem
     hungerMode: 'normal', thirstMode: 'normal',                              // the host can change these per player (see CONFIG.sim.vitalModes)
     id: 'p' + (slot + 1), hp: CONFIG.sim.health.max, hurtT: 0,               // health; damaged by monsters
-    gear: createWardrobe(),                                                  // what you wear: crown, outfit, cape
+    hand: -1, gear: createWardrobe(),                                                  // what you wear: crown, outfit, cape
     looted: false, emote: '', emoteT: 0, torchT: 0,
     lv: defaultLevels(), maxHp: CONFIG.sim.health.max,                       // skill / attribute LEVELS (public); the XP behind them stays on the server
     mount: '', mountLevel: 1,                                                // id of the pony we are riding (or ''), and its level (higher-level ponies run faster)
@@ -29,7 +29,7 @@ const clonePlayer = p => Object.assign({}, p, { gear: Object.assign({}, p.gear),
 
 /** Never trust the wire: clamp everything. Input = { moveX, moveY, action, interact, slot, seq } (world axes).
  *  `interact` is true for exactly one tick per key press (board / leave a boat). */
-/** A selectable hotbar slot (0..5). */
+/** A selectable tool slot (0..4: lasso, hoe, sword, rod, axe). */
 function sanitizeSlot(n) { return clamp(n | 0, 0, CONFIG.sim.inventory.hotbarSlots - 1); }
 
 /** player id -> { x, y }: where this tick's click / tap points in the world (kept off the player object so it never goes over the wire). */
@@ -40,7 +40,7 @@ function sanitizeInput(i) {
   return {
     moveX: clamp(num(i.moveX), -1, 1), moveY: clamp(num(i.moveY), -1, 1),
     action: !!i.action, interact: !!i.interact,
-    slot: sanitizeSlot(i.slot), seq: i.seq | 0,
+    slot: sanitizeSlot(i.slot), hand: Number.isInteger(i.hand) ? clamp(i.hand, -1, 4096) : -1, seq: i.seq | 0,      // slot: the tool slot (0-4); hand: a Bag slot taken in hand instead (-1: none)
     power: clamp(i.power | 0, 0, 4),                                         // 1-4: fire the ridden pony's first .. fourth power this tick (rarity abilities, then skills)
     lasso: !!i.lasso,                                                        // L / right click: throw the lasso from the lasso slot
     aim: !!i.aim && Number.isFinite(i.ax) && Number.isFinite(i.ay), ax: clamp(num(i.ax), -1e6, 1e6), ay: clamp(num(i.ay), -1e6, 1e6)   // a click / tap: the world point the swing, throw or tool is aimed at

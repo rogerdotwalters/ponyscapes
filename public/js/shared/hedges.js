@@ -136,7 +136,7 @@ class HedgeDigHandler {
 /* ---- the server side ---- */
 Object.assign(GameServer.prototype, {
   _plantHedge(id, p, action) {
-    const inventory = this.inventories[id], slot = p.sel | 0, s = inventory.slots[slot], def = s && ItemDefs[s.id];
+    const inventory = this.inventories[id], slot = p.hand | 0, s = p.hand >= 0 ? inventory.slots[slot] : null, def = s && ItemDefs[s.id];
     if (!def || !def.hedge) { this._notice(id, 'Hold a hedge bush to plant it'); return; }
     if (!Hedges.plantable(this.map, action.tx, action.ty)) { this._notice(id, 'Plant it on open grass or dirt, with nothing on the spot'); return; }
     s.count--; if (s.count <= 0) inventory.slots[slot] = null;
