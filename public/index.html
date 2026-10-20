@@ -97,16 +97,17 @@
 <div id="portraitHint">Ponyscapes is played in landscape.<br>Please turn your device sideways.</div>
 
 <div id="toolbar">
-  <button class="tbtn tb-mini" id="btnMenu" tabindex="-1" title="Menu: every section of the game (+)">&#9776;</button>
-  <button class="tbtn tb-mini" id="btnCoins" tabindex="-1" title="Your coin bag: drag coins out onto the world to drop them"><span class="coinDot" aria-hidden="true"></span></button>
-  <button class="tbtn tb-mini" id="btnPonyCoins" tabindex="-1" title="Your pony coin bag: the collector coins from the ponies you have caught"><span class="coinDot pony" aria-hidden="true"></span></button>
+  <div id="tbVitals">
+    <div class="tbSeg"><div id="healthBar" class="vital health"><div id="healthFill" class="fill"></div><span id="healthLabel" class="vlabel">Healthy</span></div><div id="hungerBar" class="vital thin" title="Hunger"><div id="hungerFill" class="fill"></div><span id="hungerLabel" class="vlabel">Fed</span></div></div>
+    <div class="tbSeg"><div id="energyBar" class="vital energy"><div id="energyFill" class="fill"></div><span id="energyLabel" class="vlabel">Energetic</span></div><div id="thirstBar" class="vital water thin" title="Thirst"><div id="thirstFill" class="fill"></div><span id="thirstLabel" class="vlabel">Hydrated</span></div></div>
+  </div>
+  <div id="tbRow">
+    <button class="tbCap" id="btnMenu" tabindex="-1" title="Menu: every section of the game (+)">&#9776;</button>
+    <button class="tbCap" id="btnBagBar" tabindex="-1" title="Bag and Gear (I)"><span class="bagIcon" aria-hidden="true"></span></button>
+    <button class="tbCap" id="btnEmote" tabindex="-1" title="Emotes (V)">&#9786;</button>
+  </div>
 </div>
-<button class="ubtn" id="btnEmote" tabindex="-1" title="Emotes (V)">&#9786;</button>
 <div id="emoteWheel" hidden></div>
-<div id="healthBar" class="vital health"><div id="healthFill" class="fill"></div><span id="healthLabel" class="vlabel">Healthy</span></div>
-<div id="hungerBar" class="vital"><div id="hungerFill" class="fill"></div><span id="hungerLabel" class="vlabel">Fed</span></div>
-<div id="energyBar" class="vital energy"><div id="energyFill" class="fill"></div><span id="energyLabel" class="vlabel">Energetic</span></div>
-<div id="thirstBar" class="vital water"><div id="thirstFill" class="fill"></div><span id="thirstLabel" class="vlabel">Hydrated</span></div>
 <div id="clock" hidden></div>
 <div id="seasonBar"><div class="sbHead"><b class="sbName"></b><span class="sbIcon"></span></div><div class="sbCal"></div><div class="sbClock"><canvas width="20" height="20"></canvas><span class="sbPhase"></span></div><div class="sbWeatherCell"><span class="sbWeather"></span></div><div class="sbNews" hidden></div></div>
 <div id="abilityBar" hidden></div>

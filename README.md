@@ -25,11 +25,11 @@ Useful query switches: `?solo=1`, `?kit=0` (start with only an axe), `?debug=1`,
 │ Morning   │                       the game                           └──────────┘
 └───────────┘
  stick (touch)             health | hunger | thirst | energy              [Apple Leash Ride...]
-                [ Lasso  Hoe  Sword  Rod  Axe | ☰ menu  ● coins  ● pony coins ]  (emote)   [Bag] [tool button]
+                (  ☰  Lasso  Hoe  Sword  Rod  Axe  Bag  ☺  )   <- health | energy in the arched top   [Bag] [tool button]
 ```
 
 * **Top left**: the date card, a small calendar box in three rows: the season (with today's weather), the day of the season and year, and the time of day. **Top right**: the mini map (the land around you in the game's own view, with you, home, the village, your ponies and quest pins); it is also the Map button: tap or click it, or press **-** on a controller, for the big map. Fullscreen and the debug overlay sit just left of it.
-* **Bottom centre**: the **tool bar** of five character tool slots (lasso, hoe, sword, fishing rod, axe: keys 1-5, left / right on the D-pad), with three small icon buttons at its right end: the **Menu** (+ on a controller), your **coin bag** and your **pony coin bag**. Health, hunger, thirst and energy sit above it.
+* **Bottom centre**: one curved **tool bar**, with nothing floating beside it. Its row, left to right: the **Menu** (+ on a controller), the five character tool slots (lasso, hoe, sword, fishing rod, axe: keys 1-5, left / right on the D-pad), the **Bag** (the Gear tab, the **coin bag** and the **pony coin bag** are opened from inside the Bag window) and the **Emote** button. Health and energy are built into the raised top of the frame, each with a thin line under it for hunger and thirst.
 * **Tool slots** live on the character: Menu > **Gear** (a tab of the Bag window) holds the five tool slots, your clothes and your bag. Seeds, food, building pieces and the other tools (shovel, watering can...) stay in the **Bag**: pick one and press **Hold** to take it in hand (it shows beside the tool bar until you choose a tool).
 * The layout is computed by one pure function, `computeUiLayout` in `public/js/client/ui/uiLayout.js`.
 

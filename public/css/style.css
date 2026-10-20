@@ -1166,8 +1166,26 @@ body.padMenu #padBubbles{display:none}
 #portraitHint{border:0;box-shadow:none;border-radius:0;background:#12100c}
 body.coinsOpen #miniMap,body.gardenOpen #miniMap{visibility:hidden}
 
-/* the menu, coin bag and pony coin bag buttons live at the right end of the tool bar as small icon buttons */
-#toolbar .tb-mini{position:relative;order:10;flex:none;width:var(--btn,30px);height:var(--slot,46px);display:flex;align-items:center;justify-content:center;border-radius:2px;
-  font:700 calc(var(--btn,30px) * .6)/1 var(--font-title);touch-action:none;cursor:pointer;background:linear-gradient(180deg,#5a3d22,#3e2814)}
-#toolbar #btnMenu{margin-left:var(--div,6px)}
-#toolbar .tb-mini .coinDot{width:55%;height:auto;aspect-ratio:1;margin:0}
+
+/* THE TOOL BAR: one curved frame, bottom centre (a flat bottom, an arched top). Raised top: health and energy (with thin hunger and thirst lines under them) are
+ * built into it. Its row: the Menu, the five tool slots, the Bag, the Emote button. Nothing floats beside it. Sizes come from the layout (--slot --cap --strip --pad). */
+#toolbar{position:fixed;display:flex;flex-direction:column;gap:0;padding:0 var(--pad,5px) var(--pad,5px);box-sizing:border-box;
+  border:2px solid var(--deep);border-radius:50% 50% 22px 22px / calc(var(--strip,22px) * .9) calc(var(--strip,22px) * .9) 22px 22px;
+  background:radial-gradient(ellipse at 50% 0,#6a4a2a,#3d2a15 55%,#2a1a0b);box-shadow:inset 0 0 0 1px var(--gold),inset 0 2px 0 rgba(255,220,150,.25),0 4px 0 rgba(0,0,0,.5)}
+#tbVitals{display:flex;gap:3px;height:calc(var(--strip,22px) - 4px);margin:4px calc(var(--pad,5px) + 2 * (var(--cap,40px) + var(--gap,4px))) 0 calc(var(--pad,5px) + var(--cap,40px) + var(--gap,4px))}
+.tbSeg{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;overflow:hidden;border:1px solid var(--deep);background:rgba(0,0,0,.5)}
+.tbSeg:first-child{border-top-left-radius:16px}.tbSeg:last-child{border-top-right-radius:16px}
+#tbVitals .vital{position:relative;flex:1;min-height:0;border:0;border-radius:0;background:rgba(0,0,0,.35)}
+#tbVitals .vital.thin{flex:none;height:4px}
+#tbVitals .vital.thin .vlabel{display:none}
+#tbVitals .vlabel{font-size:10px;line-height:1}
+#tbRow{display:flex;align-items:stretch;gap:var(--gap,4px);padding-top:var(--pad,5px);position:relative}
+.tbCap{position:relative;flex:none;width:var(--cap,40px);height:var(--slot,46px);display:flex;align-items:center;justify-content:center;padding:0;border:2px solid var(--deep);
+  background:linear-gradient(180deg,#5a3d22,#3a2511);color:var(--parch);font:700 20px/1 var(--font-title);box-shadow:inset 0 0 0 1px rgba(217,164,65,.45);touch-action:none;cursor:pointer}
+.tbCap:active{transform:translateY(1px)}
+#btnMenu{order:-1;border-radius:18px 3px 3px 18px}
+#btnBagBar{order:5;border-radius:3px}
+#btnBagBar .bagIcon{display:block;width:62%;height:62%;background:center/contain no-repeat;image-rendering:pixelated}
+#btnEmote{order:6;border-radius:3px 18px 18px 3px}
+#toolbar .handSlot{margin-right:12px}
+body.padActive #btnMenu::after{right:auto;left:-4px;top:-10px}
