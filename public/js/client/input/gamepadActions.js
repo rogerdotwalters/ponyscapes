@@ -4,12 +4,14 @@
  *   playing   Left stick  move                         A   use your tool / talk and shop / enter a building / pet
  *             B  pick, pick up and hold, feed, pet     Y   untie / let go, or leash your pony        X  mount / dismount
  *             ZR lasso                                 R   the stall, stable or building menu beside you (else the Town)
- *             - map, + menu                            L   fly / land     ZL  pony power     D-pad  tool bar
+ *             - map, + menu, L3 bag                            L   fly / land     ZL  pony power     D-pad  tool bar
  *   a window  D-pad jumps between the buttons, right stick moves a pointer, A clicks it, B closes the window; hold L and the right stick scrolls a list or pans the map.
  *
  * Nothing here changes a game rule: every button ends in the same call the keyboard or the touch buttons make (bus events, ClientGame methods). */
-const PAD_A_KINDS = ['talk', 'gift', 'door', 'loot', 'stockpile'];       // A always takes these (villagers, shops, doors, chests, stockpiles)...
-const PAD_A_SOFT_KINDS = ['pet', 'treat', 'give', 'feed'];               // ...and these when no tool is in hand (with a tool, A uses it and B pets)
+const PAD_B_KINDS = ['pick', 'pickDrop', 'pickup', 'board', 'exit', 'revive', 'drink', 'fill', 'stallFeed', 'camp', 'track', 'plant_hedge', 'plant_tree', 'trim', 'cut', 'digHedge'];   // B: pick, pick up and hold, board, drink...
+const PAD_A_SOFT_KINDS = ['pet', 'treat', 'give', 'feed'];               // A takes these when no tool is in hand (with a tool, A uses it and B does these)
+const PAD_USE_KINDS = ['mash'];                                          // a tug of war: A is plain Use (mash it)
+const PAD_LIFT = { npc: 60, animal: 46, pony: 58, tree: 58, door: 52, building: 70, prop: 40, me: 70 };   // how far above the spot the bubble floats (logical pixels)
 const PAD_POINTER_SPEED = 1000;                                         // pointer: pixels per second at full push
 const PAD_SCROLL_SPEED = 900;
 const PAD_DIRS = { UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 }, LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 } };
@@ -23,7 +25,7 @@ class GamepadActions {
     this.menuMode = false;
     this.aUsing = false;                          // A went down on "use the tool" (so holding it keeps swinging)
     this.cx = 0; this.cy = 0;                     // the pointer
-    this.downTarget = null; this.hoverEl = null; this.heldDir = null;
+    this.downTarget = null; this.hoverEl = null; this.heldDir = null; this.intro = null;
     swallowSyntheticCapture();
     bus.on('padActive', on => { document.body.classList.toggle('padActive', on); if (!on) this._setHover(null); });
   }
@@ -64,15 +66,18 @@ class GamepadActions {
       case 'ZL': { const i = g.abilityState().findIndex(a => !(a.cooldown > 0)); if (i >= 0) this.bus.emit('ponyPower', i + 1); break; }
       case 'LEFT': case 'UP': g.cycleSlot(-1); break;                 // the D-pad changes the tool in your hand
       case 'RIGHT': case 'DOWN': g.cycleSlot(1); break;
+      case 'LS': this.bus.emit('toggleInventory'); break;               // click the left stick: the Bag
       case 'RS': this.bus.emit('toggleJournal'); break;
     }
   }
 
-  /** What the interact button would do now, as { kind, label } (the stall is the R button's, so it is left out here). */
+  /** What the interact button would do now, as { kind, label, ... } (the stall is the R button's, so it is left out here). */
   _nearby() { return this.game.interactAction(['stall']); }
+  /** Does A take this (rather than B)? A: talking, shops, doors and every way in or out, chests and stations. B: picking, picking up, feeding, boarding, drinking. */
   _aTakes(action) {
-    if (!action) return false;
-    return PAD_A_KINDS.includes(action.kind) || (PAD_A_SOFT_KINDS.includes(action.kind) && !ItemDB.getTool(this.game.heldItemId()));
+    if (!action || PAD_USE_KINDS.includes(action.kind) || PAD_B_KINDS.includes(action.kind)) return false;
+    if (PAD_A_SOFT_KINDS.includes(action.kind)) return !ItemDB.getTool(this.game.heldItemId());       // (with a tool in hand, A uses it and B pets)
+    return true;
   }
   _primary() {
     const near = this._nearby();
@@ -99,27 +104,63 @@ class GamepadActions {
 
   /* ---------------------------------------------------------------- the on-screen button hints */
 
-  /** The prompts for the situation right now: [{ button, text }] (the names are Switch names; GamepadHints prints them). */
+  /** The prompts for the situation right now: [{ button, text, target? }] (Switch button names; GamepadHints prints them).
+   *  A prompt with a `target` floats in a bubble above that thing in the world (the door, the tree, the villager...); the others go in the corner strip. */
   hints() {
     const out = [], g = this.game, L = g.local;
     if (this.menuMode) {
-      out.push({ button: 'A', text: 'Select' }, { button: 'B', text: 'Back' }, { button: 'RSTICK', text: 'Pointer' }, { button: 'DPAD', text: 'Move' }, { button: 'L', text: 'Hold + R Stick: scroll' }, { button: 'PLUS', text: 'Menu' }, { button: 'MINUS', text: 'Map' });
+      out.push({ button: 'A', text: 'Select' }, { button: 'B', text: 'Back' }, { button: 'DPAD', text: 'Move' }, { button: 'RSTICK', text: 'Pointer' }, { button: 'L', text: 'Hold + R Stick: scroll' }, { button: 'PLUS', text: 'Menu' }, { button: 'MINUS', text: 'Map' });
       return out;
     }
     if (!L || L.asleep) return out;
-    const near = this._nearby(), held = ItemDB.getTool(g.heldItemId());
-    if (this._aTakes(near)) out.push({ button: 'A', text: near.npc ? `Talk to ${near.npc.name}` : near.label });
-    else out.push({ button: 'A', text: held && WEAPON_KINDS.includes(held.kind) ? 'Attack' : 'Use' });
-    if (near && !this._aTakes(near)) out.push({ button: 'B', text: near.label });
-    const release = g.releaseHint(), leash = g.leashHint();
-    if (release) out.push({ button: 'Y', text: release }); else if (leash) out.push({ button: 'Y', text: leash });
-    const ride = g.rideHint(); if (ride) out.push({ button: 'X', text: ride });
+    const near = this._nearby(), held = ItemDB.getTool(g.heldItemId()), aTakes = this._aTakes(near);
+    if (aTakes) out.push({ button: 'A', text: near.npc ? `Talk to ${near.npc.name}` : near.label, target: this._target(near) });
+    else out.push({ button: 'A', text: near && near.kind === 'mash' ? near.label : held && WEAPON_KINDS.includes(held.kind) ? 'Attack' : 'Use' });
+    if (near && !aTakes && near.kind !== 'mash') out.push({ button: 'B', text: near.label, target: this._target(near) });
+    const release = g.releaseTarget(), leash = !release && g.leashHint() ? Stable.leashTarget(g.latestAnimals(), L, g.myId, null) : null;
+    if (release) out.push({ button: 'Y', text: release.label, target: this._target({ animal: release.animal }) });
+    else if (leash) out.push({ button: 'Y', text: 'Leash', target: this._target({ animal: leash }) });
+    const ride = g.rideHint();
+    if (ride) { const r = L.mount ? null : findRide(L, g.latestAnimals(), g.myId); out.push({ button: 'X', text: ride, target: r ? this._target({ animal: r.animal }) : { id: 'me', kind: 'me', lift: PAD_LIFT.me } }); }
     if (L.gear && L.gear.lasso) out.push({ button: 'ZR', text: 'Lasso' });
-    const stall = g.stallHint(); out.push({ button: 'R', text: stall ? stall.name : 'Town' });
+    const stall = g.stallHint();
+    out.push({ button: 'R', text: stall ? stall.name : 'Town', target: stall ? { id: 'tile:' + stall.fx + ',' + stall.fy, kind: 'spot', x: stall.fx + 0.5, y: stall.fy + 0.5, lift: PAD_LIFT.door } : null });
     const fly = g.abilityHint(); if (fly) out.push({ button: 'L', text: fly.label });
     const power = g.abilityState().find(a => !(a.cooldown > 0)); if (power) out.push({ button: 'ZL', text: power.ability.name });
-    out.push({ button: 'MINUS', text: 'Map' }, { button: 'PLUS', text: 'Menu' });
+    out.push({ button: 'LS', text: 'Bag' }, { button: 'MINUS', text: 'Map' }, { button: 'PLUS', text: 'Menu' });
     return out;
+  }
+
+  /** Where in the world an interaction is, as { id, kind, x, y, lift }: people and animals are looked up again each frame (locate()), so the bubble follows them. */
+  _target(a) {
+    const g = this.game, me = g.local, at = (id, kind, x, y, lift) => ({ id, kind, x, y, lift });
+    if (a.npc) { const id = Object.keys(g.npcs).find(k => g.npcs[k] === a.npc) || a.npc.name; return at('npc:' + id, 'npc', a.npc.x, a.npc.y, PAD_LIFT.npc); }
+    if (a.animal) { const an = a.animal; return at('animal:' + an.id, 'animal', an.x, an.y, AnimalDefs[an.type] && AnimalDefs[an.type].pony ? PAD_LIFT.pony : PAD_LIFT.animal); }
+    if (a.forage) return at('tile:' + a.forage.tx + ',' + a.forage.ty, 'spot', a.forage.prop.x, a.forage.prop.y, PAD_LIFT.tree);
+    if (a.chest) return at('prop:' + a.chest.prop.x + ',' + a.chest.prop.y, 'spot', a.chest.prop.x, a.chest.prop.y, PAD_LIFT.prop);
+    if (a.drop) return at('drop:' + a.drop.x + ',' + a.drop.y, 'spot', a.drop.x, a.drop.y, PAD_LIFT.prop);
+    if (a.boat) return at('boat', 'spot', a.boat.x, a.boat.y, PAD_LIFT.prop);
+    if (a.water) return at('water', 'spot', a.water.x, a.water.y, PAD_LIFT.prop);
+    if (a.door) return at('tile:' + a.door.tx + ',' + a.door.ty, 'spot', a.door.tx + 0.5, a.door.ty + 0.5, PAD_LIFT.door);
+    if (a.pile) return at('tile:' + a.pile.tx + ',' + a.pile.ty, 'spot', a.pile.tx + 0.5, a.pile.ty + 0.5, PAD_LIFT.door);
+    if (a.who) { const o = g.latestPlayers()[a.who]; if (o) return at('player:' + a.who, 'spot', o.x, o.y, PAD_LIFT.npc); }
+    if (typeof a.site === 'number' && !g.grid && typeof BuildingSites !== 'undefined' && BuildingSites.list[a.site]) { const f = BuildingSites.doorFront(BuildingSites.list[a.site]); return at('site:' + a.site, 'spot', f.x, f.y, PAD_LIFT.building); }
+    if (typeof a.fx === 'number') return at('tile:' + a.fx + ',' + a.fy, 'spot', a.fx + 0.5, a.fy + 0.5, PAD_LIFT.door);
+    if (typeof a.tx === 'number' && typeof a.ty === 'number') return at('tile:' + a.tx + ',' + a.ty, 'spot', a.tx + 0.5, a.ty + 0.5, PAD_LIFT.door);
+    if (typeof a.x === 'number' && typeof a.y === 'number') return at('spot:' + Math.round(a.x) + ',' + Math.round(a.y), 'spot', a.x, a.y, PAD_LIFT.prop);
+    return { id: 'me', kind: 'me', lift: PAD_LIFT.me };                               // (nothing to point at: over your own head)
+  }
+
+  /** The target's world position right now (a moving animal or villager as it is drawn), with its lift. */
+  locate(t) {
+    const g = this.game;
+    const view = g.getRenderState(1);
+    if (t.kind === 'me') { const me = view.players[g.myId] || g.local; return me ? { x: me.x, y: me.y, lift: t.lift } : null; }
+    if (t.kind === 'npc' || t.kind === 'animal') {
+      const live = (t.kind === 'npc' ? view.npcs : view.animals)[t.id.slice(t.id.indexOf(':') + 1)];
+      if (live) return { x: live.x, y: live.y, lift: t.lift };
+    }
+    return { x: t.x, y: t.y, lift: t.lift };
   }
 
   /* ---------------------------------------------------------------- a window is open: the pointer */
@@ -137,6 +178,7 @@ class GamepadActions {
   }
 
   _pressedInMenu(name) {
+    if (this.intro && this.intro.isOpen) { if (name === 'A' || name === 'B') this.intro.close(); return; }      // the first-time guide: A or B puts it away
     if (name === 'A') this._pointerDown();
     else if (name === 'B') this.bus.emit('closePanels');
     else if (PAD_DIRS[name]) { this.heldDir = { name, next: performance.now() + PAD_REPEAT_FIRST_MS }; this._navigate(PAD_DIRS[name]); }
