@@ -35,6 +35,7 @@ class SeasonUI {
     this.root.style.setProperty('--season', s.color);
     q('.sbIcon').textContent = s.icon; q('.sbName').textContent = s.name;
     const sky = weather && Weather.TYPES[weather.t], sbw = q('.sbWeather'); sbw.textContent = sky ? sky.icon : ''; sbw.parentNode.title = sky ? sky.name : '';      // today's weather
+    q('.sbDate').textContent = SeasonUI.dayName(info.dayInSeason);
     this.root.title = `${s.name}, day ${info.dayInSeason} of ${info.length}, year ${info.year}`;
     this._calendar(info);
     if (this.season && this.season !== s.id) {                                       // a new season: say so for a moment
@@ -43,14 +44,20 @@ class SeasonUI {
     }
     this.season = s.id;
   }
+  /** "Monday the 1st": a season starts on a Monday, and the seven columns of the calendar are its weekdays. */
+  static dayName(day) {
+    const week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], mod100 = day % 100, mod10 = day % 10;
+    const suffix = mod100 >= 11 && mod100 <= 13 ? 'th' : mod10 === 1 ? 'st' : mod10 === 2 ? 'nd' : mod10 === 3 ? 'rd' : 'th';
+    return `${week[(day - 1) % 7]} the ${day}${suffix}`;
+  }
   /** One box per day, seven to a row (always at least three rows); boxes past the end of a short season stay blank. */
   _calendar(info) {
     const cal = this.root.querySelector('.sbCal'), rows = Math.max(3, Math.ceil(info.length / 7)), count = rows * 7;
-    if (this.cellsFor !== count) {
+    if (this.cellsFor !== count + ':' + info.length) {
       cal.innerHTML = ''; this.cells = [];
       cal.style.setProperty('--rows', rows);
-      for (let i = 0; i < count; i++) { const c = document.createElement('i'); cal.appendChild(c); this.cells.push(c); }
-      this.cellsFor = count;
+      for (let i = 0; i < count; i++) { const c = document.createElement('i'); c.textContent = i < info.length ? i + 1 : ''; cal.appendChild(c); this.cells.push(c); }       // (each box wears its day number)
+      this.cellsFor = count + ':' + info.length;
     }
     this.cells.forEach((c, i) => { const day = i + 1; c.className = day > info.length ? 'blank' : day < info.dayInSeason ? 'past' : day === info.dayInSeason ? 'today' : ''; });
   }

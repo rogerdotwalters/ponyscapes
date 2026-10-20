@@ -466,7 +466,7 @@ input,textarea,select{-webkit-user-select:text;user-select:text;touch-action:man
  *   [ season name                  icon ]
  *   [ calendar: 7 boxes a week, 3 weeks ]   (a box for every day: the days gone by filled, today lit)
  *   [ time of day  ][ weather ]                                                                               */
-#seasonBar{position:fixed;z-index:4;box-sizing:border-box;padding:0;border-radius:3px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:2em 1fr 2.3em;overflow:visible;
+#seasonBar{position:fixed;z-index:4;box-sizing:border-box;padding:0;border-radius:3px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:2em 1.5em 1fr 2.3em;overflow:visible;
   background:rgba(14,22,32,.82);border:2px solid var(--deep);color:#f6ecd6;font:600 12px Georgia,serif;pointer-events:none;box-shadow:inset 0 0 0 1px var(--gold),0 3px 0 rgba(0,0,0,.45)}
 #seasonBar .sbHead{grid-column:1 / 3;display:flex;align-items:center;justify-content:space-between;gap:.4em;padding:0 .5em;background:color-mix(in srgb,var(--season,#7cc86a) 38%,#14202c);border-bottom:1px solid rgba(0,0,0,.45);white-space:nowrap;overflow:hidden}
 #seasonBar .sbName{color:#fff6dc;text-shadow:1px 1px 0 rgba(0,0,0,.6);letter-spacing:.5px;font-size:1.05em}
@@ -1191,3 +1191,7 @@ body.coinsOpen #miniMap,body.gardenOpen #miniMap{visibility:hidden}
 #toolbar .handSlot{margin-right:12px}
 body.padActive #btnMenu::after{right:auto;left:-4px;top:-10px}
 body.noVitals #hungerBar,body.noVitals #thirstBar{display:none !important}
+#seasonBar .sbDate{grid-column:1 / 3;display:flex;align-items:center;justify-content:center;padding:0 .4em;font-size:.82em;color:#f6e3a6;white-space:nowrap;overflow:hidden;border-bottom:1px solid rgba(227,194,122,.3)}
+#seasonBar .sbCal i{display:flex;align-items:center;justify-content:center;font:700 .62em/1 Georgia,serif;font-style:normal;color:rgba(246,236,214,.55);text-shadow:none}
+#seasonBar .sbCal i.past{color:rgba(20,32,44,.75)}
+#seasonBar .sbCal i.today{color:#14202c;font-size:.7em}
