@@ -71,7 +71,9 @@ function launch(choice, query) {
       root: $('touchUI'), zone: $('joyZone'), base: $('joyBase'), knob: $('joyKnob'),
       btnBag: $('btnBag'), btnAct: $('btnAct'), btnRot: $('btnRot'), btnBoard: $('btnBoard'), btnRelease: $('btnRelease'), btnAbility: $('btnAbility'), btnLasso: $('btnLasso'), btnLeash: $('btnLeash'), btnRide: $('btnRide'), btnStall: $('btnStall')
     });
-    const input = new InputController({ bus, keyboard, touch });
+    const pad = new GamepadInput(bus);
+    const padActions = new GamepadActions({ bus, game, pad, panels: null, mapUI: null, cursor: $('padCursor') });          // (its windows and the map are handed over below, once they exist)
+    const input = new InputController({ bus, keyboard, touch, gamepad: padActions });
     const appleButton = new AppleButton({ root: $('btnApple'), game, bus });
     const layout = new UiLayout({ dom: collectLayoutDom(game), touchControls: touch });
     bus.on('touchUiShown', () => layout.update());
@@ -101,7 +103,7 @@ function launch(choice, query) {
     const gardenUI = new GardenUI({ panel: $('gardenPanel'), canvas: $('gardenCanvas'), seedList: $('gardenSeedList'), toolBar: $('gardenTools'), pouchHost: $('gardenPouches'), title: $('gardenTitle'), hint: $('gardenHint'), closeButton: $('gardenClose'), game, requestOpen: () => panels.open('garden') });
     const craftingUI = new CraftingUI({ panel: $('craftPanel'), list: $('craftList'), closeButton: $('craftClose'), game });
     const settingsUI = new SettingsUI({ panel: $('settingsPanel'), list: $('settingsList'), closeButton: $('settingsClose'), game });
-    const controlsUI = new ControlsUI({ panel: $('controlsPanel'), tabs: $('controlsTabs'), body: $('controlsBody'), closeButton: $('controlsClose') });
+    const controlsUI = new ControlsUI({ panel: $('controlsPanel'), tabs: $('controlsTabs'), body: $('controlsBody'), closeButton: $('controlsClose'), pad });
     const panels = new PanelGroup();
     const gearUI = new WardrobeUI({ panel: $('gearPanel'), body: $('gearBody'), closeButton: $('gearClose'), game });
     const journalUI = new JournalUI({ panel: $('journalPanel'), tabs: $('journalTabs'), body: $('journalBody'), closeButton: $('journalClose'), game });
@@ -170,6 +172,9 @@ function launch(choice, query) {
     bus.on('togglePonies', () => panels.toggle('ponies'));
     bus.on('toggleJournal', () => panels.toggle('journal'));
     bus.on('toggleMap', () => panels.toggle('map'));
+    bus.on('toggleMenu', () => panels.toggle('menu'));            // the controller's + button
+    padActions.panels = panels; padActions.mapUI = mapUI;
+    const padHints = new GamepadHints({ root: $('padHints'), pad, actions: padActions, badges: { PLUS: $('btnMenu'), MINUS: $('btnMap') } });
     bus.on('toggleTown', () => panels.toggle('town'));
     bus.on('throwLasso', () => game.throwLasso());
     bus.on('dropHeld', all => game.dropHeld(all));                  // X / the Drop button: what is in your hand, onto the ground                  // L / the Lasso button: the lasso in the lasso slot
@@ -215,7 +220,7 @@ function launch(choice, query) {
     if (castleParam && adapter.server) setTimeout(() => adapter.server.interiors.setRestored('castle', castleParam === 'restored'), 200);   // ?castle=restored|ruined: see the castle as it will be once the village has restored it (testing)
     const weatherParam = new URLSearchParams(location.search).get('weather');
     if (weatherParam && adapter.server && Weather.TYPES[weatherParam]) setTimeout(() => adapter.server.weather.force(weatherParam), 300);     // ?weather=thunderstorm: start under that sky (testing)
-    window.ponyscapes = { coinBagUI, ponyBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
+    window.ponyscapes = { pad, padActions, coinBagUI, ponyBagUI, game, adapter, sessionUI, toasts, input, renderer, bus, panels, journalUI, menuUI, mapUI, confirmUI, gearUI, tradeUI, townUI, shopUI, emoteUI, layout, controlsUI, dialogueUI, tapActions: tapToMove };      // handy for console debugging
 
     let stallShown = null, rideShown = null, leashShown = null, appleShown = null, lassoShown = null, attackShown = false, mainShown = null, rotateShown = null, interactShown = null, releaseShown = null, abilityShown = null, powerShown = null;
     /** The ridden pony's rarity abilities: a strip above the vitals (desktop) and the power button (touch), with cooldowns. */
@@ -237,6 +242,7 @@ function launch(choice, query) {
       tickMs: TICK_MS,
       onTick: () => game.predict(input.sample(game.nextSeq(), game.local, TICK_DT)),
       onRender: (alpha, frameMs, now) => {
+        padActions.update(frameMs); padHints.update(frameMs);
         tapToMove.tick();
         footsteps.update(); worldSfx.update(frameMs / 1000); music.update(game, effects.weather.cur);
         game.advanceRemoteClock(frameMs);
