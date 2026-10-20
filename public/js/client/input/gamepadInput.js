@@ -29,6 +29,7 @@ const PAD_LAYOUT = [
   { button: 'PLUS',   world: 'Menu', menu: 'Menu' },
   { button: 'RSTICK', world: '', menu: 'Move the pointer' },
   { button: 'DPAD',   world: 'Change the tool in your hand (tool bar slot)', menu: 'Jump between buttons and slots' },
+  { button: 'LS',     world: 'Bag (click the left stick)', menu: '' },
   { button: 'RS',     world: 'Journal (click the right stick)', menu: '' }
 ];
 

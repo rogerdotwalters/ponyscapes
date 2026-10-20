@@ -4,7 +4,7 @@
  *   playing   Left stick  move                         A   use your tool / talk and shop / enter a building / pet
  *             B  pick, pick up and hold, feed, pet     Y   untie / let go, or leash your pony        X  mount / dismount
  *             ZR lasso                                 R   the stall, stable or building menu beside you (else the Town)
- *             - map, + menu                            L   fly / land     ZL  pony power     D-pad  tool bar
+ *             - map, + menu, L3 bag                            L   fly / land     ZL  pony power     D-pad  tool bar
  *   a window  D-pad jumps between the buttons, right stick moves a pointer, A clicks it, B closes the window; hold L and the right stick scrolls a list or pans the map.
  *
  * Nothing here changes a game rule: every button ends in the same call the keyboard or the touch buttons make (bus events, ClientGame methods). */
@@ -25,7 +25,7 @@ class GamepadActions {
     this.menuMode = false;
     this.aUsing = false;                          // A went down on "use the tool" (so holding it keeps swinging)
     this.cx = 0; this.cy = 0;                     // the pointer
-    this.downTarget = null; this.hoverEl = null; this.heldDir = null;
+    this.downTarget = null; this.hoverEl = null; this.heldDir = null; this.intro = null;
     swallowSyntheticCapture();
     bus.on('padActive', on => { document.body.classList.toggle('padActive', on); if (!on) this._setHover(null); });
   }
@@ -66,6 +66,7 @@ class GamepadActions {
       case 'ZL': { const i = g.abilityState().findIndex(a => !(a.cooldown > 0)); if (i >= 0) this.bus.emit('ponyPower', i + 1); break; }
       case 'LEFT': case 'UP': g.cycleSlot(-1); break;                 // the D-pad changes the tool in your hand
       case 'RIGHT': case 'DOWN': g.cycleSlot(1); break;
+      case 'LS': this.bus.emit('toggleInventory'); break;               // click the left stick: the Bag
       case 'RS': this.bus.emit('toggleJournal'); break;
     }
   }
@@ -126,7 +127,7 @@ class GamepadActions {
     out.push({ button: 'R', text: stall ? stall.name : 'Town', target: stall ? { id: 'tile:' + stall.fx + ',' + stall.fy, kind: 'spot', x: stall.fx + 0.5, y: stall.fy + 0.5, lift: PAD_LIFT.door } : null });
     const fly = g.abilityHint(); if (fly) out.push({ button: 'L', text: fly.label });
     const power = g.abilityState().find(a => !(a.cooldown > 0)); if (power) out.push({ button: 'ZL', text: power.ability.name });
-    out.push({ button: 'MINUS', text: 'Map' }, { button: 'PLUS', text: 'Menu' });
+    out.push({ button: 'LS', text: 'Bag' }, { button: 'MINUS', text: 'Map' }, { button: 'PLUS', text: 'Menu' });
     return out;
   }
 
@@ -177,6 +178,7 @@ class GamepadActions {
   }
 
   _pressedInMenu(name) {
+    if (this.intro && this.intro.isOpen) { if (name === 'A' || name === 'B') this.intro.close(); return; }      // the first-time guide: A or B puts it away
     if (name === 'A') this._pointerDown();
     else if (name === 'B') this.bus.emit('closePanels');
     else if (PAD_DIRS[name]) { this.heldDir = { name, next: performance.now() + PAD_REPEAT_FIRST_MS }; this._navigate(PAD_DIRS[name]); }

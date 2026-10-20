@@ -174,6 +174,8 @@ function launch(choice, query) {
     bus.on('toggleMap', () => panels.toggle('map'));
     bus.on('toggleMenu', () => panels.toggle('menu'));            // the controller's + button
     padActions.panels = panels; padActions.mapUI = mapUI;
+    const padIntro = new GamepadIntro({ pad }); panels.register('padIntro', padIntro); padActions.intro = padIntro;
+    bus.on('padActive', on => { if (on && (!GamepadIntro.seen() || query.get('padintro') === '1')) { GamepadIntro.markSeen(); setTimeout(() => panels.open('padIntro'), 250); } });      // the one pop-up: the guide, the first time a controller is used
     const padHints = new GamepadHints({ root: $('padHints'), bubbles: $('padBubbles'), camera: renderer.camera, pad, actions: padActions, badges: { PLUS: $('btnMenu'), MINUS: $('btnMap') } });
     bus.on('toggleTown', () => panels.toggle('town'));
     bus.on('throwLasso', () => game.throwLasso());

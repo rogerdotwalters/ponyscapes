@@ -109,7 +109,7 @@ class ControlsUI {
     const pad = this.pad, name = b => (pad ? pad.label(b) : b);
     const status = pad && pad.connected ? `Connected: ${escapeAttr(pad.id)}` : 'No controller found yet. Plug one in or pair it by Bluetooth, then press any button on it.';
     const rows = PAD_LAYOUT.map(r => `<div class="ctlHelpRow"><b>${name(r.button)}</b><span>${r.world || '-'}${r.menu ? `<br><i>In a window: ${r.menu}</i>` : ''}</span></div>`).join('');
-    return `<div class="ctlHelp">${status}</div><div class="gtitle">Button layout</div>` + rows +
+    return `<div class="ctlHelp">${status}</div>` + (pad ? padGuideSvg(pad) : '') + '<div class="gtitle">Every button</div>' + rows +
       '<div class="menunote">The layout follows the Nintendo Switch pad. Xbox and PlayStation pads work the same: the buttons sit in the same places and are printed with their own names here and in the on-screen prompts. The prompts at the bottom right of the game change with what is next to you and go away when you use the keyboard or mouse. Controller buttons cannot be rebound.</div>';
   }
 
