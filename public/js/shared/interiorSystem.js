@@ -20,6 +20,7 @@ function findBuildingInteraction(map, p) {
   const near = BuildingSites.nearDoor(p.x, p.y, BUILDING_REACH);
   if (!near) return null;
   if (near.site.def.home) {                                                  // a home: only its owner goes in (p.home is the site this player was given, -1 = none)
+    if (p.hostHome === near.site.index && p.home !== near.site.index) return { kind: 'enter_building', label: "Visit the host's home", dist: near.dist, site: near.site.index };   // (a guest may visit the host's home)
     return p.home === near.site.index ? { kind: 'enter_building', label: 'Go home', dist: near.dist, site: near.site.index }
       : { kind: 'locked_building', label: near.site.def.name + ' (locked)', dist: near.dist, site: near.site.index };
   }
@@ -86,8 +87,8 @@ class InteriorSystem {
   /** The grid of the room this player goes into at a site: the shared one, or (a player building) their own copy. */
   gridFor(id, site) {
     if (!site.def.home && !site.def.stable) return Grids.room(site.index);                   // (a home: every player has a room of their own)
-    const s = this.server, owner = site.def.stable && s.hostId ? s.hostId : id;              // (the stable: one for the whole party, the host's; the host decides who may do what in it)
-    const key = s.playerKeys[owner] || 'seat:' + owner;                     // (a keyless test player: by seat)
+    const s = this.server, o = site.def.home && this.owners[site.index], owner = site.def.stable && s.hostId ? s.hostId : id;              // (the stable: one for the whole party, the host's; the host decides who may do what in it)
+    const key = o ? o.key : s.playerKeys[owner] || 'seat:' + owner;                   // (a home: its owner's room, whoever walks in)                     // (a keyless test player: by seat)
     if (this.homes[key] === undefined) this.homes[key] = this.nextHome++;
     return Grids.room(site.index, this.homes[key]);
   }
@@ -95,7 +96,7 @@ class InteriorSystem {
   enter(id, p, siteIndex) {
     const s = this.server, site = BuildingSites.list[siteIndex];
     if (!site || s.dungeons._cooling(id)) return;
-    if (site.def.home) { const o = this.owners[site.index], mine = o && o.key === (s.playerKeys[id] || 'seat:' + id); if (!mine) { s._notice(id, o ? `This is ${o.name || 'somebody'}'s home` : 'This home is empty: it is kept for a new neighbour'); return; } }
+    if (site.def.home) { const o = this.owners[site.index], mine = o && (o.key === (s.playerKeys[id] || 'seat:' + id) || p.hostHome === site.index); if (!mine) { s._notice(id, o ? `This is ${o.name || 'somebody'}'s home` : 'This home is empty: it is kept for a new neighbour'); return; } }
     else if (site.def.locked) return;
     if (site.def.stable && s._stableAccess(id) === 'none') { s._notice(id, 'The host has closed the stable to you'); return; }
     const grid = this.gridFor(id, site), room = s.grids.get(grid);

@@ -244,8 +244,11 @@ class GameServer {
     if (character) SaveData.importCharacter(this, id, character);
     const look = CharacterLook.sanitize(appearance);                    // what they chose on the character screen wins over what was saved
     if (look) { this.players[id].appearance = look; this.fitWardrobe(id); }
+    this._syncHostHome();
     return id;
   }
+  /** Everyone is told which home is the host's (p.hostHome, -1 = none): any player may visit it (interiorSystem.js). */
+  _syncHostHome() { const h = this.players[this.hostId], site = h && h.home >= 0 ? h.home : -1; for (const id in this.players) this.players[id].hostHome = site; }
   /** A person leaves: their seat is free again. */
   leaveHuman(id) {
     this.removePlayer(id);
@@ -658,6 +661,7 @@ class GameServer {
     this.dungeons.update();                                                           // the Slime Warren's waves (dungeonSystem.js)
     this.connect4.update(this.tick);
     this.memory.update(this.tick);                                                    // ...and from a Memory table (memoryGame.js)                                                  // people who walk away from a Connect Four table stand up (connectFour.js)
+    this._syncHostHome();
     this.roundup.update();                                                            // the Round-Up arenas: sheep, ropes, rivals, the clock (roundupSystem.js)
     this.trees.update(this.tick);
     this.forage.update(this.tick);
