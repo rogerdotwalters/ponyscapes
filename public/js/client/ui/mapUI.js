@@ -176,6 +176,10 @@ class MapUI {
       const [x, y] = toMap(pet.x, pet.y); if (!inside(x, y)) continue;
       ctx.fillStyle = pet.gentling ? '#ffd24a' : (PONY_KIND_COLORS[pet.type] || '#f48fb1'); ctx.strokeStyle = '#1b2a3a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, far ? 2.4 : 3.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
+    if (!g.grid) for (const o of g.otherPlayers()) {                                                                  // the other players
+      const [x, y] = toMap(o.x, o.y); if (!inside(x, y)) continue;
+      ctx.fillStyle = o.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(x, y, far ? 3 : 4.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
     let nearest = null;
     for (const m of g.treasureMaps) {                                                                                 // treasure
       const wx = m.tx + 0.5, wy = m.ty + 0.5, d = Math.hypot(wx - me.x, wy - me.y); if (!nearest || d < nearest.d) nearest = { d, wx, wy };

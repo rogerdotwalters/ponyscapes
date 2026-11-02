@@ -68,6 +68,11 @@ class MiniMap {
       if (!inside(x, y)) { MapUI.edgeArrow(ctx, mid, x, y, wp.color, ''); continue; }
       ctx.fillStyle = wp.color; ctx.strokeStyle = '#3a2a08'; ctx.lineWidth = 1.2 * u; ctx.beginPath(); ctx.arc(x, y, 3.6 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
+    if (!g.grid || inCave) for (const o of g.otherPlayers()) {                                           // the other players (same frame as you: the overworld, or the same cave room)
+      const [x, y] = toMap(o.x, o.y);
+      if (!inside(x, y)) { MapUI.edgeArrow(ctx, mid, x, y, o.color, ''); continue; }
+      ctx.fillStyle = o.color; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6 * u; ctx.beginPath(); ctx.arc(x, y, 3.8 * u, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
     const fx = Math.cos(me.facing), fy = Math.sin(me.facing);                // you, pointing the way you face
     ctx.save(); ctx.translate(mid, mid); ctx.rotate(Math.atan2((fx + fy) * K2, (fx - fy) * K1));
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1b3d73'; ctx.lineWidth = 1.6 * u; ctx.beginPath(); ctx.moveTo(7 * u, 0); ctx.lineTo(-4.5 * u, -5 * u); ctx.lineTo(-2 * u, 0); ctx.lineTo(-4.5 * u, 5 * u); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
