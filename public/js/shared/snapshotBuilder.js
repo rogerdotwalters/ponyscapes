@@ -51,7 +51,9 @@ const SnapshotBuilder = {
     snapshot.npcs = on(base.npcs);                                                                                      // (a villager is on their own grid: a shopkeeper stands in their shop's room)
     if (grid) snapshot.boats = {};
     snapshot.events = SnapshotBuilder.eventsFor(base.events, id, grid);
-    snapshot.pets = server.petsFor(id); snapshot.book = server.bookFor(id); snapshot.varieties = server.varietiesFor(id);   // the Pony Book, every snapshot (it is small)
+    const cache = (server.bookCache || (server.bookCache = {}))[id];                                                   // the Pony Book and your pets change slowly: rebuilt a few times a second, not every tick (each is a walk over every animal)
+    const book = cache && server.tick - cache.at < 6 ? cache : (server.bookCache[id] = { at: server.tick, pets: server.petsFor(id), book: server.bookFor(id), varieties: server.varietiesFor(id) });
+    snapshot.pets = book.pets; snapshot.book = book.book; snapshot.varieties = book.varieties;
     snapshot.memory = server.memory.stateFor(id);                                                                     // the Memory game you are sitting at (else null)
     snapshot.connect4 = server.connect4.stateFor(id);                                                                 // the Connect Four game you are sitting at (else null)
     snapshot.roundup = server.roundup.stateFor(id);                                                                   // the Round-Up's scoreboard and clock, while you are in an arena (else null)
