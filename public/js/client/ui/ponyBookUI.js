@@ -20,8 +20,8 @@ class PonyBookUI {
     game.events.on('petsChanged', () => this.isOpen && this._refreshSoon());
   }
   get isOpen() { return !this.panel.hidden; }
-  open() { this.panel.hidden = false; this.view = null; this._askHerd(); this.refresh(); }
-  close() { this.panel.hidden = true; }
+  open() { this.panel.hidden = false; this.game.bookView('book', true); this.view = null; this._askHerd(); this.refresh(); }
+  close() { this.panel.hidden = true; this.game.bookView('book', false); }
   /** With the genetics switch on, ask the server for the herd's diversity (it changes when a foal is born or a pony leaves). */
   _askHerd() { if (GeneticsView.on && this.game.hasPony()) this.game.herdGenetics(); }
 
