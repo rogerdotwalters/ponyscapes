@@ -282,6 +282,7 @@ class GameServer {
       case 'spawnPony': if (id === this.hostId) this._devSpawnPonies(cmd.kind, cmd.count, cmd.variety); break;                                // the host's pony spawner (Dev settings)
       case 'devLasso': if (id === this.hostId) this._devLasso(id, cmd.item); break;                                                           // the host's lasso picker (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
+      case 'bookView': (this.bookViewers || (this.bookViewers = {}))[id] = !!cmd.on; if (this.bookCache) delete this.bookCache[id]; break;       // the Pony Book / poster window opened or closed: its data is sent only while open
       case 'ability': this._useAbility(id, cmd.id); break;
       case 'ride': this._rideNearest(id, cmd.animal); break;                                                              // the Ride button (its own button, interaction.js findRide)
       case 'leashPony': this._leashPony(id, cmd.animal); break;                                                           // the Leash button: your own pony onto a leash (stableSystem.js)

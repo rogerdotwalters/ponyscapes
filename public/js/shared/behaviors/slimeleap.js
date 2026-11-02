@@ -7,7 +7,7 @@ Behaviors.register(Object.assign({}, Behaviors.get('territorial'), {
   id: 'slimeleap',
   think(sys, a, def, humans, dt) {
     const L = def.leap;
-    a.attackT = Math.max(0, a.attackT - dt); a.aggroT = Math.max(0, (a.aggroT || 0) - dt); a.leapT = Math.max(0, (a.leapT === undefined ? 1 + sys.rng() * 2 : a.leapT) - dt);
+    a.attackT = Math.max(0, a.attackT - dt); a.aggroT = Math.max(0, (a.aggroT || 0) - dt); a.leapT = Math.max(0, (a.leapT === undefined ? L.cooldown * (0.5 + 0.8 * sys.rng()) : a.leapT) - dt);
     a.jumpLift = 0;
     if (a.leapPhase === 'windup') {
       sys._steerAlong(a, 0, 0, 0); a.state = 'windup'; a.leapPhaseT -= dt;
@@ -29,6 +29,7 @@ Behaviors.register(Object.assign({}, Behaviors.get('territorial'), {
     }
     const found = this.pickTarget(sys, a, def, humans);
     if (!found) { if (a.state === 'chase') { a.state = 'idle'; a.timer = 1; } sys._wander(a, def, dt); return; }
+    if (!(a.aggroT > 0)) a.leapT = Math.max(a.leapT, 1.2 + sys.rng() * 1.3);                                     // it has only just noticed you: it oozes closer first, and does not jump on sight
     a.aggroT = 6;
     if (a.leapT <= 0 && found.dist >= L.minRange && found.dist <= L.range) { this.start(sys, a, def, found.target); return; }
     this.attack(sys, a, def, found.target, found.dist);

@@ -96,7 +96,7 @@ const slimeLeap = (seconds, dodge) => run(`(() => {
   const world = S.mapOf(PA), R = world.plan.room; let spot = null;
   for (let y = 5; y < R.h - 5 && !spot; y++) for (let x = 5; x < R.w - 12 && !spot; x++) { let ok = true; for (let dx = 0; dx <= 8 && ok; dx++) for (let dy = -2; dy <= 2 && ok; dy++) if (R.code(x + dx, y + dy) !== 0 || world.plan.isPool(x + dx, y + dy)) ok = false; if (ok) spot = { x, y }; }
   PA.x = spot.x + 6.5; PA.y = spot.y + 0.5;
-  const id = S.animals.spawn('slime', spot.x + 2.5, spot.y + 0.5, 0, { level: 4, grid: PA.grid }), a = S.animals.animals[id]; a.leapT = 0; a.wave = true;
+  const id = S.animals.spawn('slime', spot.x + 2.5, spot.y + 0.5, 0, { level: 4, grid: PA.grid }), a = S.animals.animals[id]; a.leapT = 0; a.aggroT = 6; a.wave = true;
   const seen = new Set(); let lift = 0, away = false;
   for (let i = 0; i < ${seconds} * CONFIG.sim.tickRate; i++) {
     S.step();

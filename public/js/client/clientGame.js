@@ -310,6 +310,8 @@ class ClientGame {
   hasPony() { return this.pets.some(p => !p.gentling); }
   /** A choice in the stable's menu. */
   lineage(animal) { this.net.sendCommand({ type: 'lineage', animal }); }                                 // a pony's family tree (stableSystem.js)
+  /** The Pony Book data (kinds, varieties, poster coins) is only sent while a window that shows it is open. */
+  bookView(window, on) { const w = this.bookWindows || (this.bookWindows = new Set()), was = w.size > 0; on ? w.add(window) : w.delete(window); if ((w.size > 0) !== was) this.net.sendCommand({ type: 'bookView', on: w.size > 0 }); }
   herdGenetics() { this.net.sendCommand({ type: 'herdGenetics' }); }                                    // the herd's diversity
   stallPick(cmd) { this.net.sendCommand(Object.assign({ type: 'stallPick' }, cmd)); }
   vendorPick(cmd) { this.net.sendCommand(Object.assign({ type: 'vendorPick' }, cmd)); }                  // the pony vendor's menu (ponyTrade.js)
