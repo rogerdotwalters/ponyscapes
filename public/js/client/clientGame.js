@@ -337,6 +337,12 @@ class ClientGame {
   isMyCatch(animalId) { const a = this.latestAnimals()[animalId]; return !!a && a.captor === this.myId; }
 
   /** What a player is called: their chosen name, else "P2". */
+  /** The other people on our grid, from the newest snapshot: [{ id, x, y, color, name }] (nobody who is somewhere else: a snapshot only holds our own grid). */
+  otherPlayers() {
+    const last = this.snapshots[this.snapshots.length - 1], out = [];
+    if (last && last.players) for (const id in last.players) { const p = last.players[id]; if (id !== this.myId && p && true) out.push({ id, x: p.x, y: p.y, color: p.color || CONFIG.sim.slotColors[p.slot] || '#fff', name: p.name || '' }); }
+    return out;
+  }
   playerName(id) { const last = this.snapshots[this.snapshots.length - 1], p = last && last.players && last.players[id]; return (p && p.name) || 'P' + (id.slice(1) | 0); }
 
   /** Hour of day (0..24) for the lighting and the clock. */
