@@ -12,12 +12,12 @@ class PosterUI {
   }
   get isOpen() { return !this.panel.hidden; }
   open() {
-    this.panel.hidden = false; this.panel.classList.add('posting'); this.grid = this.game.grid; this.refresh();
+    this.panel.hidden = false; this.game.bookView('poster', true); this.panel.classList.add('posting'); this.grid = this.game.grid; this.refresh();
     this.coinBag.startPoster({ zone: this.panel, onClose: () => this.close() });
   }
   close() {
     if (this.panel.hidden) return;
-    this.panel.hidden = true; this.panel.classList.remove('posting');
+    this.panel.hidden = true; this.game.bookView('poster', false); this.panel.classList.remove('posting');
     this.coinBag.endPoster(); this.coinBag.close();
   }
   _refreshSoon() {

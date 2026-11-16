@@ -311,6 +311,8 @@ class ClientGame {
   hasPony() { return this.pets.some(p => !p.gentling); }
   /** A choice in the stable's menu. */
   lineage(animal) { this.net.sendCommand({ type: 'lineage', animal }); }                                 // a pony's family tree (stableSystem.js)
+  /** The Pony Book data (kinds, varieties, poster coins) is only sent while a window that shows it is open. */
+  bookView(window, on) { const w = this.bookWindows || (this.bookWindows = new Set()), was = w.size > 0; on ? w.add(window) : w.delete(window); if ((w.size > 0) !== was) this.net.sendCommand({ type: 'bookView', on: w.size > 0 }); }
   herdGenetics() { this.net.sendCommand({ type: 'herdGenetics' }); }                                    // the herd's diversity
   stallPick(cmd) { this.net.sendCommand(Object.assign({ type: 'stallPick' }, cmd)); }
   vendorPick(cmd) { this.net.sendCommand(Object.assign({ type: 'vendorPick' }, cmd)); }                  // the pony vendor's menu (ponyTrade.js)
@@ -336,6 +338,12 @@ class ClientGame {
   isMyCatch(animalId) { const a = this.latestAnimals()[animalId]; return !!a && a.captor === this.myId; }
 
   /** What a player is called: their chosen name, else "P2". */
+  /** The other people on our grid, from the newest snapshot: [{ id, x, y, color, name }] (nobody who is somewhere else: a snapshot only holds our own grid). */
+  otherPlayers() {
+    const last = this.snapshots[this.snapshots.length - 1], out = [];
+    if (last && last.players) for (const id in last.players) { const p = last.players[id]; if (id !== this.myId && p && true) out.push({ id, x: p.x, y: p.y, color: p.color || CONFIG.sim.slotColors[p.slot] || '#fff', name: p.name || '' }); }
+    return out;
+  }
   playerName(id) { const last = this.snapshots[this.snapshots.length - 1], p = last && last.players && last.players[id]; return (p && p.name) || 'P' + (id.slice(1) | 0); }
 
   /** Hour of day (0..24) for the lighting and the clock. */
