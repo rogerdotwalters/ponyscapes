@@ -321,7 +321,7 @@ Object.assign(GameServer.prototype, {
    *  its cutie mark from either, their variety, and a rarity at least as good as the better parent. */
   _foalLook(a, b) {
     const A = a.look || [0, 0, 0, 0, 0, 0, 0], B = b.look || A, r = () => this.rng(), pickParent = r() < 0.5 ? A : B;
-    const idOf = l => (PonyVariants[l[4] | 0] || PonyVariants[0]).id, hybrid = Hybrids.cross(r, idOf(A), idOf(B)), variant = hybrid ? Hybrids.variantIndex(hybrid.id) : pickParent[4] | 0;   // (a recipe's hybrid: shared/hybrids.js)
+    const idOf = l => (PonyVariants[l[4] | 0] || PonyVariants[0]).id, hybrid = Hybrids.cross(r, idOf(A), idOf(B)), variant = hybrid ? Hybrids.variantIndex(hybrid.id) : Hybrids.isLegend(idOf(pickParent)) ? 0 : pickParent[4] | 0;   // (a recipe's hybrid: shared/hybrids.js)
     const V = variant ? PonyVariants[variant] : null, P = PonyPalette, marks = (V || P).marks.length, names = PonyNames.count(V);
     const same = [A, B].filter(l => (l[4] | 0) === variant);
     const mark = r() < 0.1 || !same.length ? Math.floor(r() * marks) : (() => { const l = same[Math.floor(r() * same.length)]; return (l[2] | 0) < marks ? l[2] | 0 : Math.floor(r() * marks); })();

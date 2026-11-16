@@ -293,6 +293,7 @@ class ClientGame {
   clearPonies() { this.net.sendCommand({ type: 'clearPonies' }); }                                      // dev: remove every pony in the game
   devLasso(item) { this.net.sendCommand({ type: 'devLasso', item }); }                                  // dev: put any lasso in the lasso slot
   spawnPonies(kind, count, variety = '') { this.net.sendCommand({ type: 'spawnPony', kind, count, variety }); }
+  spawnLegend(id) { this.net.sendCommand({ type: 'spawnLegend', id }); }
   setWeather(id) { this.net.sendCommand({ type: 'weather', id }); }
   setTimeOfDay(hour) { this.net.sendCommand({ type: 'admin', values: {}, hour }); }
   setSetting(key, value) { this.net.sendCommand({ type: 'setting', key, value: !!value }); }

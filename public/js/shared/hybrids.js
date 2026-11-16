@@ -12,7 +12,19 @@ const Hybrids = {
     { a: 'pony_alicorn', b: 'pony_unicorn', kind: 'pony_alicorn', chance: 0.4, name: 'Alicorn' }]),
   /** The chance a foal is a step up in kind (plain -> earth -> pegasus or unicorn) when no cross applies. */
   STEP_UP: 0.05,
-  isHybrid: id => HybridTable.has(id),
+  isHybrid: id => HybridTable.has(id) && !HybridTable.get(id).legend,                       // (a legendary pony is never bred: data/ponies/legends.js)
+  isLegend: id => !!(HybridTable.get(id) || {}).legend,
+  /** The legendary ponies' ids, in table order. */
+  legends: () => HybridTable.all().filter(h => h.legend).map(h => h.id),
+  /** The look of a legendary pony: its one coat, mane, mark and name, always legendary, classic genes (a rainbow trail for the ones that have one). Every legend is the same pony wherever it is drawn. */
+  legendLook(id) {
+    const v = Hybrids.variantIndex(id), V = PonyVariants[v];
+    if (!V || !V.legend) return null;
+    const look = [0, 0, 0, 0, v, RarityOrder.indexOf('legendary'), V.seed | 0];
+    for (let i = 0; i < PonyGenes.LOCI.length; i++) look.push(0);
+    if (V.trail) look[PonyGenes.BASE + PonyGenes.at('trail')] = V.trail * 64 + V.trail;
+    return look;
+  },
   /** The recipes for two variety ids (any order). */
   recipes(a, b) { return HybridTable.all().filter(h => h.parents.length === 2 && ((h.parents[0] === a && h.parents[1] === b) || (h.parents[0] === b && h.parents[1] === a))); },
   /** Everything two varieties could make: [{ id, name, chance, rarity }] (the recipes, or Chaos for two different hybrids with none). */

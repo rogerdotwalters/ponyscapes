@@ -243,10 +243,13 @@ class SettingsUI {
       `<select data-spawn-variety tabindex="-1" title="Moon and sky kinds always come in their own variety">${opts(varieties.map(v => [v.id, v.name]), 'Random variety')}</select>` +
       '<input data-spawn-count type="number" min="1" max="12" value="1" style="width:3.4em" title="How many"><button data-spawn-go tabindex="-1">Spawn</button>' +
       '<button data-spawn="random" data-n="6" tabindex="-1">\u{1F3B2} Random \u00d76</button>' +
-      '<button data-clear-ponies tabindex="-1" title="Removes every pony in the game: wild ones and everyone\'s own, stalled or not. Tap twice.">\u{1F5D1} Clear all ponies</button></div>';
+      '<button data-clear-ponies tabindex="-1" title="Removes every pony in the game: wild ones and everyone\'s own, stalled or not. Tap twice.">\u{1F5D1} Clear all ponies</button></div>' +
+      '<div class="gtitle legendTitle">\u2605 Legendary ponies <small>(one of each: their own look, powers and card)</small></div><div class="admRow legendRow">' +
+      Hybrids.legends().map(id => { const V = PonyVariantTable.get(id), c = V.card || {}; return `<button class="legendBtn" data-legend="${id}" tabindex="-1" style="--c:${c.color};--c2:${c.color2};--lf:${c.font}" title="${c.epithet}: ${V.name} steps out beside you">${c.glyph} ${V.name}</button>`; }).join('') + '</div>';
     el.addEventListener('click', e => {
       const q = sel => el.querySelector(sel);
       if (e.target.closest('button[data-spawn-go]')) this.game.spawnPonies(q('[data-spawn-kind]').value || 'random', +q('[data-spawn-count]').value || 1, q('[data-spawn-variety]').value);
+      const lg = e.target.closest('button[data-legend]'); if (lg) this.game.spawnLegend(lg.dataset.legend);
       const b = e.target.closest('button[data-spawn]'); if (b) this.game.spawnPonies(b.dataset.spawn, +b.dataset.n);
       const c = e.target.closest('button[data-clear-ponies]');
       if (c) {                                                                                       // two taps: the first asks, the second clears

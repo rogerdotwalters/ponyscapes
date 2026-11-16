@@ -282,6 +282,7 @@ class GameServer {
       case 'debugTeleport': if (id === this.hostId && typeof cmd.to === 'string') this.dungeons.debugTeleport(id, this.players[id], cmd.to); break;      // the host's teleport (Dev settings)
       case 'debugGate': if (id === this.hostId && Number.isInteger(cmd.zone)) { this.worldProgress.setGate(cmd.zone, !!cmd.open); this._notice(id, `${(this.map.layers.zones.def(cmd.zone) || {}).name || 'Zone'}: gateway ${cmd.open ? 'open' : 'shut'}`); } break;       // the host's gateway switch (Dev settings)
       case 'clearPonies': if (id === this.hostId) this._devClearPonies(); break;                                                              // the host's "clear all ponies" button (Dev settings)
+      case 'spawnLegend': if (id === this.hostId) this._devSpawnLegend(cmd.id); break;                                                          // the host's legendary ponies (Dev settings)
       case 'spawnPony': if (id === this.hostId) this._devSpawnPonies(cmd.kind, cmd.count, cmd.variety); break;                                // the host's pony spawner (Dev settings)
       case 'devLasso': if (id === this.hostId) this._devLasso(id, cmd.item); break;                                                           // the host's lasso picker (Dev settings)
       case 'weather': if (id === this.hostId && typeof cmd.id === 'string') { this.weather.force(cmd.id); } break;           // the host's weather control (Dev settings)
@@ -839,7 +840,7 @@ class GameServer {
     const kept = this.everVariants[id] || {}, now = {};
     for (const pet of this.animals.petsOf(id, this.tick)) if (!pet.gentling && pet.look) { const v = pet.look[4] | 0; now[v] = (now[v] || 0) + 1; }
     const placed = this.posterCoins[id] || {};
-    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, when: (SkyPonyTable.get(v.id) || {}).when || (Hybrids.isHybrid(v.id) ? (kept[i] ? 'Bred: ' + (HybridTable.get(v.id).parents.map(q => (PonyVariantTable.get(q) || {}).name).join(' x ') || 'two hybrids') : 'Bred from two ponies') : ''), theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
+    return PonyVariants.map((v, i) => ({ coin: !!placed[v.id], coins: placed[v.id] | 0, index: i, id: v.id, name: v.name, biome: v.biome, when: (SkyPonyTable.get(v.id) || {}).when || (v.legend ? 'Legendary: the host can call them from Dev settings' : '') || (Hybrids.isHybrid(v.id) ? (kept[i] ? 'Bred: ' + (HybridTable.get(v.id).parents.map(q => (PonyVariantTable.get(q) || {}).name).join(' x ') || 'two hybrids') : 'Bred from two ponies') : ''), theme: v.theme || '', legacy: !!v.legacy, seen: !!kept[i], owned: now[i] || 0 }))
       .filter(v => !v.legacy || v.seen || v.owned);                                    // retired varieties only show if you already have one
   }
   bookFor(id) {
@@ -948,6 +949,18 @@ class GameServer {
       this._remember(this.hostId, pet); names.push(PonyLook.describe(pet.look).name);
     }
     this._notice(this.hostId, `Spawned ${n} pon${n === 1 ? 'y' : 'ies'}: ${names.join(', ')}`);
+  }
+
+  /** Dev: a legendary pony (data/ponies/legends.js) steps out beside the host, theirs, with the one look that character always has. */
+  _devSpawnLegend(legend) {
+    const host = this.players[this.hostId], look = typeof legend === 'string' && Hybrids.isLegend(legend) ? Hybrids.legendLook(legend) : null;
+    if (!host || !look) return;
+    const kind = HybridTable.get(legend).kind, map = this.mapOf(host), angle = this.rng() * Math.PI * 2, spot = findLanding(map, host.x + Math.cos(angle) * 2.2, host.y + Math.sin(angle) * 2.2, CONFIG.sim.ride.radius);
+    const pet = this.animals.release(kind, spot.x, spot.y, this.hostId, undefined, { level: AnimalDefs[kind].levelBase, variant: look[4], grid: gridOf(host) });
+    pet.look = look; pet.leashed = false;
+    this._remember(this.hostId, pet);
+    this.pendingEvents.push({ type: 'legend', x: spot.x, y: spot.y, grid: gridOf(host), id: legend });
+    this._notice(this.hostId, `${PonyLook.describe(look).name} has arrived!`);
   }
 
   /** Dev: put any lasso in the host's lasso slot (the one that was there goes to the bag, if it fits). */

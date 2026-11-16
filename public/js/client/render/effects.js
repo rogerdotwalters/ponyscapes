@@ -78,6 +78,10 @@ class Effects {
     game.events.on('hit', e => this._burst(e.x, e.y, 7, FUR_COLORS, 14));
     game.events.on('kill', e => this._burst(e.x, e.y, 16, FUR_COLORS, 14));
     game.events.on('tamed', e => { this._burst(e.x, e.y, 14, HEART_COLORS, 26); this._float(e, `Tamed ${this._petName(e)}!`); });
+    game.events.on('legend', e => {                                                                                 // a legendary pony arrives (the host's Dev settings): fountains of sparkles in its colours
+      const V = PonyVariantTable.get(e.id), c = (V && V.card) || {}, cols = [c.color || '#ffd54f', c.color2 || '#ffffff', '#ffffff', '#fff3b0'];
+      this._burst(e.x, e.y, 36, cols, 34); this._burst(e.x, e.y, 18, GOLD_COLORS, 54); this._float(e, `\u2605 ${V ? V.name : 'Legend'} \u2605`);
+    });
     game.events.on('untied', e => this._float(e, 'Untied'));
     game.events.on('carried', e => { this._burst(e.x, e.y, 6, HEART_COLORS, 12); this._float(e, 'Picked up'); });
     game.events.on('released', e => { this._burst(e.x, e.y, 8, HEART_COLORS, 12); this._float(e, 'Released'); });

@@ -214,6 +214,7 @@
       on('brokeFree', e => this._at(e, (v, p) => Sfx.snap(v, p)));
       on('letGo', e => this._at(e, (v, p) => Sfx.rustle(v * 0.6, p)));
       on('tamed', e => this._at(e, (v, p) => Sfx.chime(v, p)));
+      on('legend', e => this._at(e, (v, p) => { Sfx.chime(v, p); setTimeout(() => Sfx.chime(v * 0.8, p), 160); setTimeout(() => Sfx.chime(v * 0.6, p), 340); }));
       on('pick', e => this._at(e, (v, p) => Sfx.pick(e.prop, v, p)));
       on('harvested', e => this._at(e, (v, p) => Sfx.pluck(v, p)));
       on('eat', e => { if (mine(e)) Sfx.eat(1); });

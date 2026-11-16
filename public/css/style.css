@@ -1214,3 +1214,31 @@ body.noVitals #hungerBar,body.noVitals #thirstBar{display:none !important}
 body.padActive .menuList button:hover,body.padActive .menuFoot button:hover{outline:3px solid var(--brass)}
 #controlsTabs{display:flex;flex-wrap:wrap;gap:4px}
 #controlsTabs button{flex:1 1 auto;padding:6px 8px;font-size:13px}
+
+/* ---- LEGENDARY ponies (data/ponies/legends.js): a card of their own in the Pony Book, with a foil border that turns, a crest, a script font each (--lf) and a Dev-settings button each ---- */
+.pcard.legend{--lc:#ffd54f;--lc2:#fff;--lf:Georgia;position:relative;flex-wrap:wrap;gap:6px 10px;padding:8px 10px 10px;margin:10px 2px 12px;border:3px solid transparent;border-radius:14px;overflow:hidden;
+  background:radial-gradient(circle at 18% 0,color-mix(in srgb,var(--lc) 38%,transparent),transparent 55%),radial-gradient(circle at 100% 100%,color-mix(in srgb,var(--lc2) 30%,transparent),transparent 55%),linear-gradient(160deg,#1a1233,#0c1424 70%) padding-box,
+    conic-gradient(from var(--spin,0deg),var(--lc),#fff6c8,var(--lc2),#fff6c8,var(--lc)) border-box;
+  box-shadow:0 0 0 1px #0008,0 0 16px color-mix(in srgb,var(--lc) 55%,transparent),inset 0 0 22px color-mix(in srgb,var(--lc) 22%,transparent);animation:legendSpin 7s linear infinite}
+@property --spin{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes legendSpin{to{--spin:360deg}}
+.pcard.legend::before,.pcard.legend::after{content:'\2726';position:absolute;color:var(--lc);font-size:13px;text-shadow:0 0 6px var(--lc);animation:legendTwinkle 2.4s ease-in-out infinite;pointer-events:none}
+.pcard.legend::before{top:4px;right:10px}
+.pcard.legend::after{bottom:4px;left:12px;animation-delay:1.1s}
+@keyframes legendTwinkle{0%,100%{opacity:.25;transform:scale(.7) rotate(0)}50%{opacity:1;transform:scale(1.25) rotate(25deg)}}
+.pcard.legend .lcrest{flex:0 0 100%;display:flex;align-items:center;justify-content:center;gap:8px;margin:-2px 0 2px;padding:3px 6px;border-radius:8px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--lc) 34%,transparent),transparent)}
+.lcrest .ltitle{font:700 10px Georgia,serif;letter-spacing:.32em;text-transform:uppercase;color:#fff6c8;text-shadow:0 0 6px var(--lc)}
+.lcrest .lepithet{font:italic 700 11px var(--lf),Georgia,serif;color:var(--lc);text-shadow:0 1px 0 #000a,0 0 8px var(--lc)}
+.lcrest .lstar{font-size:13px;filter:drop-shadow(0 0 4px var(--lc))}
+.pcard.legend .portrait{width:92px;height:80px;border-radius:12px;border:2px solid var(--lc);background:radial-gradient(circle at 50% 35%,color-mix(in srgb,var(--lc) 45%,#fff) 0,var(--lc2) 18%,#2b2060 75%);box-shadow:0 0 14px color-mix(in srgb,var(--lc) 70%,transparent),inset 0 0 12px #0008}
+.pcard.legend .pname{font:700 20px var(--lf),Georgia,serif;letter-spacing:.04em;background:linear-gradient(90deg,#fff,var(--lc),var(--lc2),#fff);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:legendShine 4s linear infinite;filter:drop-shadow(0 1px 0 #000a)}
+@keyframes legendShine{to{background-position:200% 0}}
+.pcard.legend .pname em,.pcard.legend .pname .plv{-webkit-text-fill-color:initial}
+.pcard.legend .ptype{color:var(--lc);letter-spacing:.06em}
+.lquote{margin:3px 0 4px;font:italic 12px var(--lf),Georgia,serif;color:#fff6c8;text-shadow:0 0 6px color-mix(in srgb,var(--lc) 60%,transparent);opacity:.92}
+.pcard.legend .prarity{background:linear-gradient(90deg,var(--lc),var(--lc2));box-shadow:0 0 8px var(--lc)}
+.adm .legendRow,.legendRow{flex-wrap:wrap;gap:8px}
+.legendBtn{font:700 13px var(--lf),Georgia,serif;padding:7px 12px;border-radius:10px;border:2px solid var(--c);color:#fff;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 55%,#1a1233),color-mix(in srgb,var(--c2) 45%,#1a1233));text-shadow:0 1px 2px #000;box-shadow:0 0 10px color-mix(in srgb,var(--c) 60%,transparent);cursor:pointer}
+.legendBtn:hover{filter:brightness(1.2);transform:translateY(-1px)}
+.legendTitle{color:#ffd54f;letter-spacing:.08em}
+@media (prefers-reduced-motion:reduce){.pcard.legend,.pcard.legend::before,.pcard.legend::after,.pcard.legend .pname{animation:none}}
