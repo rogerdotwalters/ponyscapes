@@ -11,6 +11,8 @@ class WildPonies {
 
   isWild(a) { return !!a && AnimalDefs[a.type].pony && !a.owner && !a.captor && !a.rider && !a.grid; }
   cap(biome) { const b = Biomes.get(biome); return b && Number.isFinite(b.ponyMax) ? b.ponyMax : CONFIG.sim.wildPonies.perBiome; }
+  /** How many wild ponies are in view of a player (within `screenRadius` tiles). */
+  _nearby(h) { const R = CONFIG.sim.wildPonies.screenRadius; let n = 0; for (const a of Object.values(this.s.animals.animals)) if (this.isWild(a) && Math.hypot(a.x - h.x, a.y - h.y) < R) n++; return n; }
   /** The wild ponies that belong to a region. */
   inRegion(key) { return Object.values(this.s.animals.animals).filter(a => a.regionKey === key && this.isWild(a)); }
 
@@ -27,6 +29,7 @@ class WildPonies {
         const x = h.x + Math.cos(angle) * dist, y = h.y + Math.sin(angle) * dist, tx = Math.floor(x), ty = Math.floor(y), tile = map.tile(tx, ty);
         if ((tile !== TILE.GRASS && tile !== TILE.DIRT) || map.navBlocked(tx, ty) || Village.influence(tx, ty) >= 1) continue;
         if (humans.some(o => Math.hypot(o.x - x, o.y - y) < W.spawnMin)) continue;         // never in front of anyone
+        if (this._nearby(h) >= W.maxOnScreen) continue;                                     // at most ten other ponies in view at a time
         const key = map.layers.biomes.regionKey(tx, ty), r = this.regions[key] || (this.regions[key] = { key, morning: null, pending: 0 });
         if (r.morning !== morning) this._roll(r, morning, tx, ty);
         if (r.pending > 0 && this._place(r, x, y)) r.pending--;

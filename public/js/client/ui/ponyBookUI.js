@@ -10,6 +10,7 @@ class PonyBookUI {
     this.view = null; this.herd = null;                                                                      // view: the family tree being shown (the server's 'lineage' event); herd: the herd's diversity ('herdGenetics')
     body.addEventListener('click', e => {
       const b = e.target.closest('button.prelease'); if (b) { this.game.requestReleasePet(b.dataset.id); return; }
+      const f = e.target.closest('button.pfollow'); if (f) { this.game.ponyCmd(f.dataset.id, f.dataset.mode); return; }
       const t = e.target.closest('button.gtree'); if (t) { this.game.lineage(t.dataset.id); return; }
       if (e.target.closest('button.gbackbtn')) { this.view = null; this.refresh(); }
     });
@@ -28,7 +29,7 @@ class PonyBookUI {
   /** What the panel actually shows: positions are NOT part of it, so ponies wandering about never rebuild the buttons under a finger. */
   _signature() {
     const g = this.game;
-    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.foalMin, p.rest, p.xp && p.xp.into, p.main, p.stalled, p.roam, p.gen]), g.book, g.varieties, GeneticsView.on, g.pets.length]);
+    return JSON.stringify([g.pets.map(p => [p.id, p.type, p.level, p.look, p.leashed, p.inPen, p.penArea, p.gentling, p.riding, p.foalMin, p.rest, p.xp && p.xp.into, p.main, p.follow, p.stay, p.stalled, p.roam, p.gen]), g.book, g.varieties, GeneticsView.on, g.pets.length]);
   }
   _refreshSoon() {                                      // pets arrive every snapshot: redraw only when what is shown changed (a rebuild in the middle of a tap loses the tap)
     const sig = this._signature();
@@ -53,6 +54,8 @@ class PonyBookUI {
     if (pet.stalled) return 'Resting in its stall in the stable';
     if (pet.roam) return 'Out roaming the village';
     if (pet.riding) return pet.main ? '\u2605 Your main pony: carrying you' : 'Carrying you (make it your main pony in the bag: I)';
+    if (pet.stay) return 'Staying where you left it';
+    if (pet.follow && !pet.main) return 'Following you';
     if (pet.main) return '\u2605 Your main pony: follows you everywhere';
     if (pet.leashed) return 'Following you on a leash';
     if (pet.inPen) return `Safe in a pen (${pet.penArea} tiles)`;
@@ -76,7 +79,7 @@ class PonyBookUI {
       const V = pet.look ? PonyVariants[pet.look[4] | 0] : null, card = V && V.legend ? V.card || {} : null;               // a legendary pony (data/ponies/legends.js): a card of its own
       const crest = card ? `<div class="lcrest"><span class="lstar">${card.glyph}</span><span class="ltitle">Legendary</span><span class="lepithet">${card.epithet}</span><span class="lstar">${card.glyph}</span></div>` : '', quote = card ? `<div class="lquote">\u201C${card.quote}\u201D</div>` : '';
       return `<div class="pcard${card ? ' legend' : ''}"${card ? ` style="--lc:${card.color};--lc2:${card.color2};--lf:${card.font || 'Georgia'}"` : ''}>${crest}<canvas class="portrait" width="92" height="80" data-i="${i}"></canvas>` +
-        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look && !card ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}${pet.foalMin ? ' (foal, about ' + (pet.ageMin ? pet.ageMin + ' min' : 'newborn') + ' old: grown in ' + pet.foalMin + ' min)' : ''}${pet.look ? ' &middot; ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).symbol + ' ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).name : ''}</div>${traits}${quote}${PonyBookUI.genes(pet)}${GeneticsView.cardHtml(pet)}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
+        `<div class="pinfo"><div class="pname">${name} ${mystical} ${flies}<span class="plv">Lv ${pet.level || 1}</span></div><div class="ptype">${pet.look && !card ? PonyLook.describe(pet.look).variantName + ' ' : ''}${def.name}${pet.foalMin ? ' (foal, about ' + (pet.ageMin ? pet.ageMin + ' min' : 'newborn') + ' old: grown in ' + pet.foalMin + ' min)' : ''}${pet.look ? ' &middot; ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).symbol + ' ' + PonyLook.sexInfo(PonyLook.sexOf(pet.look)).name : ''}</div>${traits}${quote}${PonyBookUI.genes(pet)}${GeneticsView.cardHtml(pet)}${PonyBookUI.growth(pet)}<div class="pstat">${PonyBookUI.status(pet)}</div>${pet.stalled || pet.gentling ? '' : `<div class="pfs"><button class="pfollow${pet.follow ? ' on' : ''}" data-id="${pet.id}" data-mode="follow">\u{1F43E} Follow</button><button class="pfollow${pet.stay ? ' on' : ''}" data-id="${pet.id}" data-mode="stay">\u{1F6D1} Stay</button></div>`}${pet.gentling || pet.leashed ? `<button class="prelease" data-id="${pet.id}">${pet.gentling ? 'Let go' : 'Untie'}</button>` : ''}</div></div>`;
     }).join('');
     const summary = `<div class="gsum">Collected ${g.book.filter(k => k.seen).length} of ${g.book.length} pony kinds &middot; ${owned} animal${owned === 1 ? '' : 's'} kept</div>`;
     const varieties = (g.varieties || []).map(v => {

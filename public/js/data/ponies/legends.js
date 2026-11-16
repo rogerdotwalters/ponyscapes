@@ -31,4 +31,10 @@ L('rarity', 'Rarity', 'Unicorn', 'h', '#f4f0f8', ['#4a2f98', '#7049c8'], 'gems',
 L('pinkie_pie', 'Pinkie Pie', 'Earth Pony', '', '#f8a6cb', ['#e8388f', '#ff7ab6'], 'balloons', 'sprinkles', '#ffb3dc', 9104, 0,
   { epithet: 'Element of Laughter', quote: 'Smile, smile, smile!', color: '#ff8fc8', color2: '#ffe14a', glyph: '\u{1F388}', font: "'Pacifico'" },
   ['Party Cannon', 'A surprise party: confetti scares the wild animals away and a rush of joy heals everyone beside you', 12, '\u{1F389}', '#ff8fc8', scare(5.4), heal(32, 5.2)]);
+L('fluttershy', 'Fluttershy', 'Pegasus', 'w', '#fbe48e', ['#f2a0c3', '#fbc8dd'], 'butterflies', 'leaves', '#ffd3e6', 9105, 0,
+  { epithet: 'Element of Kindness', quote: 'A little kindness makes the whole meadow bloom.', color: '#ffe08a', color2: '#ff9ec7', glyph: '\u{1F98B}', font: "'Parisienne'" },
+  ['Gentle Calm', 'A soft, steady stare calms the wild animals round you to a crawl and heals you and friends beside you', 13, '\u{1F98B}', '#ffb3d2', slow(90, 5.6, 5), heal(26, 4.6)]);
+L('applejack', 'Applejack', 'Earth Pony', '', '#f8b45c', ['#f1d65e', '#fff0a0'], 'apples', 'leaves', '#ffc66b', 9106, 0,
+  { epithet: 'Element of Honesty', quote: 'Ah never go back on a promise, sugarcube.', color: '#ffb74d', color2: '#e5483a', glyph: '\u{1F34E}', font: "'Rye'" },
+  ['Apple Buck', 'A mighty two-hoofed buck hurts hostile creatures ahead and sends the wild ones running', 9, '\u{1F34E}', '#ff7043', dmg(24, 4.8, 'cone'), scare(4.8, 'cone')]);
 })();

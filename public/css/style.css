@@ -1242,3 +1242,12 @@ body.padActive .menuList button:hover,body.padActive .menuFoot button:hover{outl
 .legendBtn:hover{filter:brightness(1.2);transform:translateY(-1px)}
 .legendTitle{color:#ffd54f;letter-spacing:.08em}
 @media (prefers-reduced-motion:reduce){.pcard.legend,.pcard.legend::before,.pcard.legend::after,.pcard.legend .pname{animation:none}}
+
+/* ---- Follow / Stay (client/ui/ponyCommandUI.js, the Pony Book's cards) ---- */
+#ponyCmd{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 104px);transform:translateX(-50%);z-index:7;display:flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;background:rgba(10,18,28,.92);border:2px solid rgba(227,194,122,.8);color:#f4e6c1;font:700 13px Georgia,serif;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+#ponyCmd[hidden]{display:none}
+#ponyCmd .pcName{margin:0 4px;max-width:34vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ponyCmd button,.pfs button{font:700 13px Georgia,serif;padding:6px 10px;border-radius:8px;border:2px solid #1d120a;background:#8a5f32;color:#f4e6c1;cursor:pointer}
+#ponyCmd button.on,.pfs button.on{background:#d9a441;color:#2a1a08;box-shadow:0 0 8px rgba(217,164,65,.7)}
+.pfs{display:flex;gap:6px;margin-top:5px}
+.pfs button{font-size:11.5px;padding:3px 8px}

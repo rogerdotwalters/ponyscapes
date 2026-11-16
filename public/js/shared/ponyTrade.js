@@ -42,7 +42,7 @@ Object.assign(GameServer.prototype, {
     const K = CONFIG.sim.ponyCap, room = this.care && this.care[this._stableGridOf(id)];
     return K.base + K.perLevel * ((room && room.cap) | 0);
   },
-  _ponyCount: function (id) { return Object.values(this.animals.animals).filter(a => a.owner === id && AnimalDefs[a.type].pony && !a.trial).length; },
+  _ponyCount: function (id) { return Object.values(this.animals.animals).filter(a => (a.owner === id || a.captor === id) && AnimalDefs[a.type].pony && !a.trial).length; },        // (a pony on your lasso counts: it is about to be yours)
 
   /* ---------------------------------------- sending a pony away (the desk's menu) ---------------------------------------- */
   _removePony(id, p, aid) {
@@ -86,7 +86,7 @@ Object.assign(GameServer.prototype, {
       const s = PonyTrade.stock(grid, day)[cmd.index | 0], sold = (this.vendorSold = this.vendorSold || {})[key] || (this.vendorSold[key] = []);
       if (!s || sold.includes(s.i)) { this._notice(id, 'That pony has been sold'); return; }
       const cap = this._ponyCapOf(id);
-      if (this._ponyCount(id) >= cap) { this._notice(id, `You already keep ${cap} ponies: upgrade your stable at the desk, or sell one`); return; }
+      if (this._ponyCount(id) >= cap) { this._notice(id, `You already keep ${cap} ponies: sell one to make room`); return; }
       const look = PonyLook.fromGene(s.gene, 0, AnimalDefs[s.type].rarity), price = PonyTrade.price(s.type, s.level, look);
       if (!Coins.pay(inv.coins, price * gold)) { this._notice(id, `That pony costs ${price} gold`); return; }
       Coins.merge(inv.coins); this.inventoryRev[id]++;

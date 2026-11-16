@@ -14,6 +14,7 @@
     "rooms": "node tools/cave-rooms.js build",
     "rooms:samples": "node tools/cave-rooms.js samples",
     "test:legends": "node tools/test-legends.js",
+    "test:ponycap": "node tools/test-ponycap.js",
     "test:dungeon": "node tools/test-dungeon.js",
     "test:downed": "node tools/test-downed.js",
     "test:warren": "node tools/test-warren.js",

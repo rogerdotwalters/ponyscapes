@@ -129,7 +129,7 @@ function launch(choice, query) {
     const townUI = new TownUI({ panel: $('townPanel'), body: $('townBody'), closeButton: $('townClose'), game });
     const shopUI = new ShopUI({ panel: $('shopPanel'), body: $('shopBody'), closeButton: $('shopClose'), game, coinBag: coinBagUI, requestOpen: () => panels.open('shop') });
     const tradeUI = new TradeUI({ panel: $('tradePanel'), body: $('tradeBody'), closeButton: $('tradeClose'), game, requestOpen: () => panels.open('trade') });
-    const toasts = new Toasts($('toasts')), sleepUI = new SleepUI({ game }), downedUI = new DownedUI({ game }), roundupUI = new RoundupUI({ game }), connect4UI = new ConnectFourUI({ game }), memoryUI = new MemoryUI({ game });
+    const toasts = new Toasts($('toasts')), sleepUI = new SleepUI({ game }), downedUI = new DownedUI({ game }), ponyCmdUI = new PonyCommandUI({ game, bus }), roundupUI = new RoundupUI({ game }), connect4UI = new ConnectFourUI({ game }), memoryUI = new MemoryUI({ game });
     if (ContentPack.source === 'draft') toasts.show('Playing your content editor draft (this browser only)', 'info', 6000);
     game.events.on('bossDefeated', e => toasts.show(e.appeased ? `The ${e.name} is at peace with her cubs home! ${e.final ? 'Her cave is quiet at last.' : e.nextRing + ' is open.'}` : e.final ? `The ${e.name} is defeated! Her cave is quiet at last.` : `The ${e.name} has fallen! ${e.nextRing} is open.`, 'ok', 8000));
     /* the Slime Warren: which rooms have had their slimes beaten (the exit is drawn as plain rock until then), and the cave mouth stays rubble until the Cave Bear is down */

@@ -281,7 +281,7 @@ Object.assign(GameServer.prototype, {
     const keeper = (inside.find(x => PonyLook.sexOf(x.look) === 'f') || a).owner;                       // (the foal goes to the mare's owner, who needs the room)
     const mine = Object.values(this.animals.animals).filter(x => x.owner === keeper && AnimalDefs[x.type].pony).length;
     const cap = this._ponyCapOf(keeper);
-    if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: upgrade your stable at the desk`, pair };
+    if (mine >= cap) return { can: false, reason: `You already keep ${cap} ponies: send one away first`, pair };
     return { can: true, reason: '', pair };
   },
   /** The Breed button (and Stop) in a stall's menu. */

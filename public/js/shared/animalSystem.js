@@ -34,6 +34,9 @@ function lureFor(def, itemId, levels, buffs) {
 const ROAM_RADIUS = 16;                                     // how far a pony that was let out wanders from the stable door
 const def_radius = a => (AnimalDefs[a.type] ? AnimalDefs[a.type].radius : 0.3);
 
+/** Does this pony of yours go where you go? Your main pony does unless you told it to stay; any other pony does once you told it to follow (Pony Book / tap a pony: ponyCmd). */
+const ponyFollows = a => !!a && !a.stay && !!(a.main || a.follow);
+
 class AnimalSystem {
   /** @param {{map, mapOf:(animal)=>World, rng, getTick, emit, damagePlayer:(id,amount)=>void, getLights:()=>Array}} deps  (map: the overworld) */
   constructor(deps) { Object.assign(this, deps); this.animals = {}; this.nodes = {}; this.hostilesOff = false; this.nextId = 1; this.respawns = []; this.active = null; if (!this.mapOf) this.mapOf = () => this.map; }
@@ -131,7 +134,8 @@ class AnimalSystem {
     if (a.roam) { a.hurt = false; this._wander(a, def, dt); return; }                  // let out to roam the village (stableSystem.js)
     const leaderId = a.owner || a.captor, owner = humans.find(h => h.id === leaderId);
     if (!a.leashed) {
-      if (a.main && owner && !owner.boat) { this._follow(a, def, owner, dt, MAIN_PONY_FOLLOW_DISTANCE); a.home = { x: a.x, y: a.y }; return; }   // your main pony goes where you go
+      if (ponyFollows(a) && owner && !owner.boat) { this._follow(a, def, owner, dt, MAIN_PONY_FOLLOW_DISTANCE); a.home = { x: a.x, y: a.y }; return; }   // your main pony (and any pony told to follow) goes where you go
+      if (a.stay) { a.hurt = false; a.state = 'idle'; this._steerAlong(a, 0, 0, 0); return; }                                                 // told to stay: it stands where it is
       a.hurt = false; this._wander(a, def, dt); return;
     }
     if (!owner || !sameGrid(owner, a)) {                                               // the leader is out of reach for now (another room, a boat): the rope holds, it waits where it stands
@@ -441,7 +445,7 @@ class AnimalSystem {
       if (a.owner && tick - a.penTick > 30 && checked < PEN_BUDGET) { a.pen = PenSystem.analyze(this.mapOf(a), a.x, a.y); a.penTick = tick; checked++; }
       const fruit = a.captor ? AnimalLevels.tameFruit(AnimalDefs[a.type], a.level) : null;
       const gentling = a.captor ? { have: a.trust, need: a.applesNeed || fruit.count, item: fruit.item, progress: this.tameProgress(a) } : null;
-      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, foalMin: a.foal > 0 ? Math.ceil(a.foal / 60) : 0, ageMin: a.foal > 0 ? Stable.ageMin(a) : undefined, rest: a.breedRest > 0 ? Math.ceil(a.breedRest) : undefined, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null, gen: a.owner && a.look && AnimalDefs[a.type].pony ? PonyQuality.summaryOf(a) : undefined });
+      out.push({ id, type: a.type, level: a.level, look: a.look, x: a.x, y: a.y, leashed: a.leashed, stalled: !!a.stall, roam: !!a.roam, follow: ponyFollows(a), stay: !!a.stay, inPen: !!a.owner && a.pen.enclosed, penArea: a.owner && a.pen.enclosed ? a.pen.area : 0, gentling, riding: !!a.rider, foalMin: a.foal > 0 ? Math.ceil(a.foal / 60) : 0, ageMin: a.foal > 0 ? Stable.ageMin(a) : undefined, rest: a.breedRest > 0 ? Math.ceil(a.breedRest) : undefined, main: !!a.main, xp: a.owner && AnimalDefs[a.type].pony ? PonyXp.progress(a) : null, gen: a.owner && a.look && AnimalDefs[a.type].pony ? PonyQuality.summaryOf(a) : undefined });
     }
     this._petsMemo = { tick, owner: ownerId, out };
     return out;

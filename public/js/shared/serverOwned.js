@@ -51,7 +51,7 @@ Object.assign(GameServer.prototype, {
       const key = this._ownerKeyOf(a);
       if (!key || a.trial) continue;
       const friend = a.friends[a.owner] || a.parkedFriend;
-      out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, roam: a.roam || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, ped: Array.isArray(a.ped) ? a.ped : undefined, foal: a.foal > 0 ? Math.round(a.foal) : undefined, breedRest: a.breedRest > 0 ? Math.round(a.breedRest) : undefined, care: a.hunger !== undefined ? [a.hunger, a.thirst, a.happy, a.lowT || 0, a.drops || 0].map(v => Math.round(v * 10) / 10) : undefined, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
+      out.push(Object.assign({ key, grid: gridOf(a) || undefined, main: a.main || undefined, follow: a.follow || undefined, stay: a.stay || undefined, roam: a.roam || undefined, type: a.type, level: a.level, xp: Number.isFinite(a.xp) ? a.xp : undefined, look: a.look ? a.look.slice() : null, ped: Array.isArray(a.ped) ? a.ped : undefined, foal: a.foal > 0 ? Math.round(a.foal) : undefined, breedRest: a.breedRest > 0 ? Math.round(a.breedRest) : undefined, care: a.hunger !== undefined ? [a.hunger, a.thirst, a.happy, a.lowT || 0, a.drops || 0].map(v => Math.round(v * 10) / 10) : undefined, hpFraction: a.maxHp ? a.hp / a.maxHp : 1,
         x: a.x, y: a.y, stall: a.stall ? { k: a.stall, x: a.stallAt ? a.stallAt.x : a.x, y: a.stallAt ? a.stallAt.y : a.y } : undefined, hx: a.home ? a.home.x : a.x, hy: a.home ? a.home.y : a.y, friend: Friendship.hasBond(friend) ? Friendship.encode(friend) : null }, this._exportPack(a)));
     }
     return out;
@@ -64,6 +64,8 @@ Object.assign(GameServer.prototype, {
       if (q.ped) pet.ped = q.ped;
       if (Number.isFinite(q.xp)) pet.xp = q.xp;
       if (q.main) pet.main = true;
+      if (q.follow) pet.follow = true;
+      if (q.stay) pet.stay = true;
       if (q.foal > 0) pet.foal = q.foal;                                                                  // (still growing up)
       if (q.breedRest > 0) pet.breedRest = q.breedRest;
       if (q.care) [pet.hunger, pet.thirst, pet.happy, pet.lowT, pet.drops] = q.care;                    // (pony care: ponyCare.js)
@@ -231,15 +233,29 @@ Object.assign(GameServer.prototype, {
     this._notice(id, `${name} is your main pony now: it will follow you everywhere` + (old ? `. ${old.look ? PonyLook.describe(old.look).name : 'Your old one'} stays where it is` : ''));
     this.pendingEvents.push({ type: 'mainPony', to: id, x: a.x, y: a.y, name });
   },
+  /** Follow or stay: `cmd.animal` is one of your ponies, `cmd.mode` 'follow' (it goes where you go) or 'stay' (it waits where it stands, a rope comes off). */
+  _ponyCmd(id, cmd) {
+    const a = typeof cmd.animal === 'string' ? this.animals.animals[cmd.animal] : null;
+    if (!a || a.owner !== id || !AnimalDefs[a.type].pony || a.captor || a.trial) return;
+    if (a.stall || a.roam) { this._notice(id, `${Stable.nameOf(a)} is in the stable: take it out first`); return; }
+    const name = Stable.nameOf(a);
+    if (cmd.mode === 'follow') { a.follow = true; a.stay = false; this._notice(id, `${name} follows you`); }
+    else if (cmd.mode === 'stay') { a.stay = true; a.follow = false; a.leashed = false; a.home = { x: a.x, y: a.y }; a.state = 'idle'; this._notice(id, `${name} stays here`); }
+    else return;
+    this._petsMemo = null;
+  },
   /** A main pony left far behind (you galloped off on another pony, or it is on another grid) catches up beside you. */
   _keepMainPoniesClose() {
     for (const id of this.humanIds()) {
       this._releaseStalledMain(id);
-      const p = this.players[id], a = this._mainPonyOf(id);
-      if (!p || !a || a.rider || a.leashed || p.mount === a.id || p.boat || (p.rt === 0 || p.rt === 1)) continue;      // (a round-up is played on foot: the pony waits outside)
-      if (sameGrid(a, p) && Math.hypot(a.x - p.x, a.y - p.y) < 12) continue;
-      const spot = findLanding(this.mapOf(p), p.x - Math.cos(p.facing) * 1.5, p.y - Math.sin(p.facing) * 1.5, AnimalDefs[a.type].radius);
-      a.grid = gridOf(p); a.x = spot.x; a.y = spot.y; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; a.state = 'idle';
+      const p = this.players[id];
+      if (!p || p.boat || (p.rt === 0 || p.rt === 1)) continue;                                                          // (a round-up is played on foot: the ponies wait outside)
+      for (const a of Object.values(this.animals.animals)) {                                                             // (the main pony, and every pony told to follow)
+        if (a.owner !== id || !ponyFollows(a) || a.stall || a.rider || a.leashed || p.mount === a.id) continue;
+        if (sameGrid(a, p) && Math.hypot(a.x - p.x, a.y - p.y) < 12) continue;
+        const spot = findLanding(this.mapOf(p), p.x - Math.cos(p.facing) * 1.5, p.y - Math.sin(p.facing) * 1.5, AnimalDefs[a.type].radius);
+        a.grid = gridOf(p); a.x = spot.x; a.y = spot.y; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; a.state = 'idle';
+      }
     }
   },
   /** Somebody with ponies but no main pony (an older save): their first pony becomes it. */

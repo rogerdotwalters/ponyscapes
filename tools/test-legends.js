@@ -7,9 +7,9 @@ let passed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log('  ok   ' + name); } catch (e) { console.error('  FAIL ' + name + '\n       ' + (e.stack || e).split('\n').slice(0, 5).join('\n       ')); process.exitCode = 1; } };
 
 test('the four are registered, each its own kind, with a fixed look', () => {
-  assert.deepStrictEqual(JSON.parse(run(`JSON.stringify(Hybrids.legends())`)), ['twilight_sparkle', 'rainbow_dash', 'rarity', 'pinkie_pie']);
+  assert.deepStrictEqual(JSON.parse(run(`JSON.stringify(Hybrids.legends())`)), ['twilight_sparkle', 'rainbow_dash', 'rarity', 'pinkie_pie', 'fluttershy', 'applejack']);
   assert.deepStrictEqual(JSON.parse(run(`JSON.stringify(Hybrids.legends().map(id => { const d = PonyLook.describe(Hybrids.legendLook(id)); return [d.name, d.rarity.id, AnimalDefs['pony_' + id].wings === true, AnimalDefs['pony_' + id].horn === true]; }))`)),
-    [['Twilight Sparkle', 'legendary', true, true], ['Rainbow Dash', 'legendary', true, false], ['Rarity', 'legendary', false, true], ['Pinkie Pie', 'legendary', false, false]]);
+    [['Twilight Sparkle', 'legendary', true, true], ['Rainbow Dash', 'legendary', true, false], ['Rarity', 'legendary', false, true], ['Pinkie Pie', 'legendary', false, false], ['Fluttershy', 'legendary', true, false], ['Applejack', 'legendary', false, false]]);
   assert.strictEqual(run(`PonyLook.describe(Hybrids.legendLook('rainbow_dash')).trail.level`), 2);
 });
 test('a legend arrives as the host\'s own pony (the command is host-only: gameServer.js)', () => {
@@ -23,7 +23,7 @@ test('a legend arrives as the host\'s own pony (the command is host-only: gameSe
   assert.strictEqual(run(`Object.values(S.animals.animals).filter(x => PonyVariants[(x.look || [])[4] | 0].legend).length`), 1, 'unknown ids spawn nothing');
 });
 test('a legend has a power, a coin, is never wild and is not a hybrid to breed from', () => {
-  for (const id of ['twilight_sparkle', 'rainbow_dash', 'rarity', 'pinkie_pie']) {
+  for (const id of ['twilight_sparkle', 'rainbow_dash', 'rarity', 'pinkie_pie', 'fluttershy', 'applejack']) {
     assert.strictEqual(run(`PonySkills.tree(Hybrids.legendLook('${id}'), 'pony_${id}', 1).some(s => s.ability && s.unlocked)`), true, id + ' power');
     assert.strictEqual(run(`!!ItemDefs['pony_coin_${id}']`), true, id + ' coin');
     assert.strictEqual(run(`Hybrids.isHybrid('${id}')`), false);

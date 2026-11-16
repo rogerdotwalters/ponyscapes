@@ -118,6 +118,7 @@ class TapActions {
       case 'garden': this.bus.emit('openGarden', { tx: thing.tx, ty: thing.ty }); return false;
       case 'aim': this._aimedUse(plan.point || thing); return !!plan.repeat && mouse;
       case 'act': game.animalAct(thing.id, plan.act); return false;
+      case 'ponyMenu': this.bus.emit('ponyCommand', thing.id); return false;
       case 'interact': this.input.aimAt(thing, { action: false, ms: 300 }); game.requestInteract(); return false;
     }
     return false;
@@ -134,6 +135,7 @@ class TapActions {
       if (tool && tool.kind === 'brush') return Object.assign({ action: 'aim' }, within(tool.reach + def.radius));
       if (def.hostile) return { action: 'none' };                                                                          // (a tap never attacks a monster either: use Attack)
       const food = held && game.inventory.has(held, 1) && ItemDefs[held] && ItemDefs[held].food;
+      if (def.pony && a.owner === game.myId && !a.rider && !a.stalled && !food && !ItemDB.isApple(held)) return { action: 'ponyMenu', ready: true };       // your own pony: Follow / Stay (ponyCommandUI.js)
       return Object.assign({ action: 'act', act: food || ItemDB.isApple(held) || Wants.accepts(a, held) ? 'feed' : 'pet' }, within(near));
     }
     if (thing.type === 'field') return { action: 'garden', ready: dist <= Farming.REACH };

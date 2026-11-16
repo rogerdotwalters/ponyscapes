@@ -14,22 +14,17 @@ const SETUP = `
   const pony = (main = false, type = 'pony_plain') => { const id = S.animals.spawn(type, P.x, P.y, 0, { level: 3 }), a = S.animals.animals[id]; a.owner = A; a.grid = gridOf(P); a.main = main; return a; };
   const bank = () => S._bankOfRoom(P), coin = PonyCoins.itemOf(PonyCoins.ids[0]), gold = () => Math.floor(S.inventories[A].purse / Coins.value('gold_coin'));`;
 
-test('you start with room for 100 ponies; a stable upgrade, paid in pony coins from the desk, adds 25 each time', () => {
-  assert.strictEqual(JSON.parse(run('JSON.stringify([CONFIG.sim.ponyCap.base, CONFIG.sim.ponyCap.perLevel, SaveData.MAX_PETS])')).join(), '100,25,400');
+test('you may keep twenty ponies, and a stable upgrade adds none', () => {
+  assert.strictEqual(JSON.parse(run('JSON.stringify([CONFIG.sim.ponyCap.base, CONFIG.sim.ponyCap.perLevel, CONFIG.sim.ponyCap.cost.length, SaveData.MAX_PETS])')).join(), '20,0,1,400');
   const r = JSON.parse(run(`(() => { ${SETUP}
     at(desk); const out = { cap0: S._ponyCapOf(A) };
-    S._deskPick(A, { act: 'upCap', fx: desk.x, fy: desk.y }); out.noCoins = S._ponyCapOf(A);
-    bank().add(coin, 200); const before = PonyCare.coins(bank());
-    S._deskPick(A, { act: 'upCap', fx: desk.x, fy: desk.y }); out.cap1 = S._ponyCapOf(A); out.paid = before - PonyCare.coins(bank());
-    S.pendingEvents.length = 0; S._deskPick(A, { act: 'upCap', fx: desk.x, fy: desk.y }); const ev = S.pendingEvents.find(e => e.type === 'deskMenu'); out.cap2 = ev.cap.max; out.level = ev.cap.level;
-    for (let i = 0; i < 6; i++) S._deskPick(A, { act: 'upCap', fx: desk.x, fy: desk.y }); out.top = S._ponyCapOf(A);
-    const saved = SaveData.careState(JSON.parse(JSON.stringify(S.care))); out.saved = saved[S._stableGridOf(A)].cap;
+    bank().add(coin, 200);
+    S._deskPick(A, { act: 'upCap', fx: desk.x, fy: desk.y }); out.cap1 = S._ponyCapOf(A);
     return JSON.stringify(out); })()`));
-  assert.strictEqual(r.cap0, 100); assert.strictEqual(r.noCoins, 100, 'no coins, no upgrade'); assert.strictEqual(r.cap1, 125); assert.strictEqual(r.paid, 10); assert.strictEqual(r.cap2, 150); assert.strictEqual(r.level, 2);
-  assert.strictEqual(r.top, 225, 'the biggest stable keeps 225'); assert.strictEqual(r.saved, 5, 'the level is saved');
+  assert.strictEqual(r.cap0, 20); assert.strictEqual(r.cap1, 20, 'there is no bigger stable');
 });
 test('breeding stops at the limit', () => {
-  const r = JSON.parse(run(`(() => { ${SETUP} CONFIG.sim.ponyCap.base = 30;
+  const r = JSON.parse(run(`(() => { ${SETUP} CONFIG.sim.ponyCap.base = 30; CONFIG.sim.ponyCap.perLevel = 25;
     const f = L.furniture.find(g => g.id === 'stall' && g.x === 1 && g.y === 1); P.x = f.x + 1.5; P.y = f.y + 5.5;
     const mk = sex => { const a = pony(); a.look[6] = sex === 'f' ? 128 : 0; a.leashed = true; a.x = P.x + 0.5; a.y = P.y; S._stallPick(A, { act: 'in', animal: a.id, fx: f.x, fy: f.y }); return a; };
     mk('m'); mk('f'); for (let i = 0; i < 28; i++) pony();

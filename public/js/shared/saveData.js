@@ -188,7 +188,7 @@ const SaveData = {
     const look = Array.isArray(q.look) && q.look.length >= 4 && q.look.every(Number.isInteger) ? q.look.slice(0, PonyGenes.LEN).map(v => Math.max(0, v)) : null;   // [coat, mane, mark, name, variant, rarity, traitSeed, ...genome]
     const x = N(q.x, -1e7, 1e7, NaN), y = N(q.y, -1e7, 1e7, NaN);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return Object.assign({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
+    return Object.assign({ type: q.type, level: I(q.level, 1, CONFIG.sim.levels.max, 1), main: q.main === true || undefined, follow: q.follow === true || undefined, stay: q.stay === true || undefined, xp: Number.isFinite(q.xp) ? N(q.xp, 0, 1e9, 0) : undefined, look, hpFraction: N(q.hpFraction, 0.05, 1, 1), x, y,
       ped: Pedigree.fromSave(q.ped) || undefined, foal: Number.isFinite(q.foal) && q.foal > 0 ? N(q.foal, 0, Stable.FOAL_SECONDS, 0) : undefined, breedRest: Number.isFinite(q.breedRest) && q.breedRest > 0 ? N(q.breedRest, 0, Stable.BREED_REST, 0) : undefined,
       care: Array.isArray(q.care) && q.care.length === 5 && q.care.every(Number.isFinite) ? [N(q.care[0], 0, 100, 100), N(q.care[1], 0, 100, 100), N(q.care[2], 0, 100, 70), N(q.care[3], 0, 1e5, 0), N(q.care[4], 0, 99, 0)] : undefined,
       friend: Array.isArray(q.friend) && q.friend.length === 2 && q.friend.every(Number.isFinite) ? q.friend : null }, SaveData._pack(q, look));

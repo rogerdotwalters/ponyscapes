@@ -260,6 +260,11 @@ class LeashHandler {
       this.emit({ type: 'notice', to: id, text: `It slips right out of your ${ItemDefs[item].name}: catching a ${def.name} takes ${def.lassoNeeds ? 'a' : 'a'} ${better ? better.name : 'better lasso'}${def.lassoNeeds ? ' (or the Rainbow Lasso)' : ' or better'}` });
       return;
     }
+    const room = def.pony && !mine ? this.ponyRoom(id) : null;
+    if (room && room.have >= room.max) {                                                // twenty ponies is the most anybody keeps
+      this.emit({ type: 'notice', to: id, text: `You already keep ${room.max} ponies: let one go before you catch another` });
+      return;
+    }
     const wild = !mine && AnimalLevels.tooWild(a, p.lv);
     if (wild) {                                                                         // above your level: it shrugs the loop off
       this.emit({ type: 'lasso', x0: p.x, y0: p.y, x1: a.x, y1: a.y, hit: false, by: id, item });

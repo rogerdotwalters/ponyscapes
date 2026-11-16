@@ -106,7 +106,7 @@ class GameServer {
     const mount = p.mount && this.animals.animals[p.mount];
     if (mount) { mount.grid = grid; mount.x = x; mount.y = y; mount.vx = mount.vy = 0; }
     for (const a of Object.values(this.animals.animals)) {                  // a pet on a rope comes too, and so does your main pony
-      if ((a.leashed && (a.owner === id || a.captor === id) || (a.main && a.owner === id)) && a.id !== p.mount && !a.stall) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; }
+      if ((a.leashed && (a.owner === id || a.captor === id) || ponyFollows(a) && a.owner === id) && a.id !== p.mount && !a.stall) { a.grid = grid; a.x = x - 0.8; a.y = y + 0.4; a.vx = a.vy = 0; a.home = { x: a.x, y: a.y }; }
     }
     this.eventGrid = grid;
     if (this.castleSlimes) this.castleSlimes.enter(grid);                    // (the ruined castle fills with slimes the first time a room is entered)
@@ -185,7 +185,7 @@ class GameServer {
       tick: () => this.tick, forage: this.forage,
       cutBush: (id, found) => this._cutBush(id, found), trimHedge: (id, found) => this._trimHedge(id, found), digHedge: (id, found) => this._digHedge(id, found),
       till: (id, cx, cy) => this._till(id, cx, cy), water: (id, cx, cy) => this._water(id, cx, cy),
-      roundup: () => this.roundup,
+      roundup: () => this.roundup, ponyRoom: id => ({ have: this._ponyCount(id), max: this._ponyCapOf(id) }),
       later: (seconds, fn) => this.later.push({ at: this.tick + Math.max(1, Math.round(seconds / TICK_DT)), fn }), groom: (id, a, item) => this._groom(id, a, item)
     };
     const hunt = new HuntHandler(deps), grass = new GrassCutHandler(Object.assign({}, deps, { cutGrass: (id, tiles) => this._cutGrass(id, tiles) }));
@@ -298,6 +298,7 @@ class GameServer {
       case 'herdGenetics': this._herdGenetics(id); break;                                                      // the herd's diversity (stableSystem.js)
       case 'stallPick': if (typeof cmd.animal === 'string') this._stallPick(id, cmd); break;                  // a choice in the stable's menu
       case 'dismount': if (this.players[id].mount) this._dismount(id, this.players[id]); break;
+      case 'ponyCmd': this._ponyCmd(id, cmd); break;                                                       // follow / stay, for one of your ponies (the Pony Book, a tap on the pony)
       case 'mainPony': this._makeMainPony(id); break;                                                       // riding one of your ponies: it becomes the one that follows you                // the dedicated way off a pony (Z)
       case 'c4Drop': this.connect4.drop(id, cmd.col); break;                                                 // Connect Four (connectFour.js): a coin into a column,
       case 'c4Leave': this.connect4.leave(id); break;                                                         // stand up,
@@ -939,7 +940,9 @@ class GameServer {
   _devSpawnPonies(kind, count, variety) {
     const host = this.players[this.hostId];
     if (!host) return;
-    const kinds = Object.keys(AnimalDefs).filter(k => AnimalDefs[k].pony), n = clamp(Math.round(+count) || 1, 1, 12), map = this.mapOf(host);
+    const room = this._ponyCapOf(this.hostId) - this._ponyCount(this.hostId);
+    if (room <= 0) { this._notice(this.hostId, `You already keep ${this._ponyCapOf(this.hostId)} ponies: let some go first`); return; }
+    const kinds = Object.keys(AnimalDefs).filter(k => AnimalDefs[k].pony), n = Math.min(clamp(Math.round(+count) || 1, 1, 12), room), map = this.mapOf(host);
     const varieties = PonyVariants.map((v, i) => i).filter(i => !PonyVariants[i].legacy && !SkyPonies.kindOfVariant(i)), names = [];
     for (let i = 0; i < n; i++) {
       const type = kinds.includes(kind) ? kind : kinds[Math.floor(this.rng() * kinds.length)];
@@ -956,6 +959,7 @@ class GameServer {
   _devSpawnLegend(legend) {
     const host = this.players[this.hostId], look = typeof legend === 'string' && Hybrids.isLegend(legend) ? Hybrids.legendLook(legend) : null;
     if (!host || !look) return;
+    if (this._ponyCount(this.hostId) >= this._ponyCapOf(this.hostId)) { this._notice(this.hostId, `You already keep ${this._ponyCapOf(this.hostId)} ponies: let one go first`); return; }
     const kind = HybridTable.get(legend).kind, map = this.mapOf(host), angle = this.rng() * Math.PI * 2, spot = findLanding(map, host.x + Math.cos(angle) * 2.2, host.y + Math.sin(angle) * 2.2, CONFIG.sim.ride.radius);
     const pet = this.animals.release(kind, spot.x, spot.y, this.hostId, undefined, { level: AnimalDefs[kind].levelBase, variant: look[4], grid: gridOf(host) });
     pet.look = look; pet.leashed = false;
