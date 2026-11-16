@@ -881,7 +881,7 @@ class GameServer {
     animal.rider = id; animal.leashed = false; animal.state = 'idle'; animal.vx = animal.vy = 0;
     p.mount = animal.id; p.x = animal.x; p.y = animal.y; p.vx = p.vy = 0; p.swingT = 0; p.swingHit = false;
     this.progress.award(id, 'horsemanship', 15);
-    this.pendingEvents.push({ type: 'mounted', to: id, x: animal.x, y: animal.y });
+    this.pendingEvents.push({ type: 'mounted', to: id, animal: animal.id, x: animal.x, y: animal.y });
   }
 
   /** Get off: the pony stays here as your free pet and you step down beside it. */

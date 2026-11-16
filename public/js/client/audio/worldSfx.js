@@ -214,16 +214,17 @@
       on('brokeFree', e => this._at(e, (v, p) => Sfx.snap(v, p)));
       on('letGo', e => this._at(e, (v, p) => Sfx.rustle(v * 0.6, p)));
       on('tamed', e => this._at(e, (v, p) => Sfx.chime(v, p)));
+      on('legend', e => { if (mine(e) || e.grid === undefined) setTimeout(() => LegendVoice.say(e.id, 'hello'), 700); });
       on('legend', e => this._at(e, (v, p) => { Sfx.chime(v, p); setTimeout(() => Sfx.chime(v * 0.8, p), 160); setTimeout(() => Sfx.chime(v * 0.6, p), 340); }));
       on('pick', e => this._at(e, (v, p) => Sfx.pick(e.prop, v, p)));
       on('harvested', e => this._at(e, (v, p) => Sfx.pluck(v, p)));
       on('eat', e => { if (mine(e)) Sfx.eat(1); });
       on('drink', e => { if (mine(e)) Sfx.drink(1); });
       on('fed', e => { if (mine(e)) { this._at(e, (v, p) => setTimeout(() => Sfx.munch(v, p), 150)); this._react(e, 'feed', 700); } });                  // a caught pony eating its apple
-      on('animalReact', e => { if (mine(e)) { if (e.mood === 'feed') this._at(e, (v, p) => setTimeout(() => Sfx.munch(v, p), 100)); this._react(e, e.mood, e.mood === 'feed' ? 550 : 0); } });   // you clicked an animal: stroked, fed or turned away
+      on('animalReact', e => { if (mine(e)) { LegendVoice.react(this.game, e); if (e.mood === 'feed') this._at(e, (v, p) => setTimeout(() => Sfx.munch(v, p), 100)); this._react(e, e.mood, e.mood === 'feed' ? 550 : 0); } });   // you clicked an animal: stroked, fed or turned away
       on('gave', e => { if (mine(e)) this._react(e, 'feed', 300); });
       on('tamed', e => { if (mine(e)) this._react(e, 'idle', 1400, true); });
-      on('mounted', e => { if (mine(e)) Sfx.mount(1); });
+      on('mounted', e => { if (mine(e)) { Sfx.mount(1); const a = this.game.latestAnimals && this.game.latestAnimals()[e.animal], V = a && a.look && PonyVariants[a.look[4] | 0]; if (V && V.legend) setTimeout(() => LegendVoice.say(V.id, 'ride'), 500); } });
       on('enteredCave', e => { if (mine(e)) Sfx.cave(1); });
       on('door', e => this._at({ x: e.tx + 0.5, y: e.ty + 0.5 }, (v, p) => Sfx.door(e.open, v, p), 14));
       on('gridChanged', e => {                                                                                              // a doorway into or out of a building: it opens, you pass, it closes
