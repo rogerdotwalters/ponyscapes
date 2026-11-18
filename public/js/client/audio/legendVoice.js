@@ -1,6 +1,5 @@
 'use strict';
-/* CLIENT - the legendary ponies TALK (data/ponies/legends.js). Each has short spoken clips (assets/voices/<id>_<hello|pet|feed>.mp3: original character voices made with an AI voice generator, not recordings
- * of anyone; a ride reuses the hello clip) that play when it arrives, when you stroke or feed it and when you mount it. Until a clip has loaded (or if it is missing) it "babbles" instead: every letter of the line is a tiny sung syllable, like a pony chattering in a storybook. No recordings and no speech
+/* CLIENT - the legendary ponies TALK (data/ponies/legends.js), in "babble": every letter of the line is a tiny sung syllable, like a pony chattering in a storybook. No recordings and no speech
  * synthesis: the notes are built from oscillators (audioCore.js), so it sounds the same everywhere and works offline. Each legend has its own pitch, tempo, wave, vibrato and lilt, so the six
  * are easy to tell apart. The line also shows as a toast so it can be read. They speak when they arrive, when you stroke or feed them and when you ride them. Follows the sound-effects volume
  * (0 = silent) and never talks over itself. */
@@ -14,19 +13,6 @@ const LegendVoice = (() => {
     applejack: { f0: 215, ms: 66, wave: 'sawtooth', vib: 3, lilt: 1.1, vol: 0.5, hello: ['Howdy there, sugarcube!', 'Ah never go back on a promise.'], pet: ['Well, aren\'t you sweet.', 'Yeehaw! That is mighty kind.'], feed: ['Mmm! Ain\'t nothing better than a fresh apple.'], ride: ['Giddy up! Hold your horses, now.'] }
   };
   let last = 0, until = 0;
-  const clips = {}, KINDS = ['hello', 'pet', 'feed'];
-  /** Fetch and decode every clip once the audio context exists; a clip that fails just stays missing (the babble covers it). */
-  GameAudio.onReady(ctx => {
-    for (const id of Object.keys(VOICES)) for (const k of KINDS) {
-      fetch(`assets/voices/${id}_${k}.mp3`).then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => ctx.decodeAudioData(b)).then(buf => { clips[id + '_' + k] = buf; }).catch(() => {});
-    }
-  });
-  /** Play a decoded clip on the sound-effects bus; returns how long it lasts in ms. */
-  function playClip(ctx, buf, gain) {
-    const src = ctx.createBufferSource(), g = ctx.createGain();
-    src.buffer = buf; g.gain.value = gain; src.connect(g); g.connect((GameAudio.buses && GameAudio.buses.sfx) || ctx.destination); src.start();
-    return Math.round(buf.duration * 1000);
-  }
   const pick = a => a[Math.floor(Math.random() * a.length)];
   /** Which vowel a letter sounds like decides its formant (the mouth shape): [first, second] filter frequencies. */
   const FORMANTS = { a: [800, 1200], e: [500, 1900], i: [320, 2500], o: [500, 900], u: [340, 800] };
@@ -66,8 +52,8 @@ const LegendVoice = (() => {
     say(id, kind = 'hello', game = null) {
       const V = VOICES[id], now = performance.now(), ctx = GameAudio.ctx;
       if (!V || !ctx || now < until || now - last < 2500 || GameAudio.volume('sfx') <= 0) return '';
-      const ck = kind === 'ride' ? 'hello' : kind, clip = clips[id + '_' + ck], line = clip ? V[ck][0] : pick(V[kind] || V.hello);          // (the toast says what the clip says)
-      until = now + (clip ? playClip(ctx, clip, 1) : babble(ctx, V, line)) + 300; last = now;
+      const line = pick(V[kind] || V.hello);
+      until = now + babble(ctx, V, line) + 300; last = now;
       if (game && game.events) game.events.emit('notice', { to: game.myId, text: '\u201C' + line + '\u201D' });
       return line;
     },
